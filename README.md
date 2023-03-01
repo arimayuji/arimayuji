@@ -1,4 +1,6 @@
-## Name : Yuji Arima | Age : 19 | Course : Computer Science
+## Name : Yuji Arima |
+## Age : 19 |
+## Course : Computer Science |
 
 ##
 
