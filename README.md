@@ -2,8 +2,8 @@
 ## Name : Yuji Arima |
 ## Age : 20 |
 ## Course : Computer Science |
-## Languages : Javascript
-## Frameworks and Libs : React , NodeJS |
+## Languages : Javascript, Typescript
+## Techs : React , NodeJS |
 
 ##
 
