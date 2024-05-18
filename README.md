@@ -1,11 +1,11 @@
 <h1 align="center">Hi 👋, I'm Yuji Arima</h1>
 <h3 align="center">A passionate frontend and backend developer from Brazil</h3>
 
-- 🔭 I’m currently working on [nest-api](, QuestionCommentFactory)
+- 🔭 I’m currently working on Flutter Applications
 
-- 🌱 I’m currently learning **Back-End with NodeJS at @Rocketseat**
+- 🌱 I’m currently learning **C# for Back-End**
 
-- 💬 Ask me about **React,NodeJS,Typescript**
+- 💬 Ask me about **React,NodeJS,Typescript,Flutter, SOLID**
 
 - 📫 How to reach me **https://www.linkedin.com/in/yujiarima/**
 
