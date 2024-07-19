@@ -5,7 +5,7 @@
 
 - 🌱 I’m currently learning **C# for Back-End**
 
-- 💬 Ask me about **React,NodeJS,Typescript,Flutter, SOLID**
+- 💬 Ask me about **React,NodeJS,Typescript,Flutter, SOLID, Docker**
 
 - 📫 How to reach me **https://www.linkedin.com/in/yujiarima/**
 
