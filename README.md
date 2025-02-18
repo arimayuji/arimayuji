@@ -1,9 +1,9 @@
 <h1 align="center">Hi 👋, I'm Yuji Arima</h1>
 <h3 align="center">A passionate frontend and backend developer from Brazil</h3>
 
-- 🔭 I’m currently working on Flutter Applications
+- 🔭 I’m currently working on Full-Stack Applications
 
-- 🌱 I’m currently learning **C# for Back-End**
+- 🌱 I’m currently learning **Java for Back-End**
 
 - 💬 Ask me about **React,NodeJS,Typescript,Flutter, SOLID, Docker**
 
