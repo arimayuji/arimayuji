@@ -3,7 +3,9 @@
 
 - 🔭 I’m currently working on Full-Stack Applications
 
-- 🌱 I’m currently learning **Java for Back-End**
+- 🌱 I’m currently learning **Spring Boot for Back-End**
+
+- 🌱 I’m currently learning **React Native for Mobile**
 
 - 💬 Ask me about **React,NodeJS,Typescript,Flutter, SOLID, Docker**
 
