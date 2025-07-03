@@ -1,11 +1,9 @@
 <h1 align="center">Hi 👋, I'm Yuji Arima</h1>
 <h3 align="center">A passionate fullstack developer from Brazil</h3>
 
-- 🔭 I’m currently working on Full-Stack Applications
+- 🔭 I’m currently developing on Full-Stack Applications
 
-- 🌱 I’m currently learning **Spring Boot for Back-End**
-
-- 🌱 I’m currently learning **React Native for Mobile**
+- 🌱 I’m currently working on **NodeJS for Back-End** and **React Native for Mobile**
 
 - 💬 Ask me about **React,NodeJS,Typescript,Flutter, SOLID, Docker**
 
