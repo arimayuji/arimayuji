@@ -3,9 +3,9 @@
 
 - 🔭 I’m currently developing on Full-Stack Applications
 
-- 🌱 I’m currently working on **NodeJS for Back-End** and **React Native for Mobile**
+- 🌱 I’m currently working on **NodeJS for Back-End** | **React Native for Mobile** | **GCP & AWS for Serverless**
 
-- 💬 Ask me about **React,NodeJS,Typescript,Flutter, SOLID, Docker**
+- 💬 Ask me about **React | NodeJS | Typescrip | Servereless | SOLID | Docker | K8S**
 
 - 📫 How to reach me **https://www.linkedin.com/in/yujiarima/**
 
