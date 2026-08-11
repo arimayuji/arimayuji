@@ -54,3 +54,147 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/*
+ * Landing page motion.
+ *
+ * Rule of the file: every *hidden* starting state lives inside the
+ * `prefers-reduced-motion: no-preference` query. Someone who asks for less
+ * movement gets the finished layout immediately instead of a page that
+ * depends on an animation running to become readable.
+ */
+@keyframes pr-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pr-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pr-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pr-bar {
+  from {
+    transform: scaleY(0.06);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes pr-halo {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.7);
+  }
+}
+
+@keyframes pr-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Hero: orchestrated on load, no JS involved. */
+  .pr-enter {
+    animation: pr-rise 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) var(--pr-delay, 0ms)
+      both;
+  }
+
+  /* Sections: hidden until the observer in reveal.tsx marks them seen. */
+  [data-reveal] {
+    opacity: 0;
+  }
+
+  [data-reveal="in"] {
+    animation: pr-rise 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) var(--pr-delay, 0ms)
+      both;
+  }
+
+  /* Pieces that wait for their container (hero or revealed section). */
+  .pr-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .pr-pop {
+    opacity: 0;
+  }
+
+  .pr-bar {
+    transform-origin: bottom;
+    transform: scaleY(0.06);
+  }
+
+  .pr-svg .pr-pop,
+  .pr-svg .pr-halo,
+  .pr-svg .pr-bar {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .pr-svg .pr-bar {
+    transform-origin: bottom;
+  }
+
+  .pr-enter .pr-draw,
+  [data-reveal="in"] .pr-draw {
+    animation: pr-draw var(--pr-dur, 1.5s) cubic-bezier(0.65, 0, 0.35, 1)
+      var(--pr-delay, 0ms) both;
+  }
+
+  .pr-enter .pr-pop,
+  [data-reveal="in"] .pr-pop {
+    animation: pr-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) var(--pr-delay, 0ms)
+      both;
+  }
+
+  .pr-enter .pr-bar,
+  [data-reveal="in"] .pr-bar {
+    animation: pr-bar 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) var(--pr-delay, 0ms)
+      both;
+  }
+
+  .pr-halo {
+    animation: pr-halo 3.4s ease-in-out infinite;
+  }
+
+  .pr-drift {
+    animation: pr-drift 6s ease-in-out infinite;
+  }
+}
