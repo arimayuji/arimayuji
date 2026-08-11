@@ -1,5 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="112" fill="#0b0e11"/>
-  <path d="M112 352 L224 192 L272 272 L400 112" stroke="#5b8dff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <circle cx="400" cy="112" r="34" fill="#5b8dff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <rect width="100" height="100" rx="22" fill="#0b0e11"/>
+  <g stroke="#5b8dff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M 81,38
+             C 83,40 83,43 81,44
+             C 79,45 77,44 76,42
+             C 72,43 67,43 63,40
+             C 61,38 60,36 60,34
+             C 58,43 53,53 48,62
+             C 54,62 60,64 65,68
+             C 68,71 70,74 72,77
+             C 79,76 87,78 90,82
+             C 92,85 91,88 88,89
+             C 84,90 76,90 70,89
+             C 66,88 64,85 65,81
+             C 64,78 62,75 60,73
+             C 56,72 52,71 48,70
+             C 45,76 42,81 38,86
+             C 34,90 29,90 27,85
+             C 23,80 19,75 18,70
+             C 21,68 24,67 26,64
+             C 24,58 21,51 20,45
+             C 23,43 27,42 30,40
+             C 29,35 28,29 29,24
+             C 32,26 35,27 38,28
+             C 42,25 48,21 55,17
+             C 54,12 56,9 59,10
+             C 61,12 61,15 60,17
+             C 62,13 64,12 66,14
+             C 67,16 67,19 66,21
+             C 71,26 77,32 81,38 Z"/>
+    <path d="M 66,85 C 74,86.5 82,86.5 90,84.5"/>
+    <path d="M 75,78 L 76,83 M 80,78.5 L 81,83.5"/>
+    <path d="M 67,30 L 69,31"/>
+  </g>
 </svg>

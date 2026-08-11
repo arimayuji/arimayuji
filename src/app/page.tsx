@@ -366,19 +366,25 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-3 sm:px-8">
           <span className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
             <svg
-              viewBox="0 0 64 64"
+              viewBox="0 0 100 100"
               aria-hidden="true"
               className="h-6 w-6 text-accent"
               fill="none"
             >
-              <path
-                d="M14 44 L28 24 L34 34 L50 14"
-                stroke="currentColor"
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="50" cy="14" r="5" fill="currentColor" />
+              <g stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+                <path
+                  d="M 81,38 C 83,40 83,43 81,44 C 79,45 77,44 76,42 C 72,43 67,43 63,40
+                     C 61,38 60,36 60,34 C 58,43 53,53 48,62 C 54,62 60,64 65,68
+                     C 68,71 70,74 72,77 C 79,76 87,78 90,82 C 92,85 91,88 88,89
+                     C 84,90 76,90 70,89 C 66,88 64,85 65,81 C 64,78 62,75 60,73
+                     C 56,72 52,71 48,70 C 45,76 42,81 38,86 C 34,90 29,90 27,85
+                     C 23,80 19,75 18,70 C 21,68 24,67 26,64 C 24,58 21,51 20,45
+                     C 23,43 27,42 30,40 C 29,35 28,29 29,24 C 32,26 35,27 38,28
+                     C 42,25 48,21 55,17 C 54,12 56,9 59,10 C 61,12 61,15 60,17
+                     C 62,13 64,12 66,14 C 67,16 67,19 66,21 C 71,26 77,32 81,38 Z"
+                />
+                <path d="M 66,85 C 74,86.5 82,86.5 90,84.5" />
+              </g>
             </svg>
             Pegasus Run
           </span>
@@ -398,6 +404,32 @@ export default function Home() {
             aria-hidden="true"
             className="pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-accent/12 blur-3xl sm:left-1/4"
           />
+          {/* Brand mark, full body: a quiet watermark, not a second thing competing with the headline. */}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 100 100"
+            className="pointer-events-none absolute -right-24 -top-16 hidden h-[34rem] w-[34rem] text-accent opacity-[0.07] sm:block lg:-right-32 lg:h-[42rem] lg:w-[42rem]"
+            fill="none"
+          >
+            <g stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round">
+              <path
+                d="M 82,29 C 83.5,31 82.5,34.5 80,35 C 76,35.5 71,35 67,34 C 65,33.5 64,33 63,32
+                   C 60,34 58,38 57,42 C 56,46 55,50 54,54 C 54,58 53,60 53,62
+                   C 58,63 63,65 66,68 C 68,70 69,72 69,74 C 73,73 79,73 83,74
+                   C 86,75 86,78 83,79.5 C 78,81 71,81 67,79.5 C 65,79 64,77 64,75
+                   C 61,71 57,67 51,64 C 47,66 43,67 38,68 C 41,72 41,76 39,80
+                   C 38,84 37,86 37,90 C 37,92.5 33,92.5 33,90 C 33,86 32,84 31,81
+                   C 30,76 29,71 28,66 C 23,70 17,73 11,75 C 8,76 6,75.5 6,73.5
+                   C 8,71 13,67 18,63 C 22,60 25,58 27,56 C 31,51 36,46 41,42
+                   C 39,39 38,36 39,34 L 44,32 C 43,29 43,27 44,25 L 49,24
+                   C 49,21 49,19 50,17 L 55,17 L 56,10 L 60,15 L 63,8 L 66,17
+                   C 71,20 77,25 82,29 Z"
+              />
+              <path d="M 27,69 C 28,73 27,76 25,79 C 24,82 23,85 23,88 C 23,91 19,91 19,88 C 19,85 19,83 19,80 C 19,77 19,75 19,73.5" />
+              <path d="M 56,46 C 60,47 63,49 66,52 C 67,54 66,56 64,57 C 62,58 61,59 60,60 C 58.5,61 56.5,60 57,58.5 C 58,57 60,56.5 61,55 C 60,52.5 57.5,51 54.8,51" />
+              <path d="M 64,78 C 69,79.5 77,79.5 84,77.8" />
+            </g>
+          </svg>
           <div className="relative mx-auto grid w-full max-w-6xl gap-14 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-28">
             <div className="lg:col-span-7">
               <p
