@@ -1,21 +1,27 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { Card, CardTitle, delay, ExampleBadge, Screen, ScreenHeader } from "../ui";
-import { ShareCard } from "../share-card";
+import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
 
 /**
  * Share-card preview.
  *
  * Reached from /perfil (and from the post-run summary), outside the tab bar
  * because it is a detail view, not a destination — the Perfil tab stays lit.
- * The card itself is a still image: no photo picker, no route animation, no
- * export. Those come after the recording pipeline is validated on real runs.
+ *
+ * The scenario picker below is real: swapping the illustrated background is
+ * genuinely working, for the rural/trail runner who doesn't have a skyline
+ * photo to upload. What's still a mockup is everything else — the route, the
+ * numbers, and uploading your own photo instead of picking a drawn one.
  */
 
 const PENDING = [
   {
-    title: "Sua foto de fundo",
+    title: "Sua própria foto",
     detail:
-      "O fundo aqui é um desenho provisório. Na versão final você escolhe uma foto da corrida e o traçado se ajusta a ela.",
+      "Os cenários abaixo são desenhados, prontos pra quem corre em lugar sem uma foto óbvia pra usar. Subir uma foto real da sua corrida é o próximo passo.",
   },
   {
     title: "Traçado animado",
@@ -29,7 +35,11 @@ const PENDING = [
   },
 ];
 
+const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
+
 export default function CompartilharPage() {
+  const [scenario, setScenario] = useState<ScenarioId>("madrugada");
+
   return (
     <>
       <div className="px-5 pt-6">
@@ -48,13 +58,39 @@ export default function CompartilharPage() {
 
       <Screen>
         <div className="pr-enter mx-auto w-full max-w-[300px]" style={delay(80)}>
-          <ShareCard />
+          <ShareCard scenario={scenario} />
         </div>
 
         <p className="pr-enter text-center text-xs leading-relaxed text-muted" style={delay(140)}>
           Percurso, distância, tempo e pace acima são de demonstração — não são de nenhuma
           corrida real.
         </p>
+
+        <Card className="pr-enter" style={delay(170)}>
+          <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
+            Cenário de fundo
+          </CardTitle>
+          <div className="grid grid-cols-2 gap-2">
+            {SCENARIO_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setScenario(id)}
+                aria-pressed={scenario === id}
+                className={`min-h-14 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  scenario === id
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border bg-background text-foreground hover:border-accent"
+                }`}
+              >
+                <span className="block">{SCENARIOS[id].label}</span>
+                <span className="mt-0.5 block text-[11px] font-normal text-muted">
+                  {SCENARIOS[id].hint}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Card>
 
         <Card className="pr-enter mt-2" style={delay(200)}>
           <CardTitle>O que falta pra ficar de pé</CardTitle>
@@ -76,22 +112,14 @@ export default function CompartilharPage() {
           </ul>
         </Card>
 
-        <div className="pr-enter flex flex-col gap-3" style={delay(260)}>
-          <button
-            type="button"
-            disabled
-            className="min-h-14 w-full cursor-not-allowed rounded-full border border-border bg-surface px-6 py-4 text-base font-semibold text-muted"
-          >
-            Trocar foto de fundo — em breve
-          </button>
-          <button
-            type="button"
-            disabled
-            className="min-h-14 w-full cursor-not-allowed rounded-full border border-border bg-surface px-6 py-4 text-base font-semibold text-muted"
-          >
-            Compartilhar — em breve
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled
+          className="pr-enter min-h-14 w-full cursor-not-allowed rounded-full border border-border bg-surface px-6 py-4 text-base font-semibold text-muted"
+          style={delay(260)}
+        >
+          Compartilhar — em breve
+        </button>
       </Screen>
     </>
   );
