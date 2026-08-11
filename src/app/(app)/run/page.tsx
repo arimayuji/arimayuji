@@ -4,6 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { formatDistanceKm, formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
+import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
+import { usePreferences } from "@/lib/usePreferences";
+import { useImmersiveMode } from "../app-shell";
 
 const GPS_LABEL: Record<string, { label: string; className: string }> = {
   searching: { label: "Procurando sinal", className: "bg-bad" },
@@ -30,7 +33,24 @@ export default function RunPage() {
   const { state, start, pause, resume, finish, reset } = useRunTracker();
   const [goalKm, setGoalKm] = useState("5");
   const [goalMinutes, setGoalMinutes] = useState("");
-  const [announceMeters, setAnnounceMeters] = useState(1000);
+
+  /**
+   * The announcement interval comes from the preference set on /perfil, and
+   * changing it here writes it back — same single source, no second copy of
+   * the setting. The tracker hook still owns the announcing itself; this is
+   * only the value handed to `start()`.
+   */
+  const [preferences, updatePreferences] = usePreferences();
+  const announceMeters = preferences.announceIntervalMeters;
+
+  /**
+   * While a run is being recorded the app's bottom tab bar is hidden: no
+   * accidental navigation away from an in-progress recording, and the readout
+   * gets the full screen. `idle` and `finished` keep the tabs.
+   */
+  useImmersiveMode(
+    state.status === "warming" || state.status === "tracking" || state.status === "paused",
+  );
 
   const handleStart = () => {
     const distanceMeters = goalKm ? Number(goalKm) * 1000 : undefined;
@@ -90,18 +110,18 @@ export default function RunPage() {
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">Aviso por voz a cada</span>
               <div className="flex gap-2">
-                {[500, 1000, 2000].map((m) => (
+                {ANNOUNCE_OPTIONS.map((m) => (
                   <button
                     key={m}
                     type="button"
-                    onClick={() => setAnnounceMeters(m)}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    onClick={() => updatePreferences({ announceIntervalMeters: m })}
+                    className={`flex-1 rounded-lg border px-3 py-3 text-sm font-medium transition-colors ${
                       announceMeters === m
                         ? "border-accent bg-accent text-accent-foreground"
                         : "border-border bg-surface text-foreground hover:border-accent"
                     }`}
                   >
-                    {m >= 1000 ? `${m / 1000}km` : `${m}m`}
+                    {announceLabel(m)}
                   </button>
                 ))}
               </div>
@@ -230,9 +250,13 @@ export default function RunPage() {
               </p>
             </div>
           </div>
-          <p className="max-w-xs text-xs text-muted">
+          <p className="max-w-xs text-xs leading-relaxed text-muted">
             O card animado pra compartilhar essa corrida chega depois que o pipeline de tracking
-            estiver validado em corridas reais.
+            estiver validado em corridas reais.{" "}
+            <Link href="/compartilhar" className="text-accent underline underline-offset-2">
+              Ver a prévia do formato
+            </Link>
+            .
           </p>
           <button
             type="button"
