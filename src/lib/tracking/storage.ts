@@ -12,14 +12,12 @@ export interface StoredPoint {
   timestamp: number;
 }
 
-/** A track that was playing (on Spotify or otherwise) at some point during a run. Optional — most runs have none. */
+/** A track logged as playing at some point during a run, added manually via the iTunes lookup. Optional — most runs have none. */
 export interface RunTrack {
   name: string;
   artist: string;
   playedAt: number;
-  /** Spotify track URI (`spotify:track:XXXXX`), when known — lets the run's tracks become a real playlist. */
-  uri?: string;
-  /** Cover art URL, from either Spotify's API or the iTunes lookup fallback — either source, display treats it the same. */
+  /** Cover art URL from the iTunes lookup. */
   artworkUrl?: string;
 }
 
@@ -162,8 +160,7 @@ export async function listCompletedRuns(): Promise<CompletedRun[]> {
 /**
  * Persists a new set of tracks onto an already-saved run — used by the
  * finished-run screen to add manually-entered tracks after `finish()` has
- * already written the record, since `finish()` only knows about
- * Spotify-auto-captured tracks at that point. No-ops if the run can't be
+ * already written the record without any. No-ops if the run can't be
  * found, which shouldn't normally happen.
  */
 export async function updateRunTracks(runId: string, tracks: RunTrack[]): Promise<void> {

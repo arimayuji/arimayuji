@@ -4,11 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ANNOUNCE_OPTIONS, announceLabel, type DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
-import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { GoalDatePicker } from "../date-picker";
 import { ShareCardTeaser } from "../share-card";
-import { isConfigured, startAuthorization } from "@/lib/spotify/auth";
-import { disconnectSpotify, useSpotifyConnected } from "@/lib/spotify/useConnection";
 import {
   createShoe,
   deleteShoe,
@@ -65,64 +63,6 @@ function SegmentedButton({
     >
       {children}
     </button>
-  );
-}
-
-/**
- * Spotify: read-only, on purpose. It shows what was playing during a run —
- * nothing here plays, pauses, or skips anything, so a free account works the
- * same as Premium. Needs a Client ID the product owner registers themselves
- * (developer.spotify.com/dashboard); until then this degrades to an
- * explanation instead of a broken button.
- */
-function SpotifyCard() {
-  const connected = useSpotifyConnected();
-  const configured = isConfigured();
-
-  return (
-    <Card className="pr-enter" style={delay(110)}>
-      <CardTitle
-        aside={
-          configured ? (
-            <NoticeBadge>{connected ? "conectado" : "não conectado"}</NoticeBadge>
-          ) : (
-            <ExampleBadge>não configurado</ExampleBadge>
-          )
-        }
-      >
-        Spotify
-      </CardTitle>
-      <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-        Mostra a(s) música(s) que estavam tocando durante a corrida, no resumo do final. Só
-        leitura — o Xanthus nunca toca, pausa ou pula nada, então funciona em conta free ou
-        Premium.
-      </p>
-      {!configured ? (
-        <p className="text-xs leading-relaxed text-muted">
-          Falta configurar o app no painel do Spotify (Client ID em
-          <code className="mx-1 rounded bg-background px-1 py-0.5 text-[11px]">
-            NEXT_PUBLIC_SPOTIFY_CLIENT_ID
-          </code>
-          ).
-        </p>
-      ) : connected ? (
-        <button
-          type="button"
-          onClick={disconnectSpotify}
-          className="min-h-12 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold hover:border-bad hover:text-bad"
-        >
-          Desconectar
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => void startAuthorization()}
-          className="min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground"
-        >
-          Conectar Spotify
-        </button>
-      )}
-    </Card>
   );
 }
 
@@ -631,8 +571,6 @@ export default function PerfilPage() {
             </div>
           </fieldset>
         </Card>
-
-        <SpotifyCard />
 
         <ShoesCard unit={prefs.distanceUnit} />
 

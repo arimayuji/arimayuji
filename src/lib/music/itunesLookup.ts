@@ -1,8 +1,7 @@
 /**
  * Manual track lookup via Apple's public iTunes Search API — no key, no
- * auth, CORS-enabled. This is the always-available alternative to the
- * Spotify "now playing" capture, which only works for the handful of
- * accounts allowlisted in Spotify's Development Mode.
+ * auth, CORS-enabled. Lets a runner tag what was playing during a run
+ * without connecting any account.
  */
 
 export interface TrackCandidate {
