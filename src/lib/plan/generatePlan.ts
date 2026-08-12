@@ -1,7 +1,8 @@
 import type { DecisionTopic } from "../evidence";
 import { computeVdot, paceZonesFromVdot } from "./vdot";
-import { buildVolumeRamp } from "./volumeProgression";
+import { buildVolumeRamp, PAIN_VOLUME_ADJUSTMENT } from "./volumeProgression";
 import { buildWeekSessions, phaseForWeek } from "./periodization";
+import type { ActivePainSignal } from "./painSignal";
 import type { GeneratedPlan, PlannedWeek, RunnerProfile } from "./types";
 
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -21,9 +22,15 @@ function toIsoDate(date: Date): string {
  * Turns a runner's inputs into a full plan — every number here traces to a
  * function in this module (VDOT, the volume ramp, the phase/session split),
  * never to a model call. `now` is injectable for testing; defaults to the
- * real clock.
+ * real clock. `activePain`, when set, cuts the ramp's starting volume and
+ * holds it flat for a few weeks instead of quietly ramping through a
+ * reported injury — see `PAIN_VOLUME_ADJUSTMENT`.
  */
-export function generatePlan(profile: RunnerProfile, now: Date = new Date()): GeneratedPlan {
+export function generatePlan(
+  profile: RunnerProfile,
+  now: Date = new Date(),
+  activePain?: ActivePainSignal | null,
+): GeneratedPlan {
   const goalDate = new Date(`${profile.goalDate}T00:00:00`);
   const msUntilGoal = goalDate.getTime() - now.getTime();
 
@@ -40,7 +47,9 @@ export function generatePlan(profile: RunnerProfile, now: Date = new Date()): Ge
   const taperWeeks = Math.min(TAPER_WEEKS, Math.max(0, totalWeeks - 1));
   const rampWeekCount = totalWeeks - taperWeeks;
 
-  const ramp = buildVolumeRamp(profile.currentWeeklyKm, totalWeeks, taperWeeks);
+  const painRule = activePain ? PAIN_VOLUME_ADJUSTMENT[activePain.severity] : null;
+  const rampStartKm = painRule ? profile.currentWeeklyKm * painRule.factor : profile.currentWeeklyKm;
+  const ramp = buildVolumeRamp(rampStartKm, totalWeeks, taperWeeks, painRule?.holdWeeks ?? 0);
 
   const weeks: PlannedWeek[] = ramp.map((entry) => {
     const phase = phaseForWeek(entry.weekIndex, rampWeekCount, entry.isTaper);
@@ -59,11 +68,22 @@ export function generatePlan(profile: RunnerProfile, now: Date = new Date()): Ge
     ? paceZonesFromVdot(computeVdot(profile.recentRace.distanceMeters, profile.recentRace.timeSeconds))
     : null;
   if (paceZones) evidenceTopics.push("pace_zones");
+  if (painRule) evidenceTopics.push("overtraining");
 
   const warning =
     totalWeeks < 4
       ? "Menos de 4 semanas até a meta — não dá tempo de progredir volume com segurança, então o plano abaixo é praticamente só manutenção + taper."
       : undefined;
 
-  return { weeks, paceZones, evidenceTopics, warning };
+  const painAdjustment =
+    painRule && activePain
+      ? {
+          severity: activePain.severity,
+          reportedAt: activePain.reportedAt,
+          factor: painRule.factor,
+          holdWeeks: painRule.holdWeeks,
+        }
+      : undefined;
+
+  return { weeks, paceZones, evidenceTopics, warning, painAdjustment };
 }

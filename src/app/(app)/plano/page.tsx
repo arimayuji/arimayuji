@@ -4,9 +4,16 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
 import { getEvidenceById, getEvidenceForTopicRanked, strengthLabel, type EvidenceFact } from "@/lib/evidence";
-import { generatePlan, type GeneratedPlan, type PlannedSession as EngineSession, type PaceZoneName, type PaceZones } from "@/lib/plan";
+import {
+  activePainSignal,
+  generatePlan,
+  type GeneratedPlan,
+  type PlannedSession as EngineSession,
+  type PaceZoneName,
+  type PaceZones,
+} from "@/lib/plan";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
-import { estimateWeeklyKm, listCompletedRuns } from "@/lib/tracking/storage";
+import { estimateWeeklyKm, listCompletedRuns, listPainCheckIns, type PainCheckIn } from "@/lib/tracking/storage";
 import { formatPace } from "@/lib/tracking/geoFilter";
 
 /**
@@ -57,6 +64,12 @@ const PHASE_LABEL: Record<string, string> = {
   build: "construção",
   peak: "pico",
   taper: "taper",
+};
+
+const PAIN_SEVERITY_LABEL: Record<"leve" | "moderada" | "forte", string> = {
+  leve: "leve",
+  moderada: "moderada",
+  forte: "forte",
 };
 
 const DEMO_WEEK: DisplaySession[] = [
@@ -288,34 +301,41 @@ function usePrefersReducedMotion(): boolean {
 export default function PlanoPage() {
   const [profile] = useRunnerProfile();
   const [weeklyKm, setWeeklyKm] = useState<number | null>(null);
+  const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [planRevealed, setPlanRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   const handleBuildSequenceDone = useCallback(() => setPlanRevealed(true), []);
 
   useEffect(() => {
     listCompletedRuns().then((runs) => setWeeklyKm(estimateWeeklyKm(runs)));
+    listPainCheckIns().then(setPainCheckIns);
   }, []);
 
   const hasGoal = Boolean(profile.goalDistanceMeters && profile.goalDate);
   const loading = weeklyKm === null;
   const hasHistory = (weeklyKm ?? 0) > 0;
+  const activePain = useMemo(() => activePainSignal(painCheckIns), [painCheckIns]);
 
   const plan: GeneratedPlan | null = useMemo(() => {
     if (!hasGoal || !hasHistory || weeklyKm === null) return null;
-    return generatePlan({
-      recentRace:
-        profile.recentRaceDistanceMeters && profile.recentRaceTimeSeconds
-          ? {
-              distanceMeters: profile.recentRaceDistanceMeters,
-              timeSeconds: profile.recentRaceTimeSeconds,
-            }
-          : undefined,
-      currentWeeklyKm: weeklyKm,
-      goalDistanceMeters: profile.goalDistanceMeters!,
-      goalDate: profile.goalDate!,
-      weeklyRunDays: profile.weeklyRunDays,
-    });
-  }, [hasGoal, hasHistory, weeklyKm, profile]);
+    return generatePlan(
+      {
+        recentRace:
+          profile.recentRaceDistanceMeters && profile.recentRaceTimeSeconds
+            ? {
+                distanceMeters: profile.recentRaceDistanceMeters,
+                timeSeconds: profile.recentRaceTimeSeconds,
+              }
+            : undefined,
+        currentWeeklyKm: weeklyKm,
+        goalDistanceMeters: profile.goalDistanceMeters!,
+        goalDate: profile.goalDate!,
+        weeklyRunDays: profile.weeklyRunDays,
+      },
+      new Date(),
+      activePain,
+    );
+  }, [hasGoal, hasHistory, weeklyKm, profile, activePain]);
 
   const currentWeek = plan?.weeks[0];
 
@@ -369,6 +389,29 @@ export default function PlanoPage() {
           {plan.warning && (
             <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(60)}>
               <p className="text-sm leading-relaxed text-muted text-pretty">{plan.warning}</p>
+            </Card>
+          )}
+
+          {plan.painAdjustment && (
+            <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(85)}>
+              <CardTitle aside={<NoticeBadge>ajustado</NoticeBadge>}>
+                Volume reduzido por causa da dor sinalizada
+              </CardTitle>
+              <p className="text-sm leading-relaxed text-pretty">
+                Você sinalizou dor <strong>{PAIN_SEVERITY_LABEL[plan.painAdjustment.severity]}</strong> no
+                perfil{plan.painAdjustment.factor < 1
+                  ? ` — o volume dessa semana caiu ${Math.round((1 - plan.painAdjustment.factor) * 100)}%`
+                  : " — o volume dessa semana ficou congelado, sem subir"}
+                , e a progressão segura por {plan.painAdjustment.holdWeeks}{" "}
+                {plan.painAdjustment.holdWeeks === 1 ? "semana" : "semanas"} antes de voltar a
+                subir.
+              </p>
+              <Link
+                href="/perfil"
+                className="mt-3 inline-block text-xs text-accent underline underline-offset-2"
+              >
+                Atualizar como você está
+              </Link>
             </Card>
           )}
 

@@ -17,6 +17,23 @@ const WEEKLY_STEP = 1.1; // +10%/week default — convention, see `nata-10-perce
 const TWO_WEEK_CEILING = 1.3; // hard limit — see `nielsen-30-percent-2-weeks`
 const TAPER_FRACTIONS = [0.75, 0.5]; // last 2 weeks: ~25% then ~50% cut off peak, within the 41–60% cumulative range — see `taper-2-weeks-exponential`
 
+/**
+ * What an active pain check-in does to the ramp: an immediate cut to the
+ * starting volume, then a run of weeks held flat before normal stepping (and
+ * the ceiling above) resumes. Unlike `WEEKLY_STEP`/`TWO_WEEK_CEILING`, these
+ * two numbers aren't graded against a specific study — they're a
+ * conservative product default for "back off, then resume gradually",
+ * consistent with the general overtraining-consensus principle (see
+ * `ecss-acsm-overtraining-consensus`) that pushing through a red flag
+ * instead of backing off is the actual risk, not a claim about exact
+ * percentages or week counts for any specific injury.
+ */
+export const PAIN_VOLUME_ADJUSTMENT: Record<"leve" | "moderada" | "forte", { factor: number; holdWeeks: number }> = {
+  leve: { factor: 1, holdWeeks: 1 },
+  moderada: { factor: 0.85, holdWeeks: 2 },
+  forte: { factor: 0.7, holdWeeks: 3 },
+};
+
 export interface VolumeRampWeek {
   weekIndex: number;
   km: number;
@@ -27,18 +44,23 @@ export interface VolumeRampWeek {
  * Builds one km figure per week. `totalWeeks` includes the taper weeks at
  * the end. Volume ramps from `startKm`, capped by the 2-week ceiling, until
  * either it plateaus naturally (the ceiling binds every week) or the ramp
- * weeks run out — then holds flat until the taper begins.
+ * weeks run out — then holds flat until the taper begins. `holdWeeks` freezes
+ * the ramp at `startKm` for that many weeks *before* stepping resumes — how
+ * an active pain check-in re-enters the ramp (see `PAIN_VOLUME_ADJUSTMENT`),
+ * separate from the plateau above since this hold is unconditional, not a
+ * side effect of the ceiling binding.
  */
 export function buildVolumeRamp(
   startKm: number,
   totalWeeks: number,
   taperWeeks = 2,
+  holdWeeks = 0,
 ): VolumeRampWeek[] {
   const rampWeeks = Math.max(0, totalWeeks - taperWeeks);
   const weeks: number[] = [];
 
   for (let i = 0; i < rampWeeks; i++) {
-    if (i === 0) {
+    if (i === 0 || i <= holdWeeks) {
       weeks.push(startKm);
       continue;
     }

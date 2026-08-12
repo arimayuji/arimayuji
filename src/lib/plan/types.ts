@@ -55,6 +55,13 @@ export interface PlannedWeek {
   sessions: PlannedSession[];
 }
 
+export interface AppliedPainAdjustment {
+  severity: "leve" | "moderada" | "forte";
+  reportedAt: number;
+  factor: number;
+  holdWeeks: number;
+}
+
 export interface GeneratedPlan {
   weeks: PlannedWeek[];
   paceZones: PaceZones | null;
@@ -62,4 +69,6 @@ export interface GeneratedPlan {
   evidenceTopics: import("../evidence").DecisionTopic[];
   /** Set when the input couldn't produce a safe plan (e.g. goal date already past). Never throws — always returns something explainable. */
   warning?: string;
+  /** Set when an active pain check-in changed this plan's starting volume — see `PAIN_VOLUME_ADJUSTMENT`. */
+  painAdjustment?: AppliedPainAdjustment;
 }

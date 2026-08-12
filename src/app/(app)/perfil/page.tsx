@@ -13,12 +13,17 @@ import {
   createShoe,
   deleteShoe,
   listCompletedRuns,
+  listPainCheckIns,
   listShoes,
+  reportPain,
   summarizeShoes,
   updateShoe,
+  type PainCheckIn,
+  type PainSeverity,
   type Shoe,
   type ShoeSummary,
 } from "@/lib/tracking/storage";
+import { activePainSignal } from "@/lib/plan";
 import { formatDistance, unitLabel } from "@/lib/units";
 import { GOAL_DISTANCE_OPTIONS } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
@@ -443,6 +448,119 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
 
 const RUN_DAYS_OPTIONS = [3, 4, 5] as const;
 
+const PAIN_SEVERITY_OPTIONS: { value: PainSeverity; label: string; hint: string }[] = [
+  { value: "leve", label: "Leve", hint: "incômodo, dá pra rodar" },
+  { value: "moderada", label: "Moderada", hint: "atrapalha o pace" },
+  { value: "forte", label: "Forte", hint: "melhor não treinar" },
+];
+
+const PAIN_SEVERITY_LABEL: Record<PainSeverity, string> = {
+  leve: "leve",
+  moderada: "moderada",
+  forte: "forte",
+};
+
+function sinceLabel(timestamp: number, now = Date.now()): string {
+  const days = Math.floor((now - timestamp) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return "hoje";
+  if (days === 1) return "há 1 dia";
+  return `há ${days} dias`;
+}
+
+/**
+ * Whether the athlete is dealing with pain, read from an append-only log
+ * (see `PainCheckIn`) instead of a single toggle. Feeds `/plano` through
+ * `activePainSignal`: a reported check-in cuts and holds the volume ramp
+ * instead of the plan quietly climbing through it, which is the single
+ * biggest complaint in competitor reviews of AI training-plan apps — the
+ * plan doesn't react when the athlete says something hurts.
+ */
+function PainCard() {
+  const [checkIns, setCheckIns] = useState<PainCheckIn[] | null>(null);
+  const [region, setRegion] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(() => listPainCheckIns().then(setCheckIns), []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const active = checkIns ? activePainSignal(checkIns) : null;
+
+  const submit = async (severity: PainSeverity) => {
+    setBusy(true);
+    await reportPain({ severity, region: region.trim() || undefined });
+    setRegion("");
+    setBusy(false);
+    await refresh();
+  };
+
+  const clear = async () => {
+    setBusy(true);
+    await reportPain({ severity: "recuperado" });
+    setBusy(false);
+    await refresh();
+  };
+
+  return (
+    <Card className="pr-enter" style={delay(235)}>
+      <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Como você está</CardTitle>
+
+      {checkIns === null ? (
+        <div className="h-12 animate-pulse rounded-lg bg-background" />
+      ) : active ? (
+        <>
+          <p className="text-sm leading-relaxed text-pretty">
+            Dor <strong>{PAIN_SEVERITY_LABEL[active.severity]}</strong> sinalizada{" "}
+            {sinceLabel(active.reportedAt)}
+            {active.region ? ` — ${active.region}` : ""}. O <Link href="/plano" className="underline underline-offset-2">plano</Link> reduziu o volume dessa semana e segura a
+            progressão por um tempo antes de voltar a subir.
+          </p>
+          <button
+            type="button"
+            onClick={clear}
+            disabled={busy}
+            className="mt-4 min-h-12 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold hover:border-accent disabled:opacity-60"
+          >
+            Voltei a treinar sem dor
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+            Sentindo alguma dor ou desconforto? Sinalizar aqui reduz o volume da semana no plano em
+            vez de ignorar e seguir subindo.
+          </p>
+          <input
+            type="text"
+            value={region}
+            onChange={(event) => setRegion(event.target.value)}
+            placeholder="Onde? (opcional)"
+            className="mb-3 min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-accent"
+          />
+          <div className="flex gap-2">
+            {PAIN_SEVERITY_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                disabled={busy}
+                onClick={() => submit(option.value)}
+                className="min-h-14 flex-1 rounded-xl border border-border bg-background px-2 py-2.5 text-center text-sm font-medium transition-colors hover:border-accent disabled:opacity-60"
+              >
+                <span className="block">{option.label}</span>
+                <span className="mt-0.5 block text-[10px] font-normal text-muted">
+                  {option.hint}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
@@ -620,6 +738,8 @@ export default function PerfilPage() {
             Ver o plano
           </Link>
         </Card>
+
+        <PainCard />
 
         <Card className="pr-enter" style={delay(260)}>
           <CardTitle>Card pra compartilhar</CardTitle>

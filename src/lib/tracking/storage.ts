@@ -57,15 +57,37 @@ export interface Shoe {
   createdAt: number;
 }
 
+/**
+ * How the athlete says they're feeling. `"recuperado"` isn't a level of pain
+ * — it's the explicit "the thing I reported before is gone now" signal, kept
+ * in the same severity field instead of a separate boolean so the store is
+ * just an append-only log and "current state" is always just "the latest
+ * entry", never two fields that can disagree.
+ */
+export type PainSeverity = "leve" | "moderada" | "forte";
+
+export interface PainCheckIn {
+  id: string;
+  reportedAt: number;
+  severity: PainSeverity | "recuperado";
+  /** Free text, e.g. "joelho direito" — personal reference only, never matched against anything. */
+  region?: string;
+}
+
 const DB_NAME = "xanthus";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const ACTIVE_STORE = "activeRun";
 const RUNS_STORE = "runs";
 const SHOES_STORE = "shoes";
+const PAIN_STORE = "painCheckIns";
 const ACTIVE_KEY = "current";
 
 function newShoeId(): string {
   return `shoe_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function newCheckInId(): string {
+  return `pain_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -81,6 +103,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(SHOES_STORE)) {
         db.createObjectStore(SHOES_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(PAIN_STORE)) {
+        db.createObjectStore(PAIN_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -202,6 +227,26 @@ export function summarizeShoes(runs: CompletedRun[]): ShoeSummary[] {
     }
   }
   return [...byName.values()].sort((a, b) => b.totalMeters - a.totalMeters);
+}
+
+/** Logs how the athlete says they're feeling — an append-only entry, never edited or deleted. */
+export async function reportPain(entry: {
+  severity: PainSeverity | "recuperado";
+  region?: string;
+}): Promise<PainCheckIn> {
+  const record: PainCheckIn = { ...entry, id: newCheckInId(), reportedAt: Date.now() };
+  if (typeof indexedDB === "undefined") return record;
+  await withStore(PAIN_STORE, "readwrite", (store) => store.put(record));
+  return record;
+}
+
+/** Every check-in ever logged, newest first — callers derive "current state" from just the first entry. */
+export async function listPainCheckIns(): Promise<PainCheckIn[]> {
+  if (typeof indexedDB === "undefined") return [];
+  const checkIns = await withStore<PainCheckIn[]>(PAIN_STORE, "readonly", (store) =>
+    store.getAll(),
+  );
+  return checkIns.sort((a, b) => b.reportedAt - a.reportedAt);
 }
 
 /**
