@@ -1055,8 +1055,9 @@ export default function Home() {
             {/* Mock of the recording screen */}
             <div className="lg:col-span-5">
               <div
-                className="pr-enter mx-auto w-full max-w-sm rounded-3xl border border-border bg-surface p-5 shadow-2xl shadow-accent/5"
-                style={delay(440)}
+                data-reveal=""
+                className="mx-auto w-full max-w-sm rounded-3xl border border-border bg-surface p-5 shadow-2xl shadow-accent/5"
+                style={delay(160)}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 
 /**
  * The three headline numbers on the hero's illustrative run-screen preview,
@@ -9,6 +9,12 @@ import { useEffect, useState, useSyncExternalStore } from "react";
  * there" idea. Carved out of the otherwise server-rendered landing page as
  * its own small client island, since a `setInterval`/`requestAnimationFrame`
  * loop needs a client component and the rest of the page doesn't.
+ *
+ * Counting starts when the number's own element scrolls into view, not on
+ * mount — the preview card can start below the fold on a phone, and a
+ * mount-triggered count-up is already finished by the time someone actually
+ * scrolls down to see it, which just reads as "no animation at all". Same
+ * IntersectionObserver shape as reveal.tsx (0.12 threshold, fires once).
  */
 
 const noopSubscribe = () => () => {};
@@ -26,15 +32,44 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
-/** Counts from 0 to `target` over `durationMs`, starting after `startDelayMs`. Skips straight to `target` under reduced motion. */
-function useCountUp(target: number, durationMs: number, startDelayMs: number): number {
+/** True once the ref'd element has been scrolled into view (or immediately, if IntersectionObserver isn't available). */
+function useInView(): [boolean, RefObject<HTMLSpanElement | null>] {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        setVisible(true);
+        observer.disconnect();
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return [visible, ref];
+}
+
+/** Counts from 0 to `target` over `durationMs` once visible, starting after `startDelayMs`. Jumps straight to `target` under reduced motion. */
+function useCountUp(
+  target: number,
+  durationMs: number,
+  startDelayMs: number,
+): [number, RefObject<HTMLSpanElement | null>] {
   const reducedMotion = usePrefersReducedMotion();
+  const [visible, ref] = useInView();
   const [value, setValue] = useState(0);
 
   useEffect(() => {
-    // Reduced motion skips the RAF loop entirely; the render below falls
-    // back to `target` directly instead of syncing it into state here.
-    if (reducedMotion) return;
+    if (!visible || reducedMotion) return;
     let frame = 0;
     let start: number | null = null;
     const tick = (now: number) => {
@@ -50,9 +85,10 @@ function useCountUp(target: number, durationMs: number, startDelayMs: number): n
       clearTimeout(timer);
       cancelAnimationFrame(frame);
     };
-  }, [target, durationMs, startDelayMs, reducedMotion]);
+  }, [visible, reducedMotion, target, durationMs, startDelayMs]);
 
-  return reducedMotion ? target : value;
+  const display = reducedMotion ? (visible ? target : 0) : value;
+  return [display, ref];
 }
 
 function formatKm(value: number): string {
@@ -69,23 +105,25 @@ function formatMinSec(totalSeconds: number): string {
 export function DistanceCountUp({
   km,
   durationMs = 1400,
-  startDelayMs = 500,
+  startDelayMs = 300,
 }: {
   km: number;
   durationMs?: number;
   startDelayMs?: number;
 }) {
-  return <>{formatKm(useCountUp(km, durationMs, startDelayMs))}</>;
+  const [value, ref] = useCountUp(km, durationMs, startDelayMs);
+  return <span ref={ref}>{formatKm(value)}</span>;
 }
 
 export function DurationCountUp({
   totalSeconds,
   durationMs = 1400,
-  startDelayMs = 500,
+  startDelayMs = 300,
 }: {
   totalSeconds: number;
   durationMs?: number;
   startDelayMs?: number;
 }) {
-  return <>{formatMinSec(useCountUp(totalSeconds, durationMs, startDelayMs))}</>;
+  const [value, ref] = useCountUp(totalSeconds, durationMs, startDelayMs);
+  return <span ref={ref}>{formatMinSec(value)}</span>;
 }
