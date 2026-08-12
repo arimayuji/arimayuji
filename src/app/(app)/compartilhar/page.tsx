@@ -11,17 +11,13 @@ import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
  * Reached from /perfil (and from the post-run summary), outside the tab bar
  * because it is a detail view, not a destination — the Perfil tab stays lit.
  *
- * The scenario picker and the photo upload below are both real: swapping in
- * the illustrated background or your own photo genuinely works. What's still
- * a mockup is everything else — the route and the numbers.
+ * The scenario picker, the photo upload and the route's draw-in animation
+ * below are all real: swapping in the illustrated background or your own
+ * photo, and watching the traçado draw itself in, genuinely work. What's
+ * still a mockup is the numbers.
  */
 
 const PENDING = [
-  {
-    title: "Traçado animado",
-    detail:
-      "O percurso vai ser desenhado em movimento, do início ao fim da corrida. Esta prévia é estática.",
-  },
   {
     title: "Números reais",
     detail:

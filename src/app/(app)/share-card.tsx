@@ -1,13 +1,15 @@
-import { ExampleBadge } from "./ui";
+import type { CSSProperties } from "react";
+import { ExampleBadge, delay } from "./ui";
 
 /**
  * Static preview of the shareable run card.
  *
  * The background is real now: it renders either a photo the athlete uploads
- * or a drawn scenario stand-in. The route is still a hand-authored path and
- * the stats are still invented — the real card will animate the route being
- * drawn and pull real numbers from a chosen run, but neither exists yet, so
- * those two layers show composition only.
+ * or a drawn scenario stand-in. The route now draws itself in on mount (the
+ * same pr-draw/pr-pop technique the landing page's charts use) instead of
+ * appearing pre-drawn. The stats are still invented — the real card will
+ * pull real numbers from a chosen run, but that doesn't exist yet, so that
+ * one layer still shows composition only.
  *
  * The scenario templates are a real, working feature in their own right, not
  * just a fallback — for the rural/trail runner who doesn't have a skyline
@@ -232,26 +234,48 @@ export function ShareCard({
         aria-hidden="true"
       >
         {/* Lifted clear of the stats block at the bottom of the card. */}
-        <g transform="translate(0 -28)">
+        <g className="pr-enter" transform="translate(0 -28)" style={delay(120)}>
           <path
             d={DEMO_ROUTE}
+            pathLength={1}
             fill="none"
             stroke="#ffffff"
             strokeWidth="9"
             strokeLinecap="round"
             strokeLinejoin="round"
             opacity="0.18"
+            className="pr-draw"
+            style={delay(120, { "--pr-dur": "1.8s" } as CSSProperties)}
           />
           <path
             d={DEMO_ROUTE}
+            pathLength={1}
             fill="none"
             stroke="#ffffff"
             strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="pr-draw"
+            style={delay(120, { "--pr-dur": "1.8s" } as CSSProperties)}
           />
-          <circle cx="42" cy="250" r="6" fill="#ffffff" />
-          <circle cx="262" cy="112" r="6" fill="none" stroke="#ffffff" strokeWidth="3" />
+          <circle
+            cx="42"
+            cy="250"
+            r="6"
+            fill="#ffffff"
+            className="pr-pop"
+            style={delay(120)}
+          />
+          <circle
+            cx="262"
+            cy="112"
+            r="6"
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="3"
+            className="pr-pop"
+            style={delay(1750)}
+          />
         </g>
       </svg>
 
