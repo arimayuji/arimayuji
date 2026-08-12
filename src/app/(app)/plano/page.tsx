@@ -1,4 +1,5 @@
-import { Card, CardTitle, delay, ExampleBadge, Screen, ScreenHeader, Stat } from "../ui";
+import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
+import { getEvidenceById, strengthLabel } from "@/lib/evidence";
 
 /**
  * Preview of the training-plan screen.
@@ -92,6 +93,19 @@ const DEMO_WEEK: PlannedSession[] = [
 const TOTAL_KM = DEMO_WEEK.reduce((sum, session) => sum + (session.km ?? 0), 0);
 const SESSION_COUNT = DEMO_WEEK.filter((session) => session.km !== undefined).length;
 
+/**
+ * Real citations behind the *shape* of the invented week above — why a taper
+ * exists, why only one hard session, why the volume step is conservative.
+ * The week's numbers are still fake; these facts and their sources are not —
+ * this is a preview of the "why" the plan engine will attach to every
+ * decision it makes, sourced from `src/lib/evidence`.
+ */
+const FEATURED_EVIDENCE_IDS = [
+  "acsm-fitt-vp-gradual-progression",
+  "80-20-polarized-training",
+  "taper-2-weeks-exponential",
+];
+
 function SessionRow({
   session,
   index,
@@ -128,6 +142,34 @@ function SessionRow({
         </div>
         <p className="mt-1 text-xs leading-relaxed text-muted text-pretty">{session.detail}</p>
       </div>
+    </li>
+  );
+}
+
+function EvidenceRow({ id }: { id: string }) {
+  const fact = getEvidenceById(id);
+  if (!fact) return null;
+
+  return (
+    <li className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-wide text-accent">
+          {strengthLabel(fact.strength)}
+        </span>
+      </div>
+      <p className="mt-1 text-sm leading-relaxed text-pretty">{fact.claim}</p>
+      {fact.source.url ? (
+        <a
+          href={fact.source.url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-block text-xs text-muted underline underline-offset-2 hover:text-accent"
+        >
+          {fact.source.name}
+        </a>
+      ) : (
+        <p className="mt-1 text-xs text-muted">{fact.source.name}</p>
+      )}
     </li>
   );
 }
@@ -179,6 +221,22 @@ export default function PlanoPage() {
             Números de demonstração. Quando o motor existir, o volume e a intensidade saem do
             seu histórico real e da prova que você marcar no perfil.
           </p>
+        </Card>
+
+        <Card className="pr-enter" style={delay(260)}>
+          <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
+            Por que essa semana tem essa cara
+          </CardTitle>
+          <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+            A semana acima é inventada, mas o formato dela não é aleatório — cada decisão do
+            futuro motor de treino vai vir acompanhada da evidência por trás, com a força dela
+            classificada. Aqui vai uma prévia real dessa mecânica.
+          </p>
+          <ul className="flex flex-col gap-3">
+            {FEATURED_EVIDENCE_IDS.map((id) => (
+              <EvidenceRow key={id} id={id} />
+            ))}
+          </ul>
         </Card>
 
         <Card className="pr-enter" style={delay(420)}>
