@@ -130,6 +130,20 @@ body {
   }
 }
 
+/*
+ * Held at the start for the first fifth of the cycle so the sweep arrives as
+ * an occasional event rather than a continuously scrolling band.
+ */
+@keyframes pr-sheen {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(240px);
+  }
+}
+
 @keyframes pr-drift {
   0%,
   100% {
@@ -211,5 +225,9 @@ body {
 
   .pr-drift {
     animation: pr-drift 6s ease-in-out infinite;
+  }
+
+  .pr-sheen {
+    animation: pr-sheen 6s linear infinite;
   }
 }

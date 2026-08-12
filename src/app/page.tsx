@@ -99,6 +99,52 @@ function ChromeGradient({ id }: { id: string }) {
 }
 
 /**
+ * The moving half of the chrome illusion: one soft highlight band that travels
+ * along the same ~125° axis as the ramp above.
+ *
+ * A static ramp says "this is painted to look like metal"; a ramp plus a slow
+ * pass of light says "this *is* metal, and something moved". The band rides in
+ * a mask rather than in the gradient itself for two reasons: the ramp's own
+ * stops stay untouched, and the whole effect reduces to a `transform` on one
+ * `<rect>` — the animation SVG and CSS agree on without caveats, unlike
+ * `gradientTransform` or animated stop offsets.
+ *
+ * At rest the band sits clear of the masked area entirely, which is what a
+ * `prefers-reduced-motion` reader gets: mask black, overlay invisible, plain
+ * chrome.
+ */
+function ChromeSheen({ id }: { id: string }) {
+  return (
+    <defs>
+      <linearGradient id={`${id}-band`} x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="#ffffff" stopOpacity="0" />
+        <stop offset="0.5" stopColor="#ffffff" stopOpacity="1" />
+        <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+      </linearGradient>
+      <mask
+        id={id}
+        maskUnits="userSpaceOnUse"
+        x="-10"
+        y="-10"
+        width="120"
+        height="120"
+      >
+        <g transform="rotate(55 50 50)">
+          <rect
+            className="pr-sheen"
+            x="-110"
+            y="-25"
+            width="46"
+            height="150"
+            fill={`url(#${id}-band)`}
+          />
+        </g>
+      </mask>
+    </defs>
+  );
+}
+
+/**
  * A quiet glow straddling a section's bottom border, instead of the border
  * doing all the work of the transition alone. Reuses the same soft
  * accent-blur motif as the hero/CTA background glows rather than inventing a
@@ -793,18 +839,34 @@ export default function Home() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
+                {/* Bust: muzzle, brow, near ear, three mane flames off the
+                    crest, shoulder, shod foreleg, sole. */}
                 <path
-                  d="M 81,38 C 83,40 83,43 81,44 C 79,45 77,44 76,42 C 72,43 67,43 63,40
-                     C 61,38 60,36 60,34 C 58,43 53,53 48,62 C 54,62 60,64 65,68
-                     C 68,71 70,74 72,77 C 79,76 87,78 90,82 C 92,85 91,88 88,89
-                     C 84,90 76,90 70,89 C 66,88 64,85 65,81 C 64,78 62,75 60,73
-                     C 56,72 52,71 48,70 C 45,76 42,81 38,86 C 34,90 29,90 27,85
-                     C 23,80 19,75 18,70 C 21,68 24,67 26,64 C 24,58 21,51 20,45
-                     C 23,43 27,42 30,40 C 29,35 28,29 29,24 C 32,26 35,27 38,28
-                     C 42,25 48,21 55,17 C 54,12 56,9 59,10 C 61,12 61,15 60,17
-                     C 62,13 64,12 66,14 C 67,16 67,19 66,21 C 71,26 77,32 81,38 Z"
+                  d="M 60.7,24.8 C 60.5,23.6 60.0,22.8 59.0,22.2
+                     C 55.5,19.3 51.9,16.3 48.8,13.9 C 47.3,12.6 46.6,11.4 46.4,10.2
+                     L 45.0,4.5 C 43.6,6.6 42.3,8.3 41.2,9.4
+                     C 39.3,10.4 37.9,12.0 36.4,14.4 C 34.8,17.0 33.2,19.8 31.6,22.6
+                     C 27.0,25.6 22.0,28.8 17.0,32.0 C 21.2,31.4 25.4,30.4 29.2,29.0
+                     C 29.0,30.0 28.9,31.2 28.8,32.2 C 24.4,35.0 19.8,38.0 15.2,41.0
+                     C 19.6,40.4 24.4,39.2 28.7,37.6 C 28.8,38.6 28.9,39.6 28.9,40.4
+                     C 24.8,43.4 20.6,46.4 16.6,49.6 C 20.6,48.8 24.4,47.8 27.9,46.6
+                     C 27.7,47.6 27.4,48.6 27.2,49.5 C 25.6,53.0 24.8,56.6 25.0,60.2
+                     C 25.2,63.6 26.6,67.0 29.0,69.4 C 31.4,71.6 34.2,72.8 37.4,72.8
+                     C 41.0,72.8 44.4,71.4 47.4,68.6 C 50.4,71.4 53.6,75.0 56.0,79.2
+                     C 54.4,81.6 53.2,84.6 52.8,88.0 C 52.6,90.6 53.8,92.4 56.4,93.4
+                     C 61.6,95.4 69.6,96.0 77.2,95.4 C 83.4,94.9 88.4,93.4 91.2,91.2
+                     C 93.6,89.4 94.0,87.4 92.6,86.0 C 91.2,84.6 88.0,83.6 83.4,83.0
+                     C 78.2,82.4 73.0,81.6 69.4,80.4 C 67.0,77.2 65.4,73.2 64.6,68.6
+                     C 64.0,64.0 62.8,58.6 61.4,53.8 C 60.6,51.2 58.8,48.8 56.6,46.6
+                     C 55.1,44.9 53.6,43.1 52.2,41.4 C 50.3,39.1 48.6,36.9 47.1,34.9
+                     C 45.7,32.8 44.5,30.9 43.3,29.3 C 42.5,28.0 41.8,27.1 41.2,26.6
+                     C 43.2,26.0 45.3,25.8 47.5,26.1 C 49.7,26.3 51.4,27.0 52.5,28.0
+                     C 53.5,28.8 54.1,29.7 54.6,30.8 C 55.8,30.9 56.8,30.6 57.7,30.1
+                     C 58.7,29.6 59.4,28.8 60.0,27.9 C 60.5,27.0 60.7,26.0 60.7,24.8 Z"
                 />
-                <path d="M 66,85 C 74,86.5 82,86.5 90,84.5" />
+                {/* Off-side ear, laid back. */}
+                <path d="M 40.6,9.3 C 36.8,8.8 33.2,9.4 30.6,10.6 C 33.4,11.4 37.1,11.3 39.7,10.7" />
+                <path d="M 55.0,88.8 C 60.6,90.8 68.6,91.8 76.6,91.4 C 82.6,91.1 87.8,89.8 91.4,87.8" />
               </g>
             </svg>
             Xanthus
@@ -833,7 +895,9 @@ export default function Home() {
             fill="none"
           >
             <ChromeGradient id="pr-chrome-watermark" />
+            <ChromeSheen id="pr-chrome-watermark-sheen" />
             <g
+              id="pr-watermark-lines"
               stroke="url(#pr-chrome-watermark)"
               strokeWidth="1.1"
               strokeLinecap="round"
@@ -907,6 +971,18 @@ export default function Home() {
                    M 38.4,13.4 C 39.2,13.4 40.0,13.8 40.6,14.4"
               />
             </g>
+            <use
+              href="#pr-watermark-lines"
+              mask="url(#pr-chrome-watermark-sheen)"
+              opacity="0.55"
+              className="[stroke:var(--pr-sheen-light)] dark:[stroke:var(--pr-sheen-dark)]"
+              style={
+                {
+                  "--pr-sheen-light": "#c3d7ff",
+                  "--pr-sheen-dark": "#ffffff",
+                } as CSSProperties
+              }
+            />
           </svg>
           <div className="relative mx-auto grid w-full max-w-6xl gap-14 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-28">
             <div className="lg:col-span-7">
