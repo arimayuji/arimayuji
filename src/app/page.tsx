@@ -235,6 +235,16 @@ const FIRST_PACE = DEMO_WEEKLY_PACE[0];
 const LAST_PACE = DEMO_WEEKLY_PACE[DEMO_WEEKLY_PACE.length - 1];
 const PACE_GAIN = formatPace(FIRST_PACE - LAST_PACE);
 
+/**
+ * The line and the area under it grow together, left to right, over this
+ * window — slow enough to read as "building from the first week", not a
+ * flash. Every other beat in the chart (each point, then the final callout)
+ * is scheduled off these two numbers instead of its own guess, so nothing
+ * can appear ahead of the line actually reaching it.
+ */
+const LINE_DRAW_DELAY = 220;
+const LINE_DRAW_DURATION = 2800;
+
 function ProgressChart() {
   const lastPoint = CHART_POINTS[CHART_POINTS.length - 1];
 
@@ -287,8 +297,8 @@ function ProgressChart() {
       <path
         d={AREA_PATH}
         fill="url(#pace-area)"
-        className="pr-pop"
-        style={delay(900)}
+        className="pr-area"
+        style={delay(LINE_DRAW_DELAY, { "--pr-dur": `${LINE_DRAW_DURATION}ms` } as CSSProperties)}
       />
 
       <path
@@ -298,7 +308,7 @@ function ProgressChart() {
         className="pr-draw stroke-accent"
         strokeWidth="2.5"
         strokeLinecap="round"
-        style={delay(220, { "--pr-dur": "1.7s" } as CSSProperties)}
+        style={delay(LINE_DRAW_DELAY, { "--pr-dur": `${LINE_DRAW_DURATION}ms` } as CSSProperties)}
       />
 
       {CHART_POINTS.slice(0, -1).map((point, index) => (
@@ -309,16 +319,27 @@ function ProgressChart() {
           r="2.6"
           className="pr-pop fill-accent"
           fillOpacity="0.55"
-          style={delay(420 + index * 90)}
+          style={delay(
+            /* +80ms so each dot lands just behind the pen tip, not exactly on it. */
+            LINE_DRAW_DELAY +
+              (index / (CHART_POINTS.length - 1)) * LINE_DRAW_DURATION +
+              80,
+          )}
         />
       ))}
 
+      {/*
+        `opacity: 0` as the resting base, not the keyframe's dim 0.2 —
+        `.pr-halo`'s animation has no fill-mode, so during the delay it
+        doesn't touch opacity at all and this inline value shows through;
+        once the delay elapses the keyframe takes over for good.
+      */}
       <circle
         cx={lastPoint.x}
         cy={lastPoint.y}
         r="5"
         className="pr-halo fill-accent"
-        style={delay(1600)}
+        style={delay(LINE_DRAW_DELAY + LINE_DRAW_DURATION + 80, { opacity: 0 })}
       />
       <circle
         cx={lastPoint.x}
@@ -326,7 +347,7 @@ function ProgressChart() {
         r="4.5"
         className="pr-pop fill-accent stroke-background"
         strokeWidth="2"
-        style={delay(1500)}
+        style={delay(LINE_DRAW_DELAY + LINE_DRAW_DURATION)}
       />
       <text
         x={lastPoint.x}
@@ -335,7 +356,7 @@ function ProgressChart() {
         className="pr-pop fill-accent font-mono"
         fontSize="11"
         fontWeight="600"
-        style={delay(1620)}
+        style={delay(LINE_DRAW_DELAY + LINE_DRAW_DURATION + 40)}
       >
         {formatPace(LAST_PACE)}
       </text>

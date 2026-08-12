@@ -118,6 +118,16 @@ body {
   }
 }
 
+/* Grows left-to-right from the axis, in step with `.pr-draw` tracing the line above it. */
+@keyframes pr-area {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @keyframes pr-halo {
   0%,
   100% {
@@ -220,7 +230,8 @@ body {
 
   .pr-svg .pr-pop,
   .pr-svg .pr-halo,
-  .pr-svg .pr-bar {
+  .pr-svg .pr-bar,
+  .pr-svg .pr-area {
     transform-box: fill-box;
     transform-origin: center;
   }
@@ -229,9 +240,19 @@ body {
     transform-origin: bottom;
   }
 
+  .pr-svg .pr-area {
+    transform-origin: left;
+  }
+
   .pr-enter .pr-draw,
   [data-reveal="in"] .pr-draw {
     animation: pr-draw var(--pr-dur, 1.5s) cubic-bezier(0.65, 0, 0.35, 1)
+      var(--pr-delay, 0ms) both;
+  }
+
+  .pr-enter .pr-area,
+  [data-reveal="in"] .pr-area {
+    animation: pr-area var(--pr-dur, 1.5s) cubic-bezier(0.65, 0, 0.35, 1)
       var(--pr-delay, 0ms) both;
   }
 
@@ -247,8 +268,17 @@ body {
       both;
   }
 
+  /*
+   * `var(--pr-delay, 0ms)` here (unlike the reveal-in animations above) has
+   * to default to 0 rather than needing an ancestor gate — most `.pr-halo`
+   * usages are ambient status pulses (the GPS dot, the "sinal bom" preview)
+   * that should start immediately and never stop, not wait on a
+   * scroll-reveal. The chart's final-point halo is the one caller that sets
+   * a real `--pr-delay`, so it doesn't pulse in ahead of the line actually
+   * finishing.
+   */
   .pr-halo {
-    animation: pr-halo 3.4s ease-in-out infinite;
+    animation: pr-halo 3.4s ease-in-out var(--pr-delay, 0ms) infinite;
   }
 
   .pr-drift {
