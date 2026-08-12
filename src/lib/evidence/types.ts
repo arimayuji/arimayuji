@@ -53,8 +53,10 @@ export interface EvidenceSource {
 export interface EvidenceFact {
   id: string;
   topic: DecisionTopic;
-  /** User-facing claim, in Portuguese — this is what the app would show next to a plan decision. */
+  /** The full claim, in Portuguese — canonical record of what the source actually says, not itself rendered as a paragraph anywhere anymore (see `bullets`). */
   claim: string;
+  /** 2-3 short, scannable fragments pulled from `claim` — same numbers and wording, just broken out of paragraph form. What the UI actually shows. */
+  bullets: string[];
   strength: EvidenceStrength;
   source: EvidenceSource;
   /** Only set when the strength alone would be misleading — e.g. a "forte" finding that is a null result, or a claim later nuanced by newer research. */

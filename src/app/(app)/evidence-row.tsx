@@ -21,7 +21,14 @@ export function EvidenceFactRow({ fact }: { fact: EvidenceFact }) {
       >
         {strengthLabel(fact.strength)}
       </span>
-      <p className="mt-1 text-sm leading-relaxed text-pretty">{fact.claim}</p>
+      <ul className="mt-1 flex flex-col gap-0.5">
+        {fact.bullets.map((bullet) => (
+          <li key={bullet} className="flex gap-1.5 text-sm leading-snug text-pretty">
+            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-current opacity-40" aria-hidden="true" />
+            {bullet}
+          </li>
+        ))}
+      </ul>
       {fact.caveat && (
         <p className="mt-1 text-xs leading-relaxed text-muted text-pretty">{fact.caveat}</p>
       )}

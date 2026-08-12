@@ -10,6 +10,11 @@ import type { EvidenceFact } from "./types";
  * found during that research, each one fetched and read directly (not
  * recalled from memory) before being added. Add facts by extending this
  * array; there is no build step or embedding index to regenerate.
+ *
+ * `bullets` are a mechanical reformat of `claim`, not a rewrite — same
+ * numbers, same wording, just broken out of paragraph form because a wall
+ * of dense prose per card made the numbers themselves easy to skim past.
+ * `claim` stays as the canonical full sentence.
  */
 export const EVIDENCE_FACTS: EvidenceFact[] = [
   // ---------------------------------------------------------------- pace zones
@@ -18,6 +23,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "pace_zones",
     claim:
       "Um tempo de prova recente pode ser convertido em zonas de pace de treino (fácil, limiar, intervalado, repetição) pela fórmula VDOT de Daniels & Gilbert — um modelo empírico, não uma medição direta de VO2max.",
+    bullets: [
+      "Prova recente → zonas de pace (fácil, limiar, intervalado, repetição)",
+      "Fórmula VDOT (Daniels & Gilbert)",
+      "Modelo empírico, não mede VO2max direto",
+    ],
     strength: "moderada",
     source: {
       name: "Daniels & Gilbert — Oxygen Power (1979); resumo das equações",
@@ -33,6 +43,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "race_time_prediction",
     claim:
       "A fórmula de Riegel (T2 = T1 · (D2/D1)^1.06) estima o tempo equivalente em outra distância a partir de uma prova recente; o expoente é ajuste empírico que varia com o nível do atleta (~1.04 em elite, ~1.10–1.12 em baixa quilometragem) e degrada acima da maratona.",
+    bullets: [
+      "T2 = T1 × (D2/D1)^1.06",
+      "Expoente varia: ~1,04 em elite, ~1,10–1,12 em baixa quilometragem",
+      "Degrada acima da maratona",
+    ],
     strength: "moderada",
     source: {
       name: "Riegel, P.S. (1977) — análise de precisão",
@@ -47,6 +62,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "volume_progression",
     claim:
       "A regra dos 10% (aumentar o volume semanal em no máximo 10%) não teve efeito comprovado sobre lesão: um ensaio controlado randomizado comparou progressão de 10%/semana contra um plano bem mais agressivo (~24%/semana) e a taxa de lesão foi estatisticamente igual (20,8% vs 20,3%).",
+    bullets: [
+      "10%/semana vs ~24%/semana: mesmo ensaio controlado",
+      "Taxa de lesão praticamente igual — 20,8% vs 20,3%",
+      "Regra dos 10% não reduziu lesão sozinha",
+    ],
     strength: "forte",
     source: {
       name: "Buist et al. — GRONORUN, American Journal of Sports Medicine",
@@ -60,6 +80,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "volume_progression",
     claim:
       "O sinal real encontrado em estudo prospectivo é um salto de volume acima de 30% em 2 semanas, associado a maior risco de lesões \"de distância\" (HR 1.59); aumentos entre 10% e 30% não diferiram do grupo abaixo de 10%.",
+    bullets: [
+      "Salto de volume >30% em 2 semanas → HR 1,59 pra lesão",
+      "Entre 10% e 30%: sem diferença do grupo abaixo de 10%",
+    ],
     strength: "moderada",
     source: {
       name: "Nielsen et al. (2014) — Journal of Orthopaedic & Sports Physical Therapy",
@@ -73,6 +97,7 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "volume_progression",
     claim:
       "Progredir o treino aumentando volume ou aumentando intensidade resultou no mesmo risco de lesão em corredores recreativos.",
+    bullets: ["Aumentar volume ou aumentar intensidade: mesmo risco de lesão"],
     strength: "moderada",
     source: {
       name: "Run Clever RCT",
@@ -85,6 +110,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "volume_progression",
     claim:
       "O ACWR (razão de carga aguda:crônica), popular em apps de fitness como métrica de risco, perde a relação preditiva quando tratado como variável contínua em vez de categorizada artificialmente — não há base para usá-lo como regra de segurança.",
+    bullets: [
+      "ACWR perde poder preditivo como variável contínua",
+      "Sem base pra usar como regra de segurança",
+    ],
     strength: "mito",
     source: {
       name: "Revisão sistemática sobre ACWR",
@@ -97,6 +126,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "volume_progression",
     claim:
       "A própria NATA (National Athletic Trainers' Association), em seu posicionamento sobre lesões por overuse, classifica a regra dos 10% e a recomendação de 1–2 dias de descanso por semana como SORT grau C — consenso de especialista, sem estudo forte por trás.",
+    bullets: [
+      "Regra dos 10% = SORT grau C",
+      "1–2 dias de descanso/semana = mesma classificação",
+      "Consenso de especialista, não estudo forte",
+    ],
     strength: "consenso",
     source: {
       name: "NATA Position Statement — Prevention of Pediatric Overuse Injuries",
@@ -110,6 +144,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "volume_progression",
     claim:
       "A posição oficial do ACSM (FITT-VP, 2011) recomenda ≥150 min/semana de atividade moderada ou ≥75 min/semana vigorosa, e afirma explicitamente que progressão gradual de intensidade e volume pode reduzir os riscos do exercício.",
+    bullets: [
+      "≥150 min/semana moderada, ou ≥75 min/semana vigorosa",
+      "Progressão gradual reduz o risco do exercício",
+    ],
     strength: "forte",
     source: {
       name: "ACSM Position Stand 2011 — Medicine & Science in Sports & Exercise",
@@ -125,6 +163,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "periodization",
     claim:
       "A distribuição 80/20 (~80% do treino em intensidade baixa, ~20% em alta, pouco no meio) tem respaldo observacional em atletas de elite e confirmação em ensaio controlado comparando treino polarizado contra outros modelos de distribuição de intensidade.",
+    bullets: [
+      "~80% do treino em intensidade baixa, ~20% em alta",
+      "Respaldo observacional em elite + ensaio controlado",
+    ],
     strength: "moderada",
     source: {
       name: "Seiler; Stöggl & Sperlich — revisão sistemática",
@@ -137,6 +179,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "periodization",
     claim:
       "O teto tradicional de ~3 horas / 32 km pro longão de maratona é convenção de treinador — vem de opinião de especialista, não de achado experimental controlado.",
+    bullets: [
+      "~3 horas / 32 km — teto tradicional do longão",
+      "Convenção de treinador, não achado experimental",
+    ],
     strength: "consenso",
     source: {
       name: "Discussão de treinadores sobre a origem da regra",
@@ -149,6 +195,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "periodization",
     claim:
       "A USATF define periodização, em seu currículo de formação de treinadores, como planejar o treino para produzir alto desempenho em momentos específicos — o currículo detalhado não é público.",
+    bullets: [
+      "USATF: periodização = planejar pico de desempenho em momentos específicos",
+      "Currículo detalhado não é público",
+    ],
     strength: "consenso",
     source: {
       name: "USATF Coaching Education, Level 1",
@@ -164,6 +214,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "taper",
     claim:
       "O taper mais bem evidenciado é de 2 semanas, com redução exponencial de 41–60% do volume, mantendo intensidade e frequência de treino.",
+    bullets: [
+      "Taper de 2 semanas — o mais bem evidenciado",
+      "Redução de 41–60% do volume, exponencial",
+      "Mantém intensidade e frequência",
+    ],
     strength: "forte",
     source: {
       name: "Bosquet et al. — meta-análise de 27 estudos",
@@ -176,6 +231,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "taper",
     claim:
       "Em dados reais de treino de mais de 158 mil maratonistas recreativos, um taper \"disciplinado\" (queda de volume consistente, sem picos) teve desempenho melhor que um taper \"relaxado\" em qualquer duração testada; um taper disciplinado de 3 semanas rendeu economia mediana de ~2,6% no tempo final — mas 69% dos corredores usam a versão relaxada.",
+    bullets: [
+      "158 mil+ maratonistas recreativos analisados",
+      "Taper disciplinado de 3 semanas: −2,6% no tempo final (mediana)",
+      "69% dos corredores usa a versão relaxada mesmo assim",
+    ],
     strength: "moderada",
     source: {
       name: "Smyth & Lawlor (2021) — Frontiers in Sports and Active Living",
@@ -192,6 +252,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "overtraining",
     claim:
       "O consenso conjunto ECSS/ACSM define um espectro de overreaching funcional → não-funcional → síndrome de overtraining (OTS); OTS é diagnóstico de exclusão (descarta anemia, tireoide, depressão) e o marcador-chave é queda de performance prolongada, não um biomarcador único.",
+    bullets: [
+      "Espectro: overreaching funcional → não-funcional → overtraining (OTS)",
+      "OTS é diagnóstico de exclusão (descarta anemia, tireoide, depressão)",
+      "Marcador-chave: queda de performance prolongada, não um biomarcador",
+    ],
     strength: "forte",
     source: {
       name: "Meeusen et al. (2013) — European Journal of Sport Science",
@@ -205,6 +270,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "overtraining",
     claim:
       "Treino guiado por variabilidade de frequência cardíaca (HRV) melhora VO2max e reduz a proporção de \"não-respondedores\" comparado a um plano fixo, mas exige medição diária padronizada.",
+    bullets: [
+      "Treino guiado por HRV melhora VO2max",
+      "Reduz a proporção de \"não-respondedores\"",
+      "Exige medição diária padronizada",
+    ],
     strength: "moderada",
     source: {
       name: "Meta-análise sobre treino guiado por HRV",
@@ -217,6 +287,7 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "overtraining",
     claim:
       "\"FC de repouso subiu 5bpm, pule o treino\" é regra prática popular, sem limiar clinicamente validado por trás.",
+    bullets: ["\"FC de repouso +5bpm, pule o treino\" — sem limiar clinicamente validado"],
     strength: "mito",
     source: { name: "Consenso ECSS/ACSM (ausência de limiar validado)", citable: true },
   },
@@ -227,6 +298,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "warmup",
     claim:
       "Aquecimento dinâmico envolvendo grandes grupos musculares é superior a alongamento estático pra melhorar desempenho cardiorrespiratório/aeróbico, segundo a posição oficial do ACSM.",
+    bullets: [
+      "Aquecimento dinâmico > alongamento estático pra desempenho aeróbico",
+      "Posição oficial do ACSM",
+    ],
     strength: "moderada",
     source: {
       name: "ACSM's Guidelines for Exercise Testing and Prescription, 11ª ed.",
@@ -241,6 +316,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "warmup",
     claim:
       "O protocolo RAMP (Raise, Activate, Mobilise, Potentiate), bastante citado como estrutura de aquecimento, tem origem britânica (Ian Jeffreys) — não tem respaldo de fonte americana oficial, embora seja coerente com a posição do ACSM.",
+    bullets: [
+      "RAMP: Raise, Activate, Mobilise, Potentiate",
+      "Origem britânica (Ian Jeffreys, 2007)",
+      "Coerente com o ACSM, mas sem fonte americana oficial",
+    ],
     strength: "consenso",
     source: { name: "Ian Jeffreys (2007) — fora do escopo de fontes dos EUA", citable: true },
     caveat: "Sinalizado deliberadamente como não-americano a pedido do dono do produto, não descartado.",
@@ -252,6 +332,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "static_stretch_pre",
     claim:
       "Alongamento estático antes de correr piora o desempenho agudo (-1,4% a -1,6% em meta-análises), com efeito deletério concentrado em séries de 60s ou mais por grupo muscular; o efeito sobre economia de corrida é pequeno.",
+    bullets: [
+      "Alongar antes de correr: -1,4% a -1,6% no desempenho agudo",
+      "Efeito concentrado em séries ≥60s por grupo muscular",
+    ],
     strength: "forte",
     source: {
       name: "Scoping review sobre alongamento e economia de corrida",
@@ -266,6 +350,7 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "static_stretch_pre",
     claim:
       "Meta-análise mais recente conclui que a evidência atual não sustenta um efeito do alongamento sobre economia de corrida — o efeito popularmente assumido é maior do que o que os dados mostram.",
+    bullets: ["Meta-análise recente: sem efeito comprovado na economia de corrida"],
     strength: "moderada",
     source: { name: "Meta-análise (PubMed 40442558)", url: "https://pubmed.ncbi.nlm.nih.gov/40442558/", citable: true },
   },
@@ -274,6 +359,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "static_stretch_pre",
     claim:
       "Revisão sistemática conduzida para o CDC (361 artigos avaliados, 6 elegíveis) concluiu que não há evidência suficiente pra endossar ou descontinuar alongamento de rotina antes ou depois do exercício como prevenção de lesão.",
+    bullets: [
+      "361 artigos avaliados, 6 elegíveis",
+      "Evidência insuficiente pra endossar ou descartar alongamento",
+    ],
     strength: "forte",
     source: {
       name: "Thacker, Gilchrist, Stroup, Kimsey — Medicine & Science in Sports & Exercise (2004)",
@@ -290,6 +379,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "static_stretch_post",
     claim:
       "Alongamento estático depois de correr não reduz de forma relevante a dor muscular tardia (DOMS): efeito de ~2% em 24–72h, sem significância estatística.",
+    bullets: [
+      "Alongar depois de correr não reduz DOMS de forma relevante",
+      "Efeito de ~2% em 24–72h, sem significância estatística",
+    ],
     strength: "forte",
     source: {
       name: "Andersen — Journal of Athletic Training",
@@ -304,6 +397,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "static_stretch_post",
     claim:
       "Não há evidência suficiente pra dizer se alongar depois de correr acelera a recuperação da amplitude de movimento: só 2 estudos mediram isso na revisão, dados descritos como \"escassos e heterogêneos\", confiança classificada como muito baixa.",
+    bullets: [
+      "Só 2 estudos mediram recuperação de amplitude de movimento",
+      "Dados \"escassos e heterogêneos\" — confiança muito baixa",
+    ],
     strength: "moderada",
     source: {
       name: "Afonso et al. (2021) — Frontiers in Physiology",
@@ -318,6 +415,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "cooldown",
     claim:
       "Desaquecimento ativo (trote leve pós-treino) tem impacto limitado sobre recuperação psicobiológica, segundo o próprio ACSM — acelera remoção de lactato, mas lactato não é a causa da dor muscular tardia.",
+    bullets: [
+      "Trote leve pós-treino acelera remoção de lactato",
+      "Lactato não é a causa da dor muscular tardia",
+      "Impacto limitado na recuperação, segundo o ACSM",
+    ],
     strength: "moderada",
     source: {
       name: "ACSM's Guidelines for Exercise Testing and Prescription, 11ª ed.",
@@ -330,6 +432,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "cooldown",
     claim:
       "Revisão da literatura conclui que desaquecimento ativo provavelmente não tem efeito relevante sobre o desempenho do dia seguinte, e geralmente não reduz dor muscular tardia — a maioria dos estudos mostra efeito trivial, mesmo com atletas costumando achar (efeito placebo) que ajuda mais do que descanso passivo.",
+    bullets: [
+      "Sem efeito relevante no desempenho do dia seguinte",
+      "Geralmente não reduz dor muscular tardia",
+      "Efeito placebo: atletas acham que ajuda mesmo sem ajudar",
+    ],
     strength: "moderada",
     source: {
       name: "Van Hooren & Peake (2018) — Sports Medicine",
@@ -346,6 +453,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "injury_prevention",
     claim:
       "Alongamento estático não reduz risco de lesão em corredores: HR agrupado de 0,95 (IC 95% 0,78–1,16) em 2.630 recrutas militares — seria preciso ~141 pessoas alongando por 12 semanas pra evitar uma lesão.",
+    bullets: [
+      "HR agrupado 0,95 (IC 95% 0,78–1,16) — 2.630 recrutas militares",
+      "~141 pessoas alongando por 12 semanas pra evitar 1 lesão",
+    ],
     strength: "forte",
     source: {
       name: "Andersen — Journal of Athletic Training",
@@ -360,6 +471,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "injury_prevention",
     claim:
       "O fator de risco mais consistente pra uma nova lesão de corrida é já ter tido uma lesão antes — evidência forte reunida de estudos prospectivos numa revisão sistemática, apesar de os próprios estudos definirem \"lesão prévia\" de formas diferentes entre si.",
+    bullets: [
+      "Lesão prévia = fator de risco mais consistente pra uma nova lesão",
+      "Evidência forte, de estudos prospectivos numa revisão sistemática",
+    ],
     strength: "forte",
     source: {
       name: "van der Worp et al. (2015) — PLOS ONE",
@@ -376,6 +491,11 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "hydration",
     claim:
       "Repor ~1,5 litro de fluido por kg de massa corporal perdida, com sódio, nas ~6 horas seguintes ao treino quando a próxima sessão é em menos de 12h; evitar perda acima de 2% do peso corporal durante o exercício.",
+    bullets: [
+      "~1,5L de fluido por kg de peso perdido, com sódio",
+      "Nas ~6h seguintes ao treino, se a próxima sessão é em <12h",
+      "Evitar perda >2% do peso corporal durante o exercício",
+    ],
     strength: "forte",
     source: {
       name: "ACSM Position Stand — Exercise and Fluid Replacement (2007)",
@@ -389,6 +509,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "hydration",
     claim:
       "O consenso internacional sobre hiponatremia associada ao exercício recomenda beber por sede, não seguir um plano fixo de mL/hora — perdas por suor e urina variam demais entre pessoas e condições pra uma meta fixa fazer sentido, e beber além da sede (não a falta de sódio) é o principal fator de risco pra hiponatremia.",
+    bullets: [
+      "Beber por sede, não por plano fixo de mL/hora",
+      "Beber além da sede é o principal risco de hiponatremia",
+    ],
     strength: "forte",
     source: {
       name: "Hew-Butler et al. (2017) — 3ª Conferência Internacional de Consenso sobre EAH, Frontiers in Medicine",
@@ -405,6 +529,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "nutrition_timing",
     claim:
       "A \"janela anabólica\" estrita de 30–45 minutos pós-treino é mais mito do que ciência sólida — a ingestão total de proteína ao longo do dia importa mais do que o timing exato da refeição pós-treino.",
+    bullets: [
+      "\"Janela anabólica\" de 30–45min pós-treino — mais mito que ciência",
+      "Proteína total do dia importa mais que o timing exato",
+    ],
     strength: "moderada",
     source: {
       name: "Aragon & Schoenfeld — Journal of the International Society of Sports Nutrition (2013)",
@@ -417,6 +545,10 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     topic: "nutrition_timing",
     claim:
       "Posição conjunta sobre nutrição e desempenho atlético, com detalhes de tipo/quantidade/timing de nutrientes — referência canônica pra prescrição nutricional de atletas.",
+    bullets: [
+      "Posição conjunta sobre tipo, quantidade e timing de nutrientes",
+      "Referência canônica pra prescrição nutricional de atletas",
+    ],
     strength: "forte",
     source: {
       name: "Academy of Nutrition and Dietetics, ACSM — Nutrition and Athletic Performance (2016)",
