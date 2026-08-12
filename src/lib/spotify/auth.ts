@@ -25,8 +25,8 @@ const AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SCOPES = "user-read-currently-playing playlist-modify-private";
 
-const TOKENS_KEY = "pegasus-run:spotify-tokens";
-const PKCE_SESSION_KEY = "pegasus-run:spotify-pkce";
+const TOKENS_KEY = "xanthus:spotify-tokens";
+const PKCE_SESSION_KEY = "xanthus:spotify-pkce";
 
 interface StoredTokens {
   accessToken: string;

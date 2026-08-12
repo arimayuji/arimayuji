@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
- * App shell: the logged-in surface of Pegasus Run.
+ * App shell: the logged-in surface of Xanthus.
  *
  * The landing page (`/`) deliberately sits outside this group — it is
  * marketing, not the app, and gets no tab bar.

@@ -1,4 +1,4 @@
-# Pegasus Run
+# Xanthus
 
 Um app de corrida PWA construído em cima das dores mais reclamadas do
 segmento (Strava, Nike Run Club, Runkeeper, Adidas Running, Komoot,

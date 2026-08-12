@@ -1,7 +1,7 @@
-// Minimal app-shell cache: keeps Pegasus Run installable and openable
+// Minimal app-shell cache: keeps Xanthus installable and openable
 // offline (e.g. to view a run in progress after a signal drop). GPS
 // tracking itself never depends on the network — this only caches the UI.
-const CACHE_NAME = "pegasus-run-shell-v1";
+const CACHE_NAME = "xanthus-shell-v1";
 const APP_SHELL = ["/", "/run", "/pwa-icon.svg"];
 
 self.addEventListener("install", (event) => {

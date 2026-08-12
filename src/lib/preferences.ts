@@ -28,7 +28,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   distanceUnit: "km",
 };
 
-const STORAGE_KEY = "pegasus-run:preferences";
+const STORAGE_KEY = "xanthus:preferences";
 
 function sanitize(raw: unknown): Preferences {
   if (typeof raw !== "object" || raw === null) return DEFAULT_PREFERENCES;

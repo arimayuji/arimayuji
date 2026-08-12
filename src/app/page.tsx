@@ -11,7 +11,7 @@ const delay = (ms: number, extra?: CSSProperties) =>
 /* ------------------------------------------------------------------ */
 
 /**
- * Reflection ramp for the pegasus mark: `[offset, light theme, dark theme]`.
+ * Reflection ramp for the horse mark: `[offset, light theme, dark theme]`.
  *
  * Polished metal does not read as one flat colour. A chromed surface mirrors
  * a bright sky, a dark horizon, then sky again, so this alternates specular
@@ -484,7 +484,7 @@ export default function Home() {
                 <path d="M 66,85 C 74,86.5 82,86.5 90,84.5" />
               </g>
             </svg>
-            Pegasus Run
+            Xanthus
           </span>
           <Link
             href="/run"
@@ -724,7 +724,7 @@ export default function Home() {
                 style={delay(180)}
                 className="mt-4 text-pretty leading-relaxed text-muted"
               >
-                É isso que Pegasus Run faz com o seu histórico: cada corrida entra numa
+                É isso que o Xanthus faz com o seu histórico: cada corrida entra numa
                 curva que você lê em três segundos. E ela não some quando você troca de
                 plano.
               </p>
@@ -824,7 +824,7 @@ export default function Home() {
                 className="mt-4 text-pretty leading-relaxed text-muted"
               >
                 Por isso a comunidade não é uma aba pregada no fim do app. Ela é a razão
-                de o Pegasus Run existir: correr junto, mesmo quando cada um corre no
+                de o Xanthus existir: correr junto, mesmo quando cada um corre no
                 seu horário.
               </p>
 
@@ -941,7 +941,7 @@ export default function Home() {
 
       <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-5 py-8 text-xs text-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <span>Pegasus Run — feito para quem corre.</span>
+          <span>Xanthus — feito para quem corre.</span>
           <span className="font-mono">gráfico da seção 01: dados simulados</span>
         </div>
       </footer>

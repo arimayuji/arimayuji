@@ -14,14 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pegasus Run",
+  title: "Xanthus",
   description:
     "Corra com pace estável, aviso por voz a cada trecho e previsão de chegada em tempo real.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Pegasus Run",
+    title: "Xanthus",
   },
 };
 

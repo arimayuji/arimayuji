@@ -90,8 +90,8 @@ export default function RunPage() {
     setSavePlaylistState({ status: "loading" });
     const dateLabel = new Date(state.finishedRun.startedAt).toLocaleDateString("pt-BR");
     const result = await createPlaylistFromRun(
-      `Pegasus Run — ${dateLabel}`,
-      "Trilha sonora gerada automaticamente pelo Pegasus Run.",
+      `Xanthus — ${dateLabel}`,
+      "Trilha sonora gerada automaticamente pelo Xanthus.",
       uris,
     );
     setSavePlaylistState(
@@ -116,7 +116,7 @@ export default function RunPage() {
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <header className="flex items-center justify-between px-5 py-4">
         <Link href="/" className="text-sm text-muted hover:text-foreground">
-          &larr; Pegasus Run
+          &larr; Xanthus
         </Link>
         {state.status !== "idle" && <GpsDot quality={state.gpsQuality} />}
       </header>

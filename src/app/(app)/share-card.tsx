@@ -220,7 +220,7 @@ export function ShareCard({
       <div className="absolute inset-0 flex flex-col justify-between p-4 text-white">
         <div className="flex items-start justify-between gap-2">
           <span className="rounded-full bg-black/35 px-2.5 py-1 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.14em] backdrop-blur-sm">
-            Pegasus Run
+            Xanthus
           </span>
           <span className="rounded-full bg-black/35 px-2.5 py-1 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.14em] backdrop-blur-sm">
             {SCENARIOS[scenario].short.toLowerCase()}

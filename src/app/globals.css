@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Pegasus Run runs the recording screen dark-first: the screen itself is
+ * Xanthus runs the recording screen dark-first: the screen itself is
  * the biggest battery cost during a GPS-tracked run (bigger than the GPS
  * chip), so a near-black ground with a bright single accent keeps that
  * screen cheap to keep lit for an hour.

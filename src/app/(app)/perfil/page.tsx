@@ -77,7 +77,7 @@ function SpotifyCard() {
       </CardTitle>
       <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
         Mostra a(s) música(s) que estavam tocando durante a corrida, no resumo do final. Só
-        leitura — o Pegasus Run nunca toca, pausa ou pula nada, então funciona em conta free ou
+        leitura — o Xanthus nunca toca, pausa ou pula nada, então funciona em conta free ou
         Premium.
       </p>
       {!configured ? (

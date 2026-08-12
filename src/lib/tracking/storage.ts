@@ -38,7 +38,7 @@ export interface CompletedRun {
   shoeName?: string;
 }
 
-const DB_NAME = "pegasus-run";
+const DB_NAME = "xanthus";
 const DB_VERSION = 1;
 const ACTIVE_STORE = "activeRun";
 const RUNS_STORE = "runs";
