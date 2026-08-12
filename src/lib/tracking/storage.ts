@@ -21,6 +21,20 @@ export interface RunTrack {
   artworkUrl?: string;
 }
 
+/**
+ * A stop during the run, with an optional reason — private detail, kept out
+ * of `/compartilhar`'s share text and the illustrated share card on purpose.
+ * Paused time is already excluded from `finishedAt - startedAt` upstream in
+ * `useRunTracker`, so these entries are a log of *why*, not a correction to
+ * any number: "parei pra beber água" without anyone comparing to a moving
+ * pace that dipped to zero for two minutes.
+ */
+export interface PauseEvent {
+  startedAt: number;
+  endedAt: number;
+  reason?: string;
+}
+
 export interface CompletedRun {
   id: string;
   startedAt: number;
@@ -29,6 +43,14 @@ export interface CompletedRun {
   points: StoredPoint[];
   tracks?: RunTrack[];
   /**
+   * Elapsed time with paused stretches subtracted out — what the runner
+   * actually experiences as "how long did this take", matching the live
+   * clock during tracking. Optional only because runs saved before this
+   * field existed don't have it; use `runMovingSeconds()` below rather than
+   * reading it directly so those old records still fall back sanely.
+   */
+  movingSeconds?: number;
+  /**
    * Which shoe this run was logged under, by name. Still deliberately just a
    * string even though a `Shoe` catalog now exists: no foreign key, so
    * renaming or deleting a registered shoe never has to rewrite history, and
@@ -36,6 +58,8 @@ export interface CompletedRun {
    * per-shoe mileage view stays a group-by over this field.
    */
   shoeName?: string;
+  /** Every pause during this run, oldest first. Omitted entirely when there were none. */
+  pauseEvents?: PauseEvent[];
 }
 
 /**
@@ -152,9 +176,26 @@ export async function saveCompletedRun(run: CompletedRun): Promise<void> {
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
 }
 
+/** Moving (paused-excluded) duration in seconds — falls back to wall-clock elapsed for runs saved before `movingSeconds` existed. */
+export function runMovingSeconds(run: CompletedRun): number {
+  if (run.movingSeconds !== undefined) return run.movingSeconds;
+  return Math.max(0, Math.round((run.finishedAt - run.startedAt) / 1000));
+}
+
 export async function listCompletedRuns(): Promise<CompletedRun[]> {
   if (typeof indexedDB === "undefined") return [];
   return withStore(RUNS_STORE, "readonly", (store) => store.getAll());
+}
+
+/**
+ * Drops a run that was just recorded but shouldn't count — a test, a false
+ * start, whatever. `finish()` already writes the record immediately (so a
+ * crash right after finishing can't lose it); this is the explicit undo for
+ * "actually, don't keep that one", not a toggle on whether saving happens.
+ */
+export async function deleteCompletedRun(id: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  await withStore(RUNS_STORE, "readwrite", (store) => store.delete(id));
 }
 
 /**

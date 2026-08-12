@@ -18,6 +18,7 @@ import {
   saveActiveRun,
   saveCompletedRun,
   type CompletedRun,
+  type PauseEvent,
   type RunTrack,
   type StoredPoint,
 } from "./storage";
@@ -25,6 +26,13 @@ import { buildDistanceTimeSeries, ghostDeltaSeconds, type GhostSeriesPoint } fro
 
 export type RunStatus = "idle" | "warming" | "tracking" | "paused" | "finished";
 export type GpsQuality = "searching" | "weak" | "good";
+
+/** Same shape as the persisted `PauseEvent`, except `endedAt` is null while the pause is still ongoing. */
+export interface LivePauseEvent {
+  startedAt: number;
+  endedAt: number | null;
+  reason?: string;
+}
 
 export interface RunGoal {
   distanceMeters?: number;
@@ -53,6 +61,10 @@ export interface RunTrackerState {
   ghostDeltaSeconds: number | null;
   /** The delta at the moment the run was finished, kept alongside `finishedRun` for the summary — not persisted into the saved record. */
   finishedGhostDeltaSeconds: number | null;
+  /** The trace so far, for drawing the live route map — same points that end up in `finishedRun.points`. */
+  points: StoredPoint[];
+  /** Every pause so far this run, oldest first — the current one (if paused right now) has `endedAt: null`. */
+  pauseEvents: LivePauseEvent[];
 }
 
 const PERSIST_INTERVAL_MS = 10_000;
@@ -76,6 +88,8 @@ export function useRunTracker() {
     finishedRun: null,
     ghostDeltaSeconds: null,
     finishedGhostDeltaSeconds: null,
+    points: [],
+    pauseEvents: [],
   });
 
   const watchIdRef = useRef<number | null>(null);
@@ -102,6 +116,7 @@ export function useRunTracker() {
   const distanceRef = useRef(0);
   const pointsRef = useRef<StoredPoint[]>([]);
   const lastPersistRef = useRef(0);
+  const pauseEventsRef = useRef<LivePauseEvent[]>([]);
 
   const ghostSeriesRef = useRef<GhostSeriesPoint[] | null>(null);
 
@@ -282,6 +297,7 @@ export function useRunTracker() {
           forecastSecondsRemaining,
           paceNeededSecPerKm,
           ghostDeltaSeconds: ghostDelta,
+          points: pointsRef.current,
         };
       });
     },
@@ -323,6 +339,7 @@ export function useRunTracker() {
       pauseStartedAtRef.current = null;
       distanceRef.current = 0;
       pointsRef.current = [];
+      pauseEventsRef.current = [];
       lastAnnounceDistanceRef.current = 0;
       lastAnnounceTimeRef.current = null;
       announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
@@ -344,6 +361,8 @@ export function useRunTracker() {
         finishedRun: null,
         ghostDeltaSeconds: null,
         finishedGhostDeltaSeconds: null,
+        points: [],
+        pauseEvents: [],
       });
     },
     [beginWatch],
@@ -354,19 +373,41 @@ export function useRunTracker() {
     stopTicking();
     void wakeLockRef.current.release();
     pauseStartedAtRef.current = Date.now();
-    setState((s) => (s.status === "tracking" ? { ...s, status: "paused" } : s));
+    pauseEventsRef.current = [
+      ...pauseEventsRef.current,
+      { startedAt: pauseStartedAtRef.current, endedAt: null },
+    ];
+    setState((s) =>
+      s.status === "tracking"
+        ? { ...s, status: "paused", pauseEvents: pauseEventsRef.current }
+        : s,
+    );
   }, [clearWatch, stopTicking]);
+
+  /** Tags the reason on the pause currently in progress — a no-op if called outside a pause. */
+  const setPauseReason = useCallback((reason: string) => {
+    const events = pauseEventsRef.current;
+    const last = events[events.length - 1];
+    if (!last || last.endedAt !== null) return;
+    pauseEventsRef.current = [...events.slice(0, -1), { ...last, reason }];
+    setState((s) => ({ ...s, pauseEvents: pauseEventsRef.current }));
+  }, []);
 
   const resume = useCallback(() => {
     if (pauseStartedAtRef.current !== null) {
       pausedAccumMsRef.current += Date.now() - pauseStartedAtRef.current;
       pauseStartedAtRef.current = null;
+      const events = pauseEventsRef.current;
+      const last = events[events.length - 1];
+      if (last && last.endedAt === null) {
+        pauseEventsRef.current = [...events.slice(0, -1), { ...last, endedAt: Date.now() }];
+      }
     }
     justResumedRef.current = true;
     void wakeLockRef.current.acquire();
     beginWatch();
     startTicking();
-    setState((s) => ({ ...s, status: "tracking" }));
+    setState((s) => ({ ...s, status: "tracking", pauseEvents: pauseEventsRef.current }));
   }, [beginWatch, startTicking]);
 
   const finish = useCallback(
@@ -375,20 +416,43 @@ export function useRunTracker() {
       stopTicking();
       void wakeLockRef.current.release();
 
+      const finishedAt = Date.now();
+      // Finishing while still paused would otherwise leave the last pause event open forever,
+      // and (same as `resume()`) the open pause's duration has to be folded into the running
+      // total before it's cleared, or `computeElapsedSeconds()` below stops excluding it.
+      if (pauseStartedAtRef.current !== null) {
+        pausedAccumMsRef.current += finishedAt - pauseStartedAtRef.current;
+        const events = pauseEventsRef.current;
+        const last = events[events.length - 1];
+        if (last && last.endedAt === null) {
+          pauseEventsRef.current = [...events.slice(0, -1), { ...last, endedAt: finishedAt }];
+        }
+        pauseStartedAtRef.current = null;
+      }
+      const pauseEvents: PauseEvent[] = pauseEventsRef.current.map((e) => ({
+        startedAt: e.startedAt,
+        endedAt: e.endedAt ?? finishedAt,
+        ...(e.reason ? { reason: e.reason } : {}),
+      }));
+
+      const movingSeconds = computeElapsedSeconds();
+
       const run: CompletedRun = {
         id: runIdRef.current,
-        startedAt: startedAtRef.current ?? Date.now(),
-        finishedAt: Date.now(),
+        startedAt: startedAtRef.current ?? finishedAt,
+        finishedAt,
         distanceMeters: distanceRef.current,
         points: pointsRef.current,
+        movingSeconds,
         ...(extra?.tracks?.length ? { tracks: extra.tracks } : {}),
         ...(extra?.shoeName?.trim() ? { shoeName: extra.shoeName.trim() } : {}),
+        ...(pauseEvents.length ? { pauseEvents } : {}),
       };
       void saveCompletedRun(run);
       void clearActiveRun();
 
       const finishedGhostDelta = ghostSeriesRef.current
-        ? ghostDeltaSeconds(ghostSeriesRef.current, distanceRef.current, computeElapsedSeconds())
+        ? ghostDeltaSeconds(ghostSeriesRef.current, distanceRef.current, movingSeconds)
         : null;
 
       setState((s) => ({
@@ -416,6 +480,8 @@ export function useRunTracker() {
       finishedRun: null,
       ghostDeltaSeconds: null,
       finishedGhostDeltaSeconds: null,
+      points: [],
+      pauseEvents: [],
     });
   }, []);
 
@@ -429,5 +495,5 @@ export function useRunTracker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { state, start, pause, resume, finish, reset };
+  return { state, start, pause, resume, finish, reset, setPauseReason };
 }

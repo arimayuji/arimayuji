@@ -2,7 +2,12 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { listCompletedRuns, type CompletedRun, type StoredPoint } from "@/lib/tracking/storage";
+import {
+  listCompletedRuns,
+  runMovingSeconds,
+  type CompletedRun,
+  type StoredPoint,
+} from "@/lib/tracking/storage";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
@@ -35,9 +40,6 @@ type LoadState =
   | { status: "error" }
   | { status: "ready"; runs: CompletedRun[] };
 
-function runSeconds(run: CompletedRun): number {
-  return Math.max(0, Math.round((run.finishedAt - run.startedAt) / 1000));
-}
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   weekday: "short",
@@ -165,7 +167,7 @@ function EmptyState() {
 
 function Summary({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit }) {
   const totalMeters = runs.reduce((sum, run) => sum + run.distanceMeters, 0);
-  const totalSeconds = runs.reduce((sum, run) => sum + runSeconds(run), 0);
+  const totalSeconds = runs.reduce((sum, run) => sum + runMovingSeconds(run), 0);
 
   return (
     <Card className="pr-enter" style={delay(60)}>
@@ -373,7 +375,7 @@ function RunFrequencyHeatmap({ runs, unit }: { runs: CompletedRun[]; unit: Dista
 }
 
 function RunRow({ run, unit, index }: { run: CompletedRun; unit: DistanceUnit; index: number }) {
-  const seconds = runSeconds(run);
+  const seconds = runMovingSeconds(run);
   const started = new Date(run.startedAt);
 
   return (

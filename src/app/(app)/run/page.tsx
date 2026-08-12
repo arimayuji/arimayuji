@@ -5,13 +5,16 @@ import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { formatDistanceKm, formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
 import {
+  deleteCompletedRun,
   listCompletedRuns,
   listShoes,
+  runMovingSeconds,
   summarizeShoes,
   updateRunTracks,
   type CompletedRun,
   type RunTrack,
 } from "@/lib/tracking/storage";
+import { RouteMap } from "../route-map";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
@@ -25,6 +28,13 @@ import { NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
 
 const RECENT_GHOST_CANDIDATES = 6;
+
+const PAUSE_REASONS = ["Água", "Banheiro", "Gel/carboidrato", "Foto", "Alongamento", "Outro"];
+
+function formatPauseDuration(startedAt: number, endedAt: number | null): string {
+  const seconds = ((endedAt ?? Date.now()) - startedAt) / 1000;
+  return formatDeltaDuration(seconds);
+}
 
 function formatDeltaDuration(seconds: number): string {
   const total = Math.round(Math.abs(seconds));
@@ -68,7 +78,8 @@ function formatGoalEta(totalSeconds: number | null): string {
 }
 
 export default function RunPage() {
-  const { state, start, pause, resume, finish, reset } = useRunTracker();
+  const { state, start, pause, resume, finish, reset, setPauseReason } = useRunTracker();
+  const [discarding, setDiscarding] = useState(false);
   const [goalKm, setGoalKm] = useState("5");
   const [goalMinutes, setGoalMinutes] = useState("");
   const [shoeName, setShoeName] = useState("");
@@ -183,7 +194,21 @@ export default function RunPage() {
     setManualTracks([]);
     setMusicQuery("");
     setMusicResults(null);
+    setDiscarding(false);
     reset();
+  };
+
+  /**
+   * `finish()` already wrote the run to IndexedDB unconditionally — cheap
+   * and crash-safe, and simpler than gating the save on a confirmation. This
+   * is the explicit undo: a run finished "só pra testar" doesn't have to
+   * stay in the history it was just written to.
+   */
+  const handleDiscard = async () => {
+    if (!state.finishedRun) return;
+    setDiscarding(true);
+    await deleteCompletedRun(state.finishedRun.id);
+    handleReset();
   };
 
   return (
@@ -373,6 +398,36 @@ export default function RunPage() {
             )}
           </div>
 
+          <RouteMap points={state.points} live square={false} className="h-40" />
+
+          {state.status === "paused" &&
+            (() => {
+              const currentPause = state.pauseEvents[state.pauseEvents.length - 1];
+              return (
+                <div className="mt-4 rounded-xl border border-border bg-surface p-4">
+                  <span className="text-xs uppercase tracking-wide text-muted">
+                    Pausado — por quê? (opcional)
+                  </span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {PAUSE_REASONS.map((reason) => (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => setPauseReason(reason)}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          currentPause?.reason === reason
+                            ? "border-accent bg-accent text-accent-foreground"
+                            : "border-border bg-background text-foreground hover:border-accent"
+                        }`}
+                      >
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
           <div className="grid grid-cols-2 gap-4 py-6">
             <div className="rounded-xl border border-border bg-surface p-4">
               <span className="text-xs uppercase tracking-wide text-muted">Distância</span>
@@ -439,13 +494,14 @@ export default function RunPage() {
               {formatDistanceKm(state.finishedRun.distanceMeters)} km
             </p>
           </div>
+
+          <RouteMap points={state.finishedRun.points} className="max-w-xs" />
+
           <div className="grid w-full max-w-xs grid-cols-2 gap-4">
             <div className="rounded-xl border border-border bg-surface p-4">
               <span className="text-xs uppercase tracking-wide text-muted">Tempo</span>
               <p className="mt-1 font-mono text-xl tabular-nums">
-                {formatElapsed(
-                  Math.round((state.finishedRun.finishedAt - state.finishedRun.startedAt) / 1000),
-                )}
+                {formatElapsed(runMovingSeconds(state.finishedRun))}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4">
@@ -453,14 +509,38 @@ export default function RunPage() {
               <p className="mt-1 font-mono text-xl tabular-nums">
                 {formatPace(
                   state.finishedRun.distanceMeters > 0
-                    ? ((state.finishedRun.finishedAt - state.finishedRun.startedAt) / 1000 /
-                        state.finishedRun.distanceMeters) *
-                        1000
+                    ? (runMovingSeconds(state.finishedRun) / state.finishedRun.distanceMeters) * 1000
                     : null,
                 )}
               </p>
             </div>
           </div>
+
+          {state.finishedRun.pauseEvents && state.finishedRun.pauseEvents.length > 0 && (
+            <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs uppercase tracking-wide text-muted">
+                  {state.finishedRun.pauseEvents.length}{" "}
+                  {state.finishedRun.pauseEvents.length === 1 ? "pausa" : "pausas"}
+                </span>
+                <NoticeBadge>privado</NoticeBadge>
+              </div>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {state.finishedRun.pauseEvents.map((pause, i) => (
+                  <li key={i} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-foreground">{pause.reason ?? "Sem motivo registrado"}</span>
+                    <span className="shrink-0 font-mono text-xs text-muted">
+                      {formatPauseDuration(pause.startedAt, pause.endedAt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 border-t border-border pt-2 text-xs text-muted">
+                Pausas não aparecem quando você compartilha essa corrida.
+              </p>
+            </div>
+          )}
+
           {state.finishedRun.shoeName && (
             <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
               <span className="text-xs uppercase tracking-wide text-muted">Tênis</span>
@@ -581,13 +661,23 @@ export default function RunPage() {
             </Link>
             .
           </p>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
-          >
-            Nova corrida
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={handleDiscard}
+              disabled={discarding}
+              className="text-sm text-muted underline hover:text-bad disabled:opacity-60"
+            >
+              {discarding ? "Descartando…" : "Descartar corrida"}
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
+            >
+              Nova corrida
+            </button>
+          </div>
         </main>
       )}
     </div>
