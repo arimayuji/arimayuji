@@ -18,7 +18,14 @@ import { ShoeShowcase } from "./shoe-showcase";
  * (dawn, morning, fog, deep night) beat picking a stock photo.
  */
 
-export type ScenarioId = "madrugada" | "manha" | "neblina" | "noite";
+export type ScenarioId =
+  | "madrugada"
+  | "manha"
+  | "neblina"
+  | "noite"
+  | "poente"
+  | "tempestade"
+  | "inverno";
 
 interface ScenarioDef {
   label: string;
@@ -84,6 +91,35 @@ export const SCENARIOS: Record<ScenarioId, ScenarioDef> = {
       { cx: 40, cy: 150, r: 1 },
       { cx: 130, cy: 30, r: 1 },
     ],
+  },
+  poente: {
+    label: "Pôr do sol",
+    short: "Pôr do sol",
+    hint: "hora dourada, sol baixo se pondo no horizonte",
+    sky: ["#1a1f3d", "#c2547a", "#f2965c", "#3a1f2e"],
+    ridgeFar: "#241521",
+    ridgeNear: "#160d14",
+    ridgeOpacity: 0.92,
+    celestial: { cx: 200, cy: 232, r: 34, fill: "#ffd9a0", opacity: 0.9 },
+  },
+  tempestade: {
+    label: "Tempestade se formando",
+    short: "Tempestade",
+    hint: "nuvens carregadas, luz baixa e dramática",
+    sky: ["#2b3038", "#3f4750", "#5a6169", "#23262b"],
+    ridgeFar: "#1c1f24",
+    ridgeNear: "#121417",
+    ridgeOpacity: 0.95,
+  },
+  inverno: {
+    label: "Inverno",
+    short: "Inverno",
+    hint: "ar frio e seco, luz pálida de manhã de inverno",
+    sky: ["#7fa3c2", "#b9d3e3", "#e8f1f5", "#c7d6dd"],
+    ridgeFar: "#3d4f5c",
+    ridgeNear: "#2a343d",
+    ridgeOpacity: 0.7,
+    celestial: { cx: 240, cy: 100, r: 20, fill: "#fdfdf5", opacity: 0.85 },
   },
 };
 

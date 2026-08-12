@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
@@ -28,15 +28,60 @@ const PENDING = [
 
 const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
 
+/**
+ * What actually gets shared today: text + a link, opened through the native
+ * share sheet — which already lists WhatsApp/Instagram/Facebook (story and
+ * status both) as targets on a real phone, no per-platform integration
+ * needed. Not the illustrated card itself: that means rasterizing this
+ * screen's mixed SVG-and-HTML composition to an image, which doesn't exist
+ * yet — the same real numbers this preview is waiting on (see "O que falta
+ * pra ficar de pé" below) would also be what a shared image should show.
+ */
+const SHARE_TEXT = "Fui correr 🏃 — Xanthus";
+
+type ShareSupport = "share" | "clipboard";
+
+const noopSubscribe = () => () => {};
+
+/** Static per-browser capability, not state that changes — same `useSyncExternalStore` shape as `usePrefersReducedMotion` elsewhere, so the client-only read never causes a hydration mismatch. */
+function useShareSupport(): ShareSupport {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => (typeof navigator.share === "function" ? "share" : "clipboard"),
+    () => "clipboard",
+  );
+}
+
 export default function CompartilharPage() {
   const [scenario, setScenario] = useState<ScenarioId>("madrugada");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [shoes, setShoes] = useState<Shoe[] | null>(null);
   const [shoeId, setShoeId] = useState<string | null>(null);
+  const shareSupport = useShareSupport();
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     listShoes().then(setShoes);
   }, []);
+
+  async function handleShare() {
+    const url = window.location.origin;
+    if (shareSupport === "share") {
+      try {
+        await navigator.share({ text: SHARE_TEXT, url });
+      } catch {
+        // Cancelled or blocked — no error state, the sheet closing is feedback enough.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(`${SHARE_TEXT} — ${url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked (permissions, insecure context) — nothing else to fall back to here.
+    }
+  }
 
   const shoe = shoes?.find((s) => s.id === shoeId);
 
@@ -228,12 +273,21 @@ export default function CompartilharPage() {
 
         <button
           type="button"
-          disabled
-          className="pr-enter min-h-14 w-full cursor-not-allowed rounded-full border border-border bg-surface px-6 py-4 text-base font-semibold text-muted"
+          onClick={handleShare}
+          className="pr-enter min-h-14 w-full rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground"
           style={delay(260)}
         >
-          Compartilhar — em breve
+          {copied
+            ? "Link copiado!"
+            : shareSupport === "clipboard"
+              ? "Copiar link pra compartilhar"
+              : "Compartilhar"}
         </button>
+        <p className="pr-enter -mt-2 text-center text-xs leading-relaxed text-muted" style={delay(280)}>
+          {shareSupport === "clipboard"
+            ? "Esse navegador não abre o menu nativo de compartilhar — copia o link e cola onde quiser."
+            : "Abre o menu de compartilhar do aparelho — WhatsApp, Instagram e Facebook aparecem ali como destino. A imagem do card ainda não vai junto, só texto e link."}
+        </p>
       </Screen>
     </>
   );
