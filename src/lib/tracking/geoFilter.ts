@@ -115,6 +115,38 @@ export function isLikelyDrift(distanceMeters: number, accuracy: number): boolean
   return distanceMeters < Math.max(5, accuracy * 0.5);
 }
 
+/**
+ * Below this, a gap between two consecutive recorded fixes is normal —
+ * weak signal, tree cover, the 30s `watchPosition` timeout tolerating a
+ * slow chip. Above it, JS was very likely suspended outright (screen
+ * locked, app backgrounded) and nothing was tracked in between — there is
+ * no way to tell "GPS took a while" from "the OS killed our background
+ * execution" from inside the app, so both get treated the same way: an
+ * honest gap, not silently bridged.
+ */
+export const GPS_GAP_THRESHOLD_SECONDS = 60;
+
+export interface GpsGap {
+  startedAt: number;
+  endedAt: number;
+}
+
+/** Every stretch between consecutive recorded points wider than the gap threshold. Points must be chronological. */
+export function findGpsGaps(points: { timestamp: number }[]): GpsGap[] {
+  const gaps: GpsGap[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const dt = (points[i].timestamp - points[i - 1].timestamp) / 1000;
+    if (dt >= GPS_GAP_THRESHOLD_SECONDS) {
+      gaps.push({ startedAt: points[i - 1].timestamp, endedAt: points[i].timestamp });
+    }
+  }
+  return gaps;
+}
+
+export function totalGapSeconds(gaps: GpsGap[]): number {
+  return gaps.reduce((sum, g) => sum + (g.endedAt - g.startedAt) / 1000, 0);
+}
+
 export function formatPace(secPerKm: number | null): string {
   if (secPerKm === null || !Number.isFinite(secPerKm) || secPerKm <= 0) return "--:--";
   const m = Math.floor(secPerKm / 60);

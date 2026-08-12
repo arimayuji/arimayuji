@@ -16,7 +16,7 @@ export function RouteMap({
   live = false,
   square = true,
 }: {
-  points: Pick<StoredPoint, "lat" | "lon">[];
+  points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
   className?: string;
   /** Pulses the end marker and labels it "here" instead of "finish" — for the in-progress run. */
   live?: boolean;
@@ -56,15 +56,18 @@ export function RouteMap({
 
           <rect width={route.viewBoxSize} height={route.viewBoxSize} fill="url(#route-map-vignette)" />
 
-          <polyline
-            points={route.polyline}
-            fill="none"
-            stroke="#5b8dff"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            filter="url(#route-map-glow)"
-          />
+          {route.polylines.map((pts, i) => (
+            <polyline
+              key={i}
+              points={pts}
+              fill="none"
+              stroke="#5b8dff"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              filter="url(#route-map-glow)"
+            />
+          ))}
 
           <circle cx={route.start.x} cy={route.start.y} r="1.8" fill="#ffffff" />
 

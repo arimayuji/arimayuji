@@ -1,3 +1,4 @@
+import { GPS_GAP_THRESHOLD_SECONDS } from "./geoFilter";
 import type { StoredPoint } from "./storage";
 
 /**
@@ -6,15 +7,17 @@ import type { StoredPoint } from "./storage";
  * offline-first, zero-dependency stance): this draws the literal outline of
  * where the run went, projected flat and fit to a square viewBox, the same
  * "your actual path, not a stylized illustration" idea the user asked for
- * ("se eu corri uma linha reta, vai chegar uma linha reta").
+ * ("se eu corri uma linha reta, vai chegar uma linha reta") — which cuts
+ * both ways: where GPS tracking silently gapped, the line breaks there too
+ * instead of drawing a straight line across ground that was never recorded.
  */
 
 const METERS_PER_DEG_LAT = 111_320;
 
 export interface ProjectedRoute {
-  /** SVG `points` attribute value for a <polyline>, in viewBox units. */
-  polyline: string;
-  /** Square viewBox side length, in the same units as `polyline`. */
+  /** SVG `points` attribute value, one per unbroken stretch of tracking — split at any gap over `GPS_GAP_THRESHOLD_SECONDS`. */
+  polylines: string[];
+  /** Square viewBox side length, in the same units as `polylines`. */
   viewBoxSize: number;
   start: { x: number; y: number };
   end: { x: number; y: number };
@@ -27,7 +30,7 @@ export interface ProjectedRoute {
  * pulling in a real map-projection library.
  */
 export function projectRoute(
-  points: Pick<StoredPoint, "lat" | "lon">[],
+  points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[],
   { viewBoxSize = 100, paddingFraction = 0.12 }: { viewBoxSize?: number; paddingFraction?: number } = {},
 ): ProjectedRoute | null {
   if (points.length < 2) return null;
@@ -61,10 +64,19 @@ export function projectRoute(
   });
 
   const projected = flat.map(project);
-  const polyline = projected.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+
+  const segments: { x: number; y: number }[][] = [[projected[0]]];
+  for (let i = 1; i < projected.length; i++) {
+    const dt = (points[i].timestamp - points[i - 1].timestamp) / 1000;
+    if (dt >= GPS_GAP_THRESHOLD_SECONDS) segments.push([]); // start a new unbroken stretch
+    segments[segments.length - 1].push(projected[i]);
+  }
+  const polylines = segments
+    .filter((seg) => seg.length > 0)
+    .map((seg) => seg.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" "));
 
   return {
-    polyline,
+    polylines,
     viewBoxSize,
     start: projected[0],
     end: projected[projected.length - 1],

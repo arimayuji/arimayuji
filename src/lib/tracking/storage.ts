@@ -6,6 +6,8 @@
  * while the athlete is out running.
  */
 
+import type { GpsGap } from "./geoFilter";
+
 export interface StoredPoint {
   lat: number;
   lon: number;
@@ -60,6 +62,16 @@ export interface CompletedRun {
   shoeName?: string;
   /** Every pause during this run, oldest first. Omitted entirely when there were none. */
   pauseEvents?: PauseEvent[];
+  /**
+   * Every stretch where GPS tracking silently stopped — screen locked, app
+   * backgrounded — as opposed to a `PauseEvent`, which the runner triggered
+   * on purpose. Already excluded from `movingSeconds` upstream in
+   * `useRunTracker`, same as pauses; this is the record of *where*, so the
+   * route map can break the line there instead of drawing a straight one
+   * across ground that was never actually tracked. Omitted when there were
+   * none.
+   */
+  gpsGaps?: GpsGap[];
 }
 
 /**

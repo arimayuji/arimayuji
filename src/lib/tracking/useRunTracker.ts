@@ -5,10 +5,13 @@ import {
   Ewma,
   FILTER_CONFIG,
   ScalarKalman,
+  findGpsGaps,
   haversineMeters,
   isFixUsable,
   isLikelyDrift,
   isPlausibleStep,
+  totalGapSeconds,
+  type GpsGap,
   type LatLon,
 } from "./geoFilter";
 import { speak, unlockSpeech } from "./speech";
@@ -435,7 +438,15 @@ export function useRunTracker() {
         ...(e.reason ? { reason: e.reason } : {}),
       }));
 
-      const movingSeconds = computeElapsedSeconds();
+      // `clearWatch()` during a manual pause means no fixes arrive for its whole
+      // duration either, so the raw point gap it leaves behind would otherwise
+      // double-count as a "GPS silently stopped" gap on top of the pause that
+      // already accounts for that time below.
+      const overlapsAnyPause = (gap: GpsGap) =>
+        pauseEvents.some((p) => gap.startedAt < p.endedAt && gap.endedAt > p.startedAt);
+      const gpsGaps = findGpsGaps(pointsRef.current).filter((g) => !overlapsAnyPause(g));
+
+      const movingSeconds = Math.max(0, computeElapsedSeconds() - totalGapSeconds(gpsGaps));
 
       const run: CompletedRun = {
         id: runIdRef.current,
@@ -447,6 +458,7 @@ export function useRunTracker() {
         ...(extra?.tracks?.length ? { tracks: extra.tracks } : {}),
         ...(extra?.shoeName?.trim() ? { shoeName: extra.shoeName.trim() } : {}),
         ...(pauseEvents.length ? { pauseEvents } : {}),
+        ...(gpsGaps.length ? { gpsGaps } : {}),
       };
       void saveCompletedRun(run);
       void clearActiveRun();
