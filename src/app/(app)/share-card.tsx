@@ -3,15 +3,16 @@ import { ExampleBadge } from "./ui";
 /**
  * Static preview of the shareable run card.
  *
- * Everything here is a stand-in: the background is drawn artwork rather than a
- * photo, the route is a hand-authored path, the stats are invented. The real
- * card will render over a photo the athlete picks and animate the route being
- * drawn — none of that exists yet, so this shows composition only.
+ * The background is real now: it renders either a photo the athlete uploads
+ * or a drawn scenario stand-in. The route is still a hand-authored path and
+ * the stats are still invented — the real card will animate the route being
+ * drawn and pull real numbers from a chosen run, but neither exists yet, so
+ * those two layers show composition only.
  *
- * The background does come in a real, working set of scenario templates,
- * though — for the rural/trail runner who doesn't have a skyline photo handy,
- * illustrated stand-ins for the time of day they actually ran (dawn, morning,
- * fog, deep night) are a real feature, not a mockup of one.
+ * The scenario templates are a real, working feature in their own right, not
+ * just a fallback — for the rural/trail runner who doesn't have a skyline
+ * photo handy, illustrated stand-ins for the time of day they actually ran
+ * (dawn, morning, fog, deep night) beat picking a stock photo.
  */
 
 export type ScenarioId = "madrugada" | "manha" | "neblina" | "noite";
@@ -114,11 +115,6 @@ function PlaceholderPhoto({ scenario }: { scenario: ScenarioId }) {
           <stop offset="78%" stopColor={sky2} />
           <stop offset="100%" stopColor={sky3} />
         </linearGradient>
-        <linearGradient id="share-scrim" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#000000" stopOpacity="0.42" />
-          <stop offset="42%" stopColor="#000000" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0.72" />
-        </linearGradient>
         <linearGradient id="share-fog" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
           <stop offset="55%" stopColor="#ffffff" stopOpacity="0.22" />
@@ -167,6 +163,31 @@ function PlaceholderPhoto({ scenario }: { scenario: ScenarioId }) {
 
       {/* Hatch says "placeholder" without a watermark shouting over the design. */}
       <rect width="320" height="400" fill="url(#share-hatch)" />
+    </svg>
+  );
+}
+
+/**
+ * Dark gradient that keeps the white text/stats overlay readable, whether
+ * it's sitting over an illustrated scenario or an arbitrary uploaded photo.
+ * Factored out of `PlaceholderPhoto` so both backgrounds get the same
+ * treatment.
+ */
+function Scrim() {
+  return (
+    <svg
+      viewBox="0 0 320 400"
+      className="absolute inset-0 h-full w-full"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="share-scrim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#000000" stopOpacity="0.42" />
+          <stop offset="42%" stopColor="#000000" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.72" />
+        </linearGradient>
+      </defs>
       <rect width="320" height="400" fill="url(#share-scrim)" />
     </svg>
   );
@@ -175,17 +196,34 @@ function PlaceholderPhoto({ scenario }: { scenario: ScenarioId }) {
 export function ShareCard({
   compact = false,
   scenario = "madrugada",
+  photoUrl,
 }: {
   compact?: boolean;
   scenario?: ScenarioId;
+  photoUrl?: string;
 }) {
   return (
     <div
       className="relative aspect-[4/5] w-full overflow-hidden rounded-3xl border border-border"
       role="img"
-      aria-label={`Prévia do card de compartilhamento: traçado e estatísticas de exemplo sobre o cenário ${SCENARIOS[scenario].label}`}
+      aria-label={
+        photoUrl
+          ? "Prévia do card de compartilhamento: traçado e estatísticas de exemplo sobre a sua foto"
+          : `Prévia do card de compartilhamento: traçado e estatísticas de exemplo sobre o cenário ${SCENARIOS[scenario].label}`
+      }
     >
-      <PlaceholderPhoto scenario={scenario} />
+      {photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- object URL, not a static/remote asset Next's <Image> optimizer can handle.
+        <img
+          src={photoUrl}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <PlaceholderPhoto scenario={scenario} />
+      )}
+      <Scrim />
 
       <svg
         viewBox="0 0 320 400"
