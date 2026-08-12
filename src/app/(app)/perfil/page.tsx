@@ -10,7 +10,7 @@ import {
   type DistanceUnit,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, RANGE_INPUT_CLASS, Screen, ScreenHeader } from "../ui";
 import { GoalDatePicker } from "../date-picker";
 import { ShareCardTeaser } from "../share-card";
 import {
@@ -554,7 +554,7 @@ export default function PerfilPage() {
               step={ANNOUNCE_STEP_METERS}
               value={prefs.announceIntervalMeters}
               onChange={(e) => update({ announceIntervalMeters: Number(e.target.value) })}
-              className="mt-1 w-full accent-accent"
+              className={`mt-1 ${RANGE_INPUT_CLASS}`}
             />
             <div className="mt-1 flex justify-between font-mono text-[10px] text-muted">
               <span>{announceLabel(ANNOUNCE_MIN_METERS)}</span>

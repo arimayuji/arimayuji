@@ -5,6 +5,20 @@ export const delay = (ms: number, extra?: CSSProperties) =>
   ({ "--pr-delay": `${ms}ms`, ...extra }) as CSSProperties;
 
 /**
+ * A native `<input type="range">`, restyled: `appearance-none` strips the
+ * browser's own chrome first (which on Chromium includes a flat dark border
+ * around the track that has nothing to do with the app's palette), then the
+ * base classes rebuild the track from the input's own background and the
+ * `::-webkit-slider-thumb`/`::-moz-range-thumb` rules rebuild the thumb —
+ * appearance-none removes both, not just the border.
+ */
+export const RANGE_INPUT_CLASS =
+  "h-1.5 w-full cursor-pointer touch-none appearance-none rounded-full border-0 bg-border outline-none " +
+  "[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-0 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-sm " +
+  "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:shadow-sm " +
+  "[&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-border";
+
+/**
  * The honesty marker.
  *
  * Same pill the landing page puts on its demo pace chart: amber, monospaced,

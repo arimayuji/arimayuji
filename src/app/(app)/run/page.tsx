@@ -21,7 +21,7 @@ import {
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useImmersiveMode } from "../app-shell";
-import { NoticeBadge } from "../ui";
+import { NoticeBadge, RANGE_INPUT_CLASS } from "../ui";
 
 const RECENT_GHOST_CANDIDATES = 6;
 
@@ -249,7 +249,7 @@ export default function RunPage() {
                 onChange={(e) =>
                   updatePreferences({ announceIntervalMeters: Number(e.target.value) })
                 }
-                className="mt-1 w-full accent-accent"
+                className={`mt-1 ${RANGE_INPUT_CLASS}`}
               />
             </label>
 
