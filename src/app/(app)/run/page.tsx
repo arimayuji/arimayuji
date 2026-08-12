@@ -6,6 +6,7 @@ import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { formatDistanceKm, formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
 import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
+import { useNowPlayingDuringRun } from "@/lib/spotify/useNowPlayingDuringRun";
 import { useImmersiveMode } from "../app-shell";
 
 const GPS_LABEL: Record<string, { label: string; className: string }> = {
@@ -52,7 +53,18 @@ export default function RunPage() {
     state.status === "warming" || state.status === "tracking" || state.status === "paused",
   );
 
+  /**
+   * `paused` counts as active here (unlike immersive mode above) so a
+   * pause/resume cycle doesn't look like a new run starting and wipe the
+   * tracks already collected — the reset only happens explicitly, once, in
+   * `handleStart` below.
+   */
+  const { tracks: spotifyTracks, reset: resetSpotifyTracks } = useNowPlayingDuringRun(
+    state.status === "tracking" || state.status === "paused",
+  );
+
   const handleStart = () => {
+    resetSpotifyTracks();
     const distanceMeters = goalKm ? Number(goalKm) * 1000 : undefined;
     const durationSeconds = goalMinutes ? Number(goalMinutes) * 60 : undefined;
     start({
@@ -211,7 +223,7 @@ export default function RunPage() {
             )}
             <button
               type="button"
-              onClick={finish}
+              onClick={() => finish({ tracks: spotifyTracks })}
               className="flex-1 rounded-full bg-bad py-4 text-base font-semibold text-white hover:opacity-90"
             >
               Finalizar
@@ -250,6 +262,21 @@ export default function RunPage() {
               </p>
             </div>
           </div>
+          {state.finishedRun.tracks && state.finishedRun.tracks.length > 0 && (
+            <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
+              <span className="text-xs uppercase tracking-wide text-muted">
+                Trilha sonora da corrida
+              </span>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {state.finishedRun.tracks.map((track, i) => (
+                  <li key={i} className="truncate text-sm">
+                    {track.name} <span className="text-muted">— {track.artist}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <p className="max-w-xs text-xs leading-relaxed text-muted">
             O card animado pra compartilhar essa corrida chega depois que o pipeline de tracking
             estiver validado em corridas reais.{" "}

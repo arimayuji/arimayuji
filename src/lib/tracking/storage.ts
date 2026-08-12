@@ -12,12 +12,20 @@ export interface StoredPoint {
   timestamp: number;
 }
 
+/** A track that was playing (on Spotify or otherwise) at some point during a run. Optional — most runs have none. */
+export interface RunTrack {
+  name: string;
+  artist: string;
+  playedAt: number;
+}
+
 export interface CompletedRun {
   id: string;
   startedAt: number;
   finishedAt: number;
   distanceMeters: number;
   points: StoredPoint[];
+  tracks?: RunTrack[];
 }
 
 const DB_NAME = "pegasus-run";

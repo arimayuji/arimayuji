@@ -18,6 +18,7 @@ import {
   saveActiveRun,
   saveCompletedRun,
   type CompletedRun,
+  type RunTrack,
   type StoredPoint,
 } from "./storage";
 
@@ -350,24 +351,28 @@ export function useRunTracker() {
     setState((s) => ({ ...s, status: "tracking" }));
   }, [beginWatch, startTicking]);
 
-  const finish = useCallback(() => {
-    clearWatch();
-    stopTicking();
-    void wakeLockRef.current.release();
+  const finish = useCallback(
+    (extra?: { tracks?: RunTrack[] }) => {
+      clearWatch();
+      stopTicking();
+      void wakeLockRef.current.release();
 
-    const run: CompletedRun = {
-      id: runIdRef.current,
-      startedAt: startedAtRef.current ?? Date.now(),
-      finishedAt: Date.now(),
-      distanceMeters: distanceRef.current,
-      points: pointsRef.current,
-    };
-    void saveCompletedRun(run);
-    void clearActiveRun();
+      const run: CompletedRun = {
+        id: runIdRef.current,
+        startedAt: startedAtRef.current ?? Date.now(),
+        finishedAt: Date.now(),
+        distanceMeters: distanceRef.current,
+        points: pointsRef.current,
+        ...(extra?.tracks?.length ? { tracks: extra.tracks } : {}),
+      };
+      void saveCompletedRun(run);
+      void clearActiveRun();
 
-    setState((s) => ({ ...s, status: "finished", finishedRun: run }));
-    return run;
-  }, [clearWatch, stopTicking]);
+      setState((s) => ({ ...s, status: "finished", finishedRun: run }));
+      return run;
+    },
+    [clearWatch, stopTicking],
+  );
 
   const reset = useCallback(() => {
     setState({
