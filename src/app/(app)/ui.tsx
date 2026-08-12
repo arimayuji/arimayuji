@@ -42,7 +42,7 @@ export function ScreenHeader({
     <header className="pr-enter px-5 pt-8 pb-5" style={delay(0)}>
       <div className="mx-auto w-full max-w-md">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+          <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">{title}</h1>
           {badge}
         </div>
         {subtitle && (

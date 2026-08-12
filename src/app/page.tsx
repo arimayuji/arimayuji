@@ -6,6 +6,98 @@ import { Reveal } from "./reveal";
 const delay = (ms: number, extra?: CSSProperties) =>
   ({ "--pr-delay": `${ms}ms`, ...extra }) as CSSProperties;
 
+/* ------------------------------------------------------------------ */
+/* The chrome finish on the brand mark                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Reflection ramp for the pegasus mark: `[offset, light theme, dark theme]`.
+ *
+ * Polished metal does not read as one flat colour. A chromed surface mirrors
+ * a bright sky, a dark horizon, then sky again, so this alternates specular
+ * spikes (near-white) with shadow troughs (near-ink blue) three times across
+ * the mark, with one deliberately hard edge at 0.345/0.355 standing in for
+ * the horizon line — a single two-colour ramp is what makes a "metallic"
+ * gradient look cheap. Brand blue (#2f6fed / #5b8dff) holds the mid-tones so
+ * the mark still reads as *our* blue and not as grey.
+ *
+ * Two registers, because the page ground flips. On #0b0e11 the highlights can
+ * run all the way to white; on #ffffff those same whites would punch holes in
+ * a 1px outline, so the light theme carries the identical banding shifted
+ * down into a darker range.
+ *
+ * This is a brand-moment finish only — the accent token, buttons, badges and
+ * state dots stay flat blue on purpose. Banding reads as metal on a 300px
+ * mark and as a rendering bug on a 16px status dot.
+ */
+const CHROME_STOPS: ReadonlyArray<readonly [number, string, string]> = [
+  [0, "#2f6fed", "#2f6fed"],
+  [0.07, "#12306e", "#1a4098"],
+  [0.16, "#4a80f0", "#5b8dff"],
+  [0.225, "#93b7ff", "#d8e6ff"],
+  [0.245, "#c3d7ff", "#ffffff"],
+  [0.262, "#c3d7ff", "#ffffff"],
+  [0.278, "#7fa8ff", "#a9c6ff"],
+  [0.3, "#2456bd", "#2f62d4"],
+  [0.345, "#0f2a63", "#16357e"],
+  [0.355, "#3568dc", "#3f74e6"],
+  [0.44, "#5b8dff", "#6d9bff"],
+  [0.51, "#86adff", "#b9d0ff"],
+  [0.55, "#b0cbff", "#f7faff"],
+  [0.6, "#6d9bff", "#86adff"],
+  [0.66, "#2f6fed", "#2f6fed"],
+  [0.72, "#14336f", "#1a4098"],
+  [0.775, "#3f74e6", "#4a80f0"],
+  [0.845, "#8fb3ff", "#dbe8ff"],
+  [0.868, "#bcd4ff", "#ffffff"],
+  [0.895, "#6d9bff", "#93b7ff"],
+  [0.95, "#1f49a6", "#2450b5"],
+  [1, "#3b74e4", "#4278e8"],
+];
+
+/**
+ * The gradient itself, angled ~125° so the light sweeps diagonally across the
+ * horse rather than banding it flat.
+ *
+ * `gradientUnits="userSpaceOnUse"` is load-bearing. Each mark is several
+ * separate `<path>` elements, and the default `objectBoundingBox` resolves the
+ * gradient against *each path's own* box — every hoof tick and eye dash would
+ * get its own private rainbow instead of one light source crossing the whole
+ * animal. User space pins all of them to the shared 0–100 viewBox.
+ *
+ * The per-stop colours ride CSS variables so one static pair of Tailwind
+ * classes can swap the whole ramp at the media query; interpolating the hex
+ * straight into `className` would be invisible to Tailwind's scanner.
+ */
+function ChromeGradient({ id }: { id: string }) {
+  return (
+    <defs>
+      <linearGradient
+        id={id}
+        gradientUnits="userSpaceOnUse"
+        x1="15"
+        y1="0"
+        x2="85"
+        y2="100"
+      >
+        {CHROME_STOPS.map(([offset, light, dark]) => (
+          <stop
+            key={offset}
+            offset={offset}
+            className="[stop-color:var(--pr-chrome-light)] dark:[stop-color:var(--pr-chrome-dark)]"
+            style={
+              {
+                "--pr-chrome-light": light,
+                "--pr-chrome-dark": dark,
+              } as CSSProperties
+            }
+          />
+        ))}
+      </linearGradient>
+    </defs>
+  );
+}
+
 function formatPace(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = Math.round(totalSeconds % 60);
@@ -364,14 +456,20 @@ export default function Home() {
 
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-3 sm:px-8">
-          <span className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
+          <span className="flex items-center gap-2.5 font-mono text-sm font-semibold tracking-wide">
             <svg
               viewBox="0 0 100 100"
               aria-hidden="true"
-              className="h-6 w-6 text-accent"
+              className="h-6 w-6"
               fill="none"
             >
-              <g stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+              <ChromeGradient id="pr-chrome-glyph" />
+              <g
+                stroke="url(#pr-chrome-glyph)"
+                strokeWidth="4.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path
                   d="M 81,38 C 83,40 83,43 81,44 C 79,45 77,44 76,42 C 72,43 67,43 63,40
                      C 61,38 60,36 60,34 C 58,43 53,53 48,62 C 54,62 60,64 65,68
@@ -408,10 +506,16 @@ export default function Home() {
           <svg
             aria-hidden="true"
             viewBox="0 0 100 100"
-            className="pointer-events-none absolute -right-24 -top-16 hidden h-[34rem] w-[34rem] text-accent opacity-[0.07] sm:block lg:-right-32 lg:h-[42rem] lg:w-[42rem]"
+            className="pointer-events-none absolute -right-24 -top-16 hidden h-[34rem] w-[34rem] opacity-[0.1] sm:block lg:-right-32 lg:h-[42rem] lg:w-[42rem]"
             fill="none"
           >
-            <g stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round">
+            <ChromeGradient id="pr-chrome-watermark" />
+            <g
+              stroke="url(#pr-chrome-watermark)"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path
                 d="M 82,29 C 83.5,31 82.5,34.5 80,35 C 76,35.5 71,35 67,34 C 65,33.5 64,33 63,32
                    C 60,34 58,38 57,42 C 56,46 55,50 54,54 C 54,58 53,60 53,62
@@ -444,7 +548,7 @@ export default function Home() {
               </p>
 
               <h1
-                className="pr-enter mt-6 text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
+                className="pr-enter mt-6 text-balance font-mono text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl"
                 style={delay(90)}
               >
                 Sua corrida não é um número solto. É uma trajetória.
@@ -601,7 +705,7 @@ export default function Home() {
               <h2
                 data-reveal=""
                 style={delay(60)}
-                className="mt-5 text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
+                className="mt-5 text-balance font-mono text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
               >
                 Não é só mostrar um número. É mostrar que você está ficando melhor.
               </h2>
@@ -700,7 +804,7 @@ export default function Home() {
               <h2
                 data-reveal=""
                 style={delay(60)}
-                className="mt-5 text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
+                className="mt-5 text-balance font-mono text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
               >
                 Correr é uma atividade de comunidade.
               </h2>
@@ -762,7 +866,7 @@ export default function Home() {
             <h2
               data-reveal=""
               style={delay(60)}
-              className="mt-5 max-w-2xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
+              className="mt-5 max-w-2xl text-balance font-mono text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
             >
               Três promessas que não mudam depois que você entra.
             </h2>
@@ -780,7 +884,7 @@ export default function Home() {
                     className="absolute left-6 top-0 h-px w-10 bg-accent transition-all duration-500 group-hover:w-24 sm:left-7"
                   />
                   <span className="font-mono text-xs text-muted">{pillar.index}</span>
-                  <h3 className="mt-4 text-xl font-semibold tracking-tight">
+                  <h3 className="mt-4 font-mono text-xl font-semibold tracking-tight">
                     {pillar.title}
                   </h3>
                   <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">
@@ -804,7 +908,7 @@ export default function Home() {
           <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center gap-7 px-5 py-24 text-center sm:px-8 sm:py-32">
             <h2
               data-reveal=""
-              className="text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-5xl"
+              className="text-balance font-mono text-3xl font-semibold leading-tight tracking-tight sm:text-5xl"
             >
               A primeira corrida é agora.
             </h2>

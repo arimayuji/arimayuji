@@ -96,7 +96,9 @@ export default function RunPage() {
         <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
           <div className="mx-auto w-full max-w-sm space-y-6">
             <div>
-              <h1 className="text-2xl font-semibold text-balance">Preparar corrida</h1>
+              <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
+                Preparar corrida
+              </h1>
               <p className="mt-1 text-sm text-muted">
                 A tela precisa ficar ligada durante o treino para o GPS se manter preciso.
               </p>
