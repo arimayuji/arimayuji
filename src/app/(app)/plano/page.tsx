@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
-import { getEvidenceById, getEvidenceForTopicRanked, strengthLabel, type EvidenceFact } from "@/lib/evidence";
+import { getEvidenceById, getEvidenceForTopicRanked } from "@/lib/evidence";
+import { EvidenceFactRow } from "../evidence-row";
 import {
   activePainSignal,
   generatePlan,
@@ -137,29 +138,6 @@ function SessionRow({ session, index, isLast }: { session: DisplaySession; index
         </div>
         <p className="mt-1 text-xs leading-relaxed text-muted text-pretty">{session.detail}</p>
       </div>
-    </li>
-  );
-}
-
-function EvidenceFactRow({ fact }: { fact: EvidenceFact }) {
-  return (
-    <li className="border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <span className="font-mono text-[10px] uppercase tracking-wide text-accent">
-        {strengthLabel(fact.strength)}
-      </span>
-      <p className="mt-1 text-sm leading-relaxed text-pretty">{fact.claim}</p>
-      {fact.source.url ? (
-        <a
-          href={fact.source.url}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-1 inline-block text-xs text-muted underline underline-offset-2 hover:text-accent"
-        >
-          {fact.source.name}
-        </a>
-      ) : (
-        <p className="mt-1 text-xs text-muted">{fact.source.name}</p>
-      )}
     </li>
   );
 }
@@ -453,6 +431,12 @@ export default function PlanoPage() {
                 return fact ? <EvidenceFactRow key={topic} fact={fact} /> : null;
               })}
             </ul>
+            <Link
+              href="/estudos"
+              className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
+            >
+              Ver todos os estudos por trás do plano
+            </Link>
           </Card>
         </Screen>
       </>
@@ -539,6 +523,12 @@ export default function PlanoPage() {
               return fact ? <EvidenceFactRow key={id} fact={fact} /> : null;
             })}
           </ul>
+          <Link
+            href="/estudos"
+            className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
+          >
+            Ver todos os estudos
+          </Link>
         </Card>
       </Screen>
     </>

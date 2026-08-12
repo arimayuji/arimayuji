@@ -731,12 +731,14 @@ export default function PerfilPage() {
             )}
           </fieldset>
 
-          <Link
-            href="/plano"
-            className="mt-6 inline-block text-sm text-accent underline underline-offset-2"
-          >
-            Ver o plano
-          </Link>
+          <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2">
+            <Link href="/plano" className="text-sm text-accent underline underline-offset-2">
+              Ver o plano
+            </Link>
+            <Link href="/estudos" className="text-sm text-accent underline underline-offset-2">
+              Ver os estudos por trás dele
+            </Link>
+          </div>
         </Card>
 
         <PainCard />
