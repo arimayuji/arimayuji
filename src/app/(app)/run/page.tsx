@@ -13,6 +13,7 @@ import {
   type RunTrack,
 } from "@/lib/tracking/storage";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
+import { RunningFigure } from "../running-figure";
 import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useNowPlayingDuringRun } from "@/lib/spotify/useNowPlayingDuringRun";
@@ -374,7 +375,10 @@ export default function RunPage() {
 
       {state.status === "warming" && (
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <span className="h-3 w-3 animate-pulse rounded-full bg-warn" />
+          <div className="flex items-end gap-4 text-accent">
+            <RunningFigure variant="woman" />
+            <RunningFigure variant="man" />
+          </div>
           <p className="text-lg font-medium">Procurando GPS&hellip;</p>
           <p className="max-w-xs text-sm text-muted">
             Fique a céu aberto. O cronômetro começa assim que o sinal ficar estável.
