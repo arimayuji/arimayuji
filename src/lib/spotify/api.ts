@@ -4,6 +4,7 @@ export interface NowPlaying {
   name: string;
   artist: string;
   isPlaying: boolean;
+  uri?: string;
 }
 
 /**
@@ -35,7 +36,12 @@ export async function getCurrentlyPlaying(): Promise<NowPlaying | null> {
     const artist = Array.isArray(item.artists)
       ? item.artists.map((a: { name: string }) => a.name).join(", ")
       : "";
-    return { name: item.name, artist, isPlaying: Boolean(json.is_playing) };
+    return {
+      name: item.name,
+      artist,
+      isPlaying: Boolean(json.is_playing),
+      uri: typeof item.uri === "string" ? item.uri : undefined,
+    };
   } catch {
     return null;
   }

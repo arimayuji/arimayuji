@@ -8,7 +8,15 @@ import { listCompletedRuns, summarizeShoes } from "@/lib/tracking/storage";
 import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useNowPlayingDuringRun } from "@/lib/spotify/useNowPlayingDuringRun";
+import { useSpotifyConnected } from "@/lib/spotify/useConnection";
+import { createPlaylistFromRun } from "@/lib/spotify/playlists";
 import { useImmersiveMode } from "../app-shell";
+
+type SavePlaylistState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "success"; playlistUrl: string }
+  | { status: "error"; reason: string };
 
 const GPS_LABEL: Record<string, { label: string; className: string }> = {
   searching: { label: "Procurando sinal", className: "bg-bad" },
@@ -73,8 +81,29 @@ export default function RunPage() {
     state.status === "tracking" || state.status === "paused",
   );
 
+  const spotifyConnected = useSpotifyConnected();
+  const [savePlaylistState, setSavePlaylistState] = useState<SavePlaylistState>({ status: "idle" });
+
+  const handleSavePlaylist = async () => {
+    if (!state.finishedRun) return;
+    const uris = (state.finishedRun.tracks ?? []).map((t) => t.uri).filter(Boolean);
+    setSavePlaylistState({ status: "loading" });
+    const dateLabel = new Date(state.finishedRun.startedAt).toLocaleDateString("pt-BR");
+    const result = await createPlaylistFromRun(
+      `Pegasus Run — ${dateLabel}`,
+      "Trilha sonora gerada automaticamente pelo Pegasus Run.",
+      uris,
+    );
+    setSavePlaylistState(
+      result.ok
+        ? { status: "success", playlistUrl: result.playlistUrl }
+        : { status: "error", reason: result.reason },
+    );
+  };
+
   const handleStart = () => {
     resetSpotifyTracks();
+    setSavePlaylistState({ status: "idle" });
     const distanceMeters = goalKm ? Number(goalKm) * 1000 : undefined;
     const durationSeconds = goalMinutes ? Number(goalMinutes) * 60 : undefined;
     start({
@@ -309,6 +338,37 @@ export default function RunPage() {
                   </li>
                 ))}
               </ul>
+
+              {spotifyConnected && state.finishedRun.tracks.some((t) => t.uri) && (
+                <div className="mt-3 border-t border-border pt-3">
+                  {savePlaylistState.status === "success" ? (
+                    <a
+                      href={savePlaylistState.playlistUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block w-full rounded-full border border-accent px-4 py-2.5 text-center text-sm font-semibold text-accent hover:opacity-90"
+                    >
+                      Abrir playlist no Spotify
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSavePlaylist}
+                      disabled={savePlaylistState.status === "loading"}
+                      className="w-full rounded-full border border-border px-4 py-2.5 text-sm font-semibold hover:border-accent disabled:opacity-60"
+                    >
+                      {savePlaylistState.status === "loading"
+                        ? "Salvando playlist…"
+                        : "Salvar playlist da corrida"}
+                    </button>
+                  )}
+                  {savePlaylistState.status === "error" && (
+                    <p className="mt-2 text-xs text-bad">
+                      Não deu pra salvar a playlist agora. Tenta de novo mais tarde.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

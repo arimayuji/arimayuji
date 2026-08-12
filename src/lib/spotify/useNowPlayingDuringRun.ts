@@ -36,7 +36,10 @@ export function useNowPlayingDuringRun(active: boolean) {
       if (key === lastKeyRef.current) return; // still the same track, nothing to add
       lastKeyRef.current = key;
 
-      const next = [...tracksRef.current, { name: playing.name, artist: playing.artist, playedAt: Date.now() }];
+      const next = [
+        ...tracksRef.current,
+        { name: playing.name, artist: playing.artist, playedAt: Date.now(), uri: playing.uri },
+      ];
       tracksRef.current = next;
       setTracks(next);
     };

@@ -7,16 +7,23 @@
  * for every origin this runs on (localhost during dev, the deployed URL in
  * production) — Spotify allows registering more than one.
  *
- * Scope is deliberately just `user-read-currently-playing`: this feature only
- * ever reads what's playing, it never controls playback (that needs Premium
- * and is out of scope) and never touches playlists or library data.
+ * Scopes: `user-read-currently-playing` (read what's playing — this never
+ * controls playback, that needs Premium and is out of scope) plus
+ * `playlist-modify-private` (create a private playlist from a run's tracks).
+ * Deliberately private-only — never `playlist-modify-public` — since the
+ * athlete hasn't opted into making anything public.
+ *
+ * Changing the requested scopes means accounts connected under the old,
+ * narrower scope won't have the new permission until they reconnect — that's
+ * expected, no special migration; `createPlaylistFromRun` just fails
+ * gracefully for them until then.
  */
 
 import { generateCodeChallenge, generateRandomToken } from "./pkce";
 
 const AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
-const SCOPES = "user-read-currently-playing";
+const SCOPES = "user-read-currently-playing playlist-modify-private";
 
 const TOKENS_KEY = "pegasus-run:spotify-tokens";
 const PKCE_SESSION_KEY = "pegasus-run:spotify-pkce";

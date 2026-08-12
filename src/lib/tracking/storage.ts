@@ -17,6 +17,8 @@ export interface RunTrack {
   name: string;
   artist: string;
   playedAt: number;
+  /** Spotify track URI (`spotify:track:XXXXX`), when known — lets the run's tracks become a real playlist. */
+  uri?: string;
 }
 
 export interface CompletedRun {
