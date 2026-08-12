@@ -22,6 +22,7 @@ import {
 import { RouteMap } from "../route-map";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
 import { PrBadge } from "../pr-badge";
+import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboarding";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
@@ -191,6 +192,8 @@ export default function RunPage() {
     [state.finishedRun, manualTracks],
   );
 
+  const [showRunTips, setShowRunTips] = useState(false);
+
   const handleStart = () => {
     setManualTracks([]);
     setMusicQuery("");
@@ -203,6 +206,26 @@ export default function RunPage() {
       goal: distanceMeters ? { distanceMeters, durationSeconds } : undefined,
       ghostRun: selectedGhost ?? undefined,
     });
+  };
+
+  /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. */
+  const handleStartClick = () => {
+    if (hasSeenRunTips()) {
+      handleStart();
+      return;
+    }
+    setShowRunTips(true);
+  };
+
+  const handleRunTipsDone = () => {
+    markRunTipsSeen();
+    setShowRunTips(false);
+    handleStart();
+  };
+
+  const handleRunTipsSkip = () => {
+    markRunTipsSeen();
+    setShowRunTips(false);
   };
 
   const handleReset = () => {
@@ -346,7 +369,7 @@ export default function RunPage() {
 
             <button
               type="button"
-              onClick={handleStart}
+              onClick={handleStartClick}
               className="group relative flex w-full items-center justify-center overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground"
             >
               <span className="transition-opacity duration-300 group-hover:opacity-0">
@@ -708,6 +731,8 @@ export default function RunPage() {
           </div>
         </main>
       )}
+
+      {showRunTips && <RunOnboarding onDone={handleRunTipsDone} onSkip={handleRunTipsSkip} />}
     </div>
   );
 }

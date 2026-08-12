@@ -1,8 +1,8 @@
 // Minimal app-shell cache: keeps Xanthus installable and openable
 // offline (e.g. to view a run in progress after a signal drop). GPS
 // tracking itself never depends on the network — this only caches the UI.
-const CACHE_NAME = "xanthus-shell-v1";
-const APP_SHELL = ["/", "/run", "/pwa-icon.svg"];
+const CACHE_NAME = "xanthus-shell-v2";
+const APP_SHELL = ["/", "/run", "/pwa-icon-192.png", "/pwa-icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
