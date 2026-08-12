@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ANNOUNCE_OPTIONS, announceLabel, type DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { GoalDatePicker } from "../date-picker";
 import { ShareCardTeaser } from "../share-card";
 import { isConfigured, startAuthorization } from "@/lib/spotify/auth";
 import { disconnectSpotify, useSpotifyConnected } from "@/lib/spotify/useConnection";
@@ -259,15 +260,13 @@ export default function PerfilPage() {
             </div>
           </fieldset>
 
-          <label className="mt-4 block space-y-1.5">
-            <span className="text-sm font-medium">Data da prova</span>
-            <input
-              type="date"
-              value={profile.goalDate ?? ""}
-              onChange={(event) => updateProfile({ goalDate: event.target.value || undefined })}
-              className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 font-mono text-sm tabular-nums outline-none focus:border-accent"
+          <div className="mt-4 space-y-1.5">
+            <p className="text-sm font-medium">Data da prova</p>
+            <GoalDatePicker
+              value={profile.goalDate}
+              onChange={(goalDate) => updateProfile({ goalDate })}
             />
-          </label>
+          </div>
 
           <fieldset className="mt-6 border-t border-border pt-5">
             <legend className="text-sm font-medium">Dias de corrida por semana</legend>
