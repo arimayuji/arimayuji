@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
 import { getEvidenceById, getEvidenceForTopicRanked, strengthLabel, type EvidenceFact } from "@/lib/evidence";
@@ -180,9 +180,117 @@ function PaceZonesCard({ zones }: { zones: PaceZones }) {
   );
 }
 
+/**
+ * The stages `generatePlan()` actually runs through, in order — see
+ * `src/lib/plan/vdot.ts`, `volumeProgression.ts` and `periodization.ts`.
+ * The pace-related steps only apply when there's a recent race to derive a
+ * VDOT from (`plan.paceZones` is null otherwise), so the list narrows rather
+ * than claim a calculation that didn't happen.
+ */
+const STAGES_WITH_PACE = [
+  "Calculando VDOT da sua prova recente",
+  "Definindo suas zonas de pace",
+  "Montando a progressão de volume",
+  "Aplicando fases de periodização",
+  "Ajustando o taper final",
+] as const;
+
+const STAGES_WITHOUT_PACE = [
+  "Montando a progressão de volume",
+  "Aplicando fases de periodização",
+  "Ajustando o taper final",
+] as const;
+
+const STAGE_STEP_MS = 200;
+const STAGE_HOLD_MS = 220;
+
+type StageState = "pending" | "active" | "done";
+
+function StageIcon({ state }: { state: StageState }) {
+  if (state === "done") {
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 text-good" fill="none" aria-hidden="true">
+        <path
+          d="M4.5 10.5l3.5 3.5L15.5 6.5"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (state === "active") {
+    return (
+      <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 animate-spin text-accent" aria-hidden="true">
+        <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth={2.5} fill="none" strokeDasharray="24 44" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <span className="flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
+      <span className="h-2 w-2 rounded-full bg-border" />
+    </span>
+  );
+}
+
+/**
+ * A CI-pipeline-style step list played once right before the real plan
+ * reveals — instant math given some visual weight, not an artificial delay.
+ * Advances on its own timers (`STAGE_STEP_MS` apart); calls `onDone` after a
+ * short hold on the fully-checked state.
+ */
+function PlanBuildSequence({ stages, onDone }: { stages: readonly string[]; onDone: () => void }) {
+  const [doneCount, setDoneCount] = useState(0);
+
+  useEffect(() => {
+    if (doneCount >= stages.length) {
+      const timer = setTimeout(onDone, STAGE_HOLD_MS);
+      return () => clearTimeout(timer);
+    }
+    const timer = setTimeout(() => setDoneCount((n) => n + 1), STAGE_STEP_MS);
+    return () => clearTimeout(timer);
+  }, [doneCount, stages.length, onDone]);
+
+  return (
+    <Card className="pr-enter" style={delay(60)}>
+      <CardTitle aside={<NoticeBadge>montando</NoticeBadge>}>Montando seu plano</CardTitle>
+      <ul className="flex flex-col gap-3">
+        {stages.map((label, index) => {
+          const state: StageState = index < doneCount ? "done" : index === doneCount ? "active" : "pending";
+          return (
+            <li key={label} className="flex items-center gap-3">
+              <StageIcon state={state} />
+              <span className={`text-sm ${state === "pending" ? "text-muted" : ""}`}>{label}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
+const noopSubscribe = () => () => {};
+
+function getPrefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Same `useSyncExternalStore` shape as `splash.tsx`'s `useShouldShowSplash`
+ * — a browser-only read decided once, without the hydration mismatch a
+ * plain `useState(getPrefersReducedMotion)` would risk.
+ */
+function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(noopSubscribe, getPrefersReducedMotion, () => false);
+}
+
 export default function PlanoPage() {
   const [profile] = useRunnerProfile();
   const [weeklyKm, setWeeklyKm] = useState<number | null>(null);
+  const [planRevealed, setPlanRevealed] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
+  const handleBuildSequenceDone = useCallback(() => setPlanRevealed(true), []);
 
   useEffect(() => {
     listCompletedRuns().then((runs) => setWeeklyKm(estimateWeeklyKm(runs)));
@@ -226,6 +334,24 @@ export default function PlanoPage() {
   }
 
   if (plan && currentWeek) {
+    if (!planRevealed && !reducedMotion) {
+      return (
+        <>
+          <ScreenHeader
+            title="Plano"
+            badge={<NoticeBadge>seu plano</NoticeBadge>}
+            subtitle="Montando sua semana a partir do seu histórico real."
+          />
+          <Screen>
+            <PlanBuildSequence
+              stages={plan.paceZones ? STAGES_WITH_PACE : STAGES_WITHOUT_PACE}
+              onDone={handleBuildSequenceDone}
+            />
+          </Screen>
+        </>
+      );
+    }
+
     const displaySessions = currentWeek.sessions.map((session, i) =>
       engineSessionToDisplay(session, DAY_NAMES[i]),
     );
