@@ -21,6 +21,7 @@ import {
   type RunTrack,
   type StoredPoint,
 } from "./storage";
+import { buildDistanceTimeSeries, ghostDeltaSeconds, type GhostSeriesPoint } from "./ghostRun";
 
 export type RunStatus = "idle" | "warming" | "tracking" | "paused" | "finished";
 export type GpsQuality = "searching" | "weak" | "good";
@@ -33,6 +34,8 @@ export interface RunGoal {
 export interface StartOptions {
   announceIntervalMeters?: number;
   goal?: RunGoal;
+  /** A previously completed run to race against, compared by distance vs elapsed time only. */
+  ghostRun?: CompletedRun;
 }
 
 export interface RunTrackerState {
@@ -46,6 +49,10 @@ export interface RunTrackerState {
   paceNeededSecPerKm: number | null;
   error: string | null;
   finishedRun: CompletedRun | null;
+  /** Positive = ahead of the ghost, negative = behind. See `ghostDeltaSeconds` for the convention. Null with no ghost, or past its max distance. */
+  ghostDeltaSeconds: number | null;
+  /** The delta at the moment the run was finished, kept alongside `finishedRun` for the summary — not persisted into the saved record. */
+  finishedGhostDeltaSeconds: number | null;
 }
 
 const PERSIST_INTERVAL_MS = 10_000;
@@ -67,6 +74,8 @@ export function useRunTracker() {
     paceNeededSecPerKm: null,
     error: null,
     finishedRun: null,
+    ghostDeltaSeconds: null,
+    finishedGhostDeltaSeconds: null,
   });
 
   const watchIdRef = useRef<number | null>(null);
@@ -93,6 +102,8 @@ export function useRunTracker() {
   const distanceRef = useRef(0);
   const pointsRef = useRef<StoredPoint[]>([]);
   const lastPersistRef = useRef(0);
+
+  const ghostSeriesRef = useRef<GhostSeriesPoint[] | null>(null);
 
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -261,12 +272,16 @@ export function useRunTracker() {
                   (remainingMeters !== null ? remainingMeters / 1000 : 1),
               )
             : null;
+        const ghostDelta = ghostSeriesRef.current
+          ? ghostDeltaSeconds(ghostSeriesRef.current, distanceRef.current, computeElapsedSeconds())
+          : null;
         return {
           ...s,
           distanceMeters: distanceRef.current,
           currentPaceSecPerKm,
           forecastSecondsRemaining,
           paceNeededSecPerKm,
+          ghostDeltaSeconds: ghostDelta,
         };
       });
     },
@@ -311,6 +326,7 @@ export function useRunTracker() {
       lastAnnounceDistanceRef.current = 0;
       lastAnnounceTimeRef.current = null;
       announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
+      ghostSeriesRef.current = options?.ghostRun ? buildDistanceTimeSeries(options.ghostRun) : null;
 
       void wakeLockRef.current.acquire();
       beginWatch();
@@ -326,6 +342,8 @@ export function useRunTracker() {
         paceNeededSecPerKm: null,
         error: null,
         finishedRun: null,
+        ghostDeltaSeconds: null,
+        finishedGhostDeltaSeconds: null,
       });
     },
     [beginWatch],
@@ -369,10 +387,19 @@ export function useRunTracker() {
       void saveCompletedRun(run);
       void clearActiveRun();
 
-      setState((s) => ({ ...s, status: "finished", finishedRun: run }));
+      const finishedGhostDelta = ghostSeriesRef.current
+        ? ghostDeltaSeconds(ghostSeriesRef.current, distanceRef.current, computeElapsedSeconds())
+        : null;
+
+      setState((s) => ({
+        ...s,
+        status: "finished",
+        finishedRun: run,
+        finishedGhostDeltaSeconds: finishedGhostDelta,
+      }));
       return run;
     },
-    [clearWatch, stopTicking],
+    [clearWatch, stopTicking, computeElapsedSeconds],
   );
 
   const reset = useCallback(() => {
@@ -387,6 +414,8 @@ export function useRunTracker() {
       paceNeededSecPerKm: null,
       error: null,
       finishedRun: null,
+      ghostDeltaSeconds: null,
+      finishedGhostDeltaSeconds: null,
     });
   }, []);
 

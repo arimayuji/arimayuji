@@ -4,13 +4,36 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { formatDistanceKm, formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
-import { listCompletedRuns, summarizeShoes } from "@/lib/tracking/storage";
+import { listCompletedRuns, summarizeShoes, type CompletedRun } from "@/lib/tracking/storage";
 import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useNowPlayingDuringRun } from "@/lib/spotify/useNowPlayingDuringRun";
 import { useSpotifyConnected } from "@/lib/spotify/useConnection";
 import { createPlaylistFromRun } from "@/lib/spotify/playlists";
 import { useImmersiveMode } from "../app-shell";
+import { NoticeBadge } from "../ui";
+
+const RECENT_GHOST_CANDIDATES = 6;
+
+function formatDeltaDuration(seconds: number): string {
+  const total = Math.round(Math.abs(seconds));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m > 0 ? `${m}min ${s.toString().padStart(2, "0")}s` : `${s}s`;
+}
+
+function GhostDeltaPill({ deltaSeconds }: { deltaSeconds: number }) {
+  const ahead = deltaSeconds >= 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+        ahead ? "border-good/40 bg-good/10 text-good" : "border-warn/40 bg-warn/10 text-warn"
+      }`}
+    >
+      {formatDeltaDuration(deltaSeconds)} {ahead ? "à frente do fantasma" : "atrás do fantasma"}
+    </span>
+  );
+}
 
 type SavePlaylistState =
   | { status: "idle" }
@@ -45,13 +68,32 @@ export default function RunPage() {
   const [goalMinutes, setGoalMinutes] = useState("");
   const [shoeName, setShoeName] = useState("");
   const [shoeSuggestions, setShoeSuggestions] = useState<string[]>([]);
+  const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
+  const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
+  /** The ghost actually used for the in-progress run, captured at start — kept separate from the
+   * picker above so a later change to `selectedGhostId` (e.g. after resetting for a new run)
+   * doesn't retroactively change what the finished summary says was raced against. */
+  const [activeGhost, setActiveGhost] = useState<CompletedRun | null>(null);
 
-  /** Previously used shoe names, for the datalist below — no separate "add a shoe" flow needed. */
+  /**
+   * Previously used shoe names for the datalist below, and the runner's most
+   * recent completed runs to offer as ghosts to race against — both derived
+   * from the same history fetch, no separate "add a shoe"/"pick a ghost" flow.
+   * Re-fetched every time the screen returns to `idle` (not just on mount) so
+   * a run just finished in this same session shows up as a ghost candidate
+   * for the next one, without needing a page reload.
+   */
   useEffect(() => {
+    if (state.status !== "idle") return;
     listCompletedRuns().then((runs) => {
       setShoeSuggestions(summarizeShoes(runs).map((s) => s.name));
+      setRecentRuns(
+        [...runs].sort((a, b) => b.startedAt - a.startedAt).slice(0, RECENT_GHOST_CANDIDATES),
+      );
     });
-  }, []);
+  }, [state.status]);
+
+  const selectedGhost = recentRuns.find((r) => r.id === selectedGhostId) ?? null;
 
   /**
    * The announcement interval comes from the preference set on /perfil, and
@@ -106,10 +148,18 @@ export default function RunPage() {
     setSavePlaylistState({ status: "idle" });
     const distanceMeters = goalKm ? Number(goalKm) * 1000 : undefined;
     const durationSeconds = goalMinutes ? Number(goalMinutes) * 60 : undefined;
+    setActiveGhost(selectedGhost);
     start({
       announceIntervalMeters: announceMeters,
       goal: distanceMeters ? { distanceMeters, durationSeconds } : undefined,
+      ghostRun: selectedGhost ?? undefined,
     });
+  };
+
+  const handleReset = () => {
+    setSelectedGhostId(null);
+    setActiveGhost(null);
+    reset();
   };
 
   return (
@@ -197,6 +247,43 @@ export default function RunPage() {
               </datalist>
             </label>
 
+            {recentRuns.length > 0 && (
+              <div className="block space-y-1.5">
+                <span className="text-sm font-medium">Corrida fantasma (opcional)</span>
+                <p className="text-xs text-muted">
+                  Compara o tempo até a mesma distância percorrida, não o trajeto.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGhostId(null)}
+                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                      selectedGhostId === null
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border bg-surface text-foreground hover:border-accent"
+                    }`}
+                  >
+                    Sem fantasma
+                  </button>
+                  {recentRuns.map((run) => (
+                    <button
+                      key={run.id}
+                      type="button"
+                      onClick={() => setSelectedGhostId(run.id)}
+                      className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                        selectedGhostId === run.id
+                          ? "border-accent bg-accent text-accent-foreground"
+                          : "border-border bg-surface text-foreground hover:border-accent"
+                      }`}
+                    >
+                      {formatDistanceKm(run.distanceMeters)} km ·{" "}
+                      {new Date(run.startedAt).toLocaleDateString("pt-BR")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleStart}
@@ -217,7 +304,7 @@ export default function RunPage() {
           <p className="max-w-xs text-sm text-muted">
             Fique a céu aberto. O cronômetro começa assim que o sinal ficar estável.
           </p>
-          <button type="button" onClick={reset} className="mt-4 text-sm text-muted underline">
+          <button type="button" onClick={handleReset} className="mt-4 text-sm text-muted underline">
             Cancelar
           </button>
         </main>
@@ -230,6 +317,11 @@ export default function RunPage() {
               {formatPace(state.currentPaceSecPerKm)}
             </span>
             <span className="text-sm text-muted">min/km</span>
+            {state.ghostDeltaSeconds !== null && (
+              <div className="mt-2">
+                <GhostDeltaPill deltaSeconds={state.ghostDeltaSeconds} />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 py-6">
@@ -326,6 +418,36 @@ export default function RunPage() {
               <p className="mt-1 text-sm font-medium">{state.finishedRun.shoeName}</p>
             </div>
           )}
+
+          {activeGhost && (
+            <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs uppercase tracking-wide text-muted">Fantasma</span>
+                <NoticeBadge>não salvo</NoticeBadge>
+              </div>
+              {state.finishedGhostDeltaSeconds !== null ? (
+                <p
+                  className={`mt-1 text-sm font-medium ${
+                    state.finishedGhostDeltaSeconds >= 0 ? "text-good" : "text-warn"
+                  }`}
+                >
+                  {state.finishedGhostDeltaSeconds >= 0
+                    ? `Você bateu o fantasma por ${formatDeltaDuration(state.finishedGhostDeltaSeconds)}.`
+                    : `Você ficou ${formatDeltaDuration(state.finishedGhostDeltaSeconds)} atrás do fantasma.`}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-muted">
+                  Você passou dos {formatDistanceKm(activeGhost.distanceMeters)} km que o fantasma
+                  percorreu, então não dá pra comparar depois disso.
+                </p>
+              )}
+              <p className="mt-1 text-xs text-muted">
+                Comparado pela distância percorrida em relação à corrida de{" "}
+                {new Date(activeGhost.startedAt).toLocaleDateString("pt-BR")}, não pelo mesmo
+                trajeto.
+              </p>
+            </div>
+          )}
           {state.finishedRun.tracks && state.finishedRun.tracks.length > 0 && (
             <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
               <span className="text-xs uppercase tracking-wide text-muted">
@@ -382,7 +504,7 @@ export default function RunPage() {
           </p>
           <button
             type="button"
-            onClick={reset}
+            onClick={handleReset}
             className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
           >
             Nova corrida
