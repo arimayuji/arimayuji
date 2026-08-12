@@ -31,20 +31,42 @@ export interface CompletedRun {
   points: StoredPoint[];
   tracks?: RunTrack[];
   /**
-   * Which shoe this run was logged under, by name. Deliberately just a
-   * string, not a reference to a separate "shoe" catalog entity: there's no
-   * rename/delete flow to keep in sync, and the per-shoe mileage view is
-   * just a group-by over this field — no catalog to manage means no catalog
-   * to get out of sync.
+   * Which shoe this run was logged under, by name. Still deliberately just a
+   * string even though a `Shoe` catalog now exists: no foreign key, so
+   * renaming or deleting a registered shoe never has to rewrite history, and
+   * a shoe typed on /run that was never registered still counts. The
+   * per-shoe mileage view stays a group-by over this field.
    */
   shoeName?: string;
 }
 
+/**
+ * The registered shoes the athlete owns. Separate from `CompletedRun.shoeName`
+ * on purpose: a run keeps carrying the shoe's name as a plain string, matched
+ * against this catalog by name where needed, so registering, renaming or
+ * deleting a shoe never has to rewrite run history.
+ */
+export interface Shoe {
+  id: string;
+  brand: string;
+  name: string;
+  /** Hex color, e.g. "#2f6fed" — feeds a separate not-yet-built 3D tint feature. */
+  color: string;
+  /** Data URL (not an object URL — this must survive a reload), personal reference only. */
+  photoDataUrl?: string;
+  createdAt: number;
+}
+
 const DB_NAME = "xanthus";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const ACTIVE_STORE = "activeRun";
 const RUNS_STORE = "runs";
+const SHOES_STORE = "shoes";
 const ACTIVE_KEY = "current";
+
+function newShoeId(): string {
+  return `shoe_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -56,6 +78,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(RUNS_STORE)) {
         db.createObjectStore(RUNS_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(SHOES_STORE)) {
+        db.createObjectStore(SHOES_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -124,6 +149,30 @@ export async function updateRunTracks(runId: string, tracks: RunTrack[]): Promis
   if (!run) return;
   run.tracks = tracks;
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
+}
+
+export async function createShoe(shoe: Omit<Shoe, "id" | "createdAt">): Promise<Shoe> {
+  const record: Shoe = { ...shoe, id: newShoeId(), createdAt: Date.now() };
+  if (typeof indexedDB === "undefined") return record;
+  await withStore(SHOES_STORE, "readwrite", (store) => store.put(record));
+  return record;
+}
+
+export async function updateShoe(shoe: Shoe): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  await withStore(SHOES_STORE, "readwrite", (store) => store.put(shoe));
+}
+
+export async function deleteShoe(id: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  await withStore(SHOES_STORE, "readwrite", (store) => store.delete(id));
+}
+
+/** Registered shoes, oldest first — the order they were added in. */
+export async function listShoes(): Promise<Shoe[]> {
+  if (typeof indexedDB === "undefined") return [];
+  const shoes = await withStore<Shoe[]>(SHOES_STORE, "readonly", (store) => store.getAll());
+  return shoes.sort((a, b) => a.createdAt - b.createdAt);
 }
 
 export interface ShoeSummary {

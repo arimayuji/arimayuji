@@ -6,6 +6,7 @@ import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { formatDistanceKm, formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
 import {
   listCompletedRuns,
+  listShoes,
   summarizeShoes,
   updateRunTracks,
   type CompletedRun,
@@ -83,17 +84,19 @@ export default function RunPage() {
   const [activeGhost, setActiveGhost] = useState<CompletedRun | null>(null);
 
   /**
-   * Previously used shoe names for the datalist below, and the runner's most
-   * recent completed runs to offer as ghosts to race against — both derived
-   * from the same history fetch, no separate "add a shoe"/"pick a ghost" flow.
-   * Re-fetched every time the screen returns to `idle` (not just on mount) so
-   * a run just finished in this same session shows up as a ghost candidate
-   * for the next one, without needing a page reload.
+   * Shoe names for the datalist below, and the runner's most recent completed
+   * runs to offer as ghosts to race against. Suggestions lead with the shoes
+   * registered on /perfil — one registered today with zero runs still needs
+   * to autocomplete — and history fills in names typed here before the
+   * catalog existed. Re-fetched every time the screen returns to `idle` (not
+   * just on mount) so a run just finished in this same session shows up as a
+   * ghost candidate for the next one, without needing a page reload.
    */
   useEffect(() => {
     if (state.status !== "idle") return;
-    listCompletedRuns().then((runs) => {
-      setShoeSuggestions(summarizeShoes(runs).map((s) => s.name));
+    Promise.all([listShoes(), listCompletedRuns()]).then(([shoes, runs]) => {
+      const used = summarizeShoes(runs).map((s) => s.name);
+      setShoeSuggestions([...new Set([...shoes.map((s) => s.name), ...used])]);
       setRecentRuns(
         [...runs].sort((a, b) => b.startedAt - a.startedAt).slice(0, RECENT_GHOST_CANDIDATES),
       );
