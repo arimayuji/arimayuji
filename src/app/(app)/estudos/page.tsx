@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
 import { EvidenceFactRow } from "../evidence-row";
+import { TopicIcon } from "../topic-icons";
 import {
   DECISION_TOPICS_IN_DISPLAY_ORDER,
   EVIDENCE_FACTS,
@@ -43,6 +44,9 @@ export default function EstudosPage() {
           if (facts.length === 0) return null;
           return (
             <Card key={topic} className="pr-enter" style={delay(80 + index * 25)}>
+              <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-accent">
+                <TopicIcon topic={topic} />
+              </span>
               <CardTitle aside={<NoticeBadge>{facts.length}</NoticeBadge>}>
                 {topicLabel(topic)}
               </CardTitle>
