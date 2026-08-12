@@ -59,8 +59,12 @@ export function Splash() {
     <div
       role="presentation"
       onClick={dismiss}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background"
+      className="fixed inset-0 z-50 bg-white"
     >
+      {/* The source clip renders on a white ground (no alpha channel), so
+          the overlay stays a fixed white rather than this app's theme
+          background — on dark mode a themed backdrop would frame the video
+          in a stark rectangle instead of the clip filling the screen. */}
       <video
         src="/xanthus-splash.mp4"
         autoPlay
@@ -68,9 +72,9 @@ export function Splash() {
         playsInline
         onEnded={dismiss}
         onError={dismiss}
-        className="h-auto max-h-[55vh] w-auto max-w-[80vw]"
+        className="h-full w-full object-cover"
       />
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+      <p className="absolute inset-x-0 bottom-10 text-center font-mono text-[11px] uppercase tracking-[0.22em] text-black/40">
         toque para continuar
       </p>
     </div>
