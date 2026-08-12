@@ -11,6 +11,7 @@ import {
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
 import { GoalDatePicker } from "../date-picker";
 import { ShareCardTeaser } from "../share-card";
@@ -533,6 +534,8 @@ export default function PerfilPage() {
       />
 
       <Screen>
+        <AccountCard />
+
         <Card className="pr-enter" style={delay(60)}>
           <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
             Preferências de corrida
