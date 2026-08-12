@@ -13,6 +13,21 @@ const STRENGTH_COLOR: Record<EvidenceStrength, string> = {
   mito: "text-warn",
 };
 
+/** `**...**` marks the number/figure inside a bullet — same lightweight convention as the facts themselves, parsed here into an accent-colored `<strong>` instead of pulled in from a markdown renderer for two asterisks. */
+function renderBullet(text: string) {
+  return text
+    .split(/\*\*(.+?)\*\*/g)
+    .map((part, i) =>
+      i % 2 === 1 ? (
+        <strong key={i} className="font-semibold text-accent">
+          {part}
+        </strong>
+      ) : (
+        part
+      ),
+    );
+}
+
 export function EvidenceFactRow({ fact }: { fact: EvidenceFact }) {
   return (
     <li className="border-t border-border pt-3 first:border-t-0 first:pt-0">
@@ -25,7 +40,7 @@ export function EvidenceFactRow({ fact }: { fact: EvidenceFact }) {
         {fact.bullets.map((bullet) => (
           <li key={bullet} className="flex gap-1.5 text-sm leading-snug text-pretty">
             <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-current opacity-40" aria-hidden="true" />
-            {bullet}
+            {renderBullet(bullet)}
           </li>
         ))}
       </ul>
