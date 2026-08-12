@@ -182,49 +182,6 @@ body {
   }
 }
 
-/*
- * Running figure: each limb is one rigid stroke pivoting from its joint, not
- * a two-segment IK chain — at the size this renders (a small waiting-state
- * icon) a bent knee reads the same as a straight one, so the simpler rig is
- * the whole budget, not a corner cut. Legs and arms share one pair of
- * keyframes each; the opposite limb on each pair reuses the same animation
- * with a negative half-period delay instead of a mirrored keyframe, so the
- * four limbs stay perfectly out of phase with each other with no duplicated
- * numbers to drift apart.
- */
-@keyframes pr-run-leg {
-  0%,
-  100% {
-    transform: rotate(-30deg);
-  }
-  50% {
-    transform: rotate(30deg);
-  }
-}
-
-@keyframes pr-run-arm {
-  0%,
-  100% {
-    transform: rotate(28deg);
-  }
-  50% {
-    transform: rotate(-28deg);
-  }
-}
-
-/* Two peaks per stride — one per foot-strike — so it lands twice per leg's full swing. */
-@keyframes pr-run-bob {
-  0%,
-  50%,
-  100% {
-    transform: translateY(0);
-  }
-  25%,
-  75% {
-    transform: translateY(-2.4px);
-  }
-}
-
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
@@ -309,28 +266,5 @@ body {
 
   .pr-tumble-x {
     animation: pr-tumble-x 6.5s ease-in-out infinite;
-  }
-
-  /* Reduced motion keeps each limb's inline resting angle, mid-stride. */
-  .pr-run-bob {
-    animation: pr-run-bob 0.7s ease-in-out infinite;
-  }
-
-  .pr-run-leg-a {
-    animation: pr-run-leg 0.7s ease-in-out infinite;
-  }
-
-  .pr-run-leg-b {
-    animation: pr-run-leg 0.7s ease-in-out infinite;
-    animation-delay: -0.35s;
-  }
-
-  .pr-run-arm-a {
-    animation: pr-run-arm 0.7s ease-in-out infinite;
-    animation-delay: -0.35s;
-  }
-
-  .pr-run-arm-b {
-    animation: pr-run-arm 0.7s ease-in-out infinite;
   }
 }

@@ -13,7 +13,6 @@ import {
   type RunTrack,
 } from "@/lib/tracking/storage";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
-import { RunningFigure } from "../running-figure";
 import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useNowPlayingDuringRun } from "@/lib/spotify/useNowPlayingDuringRun";
@@ -375,9 +374,22 @@ export default function RunPage() {
 
       {state.status === "warming" && (
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <div className="flex items-end gap-4 text-accent">
-            <RunningFigure variant="woman" />
-            <RunningFigure variant="man" />
+          <div className="overflow-hidden rounded-2xl bg-white p-1 shadow-sm">
+            {/*
+             * Fixed light chip, not `bg-surface` — the clip's own background
+             * is a near-white off-white (#fbfbfb), and that token flips dark
+             * in dark mode. A themed background would put a stark white
+             * rectangle in the middle of a dark screen; a fixed one reads as
+             * a deliberate framed sticker either way.
+             */}
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="block h-28 w-28 rounded-xl"
+              src="/running-loop.mp4"
+            />
           </div>
           <p className="text-lg font-medium">Procurando GPS&hellip;</p>
           <p className="max-w-xs text-sm text-muted">
