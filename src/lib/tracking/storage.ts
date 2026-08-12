@@ -19,6 +19,8 @@ export interface RunTrack {
   playedAt: number;
   /** Spotify track URI (`spotify:track:XXXXX`), when known — lets the run's tracks become a real playlist. */
   uri?: string;
+  /** Cover art URL, from either Spotify's API or the iTunes lookup fallback — either source, display treats it the same. */
+  artworkUrl?: string;
 }
 
 export interface CompletedRun {
@@ -105,6 +107,23 @@ export async function saveCompletedRun(run: CompletedRun): Promise<void> {
 export async function listCompletedRuns(): Promise<CompletedRun[]> {
   if (typeof indexedDB === "undefined") return [];
   return withStore(RUNS_STORE, "readonly", (store) => store.getAll());
+}
+
+/**
+ * Persists a new set of tracks onto an already-saved run — used by the
+ * finished-run screen to add manually-entered tracks after `finish()` has
+ * already written the record, since `finish()` only knows about
+ * Spotify-auto-captured tracks at that point. No-ops if the run can't be
+ * found, which shouldn't normally happen.
+ */
+export async function updateRunTracks(runId: string, tracks: RunTrack[]): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const run = await withStore<CompletedRun | undefined>(RUNS_STORE, "readonly", (store) =>
+    store.get(runId),
+  );
+  if (!run) return;
+  run.tracks = tracks;
+  await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
 }
 
 export interface ShoeSummary {

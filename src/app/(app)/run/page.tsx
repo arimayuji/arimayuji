@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { formatDistanceKm, formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
-import { listCompletedRuns, summarizeShoes, type CompletedRun } from "@/lib/tracking/storage";
+import {
+  listCompletedRuns,
+  summarizeShoes,
+  updateRunTracks,
+  type CompletedRun,
+  type RunTrack,
+} from "@/lib/tracking/storage";
+import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useNowPlayingDuringRun } from "@/lib/spotify/useNowPlayingDuringRun";
@@ -126,6 +133,49 @@ export default function RunPage() {
   const spotifyConnected = useSpotifyConnected();
   const [savePlaylistState, setSavePlaylistState] = useState<SavePlaylistState>({ status: "idle" });
 
+  /**
+   * Tracks added through the manual iTunes-lookup form, kept apart from
+   * `state.finishedRun.tracks` (Spotify-only, owned by the tracker hook) and
+   * merged with it only for display/persistence — this is what lets the
+   * "Trilha sonora" list update immediately without waiting on a reload.
+   */
+  const [manualTracks, setManualTracks] = useState<RunTrack[]>([]);
+  const [musicQuery, setMusicQuery] = useState("");
+  const [musicResults, setMusicResults] = useState<TrackCandidate[] | null>(null);
+  const [musicSearching, setMusicSearching] = useState(false);
+
+  const displayedTracks = [...(state.finishedRun?.tracks ?? []), ...manualTracks];
+
+  const handleMusicSearch = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!musicQuery.trim()) return;
+    setMusicSearching(true);
+    const results = await searchTracks(musicQuery);
+    setMusicResults(results);
+    setMusicSearching(false);
+  };
+
+  const handleAddManualTrack = useCallback(
+    async (candidate: TrackCandidate) => {
+      if (!state.finishedRun) return;
+      const newTrack: RunTrack = {
+        name: candidate.name,
+        artist: candidate.artist,
+        playedAt: Date.now(),
+        artworkUrl: candidate.artworkUrl || undefined,
+      };
+      const nextManualTracks = [...manualTracks, newTrack];
+      setManualTracks(nextManualTracks);
+      setMusicQuery("");
+      setMusicResults(null);
+      await updateRunTracks(state.finishedRun.id, [
+        ...(state.finishedRun.tracks ?? []),
+        ...nextManualTracks,
+      ]);
+    },
+    [state.finishedRun, manualTracks],
+  );
+
   const handleSavePlaylist = async () => {
     if (!state.finishedRun) return;
     const uris = (state.finishedRun.tracks ?? []).map((t) => t.uri).filter(Boolean);
@@ -146,6 +196,9 @@ export default function RunPage() {
   const handleStart = () => {
     resetSpotifyTracks();
     setSavePlaylistState({ status: "idle" });
+    setManualTracks([]);
+    setMusicQuery("");
+    setMusicResults(null);
     const distanceMeters = goalKm ? Number(goalKm) * 1000 : undefined;
     const durationSeconds = goalMinutes ? Number(goalMinutes) * 60 : undefined;
     setActiveGhost(selectedGhost);
@@ -159,6 +212,9 @@ export default function RunPage() {
   const handleReset = () => {
     setSelectedGhostId(null);
     setActiveGhost(null);
+    setManualTracks([]);
+    setMusicQuery("");
+    setMusicResults(null);
     reset();
   };
 
@@ -448,51 +504,112 @@ export default function RunPage() {
               </p>
             </div>
           )}
-          {state.finishedRun.tracks && state.finishedRun.tracks.length > 0 && (
-            <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
-              <span className="text-xs uppercase tracking-wide text-muted">
-                Trilha sonora da corrida
-              </span>
-              <ul className="mt-2 flex flex-col gap-1.5">
-                {state.finishedRun.tracks.map((track, i) => (
-                  <li key={i} className="truncate text-sm">
-                    {track.name} <span className="text-muted">— {track.artist}</span>
+          <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
+            <span className="text-xs uppercase tracking-wide text-muted">
+              Trilha sonora da corrida
+            </span>
+
+            {displayedTracks.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-2">
+                {displayedTracks.map((track, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm">
+                    {track.artworkUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={track.artworkUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                      />
+                    )}
+                    <span className="truncate">
+                      {track.name} <span className="text-muted">— {track.artist}</span>
+                    </span>
                   </li>
                 ))}
               </ul>
+            )}
 
-              {spotifyConnected && state.finishedRun.tracks.some((t) => t.uri) && (
-                <div className="mt-3 border-t border-border pt-3">
-                  {savePlaylistState.status === "success" ? (
-                    <a
-                      href={savePlaylistState.playlistUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block w-full rounded-full border border-accent px-4 py-2.5 text-center text-sm font-semibold text-accent hover:opacity-90"
-                    >
-                      Abrir playlist no Spotify
-                    </a>
-                  ) : (
+            {spotifyConnected && displayedTracks.some((t) => t.uri) && (
+              <div className="mt-3 border-t border-border pt-3">
+                {savePlaylistState.status === "success" ? (
+                  <a
+                    href={savePlaylistState.playlistUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block w-full rounded-full border border-accent px-4 py-2.5 text-center text-sm font-semibold text-accent hover:opacity-90"
+                  >
+                    Abrir playlist no Spotify
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSavePlaylist}
+                    disabled={savePlaylistState.status === "loading"}
+                    className="w-full rounded-full border border-border px-4 py-2.5 text-sm font-semibold hover:border-accent disabled:opacity-60"
+                  >
+                    {savePlaylistState.status === "loading"
+                      ? "Salvando playlist…"
+                      : "Salvar playlist da corrida"}
+                  </button>
+                )}
+                {savePlaylistState.status === "error" && (
+                  <p className="mt-2 text-xs text-bad">
+                    Não deu pra salvar a playlist agora. Tenta de novo mais tarde.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <form
+              onSubmit={handleMusicSearch}
+              className="mt-3 flex gap-2 border-t border-border pt-3"
+            >
+              <input
+                type="text"
+                value={musicQuery}
+                onChange={(e) => setMusicQuery(e.target.value)}
+                placeholder="nome da música ou artista"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+              <button
+                type="submit"
+                disabled={musicSearching || !musicQuery.trim()}
+                className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent disabled:opacity-60"
+              >
+                {musicSearching ? "Buscando…" : "Buscar"}
+              </button>
+            </form>
+
+            {musicResults !== null && musicResults.length === 0 && (
+              <p className="mt-2 text-xs text-muted">Nada encontrado.</p>
+            )}
+
+            {musicResults !== null && musicResults.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1">
+                {musicResults.map((candidate, i) => (
+                  <li key={i}>
                     <button
                       type="button"
-                      onClick={handleSavePlaylist}
-                      disabled={savePlaylistState.status === "loading"}
-                      className="w-full rounded-full border border-border px-4 py-2.5 text-sm font-semibold hover:border-accent disabled:opacity-60"
+                      onClick={() => handleAddManualTrack(candidate)}
+                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-sm hover:bg-background"
                     >
-                      {savePlaylistState.status === "loading"
-                        ? "Salvando playlist…"
-                        : "Salvar playlist da corrida"}
+                      {candidate.artworkUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={candidate.artworkUrl}
+                          alt=""
+                          className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        />
+                      )}
+                      <span className="truncate">
+                        {candidate.name} <span className="text-muted">— {candidate.artist}</span>
+                      </span>
                     </button>
-                  )}
-                  {savePlaylistState.status === "error" && (
-                    <p className="mt-2 text-xs text-bad">
-                      Não deu pra salvar a playlist agora. Tenta de novo mais tarde.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <p className="max-w-xs text-xs leading-relaxed text-muted">
             O card animado pra compartilhar essa corrida chega depois que o pipeline de tracking
