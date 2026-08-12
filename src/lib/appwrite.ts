@@ -20,7 +20,10 @@ import { Account, Client, TablesDB, Teams } from "appwrite";
 const ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
 
-export const APPWRITE_DATABASE_ID = "xanthus";
+// Appwrite Cloud's free plan pre-provisions exactly one database per
+// project and doesn't allow creating a second — this is that one
+// ("Xanthus DB"), not an ID we chose ourselves.
+export const APPWRITE_DATABASE_ID = "6a7cd61a00290490a79d";
 
 /** Appwrite's current terminology is Tables/Rows/Columns (the older Collections/Documents/Attributes API still exists but is deprecated) — these are table IDs. */
 export const TABLES = {

@@ -54,7 +54,10 @@ if (!ENDPOINT || !PROJECT_ID || !API_KEY) {
 const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const tablesDB = new TablesDB(client);
 
-const DATABASE_ID = "xanthus";
+// Appwrite Cloud's free plan pre-provisions exactly one database per
+// project and doesn't allow creating a second — use the one that's
+// already there ("Xanthus DB") instead of trying to create "xanthus".
+const DATABASE_ID = "6a7cd61a00290490a79d";
 
 /** Swallows "already exists" so the script is safe to run again after adding something new. */
 async function ensure<T>(label: string, fn: () => Promise<T>): Promise<void> {
@@ -83,8 +86,7 @@ async function waitForColumn(tableId: string, key: string): Promise<void> {
 }
 
 async function main() {
-  console.log(`Provisioning database "${DATABASE_ID}"...`);
-  await ensure("database xanthus", () => tablesDB.create({ databaseId: DATABASE_ID, name: "Xanthus" }));
+  console.log(`Using existing database "${DATABASE_ID}" (Appwrite Cloud's free plan caps at one per project)...`);
 
   // ---------------------------------------------------------------- profiles
   console.log("\nprofiles");
@@ -143,6 +145,9 @@ async function main() {
   await ensure("friendships.addresseeId", () =>
     tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "friendships", key: "addresseeId", size: 36, required: true }),
   );
+  // Appwrite rejects a default value on a *required* column outright — the
+  // app must always pass `status: "pending"` explicitly when it creates a
+  // friendship, rather than relying on the database to fill it in.
   await ensure("friendships.status", () =>
     tablesDB.createEnumColumn({
       databaseId: DATABASE_ID,
@@ -150,7 +155,6 @@ async function main() {
       key: "status",
       elements: ["pending", "accepted"],
       required: true,
-      xdefault: "pending",
     }),
   );
   // No generated/computed columns in Appwrite (unlike the Postgres version
@@ -201,7 +205,6 @@ async function main() {
       key: "status",
       elements: ["pending", "accepted"],
       required: true,
-      xdefault: "pending",
     }),
   );
   await ensure("coach_relationships.respondedAt", () =>
@@ -247,6 +250,10 @@ async function main() {
   await ensure("place_ratings.note", () =>
     tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "place_ratings", key: "note", size: 500, required: false }),
   );
+  // Defaults public conceptually (an anonymous safety tip about a park is
+  // only useful if strangers can see it) — but same Appwrite constraint as
+  // above, so the app must pass `visibility: "public"` explicitly rather
+  // than omitting it and relying on a column default.
   await ensure("place_ratings.visibility", () =>
     tablesDB.createEnumColumn({
       databaseId: DATABASE_ID,
@@ -254,7 +261,6 @@ async function main() {
       key: "visibility",
       elements: ["public", "friends", "private"],
       required: true,
-      xdefault: "public",
     }),
   );
   await waitForColumn("place_ratings", "placeId");
@@ -306,6 +312,8 @@ async function main() {
   await ensure("runs.shoeName", () =>
     tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "shoeName", size: 100, required: false }),
   );
+  // Defaults private conceptually — same Appwrite constraint as above, the
+  // app must pass `visibility: "private"` explicitly rather than omitting it.
   await ensure("runs.visibility", () =>
     tablesDB.createEnumColumn({
       databaseId: DATABASE_ID,
@@ -313,7 +321,6 @@ async function main() {
       key: "visibility",
       elements: ["public", "friends", "private"],
       required: true,
-      xdefault: "private",
     }),
   );
 
