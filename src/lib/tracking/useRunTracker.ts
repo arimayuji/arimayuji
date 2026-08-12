@@ -352,7 +352,7 @@ export function useRunTracker() {
   }, [beginWatch, startTicking]);
 
   const finish = useCallback(
-    (extra?: { tracks?: RunTrack[] }) => {
+    (extra?: { tracks?: RunTrack[]; shoeName?: string }) => {
       clearWatch();
       stopTicking();
       void wakeLockRef.current.release();
@@ -364,6 +364,7 @@ export function useRunTracker() {
         distanceMeters: distanceRef.current,
         points: pointsRef.current,
         ...(extra?.tracks?.length ? { tracks: extra.tracks } : {}),
+        ...(extra?.shoeName?.trim() ? { shoeName: extra.shoeName.trim() } : {}),
       };
       void saveCompletedRun(run);
       void clearActiveRun();

@@ -26,6 +26,14 @@ export interface CompletedRun {
   distanceMeters: number;
   points: StoredPoint[];
   tracks?: RunTrack[];
+  /**
+   * Which shoe this run was logged under, by name. Deliberately just a
+   * string, not a reference to a separate "shoe" catalog entity: there's no
+   * rename/delete flow to keep in sync, and the per-shoe mileage view is
+   * just a group-by over this field — no catalog to manage means no catalog
+   * to get out of sync.
+   */
+  shoeName?: string;
 }
 
 const DB_NAME = "pegasus-run";
@@ -95,4 +103,33 @@ export async function saveCompletedRun(run: CompletedRun): Promise<void> {
 export async function listCompletedRuns(): Promise<CompletedRun[]> {
   if (typeof indexedDB === "undefined") return [];
   return withStore(RUNS_STORE, "readonly", (store) => store.getAll());
+}
+
+export interface ShoeSummary {
+  name: string;
+  totalMeters: number;
+  runCount: number;
+  lastUsedAt: number;
+}
+
+/** Distinct shoe names used across `runs`, each with total distance — sorted heaviest-used first. */
+export function summarizeShoes(runs: CompletedRun[]): ShoeSummary[] {
+  const byName = new Map<string, ShoeSummary>();
+  for (const run of runs) {
+    if (!run.shoeName) continue;
+    const existing = byName.get(run.shoeName);
+    if (existing) {
+      existing.totalMeters += run.distanceMeters;
+      existing.runCount += 1;
+      existing.lastUsedAt = Math.max(existing.lastUsedAt, run.startedAt);
+    } else {
+      byName.set(run.shoeName, {
+        name: run.shoeName,
+        totalMeters: run.distanceMeters,
+        runCount: 1,
+        lastUsedAt: run.startedAt,
+      });
+    }
+  }
+  return [...byName.values()].sort((a, b) => b.totalMeters - a.totalMeters);
 }

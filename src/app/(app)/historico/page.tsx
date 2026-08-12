@@ -211,6 +211,12 @@ function RunRow({ run, unit, index }: { run: CompletedRun; unit: DistanceUnit; i
               </dd>
             </div>
           </dl>
+          {run.shoeName && (
+            <p className="mt-1.5 truncate font-mono text-xs text-muted">
+              <span className="text-[10px] uppercase tracking-wide">tênis</span>{" "}
+              <span className="text-foreground">{run.shoeName}</span>
+            </p>
+          )}
         </div>
       </article>
     </li>

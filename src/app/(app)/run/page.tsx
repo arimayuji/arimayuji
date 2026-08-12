@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { formatDistanceKm, formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
+import { listCompletedRuns, summarizeShoes } from "@/lib/tracking/storage";
 import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useNowPlayingDuringRun } from "@/lib/spotify/useNowPlayingDuringRun";
@@ -34,6 +35,15 @@ export default function RunPage() {
   const { state, start, pause, resume, finish, reset } = useRunTracker();
   const [goalKm, setGoalKm] = useState("5");
   const [goalMinutes, setGoalMinutes] = useState("");
+  const [shoeName, setShoeName] = useState("");
+  const [shoeSuggestions, setShoeSuggestions] = useState<string[]>([]);
+
+  /** Previously used shoe names, for the datalist below — no separate "add a shoe" flow needed. */
+  useEffect(() => {
+    listCompletedRuns().then((runs) => {
+      setShoeSuggestions(summarizeShoes(runs).map((s) => s.name));
+    });
+  }, []);
 
   /**
    * The announcement interval comes from the preference set on /perfil, and
@@ -139,6 +149,23 @@ export default function RunPage() {
               </div>
             </label>
 
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium">Tênis (opcional)</span>
+              <input
+                type="text"
+                list="shoe-suggestions"
+                value={shoeName}
+                onChange={(e) => setShoeName(e.target.value)}
+                placeholder="Ex.: Meu xodó"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-accent"
+              />
+              <datalist id="shoe-suggestions">
+                {shoeSuggestions.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </label>
+
             <button
               type="button"
               onClick={handleStart}
@@ -223,7 +250,7 @@ export default function RunPage() {
             )}
             <button
               type="button"
-              onClick={() => finish({ tracks: spotifyTracks })}
+              onClick={() => finish({ tracks: spotifyTracks, shoeName })}
               className="flex-1 rounded-full bg-bad py-4 text-base font-semibold text-white hover:opacity-90"
             >
               Finalizar
@@ -262,6 +289,12 @@ export default function RunPage() {
               </p>
             </div>
           </div>
+          {state.finishedRun.shoeName && (
+            <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
+              <span className="text-xs uppercase tracking-wide text-muted">Tênis</span>
+              <p className="mt-1 text-sm font-medium">{state.finishedRun.shoeName}</p>
+            </div>
+          )}
           {state.finishedRun.tracks && state.finishedRun.tracks.length > 0 && (
             <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
               <span className="text-xs uppercase tracking-wide text-muted">
