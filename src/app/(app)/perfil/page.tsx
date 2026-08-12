@@ -10,7 +10,8 @@ import {
   type DistanceUnit,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
-import { Card, CardTitle, delay, NoticeBadge, RANGE_INPUT_CLASS, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { PillSlider } from "../pill-slider";
 import { GoalDatePicker } from "../date-picker";
 import { ShareCardTeaser } from "../share-card";
 import {
@@ -542,21 +543,16 @@ export default function PerfilPage() {
             <p className="mt-1 text-xs leading-relaxed text-muted">
               Valor inicial da tela de corrida. Dá pra mudar antes de cada treino.
             </p>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="font-mono text-2xl font-semibold tabular-nums text-accent">
-                {announceLabel(prefs.announceIntervalMeters)}
-              </span>
-            </div>
-            <input
-              type="range"
+            <PillSlider
+              className="mt-4"
               min={ANNOUNCE_MIN_METERS}
               max={ANNOUNCE_MAX_METERS}
               step={ANNOUNCE_STEP_METERS}
               value={prefs.announceIntervalMeters}
-              onChange={(e) => update({ announceIntervalMeters: Number(e.target.value) })}
-              className={`mt-1 ${RANGE_INPUT_CLASS}`}
+              onChange={(meters) => update({ announceIntervalMeters: meters })}
+              formatValue={announceLabel}
             />
-            <div className="mt-1 flex justify-between font-mono text-[10px] text-muted">
+            <div className="mt-1.5 flex justify-between font-mono text-[10px] text-muted">
               <span>{announceLabel(ANNOUNCE_MIN_METERS)}</span>
               <span>{announceLabel(ANNOUNCE_MAX_METERS)}</span>
             </div>

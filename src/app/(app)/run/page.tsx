@@ -21,7 +21,8 @@ import {
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useImmersiveMode } from "../app-shell";
-import { NoticeBadge, RANGE_INPUT_CLASS } from "../ui";
+import { NoticeBadge } from "../ui";
+import { PillSlider } from "../pill-slider";
 
 const RECENT_GHOST_CANDIDATES = 6;
 
@@ -233,25 +234,18 @@ export default function RunPage() {
               />
             </label>
 
-            <label className="block space-y-1.5">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-medium">Aviso por voz a cada</span>
-                <span className="font-mono text-sm font-semibold tabular-nums text-accent">
-                  {announceLabel(announceMeters)}
-                </span>
-              </div>
-              <input
-                type="range"
+            <div className="space-y-1.5">
+              <span className="text-sm font-medium">Aviso por voz a cada</span>
+              <PillSlider
+                className="mt-2"
                 min={ANNOUNCE_MIN_METERS}
                 max={ANNOUNCE_MAX_METERS}
                 step={ANNOUNCE_STEP_METERS}
                 value={announceMeters}
-                onChange={(e) =>
-                  updatePreferences({ announceIntervalMeters: Number(e.target.value) })
-                }
-                className={`mt-1 ${RANGE_INPUT_CLASS}`}
+                onChange={(meters) => updatePreferences({ announceIntervalMeters: meters })}
+                formatValue={announceLabel}
               />
-            </label>
+            </div>
 
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">Tênis (opcional)</span>
