@@ -98,6 +98,23 @@ function ChromeGradient({ id }: { id: string }) {
   );
 }
 
+/**
+ * A quiet glow straddling a section's bottom border, instead of the border
+ * doing all the work of the transition alone. Reuses the same soft
+ * accent-blur motif as the hero/CTA background glows rather than inventing a
+ * new decorative language for what's still, structurally, just a seam.
+ */
+function SeamGlow() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center"
+    >
+      <div className="-mb-14 h-28 w-72 rounded-full bg-accent/10 blur-3xl" />
+    </div>
+  );
+}
+
 function formatPace(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = Math.round(totalSeconds % 60);
@@ -927,9 +944,15 @@ export default function Home() {
               >
                 <Link
                   href="/run"
-                  className="inline-flex items-center justify-center rounded-full bg-accent px-8 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+                  className="group relative inline-block rounded-full pb-2 focus-visible:outline-none"
                 >
-                  Começar a correr
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-0 h-[calc(100%-0.5rem)] rounded-full bg-[#1c4bb0] dark:bg-[#2c4f9e]"
+                  />
+                  <span className="relative block -translate-y-2 rounded-full bg-accent px-8 py-4 text-base font-semibold text-accent-foreground transition-transform duration-150 ease-out group-hover:-translate-y-2.5 group-active:translate-y-0 group-active:duration-75 group-focus-visible:ring-2 group-focus-visible:ring-accent group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-background">
+                    Começar a correr
+                  </span>
                 </Link>
                 <a
                   href="#evolucao"
@@ -1044,12 +1067,13 @@ export default function Home() {
               </div>
             </div>
           </div>
+          <SeamGlow />
         </section>
 
         {/* ---------------- 01 · Evolução ---------------- */}
         <section
           id="evolucao"
-          className="scroll-mt-16 border-b border-border bg-surface/40"
+          className="relative scroll-mt-16 border-b border-border bg-surface/40"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-12 lg:items-center lg:gap-16">
             <div className="lg:col-span-5">
@@ -1137,10 +1161,11 @@ export default function Home() {
               </figure>
             </div>
           </div>
+          <SeamGlow />
         </section>
 
         {/* ---------------- 02 · Comunidade ---------------- */}
-        <section id="comunidade" className="scroll-mt-16 border-b border-border">
+        <section id="comunidade" className="relative scroll-mt-16 border-b border-border">
           <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-12 lg:items-center lg:gap-16">
             <div className="order-2 lg:order-1 lg:col-span-6">
               <div
@@ -1209,10 +1234,14 @@ export default function Home() {
               </p>
             </div>
           </div>
+          <SeamGlow />
         </section>
 
         {/* ---------------- 03 · Pilares ---------------- */}
-        <section id="pilares" className="scroll-mt-16 border-b border-border bg-surface/40">
+        <section
+          id="pilares"
+          className="relative scroll-mt-16 border-b border-border bg-surface/40"
+        >
           <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
             <p
               data-reveal=""
@@ -1256,6 +1285,7 @@ export default function Home() {
               })}
             </div>
           </div>
+          <SeamGlow />
         </section>
 
         {/* ---------------- CTA final ---------------- */}
