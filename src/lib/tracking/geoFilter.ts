@@ -126,6 +126,14 @@ export function formatDistanceKm(meters: number): string {
   return (meters / 1000).toFixed(2);
 }
 
+/** "3min 05s" / "12s" — an absolute duration delta, no sign shown (callers add their own ahead/behind framing). */
+export function formatDeltaDuration(seconds: number): string {
+  const total = Math.round(Math.abs(seconds));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m > 0 ? `${m}min ${s.toString().padStart(2, "0")}s` : `${s}s`;
+}
+
 export function formatElapsed(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);

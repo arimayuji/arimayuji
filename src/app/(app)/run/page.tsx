@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
-import { formatDistanceKm, formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
+import {
+  formatDeltaDuration,
+  formatDistanceKm,
+  formatElapsed,
+  formatPace,
+} from "@/lib/tracking/geoFilter";
 import {
   deleteCompletedRun,
   listCompletedRuns,
@@ -15,6 +20,8 @@ import {
   type RunTrack,
 } from "@/lib/tracking/storage";
 import { RouteMap } from "../route-map";
+import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
+import { PrBadge } from "../pr-badge";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
@@ -34,13 +41,6 @@ const PAUSE_REASONS = ["Água", "Banheiro", "Gel/carboidrato", "Foto", "Alongame
 function formatPauseDuration(startedAt: number, endedAt: number | null): string {
   const seconds = ((endedAt ?? Date.now()) - startedAt) / 1000;
   return formatDeltaDuration(seconds);
-}
-
-function formatDeltaDuration(seconds: number): string {
-  const total = Math.round(Math.abs(seconds));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return m > 0 ? `${m}min ${s.toString().padStart(2, "0")}s` : `${s}s`;
 }
 
 function GhostDeltaPill({ deltaSeconds }: { deltaSeconds: number }) {
@@ -90,6 +90,23 @@ export default function RunPage() {
    * picker above so a later change to `selectedGhostId` (e.g. after resetting for a new run)
    * doesn't retroactively change what the finished summary says was raced against. */
   const [activeGhost, setActiveGhost] = useState<CompletedRun | null>(null);
+  const [runRecords, setRunRecords] = useState<RunRecord[]>([]);
+
+  /**
+   * Personal-record check: best split for each standard distance this run
+   * covers, compared against every prior run's own best split for that same
+   * distance — not "did the total distance land near 5km", an actual
+   * fastest-contiguous-5km-anywhere-in-the-run check, same idea as Strava's
+   * PR badges. Runs once against the full history right after `finish()`
+   * writes the record, not on every render.
+   */
+  useEffect(() => {
+    if (state.status !== "finished" || !state.finishedRun) return;
+    const run = state.finishedRun;
+    listCompletedRuns().then((allRuns) => {
+      setRunRecords(computeRunRecords(run, allRuns));
+    });
+  }, [state.status, state.finishedRun]);
 
   /**
    * Shoe names for the datalist below, and the runner's most recent completed
@@ -195,6 +212,7 @@ export default function RunPage() {
     setMusicQuery("");
     setMusicResults(null);
     setDiscarding(false);
+    setRunRecords([]);
     reset();
   };
 
@@ -515,6 +533,16 @@ export default function RunPage() {
               </p>
             </div>
           </div>
+
+          {runRecords.some((r) => r.isNewRecord) && (
+            <div className="flex w-full max-w-xs flex-col gap-2">
+              {runRecords
+                .filter((r) => r.isNewRecord)
+                .map((record) => (
+                  <PrBadge key={record.targetMeters} record={record} />
+                ))}
+            </div>
+          )}
 
           {state.finishedRun.pauseEvents && state.finishedRun.pauseEvents.length > 0 && (
             <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">

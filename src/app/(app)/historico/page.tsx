@@ -9,6 +9,7 @@ import {
   type StoredPoint,
 } from "@/lib/tracking/storage";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
+import { allTimeBests } from "@/lib/tracking/personalRecords";
 import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
@@ -191,6 +192,42 @@ function Summary({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit }) {
           </>
         )}
       </p>
+    </Card>
+  );
+}
+
+/**
+ * Persistent "conquistas" view: current best split per standard distance
+ * across the whole history, not just the run just finished — the
+ * finished-run screen shows a PR *the moment it happens*, this is where it
+ * lives afterward. Recomputed from `runs` (cheap enough at personal-app
+ * scale) rather than stored, so it never drifts if history changes.
+ */
+function PersonalRecords({ runs }: { runs: CompletedRun[] }) {
+  const bests = allTimeBests(runs);
+  if (bests.length === 0) return null;
+
+  return (
+    <Card className="pr-enter" style={delay(65)}>
+      <CardTitle>Recordes pessoais</CardTitle>
+      <ul className="flex flex-col gap-2">
+        {bests.map((best) => (
+          <li
+            key={best.targetMeters}
+            className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
+          >
+            <span className="text-muted">{best.label}</span>
+            <span className="flex items-baseline gap-2">
+              <span className="font-mono font-semibold tabular-nums">
+                {formatElapsed(Math.round(best.splitSeconds))}
+              </span>
+              <span className="text-xs text-muted">
+                {formatRunDate(new Date(best.achievedAt))}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }
@@ -474,6 +511,7 @@ export default function HistoricoPage() {
         {load.status === "ready" && runs.length > 0 && (
           <>
             {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
+            <PersonalRecords runs={runs} />
             <RunFrequencyHeatmap runs={runs} unit={unit} />
             <ul className="flex flex-col gap-3">
               {runs.map((run, index) => (
