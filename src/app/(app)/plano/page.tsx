@@ -1,133 +1,115 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
-import { getEvidenceById, strengthLabel } from "@/lib/evidence";
+import { getEvidenceById, getEvidenceForTopicRanked, strengthLabel, type EvidenceFact } from "@/lib/evidence";
+import { generatePlan, type GeneratedPlan, type PlannedSession as EngineSession, type PaceZoneName, type PaceZones } from "@/lib/plan";
+import { useRunnerProfile } from "@/lib/useRunnerProfile";
+import { estimateWeeklyKm, listCompletedRuns } from "@/lib/tracking/storage";
+import { formatPace } from "@/lib/tracking/geoFilter";
 
 /**
- * Preview of the training-plan screen.
+ * The plan screen has two real modes, not a mockup-vs-real toggle a person
+ * flips — it's whichever one the athlete's own data supports right now:
  *
- * The plan engine (retrieval over training literature + the athlete's own
- * history) has not been built — that is a deliberate ordering decision, not an
- * oversight. So every number on this screen is invented, and the screen says
- * so three times: the badge in the header, the explainer card above the week,
- * and the caption under it. Nothing here reads the athlete's data, because
- * there is nothing yet that could.
+ * - **Not enough data**: no goal race set on /perfil, or no recent run
+ *   history to calibrate volume from. Shows the illustrative example week
+ *   (clearly labeled) plus exactly what's missing, so the empty state
+ *   teaches instead of just apologizing.
+ * - **Real plan**: `src/lib/plan`'s rules engine ran on real inputs — the
+ *   athlete's actual recent weekly volume (from IndexedDB, never typed in)
+ *   plus the goal/recent-race fields from /perfil. Recomputed on every
+ *   visit from current reality, not a fixed plan cached from the day it was
+ *   first generated — a light week last week lowers next week's ramp
+ *   automatically, the way a coach would react to it.
  */
 
 type SessionKind = "rest" | "easy" | "hard" | "long";
 
-interface PlannedSession {
+interface DisplaySession {
   day: string;
   title: string;
   detail: string;
-  /** Distance in km, when the session has one. */
   km?: number;
   kind: SessionKind;
 }
 
 const KIND_STYLE: Record<SessionKind, { rail: string; chip: string; label: string }> = {
-  rest: {
-    rail: "bg-border",
-    chip: "border-border text-muted",
-    label: "descanso",
-  },
-  easy: {
-    rail: "bg-good",
-    chip: "border-good/40 text-good",
-    label: "leve",
-  },
-  hard: {
-    rail: "bg-warn",
-    chip: "border-warn/40 text-warn",
-    label: "forte",
-  },
-  long: {
-    rail: "bg-accent",
-    chip: "border-accent/40 text-accent",
-    label: "longo",
-  },
+  rest: { rail: "bg-border", chip: "border-border text-muted", label: "descanso" },
+  easy: { rail: "bg-good", chip: "border-good/40 text-good", label: "leve" },
+  hard: { rail: "bg-warn", chip: "border-warn/40 text-warn", label: "forte" },
+  long: { rail: "bg-accent", chip: "border-accent/40 text-accent", label: "longo" },
 };
 
-const DEMO_WEEK: PlannedSession[] = [
-  {
-    day: "Segunda",
-    title: "Descanso",
-    detail: "Sem corrida. É no descanso que a adaptação acontece.",
-    kind: "rest",
-  },
-  {
-    day: "Terça",
-    title: "Corrida leve",
-    detail: "Ritmo de conversa, sem olhar o relógio.",
-    km: 5,
-    kind: "easy",
-  },
-  {
-    day: "Quarta",
-    title: "Força + mobilidade",
-    detail: "20 min de agachamento, prancha e panturrilha.",
-    kind: "rest",
-  },
-  {
-    day: "Quinta",
-    title: "Intervalado 6 × 400 m",
-    detail: "Forte nos 400 m, 90 s de trote entre as repetições.",
-    km: 6,
-    kind: "hard",
-  },
+const DAY_NAMES = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+
+const ZONE_LABEL: Record<PaceZoneName, string> = {
+  easy: "Fácil",
+  marathon: "Maratona",
+  threshold: "Limiar",
+  interval: "Intervalado",
+  repetition: "Repetição",
+};
+
+const PHASE_LABEL: Record<string, string> = {
+  base: "base",
+  build: "construção",
+  peak: "pico",
+  taper: "taper",
+};
+
+const DEMO_WEEK: DisplaySession[] = [
+  { day: "Segunda", title: "Descanso", detail: "Sem corrida. É no descanso que a adaptação acontece.", kind: "rest" },
+  { day: "Terça", title: "Corrida leve", detail: "Ritmo de conversa, sem olhar o relógio.", km: 5, kind: "easy" },
+  { day: "Quarta", title: "Força + mobilidade", detail: "20 min de agachamento, prancha e panturrilha.", kind: "rest" },
+  { day: "Quinta", title: "Intervalado 6 × 400 m", detail: "Forte nos 400 m, 90 s de trote entre as repetições.", km: 6, kind: "hard" },
   { day: "Sexta", title: "Descanso", detail: "Perna leve pro fim de semana.", kind: "rest" },
-  {
-    day: "Sábado",
-    title: "Rodagem",
-    detail: "Confortável, terreno plano.",
-    km: 6,
-    kind: "easy",
-  },
-  {
-    day: "Domingo",
-    title: "Longão",
-    detail: "Pace uns 40 s/km mais lento que o de prova.",
-    km: 12,
-    kind: "long",
-  },
+  { day: "Sábado", title: "Rodagem", detail: "Confortável, terreno plano.", km: 6, kind: "easy" },
+  { day: "Domingo", title: "Longão", detail: "Pace uns 40 s/km mais lento que o de prova.", km: 12, kind: "long" },
 ];
 
-const TOTAL_KM = DEMO_WEEK.reduce((sum, session) => sum + (session.km ?? 0), 0);
-const SESSION_COUNT = DEMO_WEEK.filter((session) => session.km !== undefined).length;
+const TOTAL_DEMO_KM = DEMO_WEEK.reduce((sum, session) => sum + (session.km ?? 0), 0);
+const DEMO_SESSION_COUNT = DEMO_WEEK.filter((session) => session.km !== undefined).length;
 
-/**
- * Real citations behind the *shape* of the invented week above — why a taper
- * exists, why only one hard session, why the volume step is conservative.
- * The week's numbers are still fake; these facts and their sources are not —
- * this is a preview of the "why" the plan engine will attach to every
- * decision it makes, sourced from `src/lib/evidence`.
- */
+/** Real citations behind the *shape* of the example week — see EvidenceRow. */
 const FEATURED_EVIDENCE_IDS = [
   "acsm-fitt-vp-gradual-progression",
   "80-20-polarized-training",
   "taper-2-weeks-exponential",
 ];
 
-function SessionRow({
-  session,
-  index,
-  isLast,
-}: {
-  session: PlannedSession;
-  index: number;
-  isLast: boolean;
-}) {
-  const style = KIND_STYLE[session.kind];
+function engineSessionToDisplay(session: EngineSession, day: string): DisplaySession {
+  const kind: SessionKind =
+    session.kind === "quality" ? "hard" : session.kind === "long" ? "long" : session.kind === "easy" ? "easy" : "rest";
+  const title =
+    session.kind === "rest"
+      ? "Descanso"
+      : session.kind === "long"
+        ? "Longão"
+        : session.kind === "quality"
+          ? `Forte${session.paceZone ? ` — ${ZONE_LABEL[session.paceZone]}` : ""}`
+          : "Corrida leve";
+  const detail =
+    session.kind === "rest"
+      ? "Sem corrida. É no descanso que a adaptação acontece."
+      : session.kind === "long"
+        ? "O mais longo da semana, em ritmo confortável."
+        : session.kind === "quality"
+          ? "O único treino forte da semana — o resto é fácil de propósito."
+          : "Ritmo de conversa, sem olhar o relógio.";
+  return { day, title, detail, km: session.km > 0 ? session.km : undefined, kind };
+}
 
+function SessionRow({ session, index, isLast }: { session: DisplaySession; index: number; isLast: boolean }) {
+  const style = KIND_STYLE[session.kind];
   return (
     <li className="pr-enter flex gap-3" style={delay(160 + index * 40)}>
       <span className={`mt-1 w-1 shrink-0 rounded-full ${style.rail}`} aria-hidden="true" />
-      <div
-        className={`min-w-0 flex-1 ${isLast ? "" : "border-b border-border pb-3"}`}
-      >
+      <div className={`min-w-0 flex-1 ${isLast ? "" : "border-b border-border pb-3"}`}>
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[11px] uppercase tracking-wide text-muted">{session.day}</span>
-          <span
-            className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ${style.chip}`}
-          >
+          <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ${style.chip}`}>
             {style.label}
           </span>
         </div>
@@ -146,17 +128,12 @@ function SessionRow({
   );
 }
 
-function EvidenceRow({ id }: { id: string }) {
-  const fact = getEvidenceById(id);
-  if (!fact) return null;
-
+function EvidenceFactRow({ fact }: { fact: EvidenceFact }) {
   return (
     <li className="border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-wide text-accent">
-          {strengthLabel(fact.strength)}
-        </span>
-      </div>
+      <span className="font-mono text-[10px] uppercase tracking-wide text-accent">
+        {strengthLabel(fact.strength)}
+      </span>
       <p className="mt-1 text-sm leading-relaxed text-pretty">{fact.claim}</p>
       {fact.source.url ? (
         <a
@@ -174,7 +151,145 @@ function EvidenceRow({ id }: { id: string }) {
   );
 }
 
+function PaceZonesCard({ zones }: { zones: PaceZones }) {
+  const rows: [PaceZoneName, number][] = [
+    ["easy", zones.easySecPerKm],
+    ["marathon", zones.marathonSecPerKm],
+    ["threshold", zones.thresholdSecPerKm],
+    ["interval", zones.intervalSecPerKm],
+    ["repetition", zones.repetitionSecPerKm],
+  ];
+  return (
+    <Card className="pr-enter" style={delay(160)}>
+      <CardTitle aside={<NoticeBadge>seu plano</NoticeBadge>}>Suas zonas de pace</CardTitle>
+      <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+        Calculadas do seu tempo recente pela fórmula VDOT (Daniels &amp; Gilbert).
+      </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {rows.map(([zone, secPerKm]) => (
+          <div key={zone}>
+            <span className="text-[11px] uppercase tracking-wide text-muted">{ZONE_LABEL[zone]}</span>
+            <p className="font-mono text-lg tabular-nums">
+              {formatPace(secPerKm)}
+              <span className="ml-1 text-xs text-muted">/km</span>
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export default function PlanoPage() {
+  const [profile] = useRunnerProfile();
+  const [weeklyKm, setWeeklyKm] = useState<number | null>(null);
+
+  useEffect(() => {
+    listCompletedRuns().then((runs) => setWeeklyKm(estimateWeeklyKm(runs)));
+  }, []);
+
+  const hasGoal = Boolean(profile.goalDistanceMeters && profile.goalDate);
+  const loading = weeklyKm === null;
+  const hasHistory = (weeklyKm ?? 0) > 0;
+
+  const plan: GeneratedPlan | null = useMemo(() => {
+    if (!hasGoal || !hasHistory || weeklyKm === null) return null;
+    return generatePlan({
+      recentRace:
+        profile.recentRaceDistanceMeters && profile.recentRaceTimeSeconds
+          ? {
+              distanceMeters: profile.recentRaceDistanceMeters,
+              timeSeconds: profile.recentRaceTimeSeconds,
+            }
+          : undefined,
+      currentWeeklyKm: weeklyKm,
+      goalDistanceMeters: profile.goalDistanceMeters!,
+      goalDate: profile.goalDate!,
+      weeklyRunDays: profile.weeklyRunDays,
+    });
+  }, [hasGoal, hasHistory, weeklyKm, profile]);
+
+  const currentWeek = plan?.weeks[0];
+
+  if (loading) {
+    return (
+      <>
+        <ScreenHeader title="Plano" />
+        <Screen>
+          <Card className="animate-pulse">
+            <div className="h-4 w-32 rounded bg-border" />
+            <div className="mt-4 h-24 rounded-xl bg-border/70" />
+          </Card>
+        </Screen>
+      </>
+    );
+  }
+
+  if (plan && currentWeek) {
+    const displaySessions = currentWeek.sessions.map((session, i) =>
+      engineSessionToDisplay(session, DAY_NAMES[i]),
+    );
+    const qualityCount = currentWeek.sessions.filter((s) => s.kind === "quality").length;
+    const runCount = currentWeek.sessions.filter((s) => s.km > 0).length;
+
+    return (
+      <>
+        <ScreenHeader
+          title="Plano"
+          badge={<NoticeBadge>seu plano</NoticeBadge>}
+          subtitle={`Semana ${currentWeek.weekNumber} de ${plan.weeks.length} — fase de ${PHASE_LABEL[currentWeek.phase]}. Calculado do seu histórico real e recalculado sempre que você abre essa tela.`}
+        />
+        <Screen>
+          {plan.warning && (
+            <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(60)}>
+              <p className="text-sm leading-relaxed text-muted text-pretty">{plan.warning}</p>
+            </Card>
+          )}
+
+          <Card className="pr-enter" style={delay(110)}>
+            <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>
+              Semana {currentWeek.weekNumber} — {PHASE_LABEL[currentWeek.phase]}
+            </CardTitle>
+            <div className="mb-5 grid grid-cols-3 gap-3 border-b border-border pb-4">
+              <Stat label="Volume" value={String(currentWeek.totalKm)} unit="km" />
+              <Stat label="Sessões" value={String(runCount)} />
+              <Stat label="Forte" value={String(qualityCount)} />
+            </div>
+            <ul className="flex flex-col gap-3">
+              {displaySessions.map((session, index) => (
+                <SessionRow
+                  key={session.day}
+                  session={session}
+                  index={index}
+                  isLast={index === displaySessions.length - 1}
+                />
+              ))}
+            </ul>
+            <p className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted">
+              Volume calculado do seu ritmo real das últimas semanas — não é o mesmo pra todo
+              mundo. O dia de cada sessão é organização nossa, não vem de estudo nenhum; volume,
+              intensidade e taper vêm.
+            </p>
+          </Card>
+
+          {plan.paceZones && <PaceZonesCard zones={plan.paceZones} />}
+
+          <Card className="pr-enter" style={delay(260)}>
+            <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
+              Por que essa semana tem essa cara
+            </CardTitle>
+            <ul className="flex flex-col gap-3">
+              {plan.evidenceTopics.map((topic) => {
+                const fact = getEvidenceForTopicRanked(topic)[0];
+                return fact ? <EvidenceFactRow key={topic} fact={fact} /> : null;
+              })}
+            </ul>
+          </Card>
+        </Screen>
+      </>
+    );
+  }
+
   return (
     <>
       <ScreenHeader
@@ -185,27 +300,45 @@ export default function PlanoPage() {
 
       <Screen>
         <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(60)}>
-          <CardTitle>O que ainda não existe aqui</CardTitle>
+          <CardTitle>O que falta pro seu plano de verdade</CardTitle>
           <p className="text-sm leading-relaxed text-muted text-pretty">
-            O motor que monta o treino — cruzando o seu histórico com literatura de
-            periodização — ainda não foi construído. A semana abaixo é{" "}
-            <strong className="font-semibold text-foreground">inventada</strong>, igual pra
-            todo mundo, e não leva em conta nenhuma corrida sua. Ela está aqui pra decidir o
-            formato da tela antes de investir no motor.
+            O motor que monta o treino já existe — falta só o que ele precisa de você:
           </p>
+          <ul className="mt-3 flex flex-col gap-2 text-sm">
+            <li className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${hasGoal ? "bg-good" : "bg-warn"}`}
+                aria-hidden="true"
+              />
+              {hasGoal ? "Meta de prova definida" : "Definir distância e data da prova no perfil"}
+            </li>
+            <li className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${hasHistory ? "bg-good" : "bg-warn"}`}
+                aria-hidden="true"
+              />
+              {hasHistory
+                ? "Histórico recente disponível"
+                : "Gravar algumas corridas pra calibrar seu volume real"}
+            </li>
+          </ul>
+          <Link
+            href="/perfil"
+            className="mt-4 inline-block rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground"
+          >
+            Ir pro perfil
+          </Link>
         </Card>
 
         <Card className="pr-enter" style={delay(110)}>
           <CardTitle aside={<ExampleBadge>semana de exemplo</ExampleBadge>}>
             Semana 3 de 12 — base
           </CardTitle>
-
           <div className="mb-5 grid grid-cols-3 gap-3 border-b border-border pb-4">
-            <Stat label="Volume" value={String(TOTAL_KM)} unit="km" />
-            <Stat label="Sessões" value={String(SESSION_COUNT)} />
+            <Stat label="Volume" value={String(TOTAL_DEMO_KM)} unit="km" />
+            <Stat label="Sessões" value={String(DEMO_SESSION_COUNT)} />
             <Stat label="Forte" value="1" />
           </div>
-
           <ul className="flex flex-col gap-3">
             {DEMO_WEEK.map((session, index) => (
               <SessionRow
@@ -216,10 +349,9 @@ export default function PlanoPage() {
               />
             ))}
           </ul>
-
           <p className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted">
-            Números de demonstração. Quando o motor existir, o volume e a intensidade saem do
-            seu histórico real e da prova que você marcar no perfil.
+            Números de demonstração. Assim que os dois itens acima estiverem prontos, essa tela
+            vira o seu plano de verdade.
           </p>
         </Card>
 
@@ -229,29 +361,15 @@ export default function PlanoPage() {
           </CardTitle>
           <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
             A semana acima é inventada, mas o formato dela não é aleatório — cada decisão do
-            futuro motor de treino vai vir acompanhada da evidência por trás, com a força dela
-            classificada. Aqui vai uma prévia real dessa mecânica.
+            motor de treino vem acompanhada da evidência por trás, com a força dela classificada.
+            Aqui vai uma prévia real dessa mecânica.
           </p>
           <ul className="flex flex-col gap-3">
-            {FEATURED_EVIDENCE_IDS.map((id) => (
-              <EvidenceRow key={id} id={id} />
-            ))}
+            {FEATURED_EVIDENCE_IDS.map((id) => {
+              const fact = getEvidenceById(id);
+              return fact ? <EvidenceFactRow key={id} fact={fact} /> : null;
+            })}
           </ul>
-        </Card>
-
-        <Card className="pr-enter" style={delay(420)}>
-          <CardTitle>Próximo passo</CardTitle>
-          <p className="text-sm leading-relaxed text-muted text-pretty">
-            Grave algumas corridas primeiro: o plano personalizado depende de ter histórico de
-            verdade pra calibrar volume e pace.
-          </p>
-          <button
-            type="button"
-            disabled
-            className="mt-4 w-full cursor-not-allowed rounded-full border border-border bg-surface px-6 py-4 text-base font-semibold text-muted"
-          >
-            Gerar plano personalizado — em breve
-          </button>
         </Card>
       </Screen>
     </>

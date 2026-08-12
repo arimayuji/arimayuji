@@ -135,3 +135,19 @@ export function summarizeShoes(runs: CompletedRun[]): ShoeSummary[] {
   }
   return [...byName.values()].sort((a, b) => b.totalMeters - a.totalMeters);
 }
+
+/**
+ * Average weekly distance (km) over the last `weeks` weeks of real runs —
+ * the plan engine's starting point for a volume ramp. Never asked as a
+ * manual input: it's derived from what actually happened, so it can't drift
+ * from reality the way a typed-in guess would. Returns 0 when there isn't
+ * enough recent history, which the caller treats as "not enough data for a
+ * real plan yet".
+ */
+export function estimateWeeklyKm(runs: CompletedRun[], weeks = 3, now = Date.now()): number {
+  const windowStart = now - weeks * 7 * 24 * 60 * 60 * 1000;
+  const metersInWindow = runs
+    .filter((run) => run.startedAt >= windowStart)
+    .reduce((sum, run) => sum + run.distanceMeters, 0);
+  return metersInWindow / 1000 / weeks;
+}

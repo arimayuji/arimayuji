@@ -10,6 +10,8 @@ import { isConfigured, startAuthorization } from "@/lib/spotify/auth";
 import { disconnectSpotify, useSpotifyConnected } from "@/lib/spotify/useConnection";
 import { listCompletedRuns, summarizeShoes, type ShoeSummary } from "@/lib/tracking/storage";
 import { formatDistance, unitLabel } from "@/lib/units";
+import { GOAL_DISTANCE_OPTIONS } from "@/lib/runnerProfile";
+import { useRunnerProfile } from "@/lib/useRunnerProfile";
 
 /**
  * Profile: two halves, kept visually distinct on purpose.
@@ -156,13 +158,24 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
   );
 }
 
+const RUN_DAYS_OPTIONS = [3, 4, 5] as const;
+
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
+  const [profile, updateProfile] = useRunnerProfile();
 
-  // Mockup fields: editable so the layout can be judged, but nothing is stored.
-  const [raceName, setRaceName] = useState("");
-  const [raceDate, setRaceDate] = useState("");
+  const recentMinutes = profile.recentRaceTimeSeconds
+    ? Math.floor(profile.recentRaceTimeSeconds / 60)
+    : "";
+  const recentSeconds = profile.recentRaceTimeSeconds
+    ? profile.recentRaceTimeSeconds % 60
+    : "";
+
+  const setRecentRaceTime = (minutes: number, seconds: number) => {
+    const total = minutes * 60 + seconds;
+    updateProfile({ recentRaceTimeSeconds: total > 0 ? total : undefined });
+  };
 
   return (
     <>
@@ -223,41 +236,107 @@ export default function PerfilPage() {
         <ShoesCard unit={prefs.distanceUnit} />
 
         <Card className="pr-enter" style={delay(210)}>
-          <CardTitle aside={<ExampleBadge>ainda não salva</ExampleBadge>}>
+          <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
             Meta de prova
           </CardTitle>
           <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-            Maquete de tela. Dá pra digitar pra ver o formato, mas nada aqui é gravado ainda —
-            some ao recarregar. Vai passar a valer quando o plano de treino existir e precisar
-            desses dados.
+            Isso alimenta o motor de plano de verdade — distância e data viram a rampa de
+            volume e o taper; o tempo recente (opcional) vira suas zonas de pace.
           </p>
 
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium">Prova alvo</span>
-            <input
-              type="text"
-              value={raceName}
-              onChange={(event) => setRaceName(event.target.value)}
-              placeholder="Ex.: Meia de São Paulo"
-              className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-accent"
-            />
-          </label>
+          <fieldset>
+            <legend className="text-sm font-medium">Distância da prova</legend>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {GOAL_DISTANCE_OPTIONS.map((option) => (
+                <SegmentedButton
+                  key={option.meters}
+                  selected={profile.goalDistanceMeters === option.meters}
+                  onClick={() => updateProfile({ goalDistanceMeters: option.meters })}
+                >
+                  {option.label}
+                </SegmentedButton>
+              ))}
+            </div>
+          </fieldset>
 
           <label className="mt-4 block space-y-1.5">
             <span className="text-sm font-medium">Data da prova</span>
             <input
               type="date"
-              value={raceDate}
-              onChange={(event) => setRaceDate(event.target.value)}
+              value={profile.goalDate ?? ""}
+              onChange={(event) => updateProfile({ goalDate: event.target.value || undefined })}
               className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 font-mono text-sm tabular-nums outline-none focus:border-accent"
             />
           </label>
 
+          <fieldset className="mt-6 border-t border-border pt-5">
+            <legend className="text-sm font-medium">Dias de corrida por semana</legend>
+            <div className="mt-2 flex gap-2">
+              {RUN_DAYS_OPTIONS.map((days) => (
+                <SegmentedButton
+                  key={days}
+                  selected={(profile.weeklyRunDays ?? 4) === days}
+                  onClick={() => updateProfile({ weeklyRunDays: days })}
+                >
+                  {days}
+                </SegmentedButton>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="mt-6 border-t border-border pt-5">
+            <legend className="text-sm font-medium">Seu tempo recente (opcional)</legend>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Uma prova ou treino forte recente numa distância conhecida — dá as suas zonas de
+              pace reais. Sem isso o plano ainda calcula volume, só não mostra pace por zona.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {GOAL_DISTANCE_OPTIONS.map((option) => (
+                <SegmentedButton
+                  key={option.meters}
+                  selected={profile.recentRaceDistanceMeters === option.meters}
+                  onClick={() => updateProfile({ recentRaceDistanceMeters: option.meters })}
+                >
+                  {option.label}
+                </SegmentedButton>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                placeholder="min"
+                value={recentMinutes}
+                onChange={(event) =>
+                  setRecentRaceTime(Number(event.target.value) || 0, Number(recentSeconds) || 0)
+                }
+                className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
+              />
+              <span className="text-muted">:</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="59"
+                placeholder="seg"
+                value={recentSeconds}
+                onChange={(event) =>
+                  setRecentRaceTime(Number(recentMinutes) || 0, Number(event.target.value) || 0)
+                }
+                className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
+              />
+            </div>
+            {profile.recentRaceTimeSeconds && !profile.recentRaceDistanceMeters && (
+              <p className="mt-2 text-xs text-warn">Falta escolher a distância desse tempo.</p>
+            )}
+          </fieldset>
+
           <Link
             href="/plano"
-            className="mt-4 inline-block text-sm text-accent underline underline-offset-2"
+            className="mt-6 inline-block text-sm text-accent underline underline-offset-2"
           >
-            Ver a prévia do plano semanal
+            Ver o plano
           </Link>
         </Card>
 
