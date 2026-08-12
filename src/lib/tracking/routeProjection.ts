@@ -2,17 +2,43 @@ import { GPS_GAP_THRESHOLD_SECONDS, haversineMeters } from "./geoFilter";
 import type { StoredPoint } from "./storage";
 
 /**
- * Turns a GPS trace into an SVG-ready shape — not a basemap. There's no tile
- * provider here (no API key, no network call, matches the rest of the app's
- * offline-first, zero-dependency stance): this draws the literal outline of
- * where the run went, projected flat and fit to a square viewBox, the same
- * "your actual path, not a stylized illustration" idea the user asked for
- * ("se eu corri uma linha reta, vai chegar uma linha reta") — which cuts
- * both ways: where GPS tracking silently gapped, the line breaks there too
- * instead of drawing a straight line across ground that was never recorded.
+ * The geometry of a GPS trace, in two shapes: `routeSegments` for drawing it
+ * on a real basemap (see src/lib/maptiler.ts) and `projectRoute` for the
+ * basemap-less fallback, flattened into a square SVG viewBox.
+ *
+ * Both split the trace the same way, and that split is the point: this is
+ * the literal outline of where the run went, the "your actual path, not a
+ * stylized illustration" idea the user asked for ("se eu corri uma linha
+ * reta, vai chegar uma linha reta") — which cuts both ways. Where GPS
+ * tracking silently gapped, the line breaks there too instead of drawing a
+ * straight line across ground that was never recorded.
  */
 
 const METERS_PER_DEG_LAT = 111_320;
+
+/** Index where each unbroken stretch of tracking begins — a new one starts at any gap over `GPS_GAP_THRESHOLD_SECONDS`. */
+function stretchStarts(points: Pick<StoredPoint, "timestamp">[]): number[] {
+  const starts = [0];
+  for (let i = 1; i < points.length; i++) {
+    if ((points[i].timestamp - points[i - 1].timestamp) / 1000 >= GPS_GAP_THRESHOLD_SECONDS) starts.push(i);
+  }
+  return starts;
+}
+
+/**
+ * The trace in GeoJSON `[lon, lat]` order, one LineString's worth of
+ * coordinates per unbroken stretch. A stretch holding a single fix is
+ * dropped — there's no line to draw between one point and nothing.
+ */
+export function routeSegments(
+  points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[],
+): [number, number][][] {
+  const starts = stretchStarts(points);
+  return starts
+    .map((from, i) => points.slice(from, starts[i + 1] ?? points.length))
+    .filter((stretch) => stretch.length >= 2)
+    .map((stretch) => stretch.map((p): [number, number] => [p.lon, p.lat]));
+}
 
 export interface ProjectedRoute {
   /** SVG `points` attribute value, one per unbroken stretch of tracking — split at any gap over `GPS_GAP_THRESHOLD_SECONDS`. */
@@ -67,14 +93,9 @@ export function projectRoute(
 
   const projected = flat.map(project);
 
-  const segments: { x: number; y: number }[][] = [[projected[0]]];
-  for (let i = 1; i < projected.length; i++) {
-    const dt = (points[i].timestamp - points[i - 1].timestamp) / 1000;
-    if (dt >= GPS_GAP_THRESHOLD_SECONDS) segments.push([]); // start a new unbroken stretch
-    segments[segments.length - 1].push(projected[i]);
-  }
-  const polylines = segments
-    .filter((seg) => seg.length > 0)
+  const starts = stretchStarts(points);
+  const polylines = starts
+    .map((from, i) => projected.slice(from, starts[i + 1] ?? projected.length))
     .map((seg) => seg.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" "));
 
   return {
@@ -107,11 +128,7 @@ export function findFastestStretch(
   const n = points.length;
   if (n < 3 || windowMeters <= 0) return null;
 
-  const breaks: number[] = [0];
-  for (let i = 1; i < n; i++) {
-    if ((points[i].timestamp - points[i - 1].timestamp) / 1000 >= GPS_GAP_THRESHOLD_SECONDS) breaks.push(i);
-  }
-  breaks.push(n);
+  const breaks = [...stretchStarts(points), n];
 
   let best: FastestStretch | null = null;
   let bestDuration = Infinity;

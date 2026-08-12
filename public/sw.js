@@ -22,6 +22,10 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // Only our own files. Since the route map started pulling real basemap
+  // tiles, caching everything would quietly grow this cache by megabytes per
+  // run viewed — and a map tile is not part of the app shell.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
 
   event.respondWith(
     fetch(event.request)
