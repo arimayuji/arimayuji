@@ -1,12 +1,15 @@
 import type { EvidenceFact } from "./types";
 
 /**
- * Curated from two research passes: general training methodology (VDOT,
- * progression, periodization, overtraining) and, per the product owner's
- * request, a US-sources-only pass on warm-up/cool-down/prescription. Nothing
- * here is invented — every claim traces to a source found during that
- * research. Add facts by extending this array; there is no build step or
- * embedding index to regenerate.
+ * Curated from three research passes: general training methodology (VDOT,
+ * progression, periodization, overtraining); per the product owner's
+ * request, a US-sources-only pass on warm-up/cool-down/prescription; and a
+ * follow-up pass deepening topics that had only a single citation (injury
+ * risk factors, in-run hydration, cool-down, post-run stretch ROM, taper
+ * discipline). Nothing here is invented — every claim traces to a source
+ * found during that research, each one fetched and read directly (not
+ * recalled from memory) before being added. Add facts by extending this
+ * array; there is no build step or embedding index to regenerate.
  */
 export const EVIDENCE_FACTS: EvidenceFact[] = [
   // ---------------------------------------------------------------- pace zones
@@ -168,6 +171,20 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       citable: true,
     },
   },
+  {
+    id: "strict-taper-beats-relaxed-taper",
+    topic: "taper",
+    claim:
+      "Em dados reais de treino de mais de 158 mil maratonistas recreativos, um taper \"disciplinado\" (queda de volume consistente, sem picos) teve desempenho melhor que um taper \"relaxado\" em qualquer duração testada; um taper disciplinado de 3 semanas rendeu economia mediana de ~2,6% no tempo final — mas 69% dos corredores usam a versão relaxada.",
+    strength: "moderada",
+    source: {
+      name: "Smyth & Lawlor (2021) — Frontiers in Sports and Active Living",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8506252/",
+      citable: true,
+    },
+    caveat:
+      "Observacional (dados de treino do Strava), não ensaio controlado — mostra associação; corredores que já tapeiam de forma disciplinada também podem treinar melhor no geral.",
+  },
 
   // --------------------------------------------------------------- overtraining
   {
@@ -283,6 +300,20 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     caveat: "Resultado nulo, mesma fonte também usada pra \"alongar não reduz lesão\" (ver injury_prevention).",
   },
   {
+    id: "post-stretch-rom-recovery-inconclusive",
+    topic: "static_stretch_post",
+    claim:
+      "Não há evidência suficiente pra dizer se alongar depois de correr acelera a recuperação da amplitude de movimento: só 2 estudos mediram isso na revisão, dados descritos como \"escassos e heterogêneos\", confiança classificada como muito baixa.",
+    strength: "moderada",
+    source: {
+      name: "Afonso et al. (2021) — Frontiers in Physiology",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8133317/",
+      citable: true,
+    },
+    caveat:
+      "Falta de evidência, não evidência de que não funciona — diferente do resultado nulo (efeito medido e ausente) da DOMS acima.",
+  },
+  {
     id: "active-cooldown-limited-impact",
     topic: "cooldown",
     claim:
@@ -293,6 +324,20 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       org: "American College of Sports Medicine",
       citable: false,
     },
+  },
+  {
+    id: "cooldown-no-next-day-performance-effect",
+    topic: "cooldown",
+    claim:
+      "Revisão da literatura conclui que desaquecimento ativo provavelmente não tem efeito relevante sobre o desempenho do dia seguinte, e geralmente não reduz dor muscular tardia — a maioria dos estudos mostra efeito trivial, mesmo com atletas costumando achar (efeito placebo) que ajuda mais do que descanso passivo.",
+    strength: "moderada",
+    source: {
+      name: "Van Hooren & Peake (2018) — Sports Medicine",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5999142/",
+      citable: true,
+    },
+    caveat:
+      "Autores de Maastricht University (Holanda) e Queensland University of Technology (Austrália) — fora da varredura só-EUA pedida pro tema aquecimento/desaquecimento; incluído mesmo assim e sinalizado, não descartado, mesmo tratamento dado ao protocolo RAMP.",
   },
 
   // ------------------------------------------------------------- injury general
@@ -310,6 +355,20 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     },
     caveat: "Resultado nulo.",
   },
+  {
+    id: "previous-injury-strongest-risk-factor",
+    topic: "injury_prevention",
+    claim:
+      "O fator de risco mais consistente pra uma nova lesão de corrida é já ter tido uma lesão antes — evidência forte reunida de estudos prospectivos numa revisão sistemática, apesar de os próprios estudos definirem \"lesão prévia\" de formas diferentes entre si.",
+    strength: "forte",
+    source: {
+      name: "van der Worp et al. (2015) — PLOS ONE",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4338213/",
+      citable: true,
+    },
+    caveat:
+      "Os autores apontam inconsistência entre estudos em como \"lesão prévia\" é definida (janela de tempo, se foi relacionada à corrida) — o efeito é robusto, o tamanho exato varia por estudo.",
+  },
 
   // -------------------------------------------------------------- hydration
   {
@@ -324,6 +383,20 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       url: "https://pubmed.ncbi.nlm.nih.gov/17277604/",
       citable: true,
     },
+  },
+  {
+    id: "drink-to-thirst-hyponatremia",
+    topic: "hydration",
+    claim:
+      "O consenso internacional sobre hiponatremia associada ao exercício recomenda beber por sede, não seguir um plano fixo de mL/hora — perdas por suor e urina variam demais entre pessoas e condições pra uma meta fixa fazer sentido, e beber além da sede (não a falta de sódio) é o principal fator de risco pra hiponatremia.",
+    strength: "forte",
+    source: {
+      name: "Hew-Butler et al. (2017) — 3ª Conferência Internacional de Consenso sobre EAH, Frontiers in Medicine",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5334560/",
+      citable: true,
+    },
+    caveat:
+      "Não contradiz a meta de reposição do ACSM acima — essa é sobre repor depois do treino; essa aqui é sobre quanto beber durante.",
   },
 
   // ---------------------------------------------------------- nutrition timing
