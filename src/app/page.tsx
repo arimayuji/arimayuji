@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Reveal } from "./reveal";
 import { HORSE_BUST_PATHS } from "./horse-mark";
+import { DistanceCountUp, DurationCountUp } from "./run-preview-stats";
 
 /** Sets the per-element animation delay consumed by the CSS in globals.css. */
 const delay = (ms: number, extra?: CSSProperties) =>
@@ -1075,7 +1076,7 @@ export default function Home() {
                     distância
                   </p>
                   <p className="font-mono text-5xl font-semibold tabular-nums tracking-tight">
-                    5,20
+                    <DistanceCountUp km={5.2} startDelayMs={500} />
                     <span className="ml-2 text-xl font-normal text-muted">km</span>
                   </p>
                 </div>
@@ -1086,7 +1087,8 @@ export default function Home() {
                       pace
                     </p>
                     <p className="font-mono text-xl font-semibold tabular-nums">
-                      5:24 <span className="text-xs font-normal text-muted">/km</span>
+                      <DurationCountUp totalSeconds={5 * 60 + 24} startDelayMs={650} />{" "}
+                      <span className="text-xs font-normal text-muted">/km</span>
                     </p>
                   </div>
                   <div className="bg-background px-4 py-3">
@@ -1094,7 +1096,7 @@ export default function Home() {
                       tempo
                     </p>
                     <p className="font-mono text-xl font-semibold tabular-nums">
-                      28:04
+                      <DurationCountUp totalSeconds={28 * 60 + 4} startDelayMs={750} />
                     </p>
                   </div>
                 </div>
