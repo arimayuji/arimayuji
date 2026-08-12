@@ -430,6 +430,312 @@ const PILLARS = [
   },
 ];
 
+const PILLAR_SVG = "pr-svg h-auto w-full text-accent";
+
+const NOISY_X = [
+  22, 34, 45, 57, 68, 80, 91, 103, 114, 126, 137, 149, 160, 172, 183, 195, 206, 218,
+];
+const NOISY_Y = [
+  84, 73, 90, 66, 83, 56, 72, 53, 71, 45, 63, 46, 62, 37, 52, 31, 40, 30,
+];
+const NOISY_PATH = NOISY_X.map(
+  (x, index) => `${index === 0 ? "M" : "L"} ${x} ${NOISY_Y[index]}`,
+).join(" ");
+
+const CLEAN_PATH = "M 22 84 C 60 79, 78 68, 114 62 C 150 56, 178 44, 218 30";
+
+const CLEAN_DOTS: [number, number][] = [
+  [22, 84],
+  [68, 72],
+  [114, 62],
+  [166, 50],
+];
+
+const CLEAN_END: [number, number] = [218, 30];
+
+const DROPPED_POINTS: [number, number][] = [
+  [45, 90],
+  [80, 56],
+  [183, 52],
+];
+
+const PHONE_ROWS: [number, number, number][] = [
+  [42, 40, 0.45],
+  [56, 30, 0.32],
+  [70, 36, 0.4],
+];
+
+const FILE_ROWS: [number, number][] = [
+  [60, 30],
+  [70, 22],
+];
+
+function PillarGrid({ rows }: { rows: number[] }) {
+  return (
+    <>
+      {rows.map((y) => (
+        <line
+          key={y}
+          x1="18"
+          y1={y}
+          x2="222"
+          y2={y}
+          className="stroke-border"
+          strokeWidth="1"
+          strokeDasharray="2 4"
+        />
+      ))}
+    </>
+  );
+}
+
+function PriceLockArt({ offset }: { offset: number }) {
+  return (
+    <svg viewBox="0 0 240 112" className={PILLAR_SVG} aria-hidden="true">
+      <path
+        d="M 24 74 H 68 V 60 H 112 V 46 H 156 V 32 H 200"
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-muted"
+        strokeWidth="1.5"
+        strokeOpacity="0.55"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={delay(offset, { "--pr-dur": "1.4s" } as CSSProperties)}
+      />
+      <path
+        d="M 192 26 L 200 32 L 192 38"
+        fill="none"
+        className="pr-pop stroke-muted"
+        strokeWidth="1.5"
+        strokeOpacity="0.55"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={delay(offset + 1200)}
+      />
+
+      <path
+        d="M 24 82 H 166"
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-accent"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        style={delay(offset + 120, { "--pr-dur": "1s" } as CSSProperties)}
+      />
+      {[48, 84, 120, 152].map((x, index) => (
+        <circle
+          key={x}
+          cx={x}
+          cy="82"
+          r="2.4"
+          className="pr-pop fill-accent"
+          fillOpacity="0.5"
+          style={delay(offset + 420 + index * 90)}
+        />
+      ))}
+
+      <path
+        d="M 184 70 V 63 A 8 8 0 0 1 200 63 V 70"
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-accent"
+        strokeWidth="2"
+        strokeLinecap="round"
+        style={delay(offset + 700, { "--pr-dur": "0.6s" } as CSSProperties)}
+      />
+      <path
+        d="M 181 70 H 203 A 4 4 0 0 1 207 74 V 92 A 4 4 0 0 1 203 96 H 181 A 4 4 0 0 1 177 92 V 74 A 4 4 0 0 1 181 70 Z"
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-accent"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        style={delay(offset + 880, { "--pr-dur": "0.7s" } as CSSProperties)}
+      />
+      <circle
+        cx="192"
+        cy="83"
+        r="2.2"
+        className="pr-pop fill-accent"
+        style={delay(offset + 1320)}
+      />
+    </svg>
+  );
+}
+
+function SignalFilterArt({ offset }: { offset: number }) {
+  return (
+    <svg viewBox="0 0 240 112" className={PILLAR_SVG} aria-hidden="true">
+      <PillarGrid rows={[38, 64, 90]} />
+
+      <path
+        d={NOISY_PATH}
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-muted"
+        strokeWidth="1.25"
+        strokeOpacity="0.5"
+        strokeLinejoin="round"
+        style={delay(offset, { "--pr-dur": "1.1s" } as CSSProperties)}
+      />
+
+      {DROPPED_POINTS.map(([x, y], index) => (
+        <g
+          key={`${x}-${y}`}
+          className="pr-pop stroke-muted"
+          strokeWidth="1.4"
+          strokeOpacity="0.7"
+          strokeLinecap="round"
+          style={delay(offset + 780 + index * 110)}
+        >
+          <line x1={x - 3.5} y1={y - 3.5} x2={x + 3.5} y2={y + 3.5} />
+          <line x1={x - 3.5} y1={y + 3.5} x2={x + 3.5} y2={y - 3.5} />
+        </g>
+      ))}
+
+      <path
+        d={CLEAN_PATH}
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-accent"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        style={delay(offset + 640, { "--pr-dur": "1.2s" } as CSSProperties)}
+      />
+      {CLEAN_DOTS.map(([x, y], index) => (
+        <circle
+          key={`${x}-${y}`}
+          cx={x}
+          cy={y}
+          r="2.4"
+          className="pr-pop fill-accent"
+          fillOpacity="0.55"
+          style={delay(offset + 1000 + index * 100)}
+        />
+      ))}
+      <circle
+        cx={CLEAN_END[0]}
+        cy={CLEAN_END[1]}
+        r="5"
+        className="pr-halo fill-accent"
+        style={delay(offset + 1500)}
+      />
+      <circle
+        cx={CLEAN_END[0]}
+        cy={CLEAN_END[1]}
+        r="4.5"
+        className="pr-pop fill-accent stroke-background"
+        strokeWidth="2"
+        style={delay(offset + 1440)}
+      />
+    </svg>
+  );
+}
+
+function OwnDataArt({ offset }: { offset: number }) {
+  return (
+    <svg viewBox="0 0 240 112" className={PILLAR_SVG} aria-hidden="true">
+      <path
+        d="M 36 14 H 76 A 10 10 0 0 1 86 24 V 88 A 10 10 0 0 1 76 98 H 36 A 10 10 0 0 1 26 88 V 24 A 10 10 0 0 1 36 14 Z"
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-accent"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        style={delay(offset, { "--pr-dur": "1.1s" } as CSSProperties)}
+      />
+      <rect
+        x="46"
+        y="22"
+        width="20"
+        height="3"
+        rx="1.5"
+        className="pr-pop fill-muted"
+        fillOpacity="0.6"
+        style={delay(offset + 420)}
+      />
+      {PHONE_ROWS.map(([y, width, opacity], index) => (
+        <rect
+          key={y}
+          x="36"
+          y={y}
+          width={width}
+          height="5"
+          rx="2.5"
+          className="pr-pop fill-accent"
+          fillOpacity={opacity}
+          style={delay(offset + 520 + index * 90)}
+        />
+      ))}
+      <rect
+        x="46"
+        y="88"
+        width="20"
+        height="2.5"
+        rx="1.25"
+        className="pr-pop fill-muted"
+        fillOpacity="0.5"
+        style={delay(offset + 760)}
+      />
+
+      <path
+        d="M 96 56 H 144"
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-accent"
+        strokeWidth="2"
+        strokeLinecap="round"
+        style={delay(offset + 820, { "--pr-dur": "0.7s" } as CSSProperties)}
+      />
+      <path
+        d="M 137 49 L 144 56 L 137 63"
+        fill="none"
+        className="pr-pop stroke-accent"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={delay(offset + 1320)}
+      />
+
+      <path
+        d="M 160 28 H 194 L 212 46 V 80 A 4 4 0 0 1 208 84 H 160 A 4 4 0 0 1 156 80 V 32 A 4 4 0 0 1 160 28 Z"
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-accent"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        style={delay(offset + 1000, { "--pr-dur": "0.9s" } as CSSProperties)}
+      />
+      <path
+        d="M 194 28 V 46 H 212"
+        pathLength={1}
+        fill="none"
+        className="pr-draw stroke-accent"
+        strokeWidth="1.5"
+        strokeOpacity="0.6"
+        strokeLinejoin="round"
+        style={delay(offset + 1400, { "--pr-dur": "0.5s" } as CSSProperties)}
+      />
+      {FILE_ROWS.map(([y, width], index) => (
+        <rect
+          key={y}
+          x="166"
+          y={y}
+          width={width}
+          height="4"
+          rx="2"
+          className="pr-pop fill-muted"
+          fillOpacity="0.6"
+          style={delay(offset + 1520 + index * 110)}
+        />
+      ))}
+    </svg>
+  );
+}
+
+const PILLAR_ART = [PriceLockArt, SignalFilterArt, OwnDataArt];
+
 const COMMUNITY_ITEMS = [
   {
     title: "Grupos por pace",
@@ -923,29 +1229,31 @@ export default function Home() {
             </h2>
 
             <div className="mt-12 grid gap-4 sm:gap-5 lg:grid-cols-3">
-              {PILLARS.map((pillar, index) => (
-                <article
-                  key={pillar.title}
-                  data-reveal=""
-                  style={delay(120 + index * 110)}
-                  className="group relative flex flex-col rounded-2xl border border-border bg-background p-6 transition-colors hover:border-accent/60 sm:p-7"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="absolute left-6 top-0 h-px w-10 bg-accent transition-all duration-500 group-hover:w-24 sm:left-7"
-                  />
-                  <span className="font-mono text-xs text-muted">{pillar.index}</span>
-                  <h3 className="mt-4 font-mono text-xl font-semibold tracking-tight">
-                    {pillar.title}
-                  </h3>
-                  <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">
-                    {pillar.body}
-                  </p>
-                  <p className="mt-5 border-t border-border pt-4 font-mono text-[11px] uppercase tracking-[0.12em] text-accent">
-                    {pillar.detail}
-                  </p>
-                </article>
-              ))}
+              {PILLARS.map((pillar, index) => {
+                const Art = PILLAR_ART[index];
+                return (
+                  <article
+                    key={pillar.title}
+                    data-reveal=""
+                    style={delay(120 + index * 110)}
+                    className="group relative flex flex-col rounded-2xl border border-border bg-background p-6 transition-colors hover:border-accent/60 sm:p-7"
+                  >
+                    <span className="font-mono text-xs text-muted">{pillar.index}</span>
+                    <div className="mt-4 rounded-xl border border-border bg-surface/60 p-3 transition-colors group-hover:border-accent/40 sm:p-4">
+                      <Art offset={220 + index * 110} />
+                    </div>
+                    <h3 className="mt-6 font-mono text-xl font-semibold tracking-tight">
+                      {pillar.title}
+                    </h3>
+                    <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">
+                      {pillar.body}
+                    </p>
+                    <p className="mt-5 border-t border-border pt-4 font-mono text-[11px] uppercase tracking-[0.12em] text-accent">
+                      {pillar.detail}
+                    </p>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>
