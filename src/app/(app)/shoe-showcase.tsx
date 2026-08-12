@@ -9,23 +9,6 @@ import { HORSE_BUST_PATHS } from "../horse-mark";
  * maker's logo on the side panel, this one carries the Xanthus horse bust.
  */
 
-/**
- * Short reflection ramp for the logo patch. The landing page's full 22-stop
- * ramp is tuned for a mark hundreds of pixels tall; at the ~26px the badge
- * occupies, that many bands collapse into mud, so this keeps only one
- * specular/shadow pass per half.
- */
-const BADGE_CHROME: ReadonlyArray<readonly [number, string]> = [
-  [0, "#e6efff"],
-  [0.18, "#ffffff"],
-  [0.34, "#7ea6ff"],
-  [0.42, "#2d59bd"],
-  [0.5, "#5b8dff"],
-  [0.7, "#f4f8ff"],
-  [0.86, "#8fb3ff"],
-  [1, "#3f74e6"],
-];
-
 const FALLBACK_RGB: [number, number, number] = [47, 111, 237];
 
 function parseHex(hex: string): [number, number, number] {
@@ -105,26 +88,6 @@ export function ShoeShowcase({
                   <stop offset="55%" stopColor={color} />
                   <stop offset="100%" stopColor={upperBottom} />
                 </linearGradient>
-                {/*
-                 * User space, and deliberately running well past the badge: the
-                 * mark is three separate sub-paths, so an object-bounding-box
-                 * ramp would give the ear and the shoulder line each its own
-                 * private rainbow instead of one light source crossing all of
-                 * them, and a box cropped tight to the badge would land the
-                 * ramp's dark tail on the foreleg as a blot.
-                 */}
-                <linearGradient
-                  id="shoe-chrome-badge"
-                  x1="52"
-                  y1="60"
-                  x2="92"
-                  y2="100"
-                  gradientUnits="userSpaceOnUse"
-                >
-                  {BADGE_CHROME.map(([offset, stopColor]) => (
-                    <stop key={offset} offset={offset} stopColor={stopColor} />
-                  ))}
-                </linearGradient>
               </defs>
 
               <g strokeLinecap="round" strokeLinejoin="round">
@@ -154,7 +117,9 @@ export function ShoeShowcase({
 
                 {/*
                  * Upper, front to back: toe box, vamp, the long diagonal of the
-                 * tongue, the ankle notch, then the heel collar and counter.
+                 * tongue, the ankle notch, the heel collar's wing flourish
+                 * (curling up and back toward the toe, off the reference art),
+                 * then down into the counter.
                  */}
                 <path
                   d="M 179 91 C 178 80, 168 70, 152 65
@@ -162,8 +127,12 @@ export function ShoeShowcase({
                      C 116 49, 97 41, 84 36.5
                      C 80 41, 75.5 45.5, 70 47.5
                      C 63 45, 56 42.5, 50 41
-                     C 44 40, 36 40, 30 46
-                     C 23 53, 18.5 68, 16.5 86
+                     C 46 39, 40 35, 36 30
+                     C 34 27, 37 24, 42 25
+                     C 45 25.5, 46 28, 44 31
+                     C 41 34, 36 36, 31 39
+                     C 25 44, 19 55, 17 68
+                     C 16.3 74, 16.2 80, 16.5 86
                      C 30 92, 60 95, 100 96.2
                      C 133 96.8, 161 94.3, 179 91 Z"
                   fill="url(#shoe-upper)"
@@ -171,11 +140,27 @@ export function ShoeShowcase({
                   strokeWidth="2.2"
                 />
 
+                {/*
+                 * Accent panel: a fixed-dark overlay (not colour-mixed off the
+                 * shoe's own hue) sweeping from the heel down across the vamp
+                 * toward the sole — same idea as the reference art's diagonal
+                 * colour-block, and a steadier badge background than the bare
+                 * gradient upper, since it doesn't shift toward unreadable on
+                 * whatever colour the athlete picked.
+                 */}
+                <path
+                  d="M 95 62 C 112 66, 135 75, 155 86
+                     C 162 90, 167 93, 172 95
+                     L 164 98
+                     C 156 93, 146 87, 133 79
+                     C 116 69, 100 63, 86 61 Z"
+                  fill={INK}
+                />
+
                 <g stroke={detail} strokeWidth="1.8" opacity="0.85">
-                  <path d="M 152 66 C 148 75, 146 85, 146 94" />
                   <path d="M 130 57 C 127 68, 125.5 79, 125 91" />
                   <path d="M 99 64 C 95.5 74, 93.5 85, 93 96" />
-                  <path d="M 21 82 C 24 68, 30 56, 40 48" />
+                  <path d="M 21 82 C 24 68, 27 50, 30 34" />
                   {/* Far rim of the ankle opening, so the notch reads as a hole. */}
                   <path d="M 82 39 C 76 47, 68 53, 60 51.5 C 55 50.5, 51.5 48, 49 45" />
                   {/* Eyestay: the eyelet row the laces climb. */}
@@ -200,10 +185,15 @@ export function ShoeShowcase({
                   opacity="0.28"
                 />
 
-                {/* Where a Nike swoosh or a set of Adidas stripes would sit. */}
+                {/*
+                 * Where a Nike swoosh or a set of Adidas stripes would sit —
+                 * on the accent panel now, not directly on the gradient
+                 * upper, so a fixed light stroke against the panel's fixed
+                 * dark fill stays legible on every colour a shoe can be.
+                 */}
                 <g
-                  transform="translate(53 63) scale(0.25)"
-                  stroke="url(#shoe-chrome-badge)"
+                  transform="translate(117 65) scale(0.22)"
+                  stroke="#f4f6fb"
                   strokeWidth="5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
