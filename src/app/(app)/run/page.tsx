@@ -343,9 +343,25 @@ export default function RunPage() {
             <button
               type="button"
               onClick={handleStart}
-              className="w-full rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+              className="group relative flex w-full items-center justify-center overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground"
             >
-              Iniciar corrida
+              <span className="transition-opacity duration-300 group-hover:opacity-0">
+                Iniciar corrida
+              </span>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-all duration-300 ease-out group-hover:left-1/2 group-hover:h-8 group-hover:w-8 group-hover:-translate-x-1/2"
+              >
+                <path
+                  d="M5 12h14M13 6l6 6-6 6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
 
             {state.error && <p className="text-sm text-bad">{state.error}</p>}
