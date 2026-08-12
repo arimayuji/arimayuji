@@ -87,7 +87,7 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     claim:
       "O sinal real encontrado em estudo prospectivo é um salto de volume acima de 30% em 2 semanas, associado a maior risco de lesões \"de distância\" (HR 1.59); aumentos entre 10% e 30% não diferiram do grupo abaixo de 10%.",
     bullets: [
-      "Salto de volume **>30% em 2 semanas** → **HR 1,59** pra lesão",
+      "Salto de volume **>30% em 2 semanas** aumenta bastante o risco de lesão",
       "Entre **10% e 30%**: sem diferença do grupo abaixo de **10%**",
     ],
     strength: "moderada",
@@ -133,9 +133,9 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     claim:
       "A própria NATA (National Athletic Trainers' Association), em seu posicionamento sobre lesões por overuse, classifica a regra dos 10% e a recomendação de 1–2 dias de descanso por semana como SORT grau C — consenso de especialista, sem estudo forte por trás.",
     bullets: [
-      "Regra dos **10%** = SORT grau C",
-      "**1–2 dias** de descanso/semana = mesma classificação",
-      "Consenso de especialista, não estudo forte",
+      "Regra dos **10%** é opinião de especialista, não estudo forte",
+      "**1–2 dias** de descanso/semana tem a mesma origem — convenção",
+      "A própria entidade que recomenda isso admite que não é prova científica",
     ],
     strength: "consenso",
     source: {
@@ -384,7 +384,7 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       "Num crossover com 13 fundistas treinados (VO2max 62,7 ml/kg/min), um aquecimento de alta intensidade (500m a 70% + 3×250m a 100%, 2 min de pausa passiva, 8–10 min no total) rendeu 5000m 6,4 segundos mais rápido (0,5%) que o mesmo aquecimento feito todo a 70% — p=0,03, com 10 dos 13 corredores melhorando.",
     bullets: [
       "**500m a 70% + 3×250m a 100%**, **8–10 min** no total",
-      "5000m **6,4s** mais rápido (**0,5%**), p=**0,03**",
+      "5000m **6,4s** mais rápido (**0,5%**)",
       "**10 de 13** corredores melhoraram",
     ],
     strength: "moderada",
@@ -460,7 +460,7 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       "O único aquecimento estruturado com evidência de ensaio randomizado por cluster pra prevenção de lesão é o FIFA 11+ (8 min de corrida + 10 min de força e equilíbrio + 2 min de corrida, ~20 min): em 1.892 jogadoras de 13–17 anos, o desfecho primário de \"lesões relevantes\" deu rate ratio 0,71 (IC 95% 0,49–1,03) — mas o programa é de futebol e nunca foi validado em corredores de rua.",
     bullets: [
       "Estrutura: **8 min** corrida + **10 min** força/equilíbrio + **2 min** corrida (~**20 min**)",
-      "**1.892 jogadoras**: desfecho primário RR **0,71** (IC 95% **0,49–1,03**)",
+      "**1.892 jogadoras**: cortou lesões relevantes em ~**30%**, mas o resultado não é estatisticamente confiável",
       "Nunca validado em corredores de rua",
     ],
     strength: "forte",
@@ -478,8 +478,8 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     claim:
       "Colocar o bloco de força de um programa preventivo dentro do aquecimento custa desempenho agudo: num crossover com 15 jogadoras juniores, fazer o FIFA 11+ com a parte de força deixou o sprint de 20m mais lento (3,62s vs 3,58s, p=0,028) e o de 30m também (5,01s vs 4,96s, p=0,039) — os próprios autores recomendam fazer a parte de força depois do treino ou em sessão separada.",
     bullets: [
-      "20m: **3,62s** com força vs **3,58s** sem (p=**0,028**)",
-      "30m: **5,01s** vs **4,96s** (p=**0,039**)",
+      "20m: **3,62s** com o bloco de força vs **3,58s** sem",
+      "30m: **5,01s** com força vs **4,96s** sem",
       "Recomendação dos autores: força **depois** do treino, não no aquecimento",
     ],
     strength: "moderada",
@@ -518,8 +518,8 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       "Meta-análise mais recente (15 estudos agudos, 181 participantes) não encontrou efeito nem do alongamento estático nem do dinâmico sobre economia de corrida: SMD geral de 0,25 (IC 95% -0,16 a 0,66; p=0,21), estático 0,33 (-0,25 a 0,92; p=0,21), dinâmico 0,21 (-0,27 a 0,69; p=0,34) — o efeito popularmente assumido, em qualquer direção, é maior do que o que os dados mostram.",
     bullets: [
       "**15 estudos**, **181 participantes**: sem efeito de nenhum tipo de alongamento",
-      "Estático SMD **0,33** (p=0,21); dinâmico SMD **0,21** (p=0,34)",
-      "Nem estático prejudica, nem dinâmico ajuda, na economia de corrida especificamente",
+      "Nem estático nem dinâmico mudou a economia de corrida de forma mensurável",
+      "O efeito que todo mundo assume existir, pra qualquer lado, é maior do que os dados mostram",
     ],
     strength: "moderada",
     source: {
@@ -765,8 +765,8 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     claim:
       "Alongamento estático não reduz risco de lesão em corredores: HR agrupado de 0,95 (IC 95% 0,78–1,16) em 2.630 recrutas militares — seria preciso ~141 pessoas alongando por 12 semanas pra evitar uma lesão.",
     bullets: [
-      "HR agrupado **0,95** (IC 95% **0,78–1,16**) — **2.630 recrutas** militares",
-      "**~141 pessoas** alongando por **12 semanas** pra evitar **1 lesão**",
+      "Estudo com **2.630 recrutas** militares não achou redução real no risco de lesão",
+      "**~141 pessoas** alongando por **12 semanas** pra evitar **1 lesão** — ineficiente",
     ],
     strength: "forte",
     source: {
@@ -802,8 +802,8 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       "Meta-análise de 25 ensaios randomizados (26.610 participantes, 3.464 lesões) comparando estratégias preventivas: alongamento RR 0,963 (IC 95% 0,846–1,095, sem efeito), treino de força RR 0,315 (0,207–0,480), treino proprioceptivo RR 0,550 (0,347–0,869) e programas multicomponente RR 0,655 (0,520–0,826); lesões por overuse caíram quase à metade (RR 0,527, IC 0,373–0,746).",
     bullets: [
       "**25 ensaios**, 26.610 participantes, 3.464 lesões",
-      "Força **RR 0,315** — a estratégia com maior efeito",
-      "Alongamento **RR 0,963**, ou seja sem efeito nenhum",
+      "Fortalecimento muscular: cortou o risco de lesão em quase **70%** — a estratégia mais eficaz",
+      "Alongamento não reduziu o risco de lesão de forma perceptível",
     ],
     strength: "forte",
     source: {
@@ -812,7 +812,7 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       citable: true,
     },
     caveat:
-      "Amostra dominada por esportes coletivos, não por corredores de rua — e o efeito NÃO se reproduz quando a pergunta é restrita a corredores (ver runner-specific-prevention-null). Não usar esse RR de 0,315 como número de corrida.",
+      "Amostra dominada por esportes coletivos, não por corredores de rua — e o efeito NÃO se reproduz quando a pergunta é restrita a corredores (ver runner-specific-prevention-null). Não usar esse número de redução de risco como se fosse específico de corrida.",
   },
   {
     id: "runner-specific-prevention-null",
@@ -820,8 +820,8 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     claim:
       "Quando a mesma pergunta é feita só com corredores de endurance, o efeito desaparece: meta-análise de 9 ensaios com 1.904 corredores não achou redução significativa nem de risco (p=0,110) nem de taxa de lesão (p=0,329) — só o subgrupo de 3 estudos supervisionados mostrou efeito (log RR −0,77; p<0,001), com aderência ≥88% contra 47–93% nos não supervisionados.",
     bullets: [
-      "**9 ensaios, 1.904 corredores**: sem redução significativa de risco ou taxa",
-      "Só os **3 estudos supervisionados** funcionaram (p<0,001)",
+      "**9 ensaios, 1.904 corredores**: nenhum efeito real de prevenção detectado, no geral",
+      "Só os **3 estudos supervisionados** funcionaram de verdade",
       "Adesão foi o diferencial: **≥88%** supervisionado vs 47–93% sem supervisão",
     ],
     strength: "forte",
@@ -839,8 +839,8 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     claim:
       "A diretriz de prática clínica da APTA/Academy of Orthopaedic Physical Therapy pra tendinopatia de porção média do Aquiles (revisão 2024) prescreve carga, não aquecimento: \"exercício de carga do tendão, com cargas tão altas quanto toleradas\" é recomendação grau A (evidência forte) como primeira linha, a dose (≥3x por semana) é grau E, alongamento é apenas grau C e só quando há restrição de dorsiflexão de tornozelo — e o termo \"warm-up\" não aparece nenhuma vez no documento.",
     bullets: [
-      "Carga do tendão = **grau A**, primeira linha, cargas tão altas quanto toleradas",
-      "Dose **≥3x/semana** = grau E; alongamento = **grau C**, só com dorsiflexão restrita",
+      "Recomendação mais forte: carregar o tendão, com carga tão alta quanto o corredor aguentar",
+      "Fazer isso **≥3x por semana**; alongar é recomendação bem mais fraca, só em caso específico",
       "**Zero** menções a aquecimento no documento inteiro",
     ],
     strength: "forte",
