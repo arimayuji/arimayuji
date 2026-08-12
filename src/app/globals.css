@@ -17,6 +17,16 @@
   --good: #2e9e5b;
   --warn: #d98e2b;
   --bad: #d9482b;
+
+  /*
+   * Sequential ramp (low → high volume) for the history heat calendar. Each
+   * step is picked per theme rather than derived from the light one, so the
+   * dark set runs light-on-dark instead of fading into the near-black ground.
+   */
+  --pr-heat-1: #6da7ec;
+  --pr-heat-2: #3987e5;
+  --pr-heat-3: #256abf;
+  --pr-heat-4: #104281;
 }
 
 @theme inline {
@@ -46,6 +56,11 @@
     --good: #4cc788;
     --warn: #e6a13f;
     --bad: #ea6448;
+
+    --pr-heat-1: #184f95;
+    --pr-heat-2: #2a78d6;
+    --pr-heat-3: #5598e7;
+    --pr-heat-4: #86b6ef;
   }
 }
 
