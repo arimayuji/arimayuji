@@ -199,6 +199,12 @@ export async function listCompletedRuns(): Promise<CompletedRun[]> {
   return withStore(RUNS_STORE, "readonly", (store) => store.getAll());
 }
 
+/** Undefined both when the id doesn't exist and when storage is unavailable — the detail screen treats those the same ("not found"). */
+export async function getCompletedRun(id: string): Promise<CompletedRun | undefined> {
+  if (typeof indexedDB === "undefined") return undefined;
+  return withStore<CompletedRun | undefined>(RUNS_STORE, "readonly", (store) => store.get(id));
+}
+
 /**
  * Drops a run that was just recorded but shouldn't count — a test, a false
  * start, whatever. `finish()` already writes the record immediately (so a

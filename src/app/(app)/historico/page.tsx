@@ -454,37 +454,39 @@ function RunRow({
   return (
     <li className="pr-enter" style={delay(90 + index * 45)}>
       <article className="relative flex items-start gap-4 rounded-2xl border border-border bg-surface p-4">
-        <RouteThumb points={run.points} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <h3 className="truncate text-sm font-medium">{formatRunDate(started)}</h3>
-            <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
-              {timeFormatter.format(started)}
-            </span>
-          </div>
-          <p className="mt-1 font-mono text-2xl tabular-nums">
-            {formatDistance(run.distanceMeters, unit)}
-            <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
-          </p>
-          <dl className="mt-1.5 flex gap-4 font-mono text-xs tabular-nums text-muted">
-            <div className="flex gap-1.5">
-              <dt className="not-italic">tempo</dt>
-              <dd className="text-foreground">{formatElapsed(seconds)}</dd>
+        <Link href={`/historico/detalhe?id=${run.id}`} className="flex min-w-0 flex-1 items-start gap-4">
+          <RouteThumb points={run.points} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="truncate text-sm font-medium">{formatRunDate(started)}</h3>
+              <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
+                {timeFormatter.format(started)}
+              </span>
             </div>
-            <div className="flex gap-1.5">
-              <dt>{paceLabel(unit)}</dt>
-              <dd className="text-foreground">
-                {formatAveragePace(run.distanceMeters, seconds, unit)}
-              </dd>
-            </div>
-          </dl>
-          {run.shoeName && (
-            <p className="mt-1.5 truncate font-mono text-xs text-muted">
-              <span className="text-[10px] uppercase tracking-wide">tênis</span>{" "}
-              <span className="text-foreground">{run.shoeName}</span>
+            <p className="mt-1 font-mono text-2xl tabular-nums">
+              {formatDistance(run.distanceMeters, unit)}
+              <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
             </p>
-          )}
-        </div>
+            <dl className="mt-1.5 flex gap-4 font-mono text-xs tabular-nums text-muted">
+              <div className="flex gap-1.5">
+                <dt className="not-italic">tempo</dt>
+                <dd className="text-foreground">{formatElapsed(seconds)}</dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt>{paceLabel(unit)}</dt>
+                <dd className="text-foreground">
+                  {formatAveragePace(run.distanceMeters, seconds, unit)}
+                </dd>
+              </div>
+            </dl>
+            {run.shoeName && (
+              <p className="mt-1.5 truncate font-mono text-xs text-muted">
+                <span className="text-[10px] uppercase tracking-wide">tênis</span>{" "}
+                <span className="text-foreground">{run.shoeName}</span>
+              </p>
+            )}
+          </div>
+        </Link>
 
         <button
           type="button"
