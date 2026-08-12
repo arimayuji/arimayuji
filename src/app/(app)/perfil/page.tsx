@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ANNOUNCE_OPTIONS, announceLabel, type DistanceUnit } from "@/lib/preferences";
+import {
+  ANNOUNCE_MAX_METERS,
+  ANNOUNCE_MIN_METERS,
+  ANNOUNCE_STEP_METERS,
+  announceLabel,
+  type DistanceUnit,
+} from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { GoalDatePicker } from "../date-picker";
@@ -536,16 +542,23 @@ export default function PerfilPage() {
             <p className="mt-1 text-xs leading-relaxed text-muted">
               Valor inicial da tela de corrida. Dá pra mudar antes de cada treino.
             </p>
-            <div className="mt-3 flex gap-2">
-              {ANNOUNCE_OPTIONS.map((meters) => (
-                <SegmentedButton
-                  key={meters}
-                  selected={prefs.announceIntervalMeters === meters}
-                  onClick={() => update({ announceIntervalMeters: meters })}
-                >
-                  {announceLabel(meters)}
-                </SegmentedButton>
-              ))}
+            <div className="mt-3 flex items-baseline justify-between">
+              <span className="font-mono text-2xl font-semibold tabular-nums text-accent">
+                {announceLabel(prefs.announceIntervalMeters)}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={ANNOUNCE_MIN_METERS}
+              max={ANNOUNCE_MAX_METERS}
+              step={ANNOUNCE_STEP_METERS}
+              value={prefs.announceIntervalMeters}
+              onChange={(e) => update({ announceIntervalMeters: Number(e.target.value) })}
+              className="mt-1 w-full accent-accent"
+            />
+            <div className="mt-1 flex justify-between font-mono text-[10px] text-muted">
+              <span>{announceLabel(ANNOUNCE_MIN_METERS)}</span>
+              <span>{announceLabel(ANNOUNCE_MAX_METERS)}</span>
             </div>
           </fieldset>
 

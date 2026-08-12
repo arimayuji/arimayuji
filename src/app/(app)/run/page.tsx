@@ -13,7 +13,12 @@ import {
   type RunTrack,
 } from "@/lib/tracking/storage";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
-import { ANNOUNCE_OPTIONS, announceLabel } from "@/lib/preferences";
+import {
+  ANNOUNCE_MAX_METERS,
+  ANNOUNCE_MIN_METERS,
+  ANNOUNCE_STEP_METERS,
+  announceLabel,
+} from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useImmersiveMode } from "../app-shell";
 import { NoticeBadge } from "../ui";
@@ -229,23 +234,23 @@ export default function RunPage() {
             </label>
 
             <label className="block space-y-1.5">
-              <span className="text-sm font-medium">Aviso por voz a cada</span>
-              <div className="flex gap-2">
-                {ANNOUNCE_OPTIONS.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => updatePreferences({ announceIntervalMeters: m })}
-                    className={`flex-1 rounded-lg border px-3 py-3 text-sm font-medium transition-colors ${
-                      announceMeters === m
-                        ? "border-accent bg-accent text-accent-foreground"
-                        : "border-border bg-surface text-foreground hover:border-accent"
-                    }`}
-                  >
-                    {announceLabel(m)}
-                  </button>
-                ))}
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-medium">Aviso por voz a cada</span>
+                <span className="font-mono text-sm font-semibold tabular-nums text-accent">
+                  {announceLabel(announceMeters)}
+                </span>
               </div>
+              <input
+                type="range"
+                min={ANNOUNCE_MIN_METERS}
+                max={ANNOUNCE_MAX_METERS}
+                step={ANNOUNCE_STEP_METERS}
+                value={announceMeters}
+                onChange={(e) =>
+                  updatePreferences({ announceIntervalMeters: Number(e.target.value) })
+                }
+                className="mt-1 w-full accent-accent"
+              />
             </label>
 
             <label className="block space-y-1.5">

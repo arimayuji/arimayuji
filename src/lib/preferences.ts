@@ -21,7 +21,10 @@ export interface Preferences {
   distanceUnit: DistanceUnit;
 }
 
-export const ANNOUNCE_OPTIONS = [500, 1000, 2000] as const;
+/** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
+export const ANNOUNCE_MIN_METERS = 250;
+export const ANNOUNCE_MAX_METERS = 5000;
+export const ANNOUNCE_STEP_METERS = 250;
 
 export const DEFAULT_PREFERENCES: Preferences = {
   announceIntervalMeters: 1000,
@@ -30,13 +33,19 @@ export const DEFAULT_PREFERENCES: Preferences = {
 
 const STORAGE_KEY = "xanthus:preferences";
 
+/** Snaps to the nearest step and clamps to the slider's range — never rejects a value outright, just corrects it. */
+function clampAnnounceInterval(meters: number): number {
+  const snapped = Math.round(meters / ANNOUNCE_STEP_METERS) * ANNOUNCE_STEP_METERS;
+  return Math.min(ANNOUNCE_MAX_METERS, Math.max(ANNOUNCE_MIN_METERS, snapped));
+}
+
 function sanitize(raw: unknown): Preferences {
   if (typeof raw !== "object" || raw === null) return DEFAULT_PREFERENCES;
   const value = raw as Partial<Record<keyof Preferences, unknown>>;
 
-  const announce = Number(value.announceIntervalMeters);
-  const announceIntervalMeters = (ANNOUNCE_OPTIONS as readonly number[]).includes(announce)
-    ? announce
+  const rawAnnounce = Number(value.announceIntervalMeters);
+  const announceIntervalMeters = Number.isFinite(rawAnnounce)
+    ? clampAnnounceInterval(rawAnnounce)
     : DEFAULT_PREFERENCES.announceIntervalMeters;
 
   const distanceUnit: DistanceUnit =
@@ -72,5 +81,6 @@ export function savePreferences(patch: Partial<Preferences>): Preferences {
 }
 
 export function announceLabel(meters: number): string {
-  return meters >= 1000 ? `${meters / 1000} km` : `${meters} m`;
+  if (meters < 1000) return `${meters} m`;
+  return `${(meters / 1000).toString().replace(".", ",")} km`;
 }
