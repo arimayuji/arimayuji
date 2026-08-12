@@ -4,6 +4,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
+import { listShoes, type Shoe } from "@/lib/tracking/storage";
 
 /**
  * Share-card preview.
@@ -30,6 +31,14 @@ const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
 export default function CompartilharPage() {
   const [scenario, setScenario] = useState<ScenarioId>("madrugada");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [shoes, setShoes] = useState<Shoe[] | null>(null);
+  const [shoeId, setShoeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    listShoes().then(setShoes);
+  }, []);
+
+  const shoe = shoes?.find((s) => s.id === shoeId);
 
   // Revokes the *previous* object URL whenever it's replaced or the screen
   // unmounts — the cleanup closes over the value from the render it belongs
@@ -65,7 +74,11 @@ export default function CompartilharPage() {
 
       <Screen>
         <div className="pr-enter mx-auto w-full max-w-[300px]" style={delay(80)}>
-          <ShareCard scenario={scenario} photoUrl={photoUrl ?? undefined} />
+          <ShareCard
+            scenario={scenario}
+            photoUrl={photoUrl ?? undefined}
+            shoe={shoe && { name: shoe.name, color: shoe.color }}
+          />
         </div>
 
         <p className="pr-enter text-center text-xs leading-relaxed text-muted" style={delay(140)}>
@@ -136,6 +149,62 @@ export default function CompartilharPage() {
             ))}
           </div>
         </Card>
+
+        {shoes && shoes.length > 0 && (
+          <Card className="pr-enter" style={delay(195)}>
+            <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
+              Tênis em destaque
+            </CardTitle>
+            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+              Escolha um dos tênis que você registrou pra ele flutuar no card, na cor que você
+              cadastrou.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setShoeId(null)}
+                aria-pressed={shoeId === null}
+                className={`min-h-14 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  shoeId === null
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border bg-background text-foreground hover:border-accent"
+                }`}
+              >
+                <span className="block">Nenhum</span>
+                <span className="mt-0.5 block text-[11px] font-normal text-muted">
+                  card sem tênis
+                </span>
+              </button>
+              {shoes.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setShoeId(option.id)}
+                  aria-pressed={shoeId === option.id}
+                  className={`flex min-h-14 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                    shoeId === option.id
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border bg-background text-foreground hover:border-accent"
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    style={{ backgroundColor: option.color }}
+                    className="h-5 w-5 shrink-0 rounded-full border border-border"
+                  />
+                  <span className="min-w-0">
+                    {option.brand && (
+                      <span className="block truncate text-[11px] font-normal text-muted">
+                        {option.brand}
+                      </span>
+                    )}
+                    <span className="block truncate">{option.name}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <Card className="pr-enter mt-2" style={delay(200)}>
           <CardTitle>O que falta pra ficar de pé</CardTitle>

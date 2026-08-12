@@ -154,6 +154,34 @@ body {
   }
 }
 
+/*
+ * Showcase tumble, split across two nested elements so the axes can run on
+ * different periods: one shared cycle reads as a merry-go-round, while 9s of
+ * yaw against 6.5s of pitch only lands in the same pose once every couple of
+ * minutes, which is what sells "floating with nothing holding it". Yaw stays
+ * inside ±30° because the item is flat art — a full spin would turn it
+ * edge-on and make it vanish twice a lap.
+ */
+@keyframes pr-tumble-y {
+  0%,
+  100% {
+    transform: rotateY(-30deg);
+  }
+  50% {
+    transform: rotateY(30deg);
+  }
+}
+
+@keyframes pr-tumble-x {
+  0%,
+  100% {
+    transform: rotateX(-11deg) rotateZ(-4deg);
+  }
+  50% {
+    transform: rotateX(13deg) rotateZ(5deg);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
@@ -229,5 +257,14 @@ body {
 
   .pr-sheen {
     animation: pr-sheen 6s linear infinite;
+  }
+
+  /* Reduced motion keeps the angled resting pose set inline on both elements. */
+  .pr-tumble-y {
+    animation: pr-tumble-y 9s ease-in-out infinite;
+  }
+
+  .pr-tumble-x {
+    animation: pr-tumble-x 6.5s ease-in-out infinite;
   }
 }

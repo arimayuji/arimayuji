@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { ExampleBadge, delay } from "./ui";
+import { ShoeShowcase } from "./shoe-showcase";
 
 /**
  * Static preview of the shareable run card.
@@ -199,19 +200,25 @@ export function ShareCard({
   compact = false,
   scenario = "madrugada",
   photoUrl,
+  shoe,
 }: {
   compact?: boolean;
   scenario?: ScenarioId;
   photoUrl?: string;
+  shoe?: { name: string; color: string };
 }) {
+  const background = photoUrl
+    ? "a sua foto"
+    : `o cenário ${SCENARIOS[scenario].label}`;
+
   return (
     <div
       className="relative aspect-[4/5] w-full overflow-hidden rounded-3xl border border-border"
       role="img"
       aria-label={
-        photoUrl
-          ? "Prévia do card de compartilhamento: traçado e estatísticas de exemplo sobre a sua foto"
-          : `Prévia do card de compartilhamento: traçado e estatísticas de exemplo sobre o cenário ${SCENARIOS[scenario].label}`
+        shoe
+          ? `Prévia do card de compartilhamento: traçado e estatísticas de exemplo sobre ${background}, com o tênis ${shoe.name} em destaque`
+          : `Prévia do card de compartilhamento: traçado e estatísticas de exemplo sobre ${background}`
       }
     >
       {photoUrl ? (
@@ -278,6 +285,13 @@ export function ShareCard({
           />
         </g>
       </svg>
+
+      {shoe && (
+        <ShoeShowcase
+          color={shoe.color}
+          className="pointer-events-none absolute right-[-2%] top-[46%] w-[62%] -translate-y-1/2"
+        />
+      )}
 
       <div className="absolute inset-0 flex flex-col justify-between p-4 text-white">
         <div className="flex items-start justify-between gap-2">
