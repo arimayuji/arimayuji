@@ -193,6 +193,9 @@ export default function RunPage() {
   );
 
   const [showRunTips, setShowRunTips] = useState(false);
+  /** Drives the arrow-travels-across-the-button animation on tap — `group-hover` alone never fires on a touchscreen, which is most of this button's actual audience. */
+  const [starting, setStarting] = useState(false);
+  const START_ANIMATION_MS = 420;
 
   const handleStart = () => {
     setManualTracks([]);
@@ -208,13 +211,17 @@ export default function RunPage() {
     });
   };
 
-  /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. */
+  /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
   const handleStartClick = () => {
-    if (hasSeenRunTips()) {
-      handleStart();
-      return;
-    }
-    setShowRunTips(true);
+    setStarting(true);
+    window.setTimeout(() => {
+      if (hasSeenRunTips()) {
+        handleStart();
+        return;
+      }
+      setShowRunTips(true);
+      setStarting(false);
+    }, START_ANIMATION_MS);
   };
 
   const handleRunTipsDone = () => {
@@ -370,16 +377,23 @@ export default function RunPage() {
             <button
               type="button"
               onClick={handleStartClick}
-              className="group relative flex w-full items-center justify-center overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground"
+              disabled={starting}
+              className="group relative flex w-full items-center justify-center overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground disabled:cursor-default"
             >
-              <span className="transition-opacity duration-300 group-hover:opacity-0">
+              <span
+                className={`transition-opacity duration-300 group-hover:opacity-0 ${starting ? "opacity-0" : ""}`}
+              >
                 Iniciar corrida
               </span>
               <svg
                 aria-hidden="true"
                 viewBox="0 0 24 24"
                 fill="none"
-                className="pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-all duration-300 ease-out group-hover:left-1/2 group-hover:h-8 group-hover:w-8 group-hover:-translate-x-1/2"
+                className={`pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-all ease-out group-hover:left-1/2 group-hover:h-8 group-hover:w-8 group-hover:-translate-x-1/2 ${
+                  starting
+                    ? "!left-[calc(100%-3.25rem)] !h-8 !w-8 !translate-x-0 duration-[420ms]"
+                    : "duration-300"
+                }`}
               >
                 <path
                   d="M5 12h14M13 6l6 6-6 6"

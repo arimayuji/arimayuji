@@ -56,15 +56,15 @@ export function Splash() {
   if (!visible) return null;
 
   return (
-    <div
-      role="presentation"
-      onClick={dismiss}
-      className="fixed inset-0 z-50 bg-white"
-    >
-      {/* The source clip renders on a white ground (no alpha channel), so
-          the overlay stays a fixed white rather than this app's theme
-          background — on dark mode a themed backdrop would frame the video
-          in a stark rectangle instead of the clip filling the screen. */}
+    <div role="presentation" onClick={dismiss} className="fixed inset-0 z-50 bg-background">
+      {/* The source clip is baked black-line-art-on-white, no alpha channel.
+          In light mode that's already this app's own background, so it
+          plays untouched. In dark mode `invert` flips it to a white mark on
+          black, and `mix-blend-screen` drops the now-black ground out
+          entirely — screen-blending black contributes nothing — leaving
+          just the light horse line art floating on the real theme
+          background, the same light-mark-on-dark treatment the app icon
+          uses, instead of a white rectangle punched into a dark screen. */}
       <video
         src="/xanthus-splash.mp4"
         autoPlay
@@ -72,9 +72,9 @@ export function Splash() {
         playsInline
         onEnded={dismiss}
         onError={dismiss}
-        className="h-full w-full object-cover"
+        className="h-full w-full object-cover dark:invert dark:mix-blend-screen"
       />
-      <p className="absolute inset-x-0 bottom-10 text-center font-mono text-[11px] uppercase tracking-[0.22em] text-black/40">
+      <p className="absolute inset-x-0 bottom-10 text-center font-mono text-[11px] uppercase tracking-[0.22em] text-black/40 dark:text-white/40">
         toque para continuar
       </p>
     </div>

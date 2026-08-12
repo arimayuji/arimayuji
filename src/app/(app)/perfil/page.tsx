@@ -426,6 +426,7 @@ function sinceLabel(timestamp: number, now = Date.now()): string {
 function PainCard() {
   const [checkIns, setCheckIns] = useState<PainCheckIn[] | null>(null);
   const [region, setRegion] = useState("");
+  const [severityIndex, setSeverityIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(() => listPainCheckIns().then(setCheckIns), []);
@@ -435,11 +436,13 @@ function PainCard() {
   }, [refresh]);
 
   const active = checkIns ? activePainSignal(checkIns) : null;
+  const selected = PAIN_SEVERITY_OPTIONS[severityIndex];
 
-  const submit = async (severity: PainSeverity) => {
+  const submit = async () => {
     setBusy(true);
-    await reportPain({ severity, region: region.trim() || undefined });
+    await reportPain({ severity: selected.value, region: region.trim() || undefined });
     setRegion("");
+    setSeverityIndex(0);
     setBusy(false);
     await refresh();
   };
@@ -485,24 +488,31 @@ function PainCard() {
             value={region}
             onChange={(event) => setRegion(event.target.value)}
             placeholder="Onde? (opcional)"
-            className="mb-3 min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-accent"
+            className="mb-4 min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-accent"
           />
-          <div className="flex gap-2">
-            {PAIN_SEVERITY_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                disabled={busy}
-                onClick={() => submit(option.value)}
-                className="min-h-14 flex-1 rounded-xl border border-border bg-background px-2 py-2.5 text-center text-sm font-medium transition-colors hover:border-accent disabled:opacity-60"
-              >
-                <span className="block">{option.label}</span>
-                <span className="mt-0.5 block text-[10px] font-normal text-muted">
-                  {option.hint}
-                </span>
-              </button>
-            ))}
-          </div>
+
+          <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+            Intensidade
+          </span>
+          <PillSlider
+            min={0}
+            max={PAIN_SEVERITY_OPTIONS.length - 1}
+            step={1}
+            value={severityIndex}
+            onChange={setSeverityIndex}
+            formatValue={(value) => PAIN_SEVERITY_OPTIONS[value].label}
+            tickCount={PAIN_SEVERITY_OPTIONS.length}
+          />
+          <p className="mt-2 min-h-8 text-xs leading-relaxed text-muted text-pretty">{selected.hint}</p>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={submit}
+            className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+          >
+            {busy ? "Sinalizando…" : `Sinalizar dor ${selected.label.toLowerCase()}`}
+          </button>
         </>
       )}
     </Card>
@@ -535,6 +545,19 @@ export default function PerfilPage() {
 
       <Screen>
         <AccountCard />
+
+        <Card className="pr-enter" style={delay(80)}>
+          <CardTitle aside={<NoticeBadge>São Paulo</NoticeBadge>}>Lugares pra correr</CardTitle>
+          <Link href="/lugares" className="flex items-center justify-between gap-3">
+            <p className="text-sm leading-relaxed text-muted text-pretty">
+              Parques e rotas avaliados por segurança, percurso, estrutura, iluminação e fluxo — curadoria
+              inicial mais nota real de quem já correu lá.
+            </p>
+            <span className="shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground">
+              Ver
+            </span>
+          </Link>
+        </Card>
 
         <Card className="pr-enter" style={delay(60)}>
           <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>

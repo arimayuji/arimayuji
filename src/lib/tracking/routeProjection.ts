@@ -1,4 +1,4 @@
-import { GPS_GAP_THRESHOLD_SECONDS } from "./geoFilter";
+import { GPS_GAP_THRESHOLD_SECONDS, haversineMeters } from "./geoFilter";
 import type { StoredPoint } from "./storage";
 
 /**
@@ -17,6 +17,8 @@ const METERS_PER_DEG_LAT = 111_320;
 export interface ProjectedRoute {
   /** SVG `points` attribute value, one per unbroken stretch of tracking — split at any gap over `GPS_GAP_THRESHOLD_SECONDS`. */
   polylines: string[];
+  /** Same projection, one entry per input point (no gap-splitting) — lets a caller slice an arbitrary index range (e.g. the fastest stretch) and stay pixel-aligned with the base route. */
+  projected: { x: number; y: number }[];
   /** Square viewBox side length, in the same units as `polylines`. */
   viewBoxSize: number;
   start: { x: number; y: number };
@@ -77,8 +79,70 @@ export function projectRoute(
 
   return {
     polylines,
+    projected,
     viewBoxSize,
     start: projected[0],
     end: projected[projected.length - 1],
   };
+}
+
+export interface FastestStretch {
+  /** Indices into the same points array passed to `projectRoute`, inclusive — bounding the fastest contiguous window found. */
+  startIndex: number;
+  endIndex: number;
+}
+
+/**
+ * The fastest contiguous stretch of roughly `windowMeters`, found the same
+ * sliding-window way `bestSplitSeconds` finds a PR split (see
+ * personalRecords.ts) — reused here to highlight where the run was actually
+ * surging, not just to time it. Never lets the window straddle a tracking
+ * gap: a "fastest stretch" spanning ground that was never recorded would be
+ * the same honesty violation `projectRoute`'s gap-splitting exists to avoid.
+ */
+export function findFastestStretch(
+  points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[],
+  windowMeters: number,
+): FastestStretch | null {
+  const n = points.length;
+  if (n < 3 || windowMeters <= 0) return null;
+
+  const breaks: number[] = [0];
+  for (let i = 1; i < n; i++) {
+    if ((points[i].timestamp - points[i - 1].timestamp) / 1000 >= GPS_GAP_THRESHOLD_SECONDS) breaks.push(i);
+  }
+  breaks.push(n);
+
+  let best: FastestStretch | null = null;
+  let bestDuration = Infinity;
+
+  for (let s = 0; s < breaks.length - 1; s++) {
+    const from = breaks[s];
+    const segLength = breaks[s + 1] - from;
+    if (segLength < 2) continue;
+
+    const cum = new Array<number>(segLength).fill(0);
+    for (let i = 1; i < segLength; i++) {
+      cum[i] = cum[i - 1] + haversineMeters(points[from + i - 1], points[from + i]);
+    }
+    if (cum[segLength - 1] < windowMeters) continue;
+
+    const t0 = points[from].timestamp;
+    const elapsed = Array.from({ length: segLength }, (_, i) => (points[from + i].timestamp - t0) / 1000);
+
+    let r = 0;
+    for (let l = 0; l < segLength; l++) {
+      if (r < l) r = l;
+      while (r < segLength && cum[r] - cum[l] < windowMeters) r++;
+      if (r >= segLength) break;
+
+      const duration = elapsed[r] - elapsed[l];
+      if (duration < bestDuration) {
+        bestDuration = duration;
+        best = { startIndex: from + l, endIndex: from + r };
+      }
+    }
+  }
+
+  return best;
 }

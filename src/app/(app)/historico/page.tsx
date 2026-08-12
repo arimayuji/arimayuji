@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import {
+  deleteCompletedRun,
   listCompletedRuns,
   runMovingSeconds,
   type CompletedRun,
@@ -411,13 +412,48 @@ function RunFrequencyHeatmap({ runs, unit }: { runs: CompletedRun[]; unit: Dista
   );
 }
 
-function RunRow({ run, unit, index }: { run: CompletedRun; unit: DistanceUnit; index: number }) {
+function TrashIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7m2 0-.7 12.4A2 2 0 0 1 14.31 21H9.69a2 2 0 0 1-1.99-1.6L7 7" />
+    </svg>
+  );
+}
+
+function RunRow({
+  run,
+  unit,
+  index,
+  confirmingDelete,
+  deleting,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
+}: {
+  run: CompletedRun;
+  unit: DistanceUnit;
+  index: number;
+  confirmingDelete: boolean;
+  deleting: boolean;
+  onRequestDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+}) {
   const seconds = runMovingSeconds(run);
   const started = new Date(run.startedAt);
 
   return (
     <li className="pr-enter" style={delay(90 + index * 45)}>
-      <article className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4">
+      <article className="relative flex items-start gap-4 rounded-2xl border border-border bg-surface p-4">
         <RouteThumb points={run.points} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
@@ -449,6 +485,39 @@ function RunRow({ run, unit, index }: { run: CompletedRun; unit: DistanceUnit; i
             </p>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={onRequestDelete}
+          aria-label="Excluir corrida"
+          className="shrink-0 rounded-full p-2 text-muted hover:bg-bad/10 hover:text-bad"
+        >
+          <TrashIcon />
+        </button>
+
+        {confirmingDelete && (
+          <div className="absolute inset-0 flex items-center justify-between gap-3 rounded-2xl bg-surface px-4">
+            <p className="text-xs leading-snug text-pretty">Excluir essa corrida? Não dá pra desfazer.</p>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={onCancelDelete}
+                disabled={deleting}
+                className="rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={onConfirmDelete}
+                disabled={deleting}
+                className="rounded-full bg-bad px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {deleting ? "Excluindo…" : "Excluir"}
+              </button>
+            </div>
+          </div>
+        )}
       </article>
     </li>
   );
@@ -457,6 +526,20 @@ function RunRow({ run, unit, index }: { run: CompletedRun; unit: DistanceUnit; i
 export default function HistoricoPage() {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [{ distanceUnit: unit }] = usePreferences();
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleConfirmDelete = async (id: string) => {
+    setDeletingId(id);
+    await deleteCompletedRun(id);
+    setLoad((current) =>
+      current.status === "ready"
+        ? { status: "ready", runs: current.runs.filter((run) => run.id !== id) }
+        : current,
+    );
+    setConfirmingId(null);
+    setDeletingId(null);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -515,7 +598,17 @@ export default function HistoricoPage() {
             <RunFrequencyHeatmap runs={runs} unit={unit} />
             <ul className="flex flex-col gap-3">
               {runs.map((run, index) => (
-                <RunRow key={run.id} run={run} unit={unit} index={index} />
+                <RunRow
+                  key={run.id}
+                  run={run}
+                  unit={unit}
+                  index={index}
+                  confirmingDelete={confirmingId === run.id}
+                  deleting={deletingId === run.id}
+                  onRequestDelete={() => setConfirmingId(run.id)}
+                  onCancelDelete={() => setConfirmingId(null)}
+                  onConfirmDelete={() => void handleConfirmDelete(run.id)}
+                />
               ))}
             </ul>
           </>

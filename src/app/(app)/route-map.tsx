@@ -1,4 +1,5 @@
-import { projectRoute } from "@/lib/tracking/routeProjection";
+import { haversineMeters } from "@/lib/tracking/geoFilter";
+import { findFastestStretch, projectRoute } from "@/lib/tracking/routeProjection";
 import type { StoredPoint } from "@/lib/tracking/storage";
 
 /**
@@ -9,6 +10,33 @@ import type { StoredPoint } from "@/lib/tracking/storage";
  * not a themed card, so it doesn't invert to a stark light square in light
  * mode.
  */
+
+/**
+ * The `points` slice covering the fastest stretch of the run, already
+ * projected and joined into an SVG `points` string — null when the run is
+ * too short to make "fastest stretch" mean anything (the window scales with
+ * total distance, floored at 150m so a few-second test run never highlights
+ * itself end to end).
+ */
+function fastestStretchPolyline(
+  points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[],
+  projected: { x: number; y: number }[],
+): string | null {
+  if (points.length < 3) return null;
+
+  let totalMeters = 0;
+  for (let i = 1; i < points.length; i++) totalMeters += haversineMeters(points[i - 1], points[i]);
+  if (totalMeters < 150) return null;
+
+  const windowMeters = Math.min(1000, Math.max(150, totalMeters * 0.15));
+  const stretch = findFastestStretch(points, windowMeters);
+  if (!stretch) return null;
+
+  return projected
+    .slice(stretch.startIndex, stretch.endIndex + 1)
+    .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+    .join(" ");
+}
 
 export function RouteMap({
   points,
@@ -24,6 +52,7 @@ export function RouteMap({
   square?: boolean;
 }) {
   const route = projectRoute(points);
+  const fastestPoints = route ? fastestStretchPolyline(points, route.projected) : null;
 
   return (
     <div
@@ -52,6 +81,13 @@ export function RouteMap({
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+            <filter id="route-map-glow-strong" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="2.2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
 
           <rect width={route.viewBoxSize} height={route.viewBoxSize} fill="url(#route-map-vignette)" />
@@ -68,6 +104,19 @@ export function RouteMap({
               filter="url(#route-map-glow)"
             />
           ))}
+
+          {fastestPoints && (
+            <polyline
+              points={fastestPoints}
+              fill="none"
+              stroke="#eaf1ff"
+              strokeWidth="2.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray="3.2 2.6"
+              filter="url(#route-map-glow-strong)"
+            />
+          )}
 
           <circle cx={route.start.x} cy={route.start.y} r="1.8" fill="#ffffff" />
 
