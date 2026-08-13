@@ -13,20 +13,6 @@ const STROKE = {
   strokeLinejoin: "round",
 } as const;
 
-/**
- * A shoe, not a medal — the generic ribbon-and-circle medal is what every
- * fitness app uses for a PR, which is exactly the "muito cara do Strava"
- * the badge design is meant to move away from. Same line-icon language as
- * the rest of the app (STROKE above).
- */
-function ShoeIcon({ className = "h-6 w-6" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
-      <path d="M3 17.5h17.2c.9 0 1.5-.9 1-1.7-.8-1.3-2.3-2.1-4-2.1h-.2l-.6-3a1 1 0 0 0-1.4-.7l-1 .5a1 1 0 0 0-.5.6l-.6 2c-3 .3-5.4 1.7-6.2 3.6H4.5a1.5 1.5 0 0 0-1.5 1.5z" />
-    </svg>
-  );
-}
-
 function ChevronIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" {...STROKE}>
@@ -82,8 +68,9 @@ export function PrBadge({
           />
         </span>
       ) : (
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-          <ShoeIcon />
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+          <img src="/shoe/shoe-side.png" alt="" className="h-8 w-8 object-contain" />
         </span>
       )}
 
