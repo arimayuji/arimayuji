@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
+import { useShareSupport } from "@/lib/share";
 import { listShoes, type Shoe } from "@/lib/tracking/storage";
 
 /**
@@ -38,19 +39,6 @@ const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
  * pra ficar de pé" below) would also be what a shared image should show.
  */
 const SHARE_TEXT = "Fui correr 🏃 — Xanthus";
-
-type ShareSupport = "share" | "clipboard";
-
-const noopSubscribe = () => () => {};
-
-/** Static per-browser capability, not state that changes — same `useSyncExternalStore` shape as `usePrefersReducedMotion` elsewhere, so the client-only read never causes a hydration mismatch. */
-function useShareSupport(): ShareSupport {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => (typeof navigator.share === "function" ? "share" : "clipboard"),
-    () => "clipboard",
-  );
-}
 
 export default function CompartilharPage() {
   const [scenario, setScenario] = useState<ScenarioId>("madrugada");

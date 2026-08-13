@@ -34,6 +34,7 @@ import {
   announceLabel,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
+import { useShareSupport } from "@/lib/share";
 import { useImmersiveMode } from "../app-shell";
 import { NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
@@ -97,6 +98,8 @@ export default function RunPage() {
   const [runRecords, setRunRecords] = useState<RunRecord[]>([]);
   const [openedRecordMeters, setOpenedRecordMeters] = useState<number[]>([]);
   const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
+  const shareSupport = useShareSupport();
+  const [shareCopied, setShareCopied] = useState(false);
 
   /**
    * Personal-record check: best split for each standard distance this run
@@ -294,6 +297,44 @@ export default function RunPage() {
     setDiscarding(true);
     await deleteCompletedRun(state.finishedRun.id);
     handleReset();
+  };
+
+  /**
+   * Text + a link through the native share sheet — which already lists
+   * WhatsApp/Instagram/Facebook (story and status both) as targets on a
+   * real phone, no per-platform integration or API key needed. Not the
+   * illustrated animated card (see /compartilhar): that's a separate,
+   * bigger piece still waiting on real numbers everywhere it's used, but
+   * a runner shouldn't have to wait on that just to tell someone the pace
+   * they actually ran.
+   */
+  const handleShare = async () => {
+    if (!state.finishedRun) return;
+    const seconds = runMovingSeconds(state.finishedRun);
+    const pace =
+      state.finishedRun.distanceMeters > 0
+        ? (seconds / state.finishedRun.distanceMeters) * 1000
+        : null;
+    const text = `Corri ${formatDistanceKm(state.finishedRun.distanceMeters)} km em ${formatElapsed(seconds)}${
+      pace !== null ? ` (${formatPace(pace)} min/km)` : ""
+    } 🏃 — Xanthus`;
+    const url = window.location.origin;
+
+    if (shareSupport === "share") {
+      try {
+        await navigator.share({ text, url });
+      } catch {
+        // Cancelled or blocked — no error state, the sheet closing is feedback enough.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} — ${url}`);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      // Clipboard blocked (permissions, insecure context) — nothing else to fall back to here.
+    }
   };
 
   const isLiveRun = state.status === "tracking" || state.status === "paused";
@@ -832,14 +873,29 @@ export default function RunPage() {
             )}
           </div>
 
-          <p className="max-w-xs text-xs leading-relaxed text-muted">
-            O card animado pra compartilhar essa corrida chega depois que o pipeline de tracking
-            estiver validado em corridas reais.{" "}
-            <Link href="/compartilhar" className="text-accent underline underline-offset-2">
-              Ver a prévia do formato
-            </Link>
-            .
-          </p>
+          <div className="flex w-full max-w-xs flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground"
+            >
+              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="2.75" />
+                <circle cx="6" cy="12" r="2.75" />
+                <circle cx="18" cy="19" r="2.75" />
+                <path d="M8.5 10.5l7-4.2M8.5 13.5l7 4.2" />
+              </svg>
+              {shareCopied ? "Copiado!" : "Compartilhar"}
+            </button>
+            <p className="max-w-xs text-xs leading-relaxed text-muted">
+              O card animado ainda está a caminho — isso aqui já compartilha de verdade, com os
+              números dessa corrida.{" "}
+              <Link href="/compartilhar" className="text-accent underline underline-offset-2">
+                Ver a prévia do card
+              </Link>
+              .
+            </p>
+          </div>
           <div className="flex items-center gap-4">
             <button
               type="button"
