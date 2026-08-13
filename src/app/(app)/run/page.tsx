@@ -595,20 +595,35 @@ export default function RunPage() {
 
       {state.status === "warming" && (
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <div className="overflow-hidden rounded-2xl bg-white p-1 shadow-sm">
+          <div className="relative flex items-center justify-center">
             {/*
-             * Fixed light chip, not `bg-surface` — the clip's own background
-             * is a near-white off-white (#fbfbfb), and that token flips dark
-             * in dark mode. A themed background would put a stark white
-             * rectangle in the middle of a dark screen; a fixed one reads as
-             * a deliberate framed sticker either way.
+             * A soft halo in the clip's own off-white, well past its edges —
+             * bridges the hard cut from the video's near-white background
+             * (#fbfbfb, fixed regardless of theme — see below) into the dark
+             * screen so it reads as one glowing loading centerpiece instead
+             * of a small sticker dropped on black.
+             */}
+            <div
+              className="absolute h-64 w-64 rounded-full bg-white/20 blur-3xl"
+              aria-hidden="true"
+            />
+            {/*
+             * Fixed light background, not `bg-surface` — the clip's own
+             * background is a near-white off-white, and that token flips
+             * dark in dark mode. A themed background would put a stark white
+             * rectangle in the middle of a dark screen; a fixed one plus the
+             * feathered mask below is what actually blends it in.
              */}
             <video
               autoPlay
               loop
               muted
               playsInline
-              className="block h-28 w-28 rounded-xl"
+              className="relative block h-56 w-56 bg-white sm:h-64 sm:w-64"
+              style={{
+                maskImage: "radial-gradient(circle, black 60%, transparent 88%)",
+                WebkitMaskImage: "radial-gradient(circle, black 60%, transparent 88%)",
+              }}
               src="/running-loop.mp4"
             />
           </div>

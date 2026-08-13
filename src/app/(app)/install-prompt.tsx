@@ -83,6 +83,23 @@ export function InstallPrompt() {
     }
   }
 
+  /**
+   * The browser's own signal that installing actually completed — fires
+   * whether the athlete used our "Instalar" button, the browser's native
+   * menu, or the iOS manual steps. `eligible` alone isn't enough here: it's
+   * a snapshot frozen at first mount (`useSyncExternalStore` with a
+   * `noopSubscribe`), so if the install happens *during* this same session
+   * — this tab never reloads into standalone mode right away — the banner
+   * would otherwise keep showing until the next full page load.
+   */
+  useEffect(() => {
+    function onAppInstalled() {
+      dismiss();
+    }
+    window.addEventListener("appinstalled", onAppInstalled);
+    return () => window.removeEventListener("appinstalled", onAppInstalled);
+  }, []);
+
   async function handleInstall() {
     if (!deferredEvent) return;
     await deferredEvent.prompt();
