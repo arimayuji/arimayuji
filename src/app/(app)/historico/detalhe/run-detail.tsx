@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { computeElevationGain } from "@/lib/elevation";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
 import { computeSplits, type Split } from "@/lib/tracking/splits";
@@ -11,6 +12,7 @@ import {
   getCompletedRun,
   listCompletedRuns,
   runMovingSeconds,
+  updateRunElevationGain,
   type CompletedRun,
 } from "@/lib/tracking/storage";
 import { usePreferences } from "@/lib/usePreferences";
@@ -97,6 +99,7 @@ export function RunDetail({ id }: { id: string }) {
   const [{ distanceUnit: unit }] = usePreferences();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [computedElevationGain, setComputedElevationGain] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +115,19 @@ export function RunDetail({ id }: { id: string }) {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (load.status !== "ready" || load.run.elevationGainMeters !== undefined) return;
+    let cancelled = false;
+    computeElevationGain(load.run.points).then((gain) => {
+      if (cancelled || gain === null) return;
+      setComputedElevationGain(gain);
+      void updateRunElevationGain(load.run.id, gain);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
   if (load.status === "loading") {
     return (
@@ -144,6 +160,7 @@ export function RunDetail({ id }: { id: string }) {
   const started = new Date(run.startedAt);
   const newRecords = records.filter((r) => r.isNewRecord);
   const splits = computeSplits(run.points, metersPerUnit(unit));
+  const elevationGain = run.elevationGainMeters ?? computedElevationGain;
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -180,11 +197,21 @@ export function RunDetail({ id }: { id: string }) {
               </p>
             </div>
           </div>
-          {run.shoeName && (
-            <p className="mt-4 border-t border-border pt-3 text-xs text-muted">
-              <span className="uppercase tracking-wide">Tênis</span>{" "}
-              <span className="text-foreground">{run.shoeName}</span>
-            </p>
+          {(run.shoeName || elevationGain !== null) && (
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-border pt-3 text-xs text-muted">
+              {elevationGain !== null && (
+                <p>
+                  <span className="uppercase tracking-wide">Ganho de elevação</span>{" "}
+                  <span className="text-foreground">{elevationGain}m</span>
+                </p>
+              )}
+              {run.shoeName && (
+                <p>
+                  <span className="uppercase tracking-wide">Tênis</span>{" "}
+                  <span className="text-foreground">{run.shoeName}</span>
+                </p>
+              )}
+            </div>
           )}
         </Card>
 

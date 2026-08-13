@@ -72,6 +72,15 @@ export interface CompletedRun {
    * none.
    */
   gpsGaps?: GpsGap[];
+  /**
+   * Real terrain elevation gain in meters, from MapTiler's elevation API
+   * (see src/lib/elevation.ts) — not the phone's own GPS altitude, which is
+   * far too noisy to sum into a meaningful gain figure without a barometer.
+   * Computed lazily and cached here the first time a run's detail screen is
+   * opened, rather than on every save, since it costs a network round trip.
+   * Undefined means "not computed yet", not "zero gain".
+   */
+  elevationGainMeters?: number;
 }
 
 /**
@@ -229,6 +238,17 @@ export async function updateRunTracks(runId: string, tracks: RunTrack[]): Promis
   );
   if (!run) return;
   run.tracks = tracks;
+  await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
+}
+
+/** Caches a lazily-computed elevation gain onto an already-saved run — see `CompletedRun.elevationGainMeters`. */
+export async function updateRunElevationGain(runId: string, elevationGainMeters: number): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const run = await withStore<CompletedRun | undefined>(RUNS_STORE, "readonly", (store) =>
+    store.get(runId),
+  );
+  if (!run) return;
+  run.elevationGainMeters = elevationGainMeters;
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
 }
 
