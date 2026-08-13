@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import type { Achievement, RarityTier } from "@/lib/tracking/achievements";
-import { HORSE_BUST_PATHS } from "../horse-mark";
+import { HORSE_FULL_BODY_PATHS } from "../horse-mark";
 
 /**
  * The item that comes out of the box: a gem-cut chrome plate, not a
@@ -177,7 +177,7 @@ export function AchievementPlate({
     };
   });
 
-  const horse = HORSE_BUST_PATHS.map((d) => <path key={d} d={d} />);
+  const horse = HORSE_FULL_BODY_PATHS.map((d) => <path key={d} d={d} />);
 
   return (
     <svg viewBox="0 0 120 120" className={className} fill="none" aria-hidden="true">

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { InstallPrompt } from "./install-prompt";
 
 /**
  * App shell: the logged-in surface of Xanthus.
@@ -149,6 +150,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           immersive ? "" : "pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
         }`}
       >
+        {!immersive && <InstallPrompt />}
         {children}
       </div>
       {!immersive && <BottomNav />}
