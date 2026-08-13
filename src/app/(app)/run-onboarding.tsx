@@ -63,6 +63,16 @@ const STEPS: Step[] = [
     ),
   },
   {
+    title: "Aumente o tempo até a tela travar",
+    body: "O Xanthus tenta manter a tela ligada sozinho, mas isso pode falhar (ex.: economia de bateria). Reforço: em Ajustes > Tela > Tempo até bloquear, deixe no máximo (ou \"nunca\") antes de sair pra correr.",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.5 2" />
+      </>
+    ),
+  },
+  {
     title: "Troque de música pelo fone",
     body: "Usa os botões do fone de ouvido pra pular faixa — abrir o app de música na tela tira o Xanthus de primeiro plano.",
     icon: (

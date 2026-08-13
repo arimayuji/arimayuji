@@ -209,6 +209,8 @@ export default function RunPage() {
   );
 
   const [showRunTips, setShowRunTips] = useState(false);
+  /** True when the checklist was opened from the idle screen's "Rever dicas" link rather than as the gate before starting — completing it should just close it, not also start a run. */
+  const [reviewingTips, setReviewingTips] = useState(false);
   /** Drives the arrow-travels-across-the-button animation on tap — `group-hover` alone never fires on a touchscreen, which is most of this button's actual audience. */
   const [starting, setStarting] = useState(false);
   const START_ANIMATION_MS = 420;
@@ -243,12 +245,22 @@ export default function RunPage() {
   const handleRunTipsDone = () => {
     markRunTipsSeen();
     setShowRunTips(false);
+    if (reviewingTips) {
+      setReviewingTips(false);
+      return;
+    }
     handleStart();
   };
 
   const handleRunTipsSkip = () => {
     markRunTipsSeen();
     setShowRunTips(false);
+    setReviewingTips(false);
+  };
+
+  const handleReviewTips = () => {
+    setReviewingTips(true);
+    setShowRunTips(true);
   };
 
   const handleReset = () => {
@@ -312,7 +324,16 @@ export default function RunPage() {
                 Preparar corrida
               </h1>
               <p className="mt-1 text-sm text-muted">
-                A tela precisa ficar ligada durante o treino para o GPS se manter preciso.
+                A tela precisa ficar ligada durante o treino para o GPS se manter preciso. Se possível,
+                deixe o tempo até bloquear a tela no máximo antes de sair —{" "}
+                <button
+                  type="button"
+                  onClick={handleReviewTips}
+                  className="text-accent underline underline-offset-2"
+                >
+                  rever as dicas
+                </button>
+                .
               </p>
             </div>
 
