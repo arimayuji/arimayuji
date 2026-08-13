@@ -212,7 +212,7 @@ function CompartilharContent() {
 
   const buttonLabel =
     videoProgress !== null
-      ? "Gerando vídeo…"
+      ? `Gerando vídeo… ${Math.round(videoProgress * 100)}%`
       : copied
         ? "Link copiado!"
         : shareSupport === "clipboard"
