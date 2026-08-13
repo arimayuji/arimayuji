@@ -12,19 +12,19 @@ const VISIBILITY_OPTIONS: { value: Visibility; label: string; hint: string }[] =
 ];
 
 /**
- * Always mounted behind a signed-in account (caller passes `userId`) —
- * signing in itself is handled by `AccountPrompt` one layer up, same
- * gate-only-what-needs-it split used everywhere else identity shows up.
+ * Always mounted behind a signed-in account — signing in itself is handled
+ * by `AccountPrompt` one layer up, same gate-only-what-needs-it split used
+ * everywhere else identity shows up. `submitRating` reads the account ID
+ * from the live session itself rather than taking it as a parameter here,
+ * so there's no `userId` prop to thread through.
  */
 export function RatePlaceModal({
   placeId,
-  userId,
   existing,
   onClose,
   onSaved,
 }: {
   placeId: string;
-  userId: string;
   existing: PlaceRating | null;
   onClose: () => void;
   onSaved: (rating: PlaceRating) => void;
@@ -45,7 +45,7 @@ export function RatePlaceModal({
     setSubmitting(true);
     setError(null);
     try {
-      const rating = await submitRating(placeId, userId, { ...scores, note: note.trim(), visibility });
+      const rating = await submitRating(placeId, { ...scores, note: note.trim(), visibility });
       onSaved(rating);
     } catch {
       setError("Não deu pra salvar agora — tenta de novo em instantes.");

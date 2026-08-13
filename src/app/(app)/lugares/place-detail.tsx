@@ -219,7 +219,6 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
       {showRateModal && account && (
         <RatePlaceModal
           placeId={place.id}
-          userId={account.id}
           existing={myRating}
           onClose={() => setShowRateModal(false)}
           onSaved={(rating) => {

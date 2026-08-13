@@ -75,10 +75,19 @@ export interface RatingInput {
  * `"private"` for now — the Appwrite Team that would grant a friend read
  * access doesn't exist yet, so promising a friends-only row would be a lie
  * about who can actually see it. Only `"public"` grants `Role.any()`.
+ *
+ * `userId` is deliberately NOT a parameter here — it's fetched from the
+ * live session inside this function instead of trusted from the caller.
+ * A caller-supplied `userId` (or a raw `tablesDB.createRow` call bypassing
+ * this function entirely) could otherwise attribute a public rating to
+ * anyone's account, since Appwrite's table-level permission only checks
+ * "is this account signed in", not "does this row's userId match them".
  */
-export async function submitRating(placeId: string, userId: string, input: RatingInput): Promise<PlaceRating> {
+export async function submitRating(placeId: string, input: RatingInput): Promise<PlaceRating> {
   const appwrite = getAppwrite();
   if (!appwrite) throw new Error("Appwrite não configurado");
+  const account = await appwrite.account.get();
+  const userId = account.$id;
   const rowId = ratingRowId(placeId, userId);
   const data = { placeId, userId, ...input };
   const permissions = [
