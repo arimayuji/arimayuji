@@ -21,6 +21,7 @@ import {
   updateRunTracks,
   type CompletedRun,
   type RunTrack,
+  type Shoe,
 } from "@/lib/tracking/storage";
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
@@ -100,6 +101,9 @@ export default function RunPage() {
   const [goalMinutes, setGoalMinutes] = useState("");
   const [shoeName, setShoeName] = useState("");
   const [shoeSuggestions, setShoeSuggestions] = useState<string[]>([]);
+  const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
+  /** True once the athlete has typed into the manual field, or picked a shoe not in `registeredShoes` (e.g. from a previous run) — keeps the free-text field visible instead of it disappearing the moment a card is selectable. */
+  const [typingShoe, setTypingShoe] = useState(false);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
   const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
   /** The ghost actually used for the in-progress run, captured at start — kept separate from the
@@ -149,6 +153,7 @@ export default function RunPage() {
     Promise.all([listShoes(), listCompletedRuns()]).then(([shoes, runs]) => {
       const used = summarizeShoes(runs).map((s) => s.name);
       setShoeSuggestions([...new Set([...shoes.map((s) => s.name), ...used])]);
+      setRegisteredShoes(shoes);
       setRecentRuns(
         [...runs].sort((a, b) => b.startedAt - a.startedAt).slice(0, RECENT_GHOST_CANDIDATES),
       );
@@ -585,22 +590,75 @@ export default function RunPage() {
               />
             </div>
 
-            <label className="block space-y-1.5">
+            <div className="block space-y-1.5">
               <span className="text-sm font-medium">Tênis (opcional)</span>
-              <input
-                type="text"
-                list="shoe-suggestions"
-                value={shoeName}
-                onChange={(e) => setShoeName(e.target.value)}
-                placeholder="Ex.: Meu xodó"
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-accent"
-              />
-              <datalist id="shoe-suggestions">
-                {shoeSuggestions.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-            </label>
+              {registeredShoes.length > 0 && !typingShoe ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShoeName("")}
+                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                      shoeName === ""
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border bg-surface text-foreground hover:border-accent"
+                    }`}
+                  >
+                    Nenhum
+                  </button>
+                  {registeredShoes.map((shoe) => (
+                    <button
+                      key={shoe.id}
+                      type="button"
+                      onClick={() => setShoeName(shoe.name)}
+                      className={`flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                        shoeName === shoe.name
+                          ? "border-accent bg-accent text-accent-foreground"
+                          : "border-border bg-surface text-foreground hover:border-accent"
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10"
+                        style={{ backgroundColor: shoe.color }}
+                      />
+                      {shoe.name}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setTypingShoe(true)}
+                    className="rounded-full border border-dashed border-border px-3 py-2 text-xs font-medium text-muted hover:border-accent"
+                  >
+                    Outro
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    list="shoe-suggestions"
+                    value={shoeName}
+                    onChange={(e) => setShoeName(e.target.value)}
+                    placeholder="Ex.: Meu xodó"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-accent"
+                  />
+                  <datalist id="shoe-suggestions">
+                    {shoeSuggestions.map((name) => (
+                      <option key={name} value={name} />
+                    ))}
+                  </datalist>
+                  {registeredShoes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setTypingShoe(false)}
+                      className="text-xs text-accent underline underline-offset-2"
+                    >
+                      Ver meu kit
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
 
             {recentRuns.length > 0 && (
               <div className="block space-y-1.5">
