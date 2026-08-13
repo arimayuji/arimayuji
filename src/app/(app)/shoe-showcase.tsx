@@ -3,15 +3,18 @@
 /**
  * The registered shoe as a floating loot item.
  *
- * A real illustrated racing shoe (generated externally, hand-picked for the
- * app's collectible aesthetic — see /public/shoe) tumbling slowly in front of
- * a rarity glow tinted to the colour the athlete picked for that shoe.
+ * A real photographed racing shoe (see /public/shoe) tumbling slowly in
+ * front of a rarity glow, both tinted to the colour the athlete picked for
+ * that shoe.
  *
- * The shoe art itself is fixed chrome rather than the athlete's colour: this
- * is the showcase piece, not a photo of the real pair, so it keeps one
- * material across every shoe in the locker and lets `color` speak through the
- * glow and the floor contact pool instead of a per-pixel tint a raster image
- * can't cleanly take.
+ * The shoe body itself takes the tint too, not just the glow behind it: the
+ * photo is desaturated with a CSS filter, then a second layer holding the
+ * flat athlete colour is clipped to the same photo's alpha channel
+ * (`mask-image`) and laid over it with `mix-blend-mode: color`. That blend
+ * mode keeps the backdrop's luminance (every fold, seam and highlight the
+ * photo already has) and only swaps in the overlay's hue and saturation —
+ * a duotone, not a flat silhouette — which a plain CSS tint/recolour filter
+ * can't produce on a raster photo.
  */
 
 const FALLBACK_RGB: [number, number, number] = [47, 111, 237];
@@ -22,6 +25,8 @@ function parseHex(hex: string): [number, number, number] {
   const value = parseInt(match[1], 16);
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
+
+const SHOE_IMAGE_SRC = "/shoe/shoe-side.png";
 
 /** `className` has to keep the root positioned — the glow and the floor pool hang off it. */
 export function ShoeShowcase({
@@ -57,11 +62,28 @@ export function ShoeShowcase({
           style={{ transformStyle: "preserve-3d", transform: "rotateY(-26deg)" }}
         >
           <div
-            className="pr-tumble-x"
+            className="pr-tumble-x relative isolate"
             style={{ transformStyle: "preserve-3d", transform: "rotateX(9deg) rotateZ(-3deg)" }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-            <img src="/shoe/shoe-side.png" alt="" className="block h-auto w-full" />
+            <img
+              src={SHOE_IMAGE_SRC}
+              alt=""
+              className="block h-auto w-full"
+              style={{ filter: "grayscale(1) brightness(1.08) contrast(1.05)" }}
+            />
+            <div
+              className="absolute inset-0 mix-blend-color"
+              style={{
+                backgroundColor: color,
+                WebkitMaskImage: `url(${SHOE_IMAGE_SRC})`,
+                maskImage: `url(${SHOE_IMAGE_SRC})`,
+                WebkitMaskSize: "100% 100%",
+                maskSize: "100% 100%",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+              }}
+            />
           </div>
         </div>
       </div>

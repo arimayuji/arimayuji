@@ -700,22 +700,69 @@ function parseHex(hex: string): [number, number, number] {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
+/**
+ * Same duotone trick ShoeShowcase does in CSS (desaturate, then blend a flat
+ * colour in with `mix-blend-mode: color`, masked to the source alpha), just
+ * done once per angle+colour with canvas composite operations instead,
+ * since a `<canvas>` recording has no DOM layers to stack. Cached because
+ * it's identical every frame — recomputing a full-res composite 30+ times a
+ * second for a shoe that never changes colour mid-video would be wasted work.
+ */
+const tintedShoeCache = new Map<string, HTMLCanvasElement>();
+
+function getTintedShoeImage(angle: ShoeAngle, colorHex: string): HTMLCanvasElement | null {
+  const source = getShoeImage(angle);
+  if (!source) return null;
+  const key = `${angle}:${colorHex}`;
+  const cached = tintedShoeCache.get(key);
+  if (cached) return cached;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = source.naturalWidth;
+  canvas.height = source.naturalHeight;
+  const tintCtx = canvas.getContext("2d");
+  if (!tintCtx) return null;
+
+  tintCtx.filter = "grayscale(1) brightness(1.08) contrast(1.05)";
+  tintCtx.drawImage(source, 0, 0);
+  tintCtx.filter = "none";
+
+  tintCtx.globalCompositeOperation = "color";
+  tintCtx.fillStyle = colorHex;
+  tintCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Blending with "color" paints every pixel, including the transparent
+  // background — clip back to the shoe's own silhouette by multiplying the
+  // original alpha channel back in.
+  tintCtx.globalCompositeOperation = "destination-in";
+  tintCtx.drawImage(source, 0, 0);
+  tintCtx.globalCompositeOperation = "source-over";
+
+  tintedShoeCache.set(key, canvas);
+  return canvas;
+}
+
 /** One angle, centred at the current origin, scaled to `targetWidth` with its own aspect ratio. */
-function drawShoeAngle(ctx: CanvasRenderingContext2D, angle: ShoeAngle, targetWidth: number, alpha: number) {
+function drawShoeAngle(
+  ctx: CanvasRenderingContext2D,
+  angle: ShoeAngle,
+  colorHex: string,
+  targetWidth: number,
+  alpha: number,
+) {
   if (alpha <= 0) return;
-  const img = getShoeImage(angle);
+  const img = getTintedShoeImage(angle, colorHex);
   if (!img) return;
-  const h = targetWidth * (img.naturalHeight / img.naturalWidth);
+  const h = targetWidth * (img.height / img.width);
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, -targetWidth / 2, -h / 2, targetWidth, h);
 }
 
 /**
- * The registered shoe — real photographed collectible art now, not a
- * hand-drawn chrome outline. `color` no longer tints the shoe body itself (a
- * raster photo can't take a per-pixel tint the way the old vector fills
- * could); it still speaks through the glow behind it, same reasoning
- * ShoeShowcase settled on when it made the same swap.
+ * The registered shoe — real photographed collectible art, duotoned to the
+ * colour it was registered in (see `getTintedShoeImage`) the same way
+ * ShoeShowcase tints its own copy of the same photos, so the shoe reads as
+ * the same object whether it's sitting on /perfil or turning in this video.
  */
 function drawShoe(
   ctx: CanvasRenderingContext2D,
@@ -749,11 +796,11 @@ function drawShoe(
   const cardAlpha = pop;
   const { from, to, mix } = shoeAngleAt(Math.max(0, elapsed - popStart));
   ctx.save();
-  drawShoeAngle(ctx, from, targetWidth, cardAlpha * (1 - mix));
+  drawShoeAngle(ctx, from, shoe.color, targetWidth, cardAlpha * (1 - mix));
   ctx.restore();
   if (mix > 0) {
     ctx.save();
-    drawShoeAngle(ctx, to, targetWidth, cardAlpha * mix);
+    drawShoeAngle(ctx, to, shoe.color, targetWidth, cardAlpha * mix);
     ctx.restore();
   }
 

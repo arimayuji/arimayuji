@@ -489,7 +489,7 @@ function ShoeHero({
       disabled={shoes.length < 2}
       className="relative mb-4 flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-[#0b0e11] pb-6 disabled:cursor-default"
     >
-      <ShoeShowcase color={shoe.color} className="relative w-[62%]" />
+      <ShoeShowcase color={shoe.color} className="relative w-[42%]" />
 
       <span className="absolute inset-x-4 bottom-3 flex items-end justify-between gap-3 text-left">
         <span className="min-w-0">

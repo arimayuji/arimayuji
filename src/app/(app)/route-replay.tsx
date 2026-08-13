@@ -143,7 +143,7 @@ export function RouteReplay({
           <button
             type="button"
             onClick={playing ? stop : play}
-            className="absolute right-3 bottom-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white backdrop-blur-sm active:scale-95"
+            className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white backdrop-blur-sm active:scale-95"
           >
             {playing ? <StopIcon /> : <PlayIcon />}
             {playing ? "Parar" : "Replay"}
