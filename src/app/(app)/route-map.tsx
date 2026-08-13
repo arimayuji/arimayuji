@@ -19,7 +19,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { maptilerStyleUrl, type ColorScheme } from "@/lib/maptiler";
 import { bearingDegrees, haversineMeters } from "@/lib/tracking/geoFilter";
-import { replayHead, replayStretches, type ReplayCursor } from "@/lib/tracking/replay";
+import { replayHead, replayStretches, type ReplayCursor, type ReplayFrame } from "@/lib/tracking/replay";
 import {
   findFastestStretch,
   projectRoute,
@@ -222,7 +222,28 @@ function Stretches({
  * camera is pitched this steeply (they can land anywhere, including well
  * behind the camera), which read as a stray straight line slashing across
  * the map when connected into a polyline.
+ *
+ * That window is a fixed real-world duration (`CHASE_TRAIL_SECONDS`), not
+ * `replay.tail` (9% of the run's *total* time): early in a long run's
+ * playback, 9% of total time is still almost all of the elapsed-so-far
+ * time, so `replay.tail` collapses toward the run's actual start — right
+ * back into the same far-away, wrong-side-of-the-camera points the window
+ * exists to keep out. A fixed number of real seconds behind the head stays
+ * short (a couple hundred metres at running pace) no matter where in the
+ * run the head currently is.
  */
+const CHASE_TRAIL_SECONDS = 40;
+
+/** Furthest-back point still within `CHASE_TRAIL_SECONDS` of the head, walking backward by each fix's own timestamp rather than by a share of the whole run. */
+function chaseTrailFrame(points: Pick<StoredPoint, "timestamp">[], headIndex: number): ReplayFrame {
+  const headTimestamp = points[headIndex]?.timestamp ?? 0;
+  let index = headIndex;
+  while (index > 0 && headTimestamp - points[index - 1].timestamp <= CHASE_TRAIL_SECONDS * 1000) {
+    index--;
+  }
+  return { index, fraction: 0, meters: 0, seconds: 0, windowMeters: 0, windowSeconds: 0 };
+}
+
 function ReplayOverlay({
   points,
   projected,
@@ -234,7 +255,8 @@ function ReplayOverlay({
   replay: ReplayCursor;
   scheme: ColorScheme;
 }) {
-  const trail = replayStretches(points, projected, lerpXY, replay.head, replay.tail);
+  const trailStart = chaseTrailFrame(points, replay.head.index);
+  const trail = replayStretches(points, projected, lerpXY, replay.head, trailStart);
 
   return (
     <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
