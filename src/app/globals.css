@@ -197,10 +197,13 @@ body {
     scroll-behavior: smooth;
   }
 
-  /* Hero: orchestrated on load, no JS involved. */
+  /* Hero: orchestrated on load, no JS involved. `--pr-dur` defaults to the
+     landing page's original pace; the app screens' `delay()` helper (see
+     src/app/(app)/ui.tsx) sets a snappier one, since a card list is
+     something you scan past on every navigation, not a one-time reveal. */
   .pr-enter {
-    animation: pr-rise 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) var(--pr-delay, 0ms)
-      both;
+    animation: pr-rise var(--pr-dur, 0.8s) cubic-bezier(0.22, 0.61, 0.36, 1)
+      var(--pr-delay, 0ms) both;
   }
 
   /* Sections: hidden until the observer in reveal.tsx marks them seen. */

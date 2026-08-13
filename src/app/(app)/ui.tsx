@@ -1,8 +1,14 @@
 import type { CSSProperties, ReactNode } from "react";
 
-/** Sets the per-element animation delay consumed by the CSS in globals.css. */
+/**
+ * Sets the per-element animation delay/duration consumed by `.pr-enter` in
+ * globals.css. Shorter than the landing page's default 0.8s: a screen you
+ * navigate to constantly (histórico, perfil, ...) should feel instant, not
+ * cinematic — the landing page never sets `--pr-dur`, so its hero keeps the
+ * slower pace.
+ */
 export const delay = (ms: number, extra?: CSSProperties) =>
-  ({ "--pr-delay": `${ms}ms`, ...extra }) as CSSProperties;
+  ({ "--pr-delay": `${ms}ms`, "--pr-dur": "0.4s", ...extra }) as CSSProperties;
 
 /**
  * The honesty marker.

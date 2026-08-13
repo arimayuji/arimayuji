@@ -230,7 +230,17 @@ function RouteTiles({
     instance.fitBounds(geometry.bounds, FIT_OPTIONS);
   }, [geometry]);
 
-  return <div ref={container} className="h-full w-full" role="img" aria-label="Trajeto percorrido" />;
+  return (
+    <div
+      ref={container}
+      // MapTiler's dark style leans blue; this desaturates it toward the
+      // app's own steel/chrome palette (see the brand mark's gradient in
+      // src/app/icon.svg) instead of reading as a generic map-provider blue.
+      className="h-full w-full [&_.maplibregl-canvas]:saturate-[0.35] [&_.maplibregl-canvas]:contrast-[1.12] [&_.maplibregl-canvas]:brightness-[0.92]"
+      role="img"
+      aria-label="Trajeto percorrido"
+    />
+  );
 }
 
 /**
@@ -338,6 +348,7 @@ export function RouteMap({
   className = "",
   live = false,
   square = true,
+  rounded = true,
 }: {
   points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
   className?: string;
@@ -345,6 +356,8 @@ export function RouteMap({
   live?: boolean;
   /** False lets `className` set an explicit height instead — used for the compact live map, where a full-width square would push the pace readout and controls off-screen. */
   square?: boolean;
+  /** False for the full-bleed live background — a rounded corner clipped against the viewport edge just looks like a bug. */
+  rounded?: boolean;
 }) {
   const scheme = useColorScheme();
   const styleUrl = scheme && maptilerStyleUrl(scheme);
@@ -353,7 +366,7 @@ export function RouteMap({
 
   return (
     <div
-      className={`relative w-full overflow-hidden rounded-2xl ${showTiles && scheme === "light" ? "bg-[#eef1f3]" : "bg-[#0b0e11]"} ${square ? "aspect-square" : ""} ${className}`}
+      className={`relative w-full overflow-hidden ${rounded ? "rounded-2xl" : ""} ${showTiles && scheme === "light" ? "bg-[#eef1f3]" : "bg-[#0b0e11]"} ${square ? "aspect-square" : ""} ${className}`}
     >
       {!hasRoute ? (
         <div className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-white/40">
