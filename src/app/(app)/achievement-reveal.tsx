@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { formatDeltaDuration } from "@/lib/tracking/geoFilter";
 import { TIER_LABEL, type Achievement } from "@/lib/tracking/achievements";
@@ -8,7 +8,7 @@ import type { RunRecord } from "@/lib/tracking/personalRecords";
 import { TIER_PAINT } from "@/lib/plateMetal";
 import { AchievementPlate } from "./achievement-plate";
 import { ModalPortal } from "./modal-portal";
-import { HORSE_BUST_PATHS } from "../horse-mark";
+import { HORSE_FULL_BODY_PATHS } from "../horse-mark";
 
 /**
  * Opening the box.
@@ -141,12 +141,12 @@ function BoxShell({ uid, glow }: { uid: string; glow: string }) {
           strokeLinejoin="round"
         >
           <g transform="translate(3 3)" stroke="#ffffff" opacity="0.5">
-            {HORSE_BUST_PATHS.map((d) => (
+            {HORSE_FULL_BODY_PATHS.map((d) => (
               <path key={d} d={d} />
             ))}
           </g>
           <g stroke="#11151a" opacity="0.85">
-            {HORSE_BUST_PATHS.map((d) => (
+            {HORSE_FULL_BODY_PATHS.map((d) => (
               <path key={d} d={d} />
             ))}
           </g>
@@ -235,10 +235,46 @@ export function AchievementReveal({
   const reducedMotion = usePrefersReducedMotion();
   const [opened, setOpened] = useState(alreadyOpened || reducedMotion);
   const paint = TIER_PAINT[achievement.tier];
+  const tiltRef = useRef<HTMLDivElement>(null);
 
   const handleOpen = () => {
     setOpened(true);
     onOpened();
+    const el = tiltRef.current;
+    if (el) {
+      el.classList.remove("pr-box-tilt-active");
+      el.style.transform = "";
+      el.style.setProperty("--sheen-o", "0");
+    }
+  };
+
+  /**
+   * Sealed box only — a Pokémon-card-style tilt the athlete drives with a
+   * finger or the cursor, not an ambient loop. No transition while the
+   * pointer is actively moving so it tracks 1:1; `pr-box-tilt-active` is
+   * what suppresses it, and comes off on release so the spring-back in
+   * globals.css can take over.
+   */
+  const handleTiltMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (opened || reducedMotion) return;
+    const el = tiltRef.current;
+    if (!el) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const px = (event.clientX - rect.left) / rect.width;
+    const py = (event.clientY - rect.top) / rect.height;
+    el.classList.add("pr-box-tilt-active");
+    el.style.transform = `rotateX(${(0.5 - py) * 22}deg) rotateY(${(px - 0.5) * 30}deg)`;
+    el.style.setProperty("--sheen-x", `${px * 100}%`);
+    el.style.setProperty("--sheen-y", `${py * 100}%`);
+    el.style.setProperty("--sheen-o", "1");
+  };
+
+  const handleTiltEnd = () => {
+    const el = tiltRef.current;
+    if (!el) return;
+    el.classList.remove("pr-box-tilt-active");
+    el.style.transform = "";
+    el.style.setProperty("--sheen-o", "0");
   };
 
   return (
@@ -268,15 +304,25 @@ export function AchievementReveal({
             type="button"
             disabled={opened}
             onClick={handleOpen}
-            aria-label={opened ? undefined : "Abrir a caixa"}
+            onPointerMove={handleTiltMove}
+            onPointerLeave={handleTiltEnd}
+            onPointerUp={handleTiltEnd}
+            onPointerCancel={handleTiltEnd}
+            aria-label={opened ? undefined : "Abrir a caixa — arraste pra girar"}
             className="relative block aspect-square w-full overflow-hidden disabled:cursor-default"
+            style={{ perspective: opened ? undefined : "1000px", touchAction: opened ? undefined : "none" }}
           >
-            <Stage
-              achievement={achievement}
-              label={record.label}
-              uid={`unbox-${record.targetMeters}`}
-              tumbleDelayMs={alreadyOpened || reducedMotion ? 0 : 1100}
-            />
+            <div ref={tiltRef} className="pr-box-tilt absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
+              <Stage
+                achievement={achievement}
+                label={record.label}
+                uid={`unbox-${record.targetMeters}`}
+                tumbleDelayMs={alreadyOpened || reducedMotion ? 0 : 1850}
+              />
+              {!opened && !reducedMotion && (
+                <div className="pr-box-sheen pointer-events-none absolute inset-0" aria-hidden="true" />
+              )}
+            </div>
           </button>
 
           {opened ? (
