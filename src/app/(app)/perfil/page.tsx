@@ -49,6 +49,53 @@ const UNITS: { value: DistanceUnit; label: string; hint: string }[] = [
   { value: "mi", label: "Milhas", hint: "mi · min/mi" },
 ];
 
+/** Same register as the bottom-nav icons in app-shell.tsx: stroke-only, 1.7 weight, round joins. */
+const ICON_STROKE = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+/** One glyph per link-out card below, so "Ver" isn't the only thing telling them apart. */
+function PlacesIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z" />
+      <circle cx="12" cy="9.5" r="2.4" />
+    </svg>
+  );
+}
+
+function FriendsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <circle cx="8.7" cy="8" r="3" />
+      <path d="M2.8 19.5a5.9 5.9 0 0 1 11.8 0" />
+      <path d="M15.5 5.3a3 3 0 0 1 0 5.9M18.7 19.5a5.9 5.9 0 0 0-3.4-6.3" />
+    </svg>
+  );
+}
+
+function CoachIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M3.5 10.3v3.9h2.5l7.3 3.9V6.4l-7.3 3.9H3.5Z" />
+      <path d="M13.8 9.3a4.1 4.1 0 0 1 0 6.9" />
+      <path d="M16.6 7.3a7.6 7.6 0 0 1 0 10.9" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M9 5.5 15.5 12 9 18.5" />
+    </svg>
+  );
+}
+
 /** Shared look for the segmented selectors — big targets, single accent. */
 function SegmentedButton({
   selected,
@@ -726,39 +773,42 @@ export default function PerfilPage() {
 
         <Card className="pr-enter" style={delay(80)}>
           <CardTitle aside={<NoticeBadge>São Paulo</NoticeBadge>}>Lugares pra correr</CardTitle>
-          <Link href="/lugares" className="flex items-center justify-between gap-3">
-            <p className="text-sm leading-relaxed text-muted text-pretty">
+          <Link href="/lugares" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+              <PlacesIcon className="h-5 w-5" />
+            </span>
+            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
               Parques e rotas avaliados por segurança, percurso, estrutura, iluminação e fluxo — curadoria
               inicial mais nota real de quem já correu lá.
             </p>
-            <span className="shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground">
-              Ver
-            </span>
+            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
           </Link>
         </Card>
 
         <Card className="pr-enter" style={delay(90)}>
           <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Amigos</CardTitle>
-          <Link href="/amigos" className="flex items-center justify-between gap-3">
-            <p className="text-sm leading-relaxed text-muted text-pretty">
+          <Link href="/amigos" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+              <FriendsIcon className="h-5 w-5" />
+            </span>
+            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
               Adicione quem você corre junto pelo @ e responda os convites que chegarem.
             </p>
-            <span className="shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground">
-              Ver
-            </span>
+            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
           </Link>
         </Card>
 
         <Card className="pr-enter" style={delay(95)}>
           <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Treinador</CardTitle>
-          <Link href="/treinador" className="flex items-center justify-between gap-3">
-            <p className="text-sm leading-relaxed text-muted text-pretty">
+          <Link href="/treinador" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+              <CoachIcon className="h-5 w-5" />
+            </span>
+            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
               Conecte com quem te treina ou com quem você treina — e escolha corrida por corrida o que
               compartilhar.
             </p>
-            <span className="shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground">
-              Ver
-            </span>
+            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
           </Link>
         </Card>
 
