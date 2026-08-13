@@ -43,11 +43,50 @@ interface DisplaySession {
   kind: SessionKind;
 }
 
-const KIND_STYLE: Record<SessionKind, { rail: string; chip: string; label: string }> = {
-  rest: { rail: "bg-border", chip: "border-border text-muted", label: "descanso" },
-  easy: { rail: "bg-good", chip: "border-good/40 text-good", label: "leve" },
-  hard: { rail: "bg-warn", chip: "border-warn/40 text-warn", label: "forte" },
-  long: { rail: "bg-accent", chip: "border-accent/40 text-accent", label: "longo" },
+const ICON_STROKE = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+/** One glyph per session kind, in a tinted circle — same "icon in a badge" language as PrBadge, instead of the plain colored-dot-and-pill-chip list every training-plan screen defaults to. */
+function KindIcon({ kind }: { kind: SessionKind }) {
+  if (kind === "rest") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" {...ICON_STROKE}>
+        <path d="M17 12.5A6.5 6.5 0 0 1 9.8 6a7 7 0 1 0 7.2 6.5z" />
+      </svg>
+    );
+  }
+  if (kind === "hard") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" {...ICON_STROKE}>
+        <path d="M13 2 4 14h6l-1 8 9-12h-6z" />
+      </svg>
+    );
+  }
+  if (kind === "long") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" {...ICON_STROKE}>
+        <path d="M3 17c4-1 6-9 10-9s3 6 8 5" />
+        <circle cx="20" cy="12.5" r="1.3" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" {...ICON_STROKE}>
+      <path d="M3 13h4l2-4 3 8 2-6 2 2h5" />
+    </svg>
+  );
+}
+
+const KIND_STYLE: Record<SessionKind, { badge: string; text: string; label: string }> = {
+  rest: { badge: "bg-border/40 text-muted", text: "text-muted", label: "descanso" },
+  easy: { badge: "bg-good/15 text-good", text: "text-good", label: "leve" },
+  hard: { badge: "bg-warn/15 text-warn", text: "text-warn", label: "forte" },
+  long: { badge: "bg-accent/15 text-accent", text: "text-accent", label: "longo" },
 };
 
 const DAY_NAMES = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
@@ -119,13 +158,13 @@ function SessionRow({ session, index, isLast }: { session: DisplaySession; index
   const style = KIND_STYLE[session.kind];
   return (
     <li className="pr-enter flex gap-3" style={delay(160 + index * 40)}>
-      <span className={`mt-1 w-1 shrink-0 rounded-full ${style.rail}`} aria-hidden="true" />
+      <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${style.badge}`}>
+        <KindIcon kind={session.kind} />
+      </span>
       <div className={`min-w-0 flex-1 ${isLast ? "" : "border-b border-border pb-3"}`}>
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[11px] uppercase tracking-wide text-muted">{session.day}</span>
-          <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ${style.chip}`}>
-            {style.label}
-          </span>
+          <span className={`font-mono text-[10px] uppercase tracking-wide ${style.text}`}>{style.label}</span>
         </div>
         <div className="mt-0.5 flex items-baseline justify-between gap-3">
           <h3 className="text-sm font-medium">{session.title}</h3>

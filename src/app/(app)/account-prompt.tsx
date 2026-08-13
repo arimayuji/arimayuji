@@ -1,6 +1,7 @@
 "use client";
 
-import { signInWithApple, signInWithGoogle } from "@/lib/auth";
+import { useState } from "react";
+import { requestPhoneCode, signInWithGoogle, verifyPhoneCode } from "@/lib/auth";
 import { ModalPortal } from "./modal-portal";
 
 const STROKE = {
@@ -17,14 +18,72 @@ const UNLOCKS = [
   { title: "Professor/aluno", body: "seu treinador acompanha seus treinos de verdade" },
 ];
 
+type PhoneStage = "closed" | "phone" | "code";
+
+/** `55` (Brazil) is the default country code when the person doesn't type their own `+`. */
+function normalizePhone(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.startsWith("+")) return trimmed.replace(/[^\d+]/g, "");
+  return `+55${trimmed.replace(/\D/g, "")}`;
+}
+
 /**
  * Shown the moment something genuinely needs an account (rating a place,
  * adding a friend/coach) — never on load, never for recording a run or
  * viewing history, which stay account-free. `returnTo` is the path the
  * OAuth provider sends the browser back to; it must already be registered
- * as an Appwrite "platform" hostname.
+ * as an Appwrite "platform" hostname. `onSignedIn` fires after a phone
+ * login, which — unlike OAuth — completes without a page redirect, so the
+ * caller needs an explicit cue to refresh its own auth state.
  */
-export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; returnTo: string }) {
+export function AccountPrompt({
+  onClose,
+  onSignedIn,
+  returnTo,
+}: {
+  onClose: () => void;
+  onSignedIn?: () => void;
+  returnTo: string;
+}) {
+  const [phoneStage, setPhoneStage] = useState<PhoneStage>("closed");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [phoneUserId, setPhoneUserId] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneSubmitting, setPhoneSubmitting] = useState(false);
+
+  const handleSendCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPhoneSubmitting(true);
+    setPhoneError(null);
+    try {
+      const userId = await requestPhoneCode(normalizePhone(phone));
+      if (!userId) throw new Error("no-appwrite");
+      setPhoneUserId(userId);
+      setPhoneStage("code");
+    } catch {
+      setPhoneError("Não deu pra enviar o código — confere o número e tenta de novo.");
+    } finally {
+      setPhoneSubmitting(false);
+    }
+  };
+
+  const handleConfirmCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneUserId) return;
+    setPhoneSubmitting(true);
+    setPhoneError(null);
+    try {
+      await verifyPhoneCode(phoneUserId, code.trim());
+      onSignedIn?.();
+      onClose();
+    } catch {
+      setPhoneError("Código errado ou expirado — confere e tenta de novo.");
+    } finally {
+      setPhoneSubmitting(false);
+    }
+  };
+
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
@@ -90,14 +149,63 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
                 <GoogleIcon />
                 Continuar com Google
               </button>
-              <button
-                type="button"
-                onClick={() => signInWithApple(returnTo)}
-                className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-foreground py-3.5 text-sm font-semibold text-background"
-              >
-                <AppleIcon />
-                Continuar com Apple
-              </button>
+
+              {phoneStage === "closed" && (
+                <button
+                  type="button"
+                  onClick={() => setPhoneStage("phone")}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-foreground py-3.5 text-sm font-semibold text-background"
+                >
+                  <PhoneIcon />
+                  Continuar com telefone
+                </button>
+              )}
+
+              {phoneStage === "phone" && (
+                <form onSubmit={handleSendCode} className="flex flex-col gap-2 rounded-xl border border-border p-3.5 text-left">
+                  <label className="text-xs font-medium text-muted">Seu número de telefone</label>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoFocus
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                  />
+                  <button
+                    type="submit"
+                    disabled={phoneSubmitting || !phone.trim()}
+                    className="mt-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+                  >
+                    {phoneSubmitting ? "Enviando…" : "Enviar código"}
+                  </button>
+                </form>
+              )}
+
+              {phoneStage === "code" && (
+                <form onSubmit={handleConfirmCode} className="flex flex-col gap-2 rounded-xl border border-border p-3.5 text-left">
+                  <label className="text-xs font-medium text-muted">Código enviado por SMS</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoFocus
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="123456"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-center font-mono text-lg tracking-widest outline-none focus:border-accent"
+                  />
+                  <button
+                    type="submit"
+                    disabled={phoneSubmitting || !code.trim()}
+                    className="mt-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+                  >
+                    {phoneSubmitting ? "Confirmando…" : "Confirmar"}
+                  </button>
+                </form>
+              )}
+
+              {phoneError && <p className="text-xs text-bad">{phoneError}</p>}
             </div>
 
             <p className="mt-5 border-t border-border pt-4 text-[11px] leading-relaxed text-muted">
@@ -122,10 +230,11 @@ function GoogleIcon() {
   );
 }
 
-function AppleIcon() {
+function PhoneIcon() {
   return (
-    <svg viewBox="0 0 384 512" className="h-4 w-4" aria-hidden="true" fill="currentColor">
-      <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="7" y="2.5" width="10" height="19" rx="2" />
+      <path d="M11 18.5h2" />
     </svg>
   );
 }

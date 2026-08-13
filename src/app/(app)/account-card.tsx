@@ -69,7 +69,7 @@ export function AccountCard() {
       )}
 
       {showPrompt && status === "signed-out" && (
-        <AccountPrompt onClose={() => setShowPrompt(false)} returnTo={RETURN_TO} />
+        <AccountPrompt onClose={() => setShowPrompt(false)} onSignedIn={refresh} returnTo={RETURN_TO} />
       )}
 
       {status === "needs-handle" && account && (

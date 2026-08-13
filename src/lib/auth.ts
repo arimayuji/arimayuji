@@ -52,11 +52,25 @@ export function signInWithGoogle(returnTo: string): void {
   appwrite.account.createOAuth2Session({ provider: OAuthProvider.Google, success: url, failure: url });
 }
 
-export function signInWithApple(returnTo: string): void {
+/**
+ * Step 1 of phone sign-in: sends an SMS with a one-time code and returns
+ * the userId the code was issued for — Appwrite mints a fresh one per
+ * request rather than looking it up from the phone number client-side, so
+ * step 2 needs it back. Null when Appwrite isn't configured, same
+ * convention as the rest of this file.
+ */
+export async function requestPhoneCode(phone: string): Promise<string | null> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return null;
+  const token = await appwrite.account.createPhoneToken({ userId: ID.unique(), phone });
+  return token.userId;
+}
+
+/** Step 2: verifies the SMS code and creates the session. */
+export async function verifyPhoneCode(userId: string, code: string): Promise<void> {
   const appwrite = getAppwrite();
   if (!appwrite) return;
-  const url = `${window.location.origin}${returnTo}`;
-  appwrite.account.createOAuth2Session({ provider: OAuthProvider.Apple, success: url, failure: url });
+  await appwrite.account.createSession({ userId, secret: code });
 }
 
 export async function signOut(): Promise<void> {
