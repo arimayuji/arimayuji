@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 
 import { formatElapsed } from "@/lib/tracking/geoFilter";
@@ -11,44 +12,56 @@ import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/u
 import { RouteMap } from "./route-map";
 
 /**
- * The finished route, plus a button that plays it back over the real trace.
+ * The finished route, plus a scrubbable player that rides back over the real
+ * trace — play/pause and drag the bar, the same controls a video would have,
+ * because that's the mental model this now actually matches.
  *
- * Everything on screen while it runs is measured, not staged: the head moves
- * on the run's own clock (see replay.ts), and the readout above it is the
- * distance, elapsed time and rolling pace at exactly that point of the run —
- * so watching the numbers change is watching what actually happened, not a
- * count-up animation dressed as one.
+ * Everything on screen while it plays is measured, not staged: the head sits
+ * at whatever point of the run `progress` says, and the readout above it is
+ * the distance, elapsed time and rolling pace at exactly that point — so
+ * scrubbing is scrubbing through what actually happened, not a canned
+ * animation with a seek bar bolted on.
  */
 
 /**
- * How long the playback takes on the wall clock. Tuned for the chase camera,
- * not the old top-down view: watching a line trace itself out reads fine at
- * a few seconds flat, but *riding along* a whole run in under 5 seconds — the
- * previous 4500–9000ms range, which a 15-minute run hit the floor of just as
- * hard as a 5-minute one — plays like the camera teleporting, not running.
- * Scaling by real time instead keeps the sense of pace: a slow kilometre
- * still takes longer to ride than a fast one, same principle `replay.ts`
+ * How long a full, uninterrupted play-through takes on the wall clock.
+ * Scaled by the run's own duration rather than fixed, so a slow kilometre
+ * still takes longer to ride than a fast one — same principle `replay.ts`
  * already applies to the head's position.
  */
 function playbackMillis(totalSeconds: number): number {
   return Math.min(26000, Math.max(10000, totalSeconds * 12));
 }
 
-/** The finished trace comes back this long after the head lands, so the last frame is readable before the map returns to normal. */
-const HOLD_MILLIS = 1400;
-
 function PlayIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" fill="currentColor">
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="currentColor">
       <path d="M8 5.5v13a1 1 0 0 0 1.53.85l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5Z" />
     </svg>
   );
 }
 
-function StopIcon() {
+function PauseIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" fill="currentColor">
-      <rect x="6" y="6" width="12" height="12" rx="2" />
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="currentColor">
+      <rect x="5.5" y="4.5" width="4.2" height="15" rx="1" />
+      <rect x="14.3" y="4.5" width="4.2" height="15" rx="1" />
+    </svg>
+  );
+}
+
+function ExpandIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+    </svg>
+  );
+}
+
+function CollapseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5" />
     </svg>
   );
 }
@@ -76,89 +89,191 @@ export function RouteReplay({
 }) {
   const timeline = useMemo(() => buildReplayTimeline(points), [points]);
   const reducedMotion = usePrefersReducedMotion();
-  const [cursor, setCursor] = useState<ReplayCursor | null>(null);
-  const animation = useRef<number | null>(null);
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const stop = useCallback(() => {
+  /** 0–1 through the run's own elapsed time — the single source of truth the play loop, the drag handle and the map all read from. */
+  const [progress, setProgress] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  /** True once the player has ever been touched — keeps the map on the plain top-down finished trace until then, same as before scrubbing existed. */
+  const [started, setStarted] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const animation = useRef<number | null>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  /** Where playback resumed from, so pressing play again continues from the scrubbed spot instead of restarting at zero. */
+  const resumeFrom = useRef({ progress: 0, at: 0 });
+
+  const stopAnimation = useCallback(() => {
     if (animation.current !== null) cancelAnimationFrame(animation.current);
-    if (holdTimer.current !== null) clearTimeout(holdTimer.current);
     animation.current = null;
-    holdTimer.current = null;
-    setCursor(null);
   }, []);
 
-  useEffect(() => stop, [stop]);
+  useEffect(() => stopAnimation, [stopAnimation]);
+
+  const seek = useCallback((value: number) => {
+    setStarted(true);
+    setPlaying(false);
+    stopAnimation();
+    setProgress(Math.min(1, Math.max(0, value)));
+  }, [stopAnimation]);
 
   const play = useCallback(() => {
     if (!timeline) return;
-    if (animation.current !== null) cancelAnimationFrame(animation.current);
-    if (holdTimer.current !== null) clearTimeout(holdTimer.current);
-    holdTimer.current = null;
+    setStarted(true);
 
     if (reducedMotion) {
-      setCursor(replayCursorAt(timeline, 1));
+      setProgress(1);
       return;
     }
 
+    stopAnimation();
     const duration = playbackMillis(timeline.totalSeconds);
-    const startedAt = performance.now();
+    resumeFrom.current = { progress, at: performance.now() };
+    setPlaying(true);
 
     const step = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / duration);
-      setCursor(replayCursorAt(timeline, progress));
-      if (progress < 1) {
+      const elapsedFraction = (now - resumeFrom.current.at) / duration;
+      const next = Math.min(1, resumeFrom.current.progress + elapsedFraction);
+      setProgress(next);
+      if (next < 1) {
         animation.current = requestAnimationFrame(step);
-        return;
+      } else {
+        animation.current = null;
+        setPlaying(false);
       }
-      animation.current = null;
-      holdTimer.current = setTimeout(() => {
-        holdTimer.current = null;
-        setCursor(null);
-      }, HOLD_MILLIS);
     };
-
     animation.current = requestAnimationFrame(step);
-  }, [reducedMotion, timeline]);
+  }, [progress, reducedMotion, stopAnimation, timeline]);
 
+  const pause = useCallback(() => {
+    stopAnimation();
+    setPlaying(false);
+  }, [stopAnimation]);
+
+  const progressFromPointer = useCallback((clientX: number) => {
+    const track = trackRef.current;
+    if (!track) return null;
+    const rect = track.getBoundingClientRect();
+    if (rect.width === 0) return null;
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+  }, []);
+
+  const handleTrackPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      event.stopPropagation();
+      const value = progressFromPointer(event.clientX);
+      if (value === null) return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      seek(value);
+    },
+    [progressFromPointer, seek],
+  );
+
+  const handleTrackPointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+      event.stopPropagation();
+      const value = progressFromPointer(event.clientX);
+      if (value === null) return;
+      setProgress(value);
+    },
+    [progressFromPointer],
+  );
+
+  const cursor: ReplayCursor | null = started && timeline ? replayCursorAt(timeline, progress) : null;
   const frame = cursor?.head ?? null;
-  const playing = cursor !== null;
-  const progress = frame && timeline ? frame.seconds / timeline.totalSeconds : 0;
 
-  return (
-    <RouteMap points={points} replay={cursor} className={className}>
+  const mapContent = (
+    <RouteMap
+      points={points}
+      replay={cursor}
+      className={fullscreen ? "h-full w-full !rounded-none" : className}
+      rounded={!fullscreen}
+      square={!fullscreen}
+    >
       {frame && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-4 bg-gradient-to-b from-black/75 via-black/45 to-transparent px-4 pt-3 pb-8">
-          <Readout label="Distância" value={formatDistance(frame.meters, unit)} unit={unitLabel(unit)} />
-          <Readout label="Tempo" value={formatElapsed(Math.round(frame.seconds))} />
-          {/* "agora", not the run's average: this is the rolling pace at the head, which is what makes a surge visible as it happens. */}
-          <Readout
-            label="Ritmo agora"
-            value={formatAveragePace(frame.windowMeters, frame.windowSeconds, unit)}
-            unit={paceLabel(unit)}
-          />
-        </div>
-      )}
-
-      {timeline && (
-        <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-white/15">
-            <div
-              className="h-full bg-accent"
-              style={{ width: `${progress * 100}%`, opacity: playing ? 1 : 0 }}
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-4 bg-gradient-to-b from-black/75 via-black/45 to-transparent pl-14 pr-4 pt-3 pb-8">
+            <Readout label="Distância" value={formatDistance(frame.meters, unit)} unit={unitLabel(unit)} />
+            <Readout label="Tempo" value={formatElapsed(Math.round(frame.seconds))} />
+            {/* "agora", not the run's average: this is the rolling pace at the head, which is what makes a surge visible as it happens. */}
+            <Readout
+              label="Ritmo agora"
+              value={formatAveragePace(frame.windowMeters, frame.windowSeconds, unit)}
+              unit={paceLabel(unit)}
             />
           </div>
+        )}
 
-          <button
-            type="button"
-            onClick={playing ? stop : play}
-            className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white backdrop-blur-sm active:scale-95"
-          >
-            {playing ? <StopIcon /> : <PlayIcon />}
-            {playing ? "Parar" : "Replay"}
-          </button>
-        </>
-      )}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setFullscreen((value) => !value);
+          }}
+          aria-label={fullscreen ? "Sair da tela cheia" : "Tela cheia"}
+          className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm active:scale-95"
+        >
+          {fullscreen ? <CollapseIcon /> : <ExpandIcon />}
+        </button>
+
+        {timeline && (
+          <>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (playing) pause();
+                else play();
+              }}
+              className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white backdrop-blur-sm active:scale-95"
+            >
+              {playing ? <PauseIcon /> : <PlayIcon />}
+              {playing ? "Pausar" : started ? "Continuar" : "Replay"}
+            </button>
+
+            {/* Generous vertical hit target around a thin visual track — a video scrubber sized for a thumb, not a mouse pointer. */}
+            <div
+              ref={trackRef}
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={handleTrackPointerDown}
+              onPointerMove={handleTrackPointerMove}
+              className="absolute inset-x-0 bottom-0 flex h-8 cursor-pointer touch-none items-center px-3"
+            >
+              <div className="relative h-1 w-full rounded-full bg-white/20">
+                <div
+                  className="h-full rounded-full bg-accent"
+                  style={{ width: `${progress * 100}%` }}
+                />
+                <div
+                  className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-white shadow-[0_0_0_3px_rgba(0,0,0,0.35)]"
+                  style={{ left: `${progress * 100}%` }}
+                />
+              </div>
+            </div>
+          </>
+        )}
     </RouteMap>
+  );
+
+  if (fullscreen) {
+    // Portalled straight onto <body>, not just given `position: fixed` in
+    // place: an animated ancestor up the tree (`.pr-enter`, used all over
+    // this screen) keeps a CSS transform attached even after the animation
+    // finishes, which makes *it* the containing block instead of the
+    // viewport — `inset-0` then resolves against that ancestor's own box
+    // rather than the screen, and the whole thing collapses to zero height.
+    // A portal renders into `document.body`, outside that ancestor
+    // entirely, so `fixed inset-0` means what it says.
+    return createPortal(
+      <div className="fixed inset-0 z-50 bg-background" onClick={() => setFullscreen(false)}>
+        {mapContent}
+      </div>,
+      document.body,
+    );
+  }
+
+  return (
+    <div className="relative" onClick={() => setFullscreen(true)}>
+      {mapContent}
+    </div>
   );
 }

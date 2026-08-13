@@ -93,13 +93,17 @@ const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false } as const;
  * looks flattened onto a map.
  */
 /**
- * 65° made any nearby elevated road (an overpass, a viaduct) foreshorten
- * into an almost edge-on streak — real geometry, not a rendering bug, but
- * dramatic enough to read as one. 52° keeps the tilted, riding-along feel
- * without flattening nearby verticals into that.
+ * Steeper pitches (tried 65°, then 52°) kept producing a visible gap between
+ * an ordinary street's casing and fill line — two MapLibre layers that are
+ * meant to sit exactly on top of each other, styled to look like one road
+ * with a border. At a shallow viewing angle they do; steeply pitched and
+ * zoomed in close, the vector-tile precision behind them isn't enough to
+ * keep the two aligned, and they visibly split into what reads as a second,
+ * parallel route line. 34° is shallow enough that this stays imperceptible
+ * while the view still reads as tilted and riding-along rather than flat.
  */
-const CHASE_PITCH = 52;
-const CHASE_ZOOM = 17.6;
+const CHASE_PITCH = 34;
+const CHASE_ZOOM = 17.2;
 /** Below this the two points behind a bearing calculation are close enough that GPS noise, not real heading, would decide which way the camera faces. */
 const CHASE_BEARING_MIN_METERS = 3;
 /** How long the camera takes to swoop from the overview into the chase position, and back out again when playback ends. */
@@ -522,7 +526,18 @@ function RouteTiles({
         // MapTiler's dark style leans blue; this desaturates it toward the
         // app's own steel/chrome palette (see the brand mark's gradient in
         // src/app/icon.svg) instead of reading as a generic map-provider blue.
-        className="h-full w-full [&_.maplibregl-canvas]:saturate-[0.35] [&_.maplibregl-canvas]:contrast-[1.12] [&_.maplibregl-canvas]:brightness-[0.92]"
+        // The chase camera gets a gentler version of the same filter: at
+        // street level and this pitch, a motorway's already-thick line width
+        // fills a lot more of the screen, and the standard desaturate+contrast
+        // combo pushes its muted blue hard enough toward grey/white that it
+        // reads as a stray line rather than a real road. Less aggressive here
+        // keeps it recognisably a blue road, with our own accent-coloured
+        // trail still the most saturated thing on screen either way.
+        className={
+          replay
+            ? "h-full w-full [&_.maplibregl-canvas]:saturate-[0.55] [&_.maplibregl-canvas]:brightness-[0.9]"
+            : "h-full w-full [&_.maplibregl-canvas]:saturate-[0.35] [&_.maplibregl-canvas]:contrast-[1.12] [&_.maplibregl-canvas]:brightness-[0.92]"
+        }
         role="img"
         aria-label="Trajeto percorrido"
       />
