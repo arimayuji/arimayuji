@@ -1,77 +1,160 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
+import { ShareCardPreview } from "../share-card-preview";
 import { useShareSupport } from "@/lib/share";
-import { listShoes, type Shoe } from "@/lib/tracking/storage";
+import { usePrefersReducedMotion } from "@/lib/reducedMotion";
+import { usePreferences } from "@/lib/usePreferences";
+import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
+import { formatElapsed } from "@/lib/tracking/geoFilter";
+import { computeAchievement } from "@/lib/tracking/achievements";
+import { computeRunRecords } from "@/lib/tracking/personalRecords";
+import { buildShareCardScene, scenarioForRun } from "@/lib/shareCard/renderer";
+import {
+  buildShareCardVideoFile,
+  canRecordShareVideo,
+  canShareVideoFiles,
+} from "@/lib/shareCard/video";
+import {
+  listCompletedRuns,
+  listShoes,
+  runMovingSeconds,
+  type CompletedRun,
+  type Shoe,
+} from "@/lib/tracking/storage";
 
 /**
- * Share-card preview.
+ * Where the shareable card gets set up.
  *
- * Reached from /perfil (and from the post-run summary), outside the tab bar
- * because it is a detail view, not a destination — the Perfil tab stays lit.
- *
- * The scenario picker, the photo upload and the route's draw-in animation
- * below are all real: swapping in the illustrated background or your own
- * photo, and watching the traçado draw itself in, genuinely work. What's
- * still a mockup is the numbers.
+ * Everything on this screen is real once there's a run in the history: the
+ * preview is the actual canvas renderer painting the athlete's own trace and
+ * numbers, and the button records that exact animation to a video file and
+ * hands it to the share sheet. With no runs recorded yet it falls back to the
+ * illustrative composition on invented numbers, clearly labeled — a scenario
+ * picker you can play with before your first run is still worth having.
  */
-
-const PENDING = [
-  {
-    title: "Números reais",
-    detail:
-      "Distância, tempo e pace virão da corrida que você escolher no histórico. Os desta tela são inventados.",
-  },
-];
 
 const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
 
-/**
- * What actually gets shared today: text + a link, opened through the native
- * share sheet — which already lists WhatsApp/Instagram/Facebook (story and
- * status both) as targets on a real phone, no per-platform integration
- * needed. Not the illustrated card itself: that means rasterizing this
- * screen's mixed SVG-and-HTML composition to an image, which doesn't exist
- * yet — the same real numbers this preview is waiting on (see "O que falta
- * pra ficar de pé" below) would also be what a shared image should show.
- */
-const SHARE_TEXT = "Fui correr 🏃 — Xanthus";
+const NO_RUN_TEXT = "Fui correr 🏃 — Xanthus";
 
 export default function CompartilharPage() {
-  const [scenario, setScenario] = useState<ScenarioId>("madrugada");
+  const [scenario, setScenario] = useState<ScenarioId | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<HTMLImageElement | null>(null);
   const [shoes, setShoes] = useState<Shoe[] | null>(null);
   const [shoeId, setShoeId] = useState<string | null>(null);
+  const [runs, setRuns] = useState<CompletedRun[] | null>(null);
   const shareSupport = useShareSupport();
+  const reducedMotion = usePrefersReducedMotion();
+  const [preferences] = usePreferences();
   const [copied, setCopied] = useState(false);
+  const [videoProgress, setVideoProgress] = useState<number | null>(null);
 
   useEffect(() => {
     listShoes().then(setShoes);
+    listCompletedRuns().then(setRuns);
   }, []);
 
+  const run = useMemo(
+    () => (runs ? [...runs].sort((a, b) => b.startedAt - a.startedAt)[0] ?? null : null),
+    [runs],
+  );
+
+  /** Defaults to the sky matching the hour the run actually started at, until the athlete picks another. */
+  const activeScenario = scenario ?? (run ? scenarioForRun(run) : "madrugada");
+
+  const shoe = shoes?.find((s) => s.id === shoeId) ?? null;
+
+  const scene = useMemo(() => {
+    if (!run || !runs) return null;
+    const headline =
+      computeRunRecords(run, runs)
+        .filter((record) => record.isNewRecord)
+        .sort((a, b) => b.targetMeters - a.targetMeters)[0] ?? null;
+
+    const built = buildShareCardScene({
+      run,
+      scenario: activeScenario,
+      unit: preferences.distanceUnit,
+      photo,
+      shoe: shoe ? { name: shoe.name, color: shoe.color } : null,
+      record: headline
+        ? { label: headline.label, achievement: computeAchievement(run.id, headline) }
+        : null,
+    });
+    return built.projected.length >= 2 ? built : null;
+  }, [run, runs, activeScenario, preferences.distanceUnit, photo, shoe]);
+
+  const shareText = useMemo(() => {
+    if (!run) return NO_RUN_TEXT;
+    const unit = preferences.distanceUnit;
+    const seconds = runMovingSeconds(run);
+    const pace =
+      run.distanceMeters > 0 ? formatAveragePace(run.distanceMeters, seconds, unit) : null;
+    return `Corri ${formatDistance(run.distanceMeters, unit)} ${unitLabel(unit)} em ${formatElapsed(seconds)}${
+      pace !== null ? ` (${pace} ${paceLabel(unit)})` : ""
+    } 🏃 — Xanthus`;
+  }, [run, preferences.distanceUnit]);
+
   async function handleShare() {
+    if (videoProgress !== null) return;
     const url = window.location.origin;
+
+    if (
+      scene &&
+      shareSupport === "share" &&
+      !reducedMotion &&
+      canRecordShareVideo() &&
+      canShareVideoFiles()
+    ) {
+      setVideoProgress(0);
+      try {
+        let lastShown = 0;
+        const file = await buildShareCardVideoFile(scene, {
+          onProgress: (fraction) => {
+            if (fraction - lastShown < 0.05 && fraction < 1) return;
+            lastShown = fraction;
+            setVideoProgress(fraction);
+          },
+        });
+        if (file) {
+          const payload = navigator.canShare({ files: [file], text: shareText, url })
+            ? { files: [file], text: shareText, url }
+            : { files: [file], text: shareText };
+          try {
+            await navigator.share(payload);
+          } catch {
+            // Cancelled or blocked — the sheet closing is feedback enough.
+          }
+          return;
+        }
+      } catch {
+        // Recording failed — fall through to the text share below.
+      } finally {
+        setVideoProgress(null);
+      }
+    }
+
     if (shareSupport === "share") {
       try {
-        await navigator.share({ text: SHARE_TEXT, url });
+        await navigator.share({ text: shareText, url });
       } catch {
         // Cancelled or blocked — no error state, the sheet closing is feedback enough.
       }
       return;
     }
     try {
-      await navigator.clipboard.writeText(`${SHARE_TEXT} — ${url}`);
+      await navigator.clipboard.writeText(`${shareText} — ${url}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard blocked (permissions, insecure context) — nothing else to fall back to here.
     }
   }
-
-  const shoe = shoes?.find((s) => s.id === shoeId);
 
   // Revokes the *previous* object URL whenever it's replaced or the screen
   // unmounts — the cleanup closes over the value from the render it belongs
@@ -82,12 +165,42 @@ export default function CompartilharPage() {
     };
   }, [photoUrl]);
 
+  // The canvas needs a decoded bitmap, not a URL, and it needs it before the
+  // first frame is painted — a half-loaded image draws as nothing at all.
+  useEffect(() => {
+    if (!photoUrl) return;
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (!cancelled) setPhoto(image);
+    };
+    image.onerror = () => {
+      if (!cancelled) setPhoto(null);
+    };
+    image.src = photoUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [photoUrl]);
+
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    setPhoto(null);
     setPhotoUrl(URL.createObjectURL(file));
   }
+
+  const buttonLabel =
+    videoProgress !== null
+      ? "Gerando vídeo…"
+      : copied
+        ? "Link copiado!"
+        : shareSupport === "clipboard"
+          ? "Copiar link pra compartilhar"
+          : scene
+            ? "Compartilhar vídeo da corrida"
+            : "Compartilhar";
 
   return (
     <>
@@ -101,22 +214,31 @@ export default function CompartilharPage() {
 
       <ScreenHeader
         title="Card pra compartilhar"
-        badge={<ExampleBadge>prévia estática</ExampleBadge>}
-        subtitle="Como a corrida vira imagem. Ainda não é possível gerar o card de verdade."
+        badge={scene ? <NoticeBadge>corrida de verdade</NoticeBadge> : <ExampleBadge>prévia estática</ExampleBadge>}
+        subtitle={
+          scene
+            ? "Sua última corrida, do jeito que ela vira vídeo pro status."
+            : "Como a corrida vira card. Grave uma corrida pra ver a sua aqui."
+        }
       />
 
       <Screen>
         <div className="pr-enter mx-auto w-full max-w-[300px]" style={delay(80)}>
-          <ShareCard
-            scenario={scenario}
-            photoUrl={photoUrl ?? undefined}
-            shoe={shoe && { name: shoe.name, color: shoe.color }}
-          />
+          {scene ? (
+            <ShareCardPreview scene={scene} />
+          ) : (
+            <ShareCard
+              scenario={activeScenario}
+              photoUrl={photoUrl ?? undefined}
+              shoe={shoe ? { name: shoe.name, color: shoe.color } : undefined}
+            />
+          )}
         </div>
 
         <p className="pr-enter text-center text-xs leading-relaxed text-muted" style={delay(140)}>
-          Percurso, distância, tempo e pace acima são de demonstração — não são de nenhuma
-          corrida real.
+          {scene
+            ? "Traçado, distância, tempo e pace acima são dessa corrida — o vídeo compartilhado é exatamente essa animação."
+            : "Percurso, distância, tempo e pace acima são de demonstração — não são de nenhuma corrida real."}
         </p>
 
         <Card className="pr-enter" style={delay(170)}>
@@ -142,7 +264,10 @@ export default function CompartilharPage() {
             {photoUrl && (
               <button
                 type="button"
-                onClick={() => setPhotoUrl(null)}
+                onClick={() => {
+                  setPhoto(null);
+                  setPhotoUrl(null);
+                }}
                 className="inline-flex min-h-11 items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-muted transition-colors hover:border-warn hover:text-warn"
               >
                 Remover foto
@@ -167,9 +292,9 @@ export default function CompartilharPage() {
                 type="button"
                 disabled={!!photoUrl}
                 onClick={() => setScenario(id)}
-                aria-pressed={scenario === id}
+                aria-pressed={activeScenario === id}
                 className={`min-h-14 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed ${
-                  scenario === id
+                  activeScenario === id
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-border bg-background text-foreground hover:border-accent disabled:hover:border-border"
                 }`}
@@ -190,7 +315,7 @@ export default function CompartilharPage() {
             </CardTitle>
             <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
               Escolha um dos tênis que você registrou pra ele flutuar no card, na cor que você
-              cadastrou.
+              cadastrou. Numa corrida que bateu recorde, a medalha entra no lugar dele.
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -239,42 +364,29 @@ export default function CompartilharPage() {
           </Card>
         )}
 
-        <Card className="pr-enter mt-2" style={delay(200)}>
-          <CardTitle>O que falta pra ficar de pé</CardTitle>
-          <ul className="flex flex-col gap-4">
-            {PENDING.map((item) => (
-              <li key={item.title} className="flex gap-3">
-                <span
-                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-warn"
-                  aria-hidden="true"
-                />
-                <div>
-                  <h3 className="text-sm font-medium">{item.title}</h3>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted text-pretty">
-                    {item.detail}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-
         <button
           type="button"
           onClick={handleShare}
-          className="pr-enter min-h-14 w-full rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground"
+          disabled={videoProgress !== null}
+          aria-live="polite"
+          className="pr-enter relative min-h-14 w-full overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground disabled:cursor-progress"
           style={delay(260)}
         >
-          {copied
-            ? "Link copiado!"
-            : shareSupport === "clipboard"
-              ? "Copiar link pra compartilhar"
-              : "Compartilhar"}
+          {videoProgress !== null && (
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 bg-accent-foreground/20 transition-[width] duration-200 ease-linear"
+              style={{ width: `${Math.round(videoProgress * 100)}%` }}
+            />
+          )}
+          <span className="relative">{buttonLabel}</span>
         </button>
         <p className="pr-enter -mt-2 text-center text-xs leading-relaxed text-muted" style={delay(280)}>
           {shareSupport === "clipboard"
             ? "Esse navegador não abre o menu nativo de compartilhar — copia o link e cola onde quiser."
-            : "Abre o menu de compartilhar do aparelho — WhatsApp, Instagram e Facebook aparecem ali como destino. A imagem do card ainda não vai junto, só texto e link."}
+            : scene
+              ? "Grava a animação acima em vídeo e abre o menu do aparelho — WhatsApp, Instagram e Facebook aparecem ali como destino. Leva os segundos que a animação dura."
+              : "Abre o menu de compartilhar do aparelho. Sem corrida gravada ainda, vai só o texto e o link."}
         </p>
       </Screen>
     </>

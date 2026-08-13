@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import Link from "next/link";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
 import { getEvidenceById, getEvidenceForTopicRanked } from "@/lib/evidence";
@@ -298,21 +299,6 @@ function PlanBuildSequence({ stages, onDone }: { stages: readonly string[]; onDo
       </ul>
     </Card>
   );
-}
-
-const noopSubscribe = () => () => {};
-
-function getPrefersReducedMotion(): boolean {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/**
- * Same `useSyncExternalStore` shape as `splash.tsx`'s `useShouldShowSplash`
- * — a browser-only read decided once, without the hydration mismatch a
- * plain `useState(getPrefersReducedMotion)` would risk.
- */
-function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(noopSubscribe, getPrefersReducedMotion, () => false);
 }
 
 export default function PlanoPage() {

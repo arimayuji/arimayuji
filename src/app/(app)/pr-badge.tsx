@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 import { formatDeltaDuration } from "@/lib/tracking/geoFilter";
 import { TIER_LABEL, type Achievement } from "@/lib/tracking/achievements";
 import type { RunRecord } from "@/lib/tracking/personalRecords";
-import { AchievementPlate, TIER_PAINT } from "./achievement-plate";
+import { TIER_PAINT } from "@/lib/plateMetal";
+import { AchievementPlate } from "./achievement-plate";
 
 const STROKE = {
   fill: "none",

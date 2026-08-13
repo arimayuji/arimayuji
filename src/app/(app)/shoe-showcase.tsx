@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { CHROME_STOPS } from "@/lib/plateMetal";
 import { HORSE_BUST_PATHS } from "../horse-mark";
 
 /**
@@ -92,34 +93,6 @@ const OVERLAY_PATH = `M 84 30
   C 120 71, 132 73.4, 146 71.6
   C 134 66, 122 58.4, 111 49
   C 100 39.4, 89 30.6, 84 30 Z`;
-
-/**
- * Polished metal, top to bottom: sky, a narrow blown-out specular streak, a
- * hard drop into an ink trough, then the bounce back off the white foam. The
- * abrupt stops matter more than the colours — blend them smoothly and the same
- * greys read as satin fabric instead of chrome.
- */
-const CHROME_STOPS: ReadonlyArray<readonly [number, string]> = [
-  [0, "#ffffff"],
-  [4, "#d3dee7"],
-  [12, "#8d9cab"],
-  [20, "#63707e"],
-  [26, "#aab8c5"],
-  [28, "#ffffff"],
-  [32, "#ffffff"],
-  [34, "#9fadbb"],
-  [39, "#39434e"],
-  [41, "#101519"],
-  [48, "#0e1317"],
-  [52, "#48535e"],
-  [58, "#8d9baa"],
-  [66, "#c3cfda"],
-  [72, "#eef4f9"],
-  [76, "#ffffff"],
-  [82, "#cfdae3"],
-  [92, "#93a1af"],
-  [100, "#b9c5d1"],
-];
 
 /** Lace rungs crossing the instep, each anchored on the eyestay below it. */
 const LACES: ReadonlyArray<readonly [number, number, number, number]> = [

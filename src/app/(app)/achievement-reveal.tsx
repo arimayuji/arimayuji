@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
+import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { formatDeltaDuration } from "@/lib/tracking/geoFilter";
 import { TIER_LABEL, type Achievement } from "@/lib/tracking/achievements";
 import type { RunRecord } from "@/lib/tracking/personalRecords";
-import { AchievementPlate, TIER_PAINT } from "./achievement-plate";
+import { TIER_PAINT } from "@/lib/plateMetal";
+import { AchievementPlate } from "./achievement-plate";
 import { ModalPortal } from "./modal-portal";
 import { HORSE_BUST_PATHS } from "../horse-mark";
 
@@ -60,17 +62,6 @@ function ChromeStops() {
       ))}
     </>
   );
-}
-
-const noopSubscribe = () => () => {};
-
-function getPrefersReducedMotion(): boolean {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/** Same `useSyncExternalStore` shape as `plano/page.tsx` — a browser-only read decided once, with no hydration mismatch. */
-function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(noopSubscribe, getPrefersReducedMotion, () => false);
 }
 
 function BoxInterior({ uid, glow }: { uid: string; glow: string }) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { buildReplayTimeline, replayCursorAt, type ReplayCursor } from "@/lib/tracking/replay";
@@ -18,17 +19,6 @@ import { RouteMap } from "./route-map";
  * so watching the numbers change is watching what actually happened, not a
  * count-up animation dressed as one.
  */
-
-const noopSubscribe = () => () => {};
-
-function getPrefersReducedMotion(): boolean {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/** Same `useSyncExternalStore` shape as /plano's copy — a browser-only read decided once, with no hydration mismatch. */
-function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(noopSubscribe, getPrefersReducedMotion, () => false);
-}
 
 /** How long the playback takes on the wall clock: short enough that a 5k doesn't outstay its welcome, long enough that a long run still reads as movement. */
 function playbackMillis(totalSeconds: number): number {

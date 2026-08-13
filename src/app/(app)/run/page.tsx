@@ -34,7 +34,16 @@ import {
   announceLabel,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
+import type { DistanceUnit } from "@/lib/preferences";
+import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
 import { useShareSupport } from "@/lib/share";
+import { usePrefersReducedMotion } from "@/lib/reducedMotion";
+import { buildShareCardScene, scenarioForRun } from "@/lib/shareCard/renderer";
+import {
+  buildShareCardVideoFile,
+  canRecordShareVideo,
+  canShareVideoFiles,
+} from "@/lib/shareCard/video";
 import { useImmersiveMode } from "../app-shell";
 import { NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
@@ -99,7 +108,10 @@ export default function RunPage() {
   const [openedRecordMeters, setOpenedRecordMeters] = useState<number[]>([]);
   const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
   const shareSupport = useShareSupport();
+  const reducedMotion = usePrefersReducedMotion();
   const [shareCopied, setShareCopied] = useState(false);
+  /** Null while nothing is recording; 0–1 while the card animation is being captured. */
+  const [videoProgress, setVideoProgress] = useState<number | null>(null);
 
   /**
    * Personal-record check: best split for each standard distance this run
@@ -300,25 +312,98 @@ export default function RunPage() {
   };
 
   /**
-   * Text + a link through the native share sheet — which already lists
-   * WhatsApp/Instagram/Facebook (story and status both) as targets on a
-   * real phone, no per-platform integration or API key needed. Not the
-   * illustrated animated card (see /compartilhar): that's a separate,
-   * bigger piece still waiting on real numbers everywhere it's used, but
-   * a runner shouldn't have to wait on that just to tell someone the pace
-   * they actually ran.
+   * The animated card for this run, as a real video file, built from its own
+   * GPS trace and its own numbers. Returns null for every reason it can't be
+   * made — no trace to draw, no recorder, a share sheet that won't take files
+   * — which the caller reads as "share the text instead".
+   */
+  const buildShareVideo = useCallback(
+    async (run: CompletedRun, unit: DistanceUnit): Promise<File | null> => {
+      // The longest distance the run set a record at: a 10k PR is the headline
+      // even when the 1 km inside it also happens to be a best.
+      const headline =
+        runRecords
+          .filter((record) => record.isNewRecord)
+          .sort((a, b) => b.targetMeters - a.targetMeters)[0] ?? null;
+
+      const shoes = run.shoeName ? await listShoes().catch(() => []) : [];
+      const shoe = shoes.find((candidate) => candidate.name === run.shoeName) ?? null;
+
+      const scene = buildShareCardScene({
+        run,
+        scenario: scenarioForRun(run),
+        unit,
+        record: headline
+          ? { label: headline.label, achievement: computeAchievement(run.id, headline) }
+          : null,
+        shoe: shoe ? { name: shoe.name, color: shoe.color } : null,
+      });
+      if (scene.projected.length < 2) return null;
+
+      let lastShown = 0;
+      return buildShareCardVideoFile(scene, {
+        onProgress: (fraction) => {
+          // Coarse steps on purpose: capture runs on the wall clock, so a
+          // re-render per animation frame would compete with the encoder.
+          if (fraction - lastShown < 0.05 && fraction < 1) return;
+          lastShown = fraction;
+          setVideoProgress(fraction);
+        },
+      });
+    },
+    [runRecords],
+  );
+
+  /**
+   * One button, three outcomes, best first: the animated card as a video file
+   * through the native share sheet — which already lists WhatsApp status and
+   * Instagram stories as targets on a real phone, no per-platform integration
+   * or API key needed; failing that, the same numbers as text and a link;
+   * failing *that*, the text on the clipboard. The text path is the one that
+   * has to keep working, so nothing above it is allowed to throw its way out.
    */
   const handleShare = async () => {
-    if (!state.finishedRun) return;
-    const seconds = runMovingSeconds(state.finishedRun);
+    const run = state.finishedRun;
+    if (!run || videoProgress !== null) return;
+
+    const unit = preferences.distanceUnit;
+    const seconds = runMovingSeconds(run);
     const pace =
-      state.finishedRun.distanceMeters > 0
-        ? (seconds / state.finishedRun.distanceMeters) * 1000
-        : null;
-    const text = `Corri ${formatDistanceKm(state.finishedRun.distanceMeters)} km em ${formatElapsed(seconds)}${
-      pace !== null ? ` (${formatPace(pace)} min/km)` : ""
+      run.distanceMeters > 0 ? formatAveragePace(run.distanceMeters, seconds, unit) : null;
+    const text = `Corri ${formatDistance(run.distanceMeters, unit)} ${unitLabel(unit)} em ${formatElapsed(seconds)}${
+      pace !== null ? ` (${pace} ${paceLabel(unit)})` : ""
     } 🏃 — Xanthus`;
     const url = window.location.origin;
+
+    // Someone who asked the OS for less motion gets the text, not a six-second
+    // animation generated on their behalf.
+    if (
+      shareSupport === "share" &&
+      !reducedMotion &&
+      canRecordShareVideo() &&
+      canShareVideoFiles()
+    ) {
+      setVideoProgress(0);
+      try {
+        const file = await buildShareVideo(run, unit);
+        if (file) {
+          const payload = navigator.canShare({ files: [file], text, url })
+            ? { files: [file], text, url }
+            : { files: [file], text };
+          try {
+            await navigator.share(payload);
+          } catch {
+            // Cancelled or blocked — the sheet closing is feedback enough, and
+            // silently re-opening it with text instead would be worse.
+          }
+          return;
+        }
+      } catch {
+        // Recording failed outright — fall through to the text share below.
+      } finally {
+        setVideoProgress(null);
+      }
+    }
 
     if (shareSupport === "share") {
       try {
@@ -877,21 +962,37 @@ export default function RunPage() {
             <button
               type="button"
               onClick={handleShare}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground"
+              disabled={videoProgress !== null}
+              aria-live="polite"
+              className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground disabled:cursor-progress"
             >
-              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              {videoProgress !== null && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-0 left-0 bg-accent-foreground/20 transition-[width] duration-200 ease-linear"
+                  style={{ width: `${Math.round(videoProgress * 100)}%` }}
+                />
+              )}
+              <svg viewBox="0 0 24 24" className="relative h-4.5 w-4.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="18" cy="5" r="2.75" />
                 <circle cx="6" cy="12" r="2.75" />
                 <circle cx="18" cy="19" r="2.75" />
                 <path d="M8.5 10.5l7-4.2M8.5 13.5l7 4.2" />
               </svg>
-              {shareCopied ? "Copiado!" : "Compartilhar"}
+              <span className="relative">
+                {videoProgress !== null
+                  ? "Gerando vídeo…"
+                  : shareCopied
+                    ? "Copiado!"
+                    : "Compartilhar"}
+              </span>
             </button>
             <p className="max-w-xs text-xs leading-relaxed text-muted">
-              O card animado ainda está a caminho — isso aqui já compartilha de verdade, com os
-              números dessa corrida.{" "}
+              {videoProgress !== null
+                ? "O card é gravado em tempo real, então leva os segundos que a animação dura. Não feche a tela."
+                : "Gera um vídeo com o seu traçado desenhando e os números dessa corrida — pronto pro status do WhatsApp ou pros stories."}{" "}
               <Link href="/compartilhar" className="text-accent underline underline-offset-2">
-                Ver a prévia do card
+                Ver os cenários de fundo
               </Link>
               .
             </p>

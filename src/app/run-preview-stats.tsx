@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 
 /**
  * The three headline numbers on the hero's illustrative run-screen preview,
@@ -16,17 +17,6 @@ import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } fro
  * scrolls down to see it, which just reads as "no animation at all". Same
  * IntersectionObserver shape as reveal.tsx (0.12 threshold, fires once).
  */
-
-const noopSubscribe = () => () => {};
-
-function getPrefersReducedMotion(): boolean {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/** Same shape as `plano/page.tsx`'s copy — a browser-only read decided once, without a hydration mismatch. */
-function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(noopSubscribe, getPrefersReducedMotion, () => false);
-}
 
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
