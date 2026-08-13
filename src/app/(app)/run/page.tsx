@@ -159,6 +159,7 @@ export default function RunPage() {
   const [musicQuery, setMusicQuery] = useState("");
   const [musicResults, setMusicResults] = useState<TrackCandidate[] | null>(null);
   const [musicSearching, setMusicSearching] = useState(false);
+  const [musicSearchFailed, setMusicSearchFailed] = useState(false);
 
   const displayedTracks = [...(state.finishedRun?.tracks ?? []), ...manualTracks];
 
@@ -166,9 +167,16 @@ export default function RunPage() {
     e.preventDefault();
     if (!musicQuery.trim()) return;
     setMusicSearching(true);
-    const results = await searchTracks(musicQuery);
-    setMusicResults(results);
-    setMusicSearching(false);
+    setMusicSearchFailed(false);
+    try {
+      const results = await searchTracks(musicQuery);
+      setMusicResults(results);
+    } catch {
+      setMusicResults(null);
+      setMusicSearchFailed(true);
+    } finally {
+      setMusicSearching(false);
+    }
   };
 
   const handleAddManualTrack = useCallback(
@@ -728,7 +736,13 @@ export default function RunPage() {
               </button>
             </form>
 
-            {musicResults !== null && musicResults.length === 0 && (
+            {musicSearchFailed && (
+              <p className="mt-2 text-xs text-bad">
+                Não deu pra buscar agora — confere a internet e tenta de novo.
+              </p>
+            )}
+
+            {!musicSearchFailed && musicResults !== null && musicResults.length === 0 && (
               <p className="mt-2 text-xs text-muted">Nada encontrado.</p>
             )}
 
