@@ -18,7 +18,7 @@ import { AttributionControl, Map as MapLibreMap, Marker, type GeoJSONSource } fr
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { maptilerStyleUrl, type ColorScheme } from "@/lib/maptiler";
-import { haversineMeters } from "@/lib/tracking/geoFilter";
+import { bearingDegrees, haversineMeters } from "@/lib/tracking/geoFilter";
 import { replayHead, replayStretches, type ReplayCursor } from "@/lib/tracking/replay";
 import {
   findFastestStretch,
@@ -86,6 +86,19 @@ const FASTEST_LAYER = "route-fastest";
 /** Everything the replay overlay redraws for itself, hidden on the canvas while it plays. */
 const BASE_LAYERS = [HALO_LAYER, LINE_LAYER, FASTEST_LAYER];
 const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false } as const;
+
+/**
+ * Replay's camera: tilted and zoomed to street level, following the head
+ * from behind instead of the fixed top-down view a finished trace gets —
+ * "riding along" reads the run the way running it felt, not the way it
+ * looks flattened onto a map.
+ */
+const CHASE_PITCH = 65;
+const CHASE_ZOOM = 17.6;
+/** Below this the two points behind a bearing calculation are close enough that GPS noise, not real heading, would decide which way the camera faces. */
+const CHASE_BEARING_MIN_METERS = 3;
+/** How long the camera takes to swoop from the overview into the chase position, and back out again when playback ends. */
+const CHASE_TRANSITION_MS = 700;
 
 /** How far the finished trace fades back while the replay head draws over it — still visible as the shape being filled in, never competing with it. */
 const GHOSTED_ROUTE_OPACITY = 0.22;
@@ -197,9 +210,12 @@ function Stretches({
  * to a pale lavender. Out here the line keeps its own colour, and the
  * technique is the one the keyless fallback already uses (see `RouteTrace`).
  *
- * `projected` is every point run through `map.project`, which holds for the
- * life of the view because this map never pans or zooms after its one
- * `fitBounds` — see the `interactive: false` note in RouteTiles.
+ * `projected` is every point run through `map.project`, recomputed on every
+ * camera move — including the chase camera's own moves during playback, so
+ * this overlay stays pinned to the basemap under it whether the camera is
+ * sitting still on its one `fitBounds` or riding along behind the replay
+ * head. See the `interactive: false` note in RouteTiles for why *user*
+ * panning is still off regardless.
  */
 function ReplayOverlay({
   points,
@@ -288,6 +304,8 @@ function RouteTiles({
   const endMarker = useRef<Marker | null>(null);
   const headMarker = useRef<Marker | null>(null);
   const replaying = useRef(replay !== null);
+  const chasing = useRef(false);
+  const chaseBearing = useRef(0);
   const [toPixels, setToPixels] = useState<((c: [number, number]) => Pixel) | null>(null);
 
   const geometry = useMemo(() => routeGeometry(points), [points]);
@@ -314,6 +332,9 @@ function RouteTiles({
       // MapTiler's terms require the attribution; placing it manually keeps
       // it clear of the "você está aqui" chip in the opposite corner.
       attributionControl: false,
+      // Above the default 60°: the replay's chase camera (CHASE_PITCH) wants
+      // a steeper look-ahead than the default max allows.
+      maxPitch: 75,
     });
     instance.addControl(new AttributionControl({ compact: true }), "bottom-left");
 
@@ -403,6 +424,16 @@ function RouteTiles({
     if (!replay) {
       headMarker.current?.remove();
       headMarker.current = null;
+      if (chasing.current) {
+        chasing.current = false;
+        instance.fitBounds(latest.current.bounds, {
+          ...FIT_OPTIONS,
+          animate: true,
+          duration: CHASE_TRANSITION_MS,
+          pitch: 0,
+          bearing: 0,
+        });
+      }
       return;
     }
 
@@ -412,6 +443,35 @@ function RouteTiles({
       headMarker.current = new Marker({ element: markerElement(REPLAY_MARKER, true) })
         .setLngLat(head)
         .addTo(instance);
+    }
+
+    // Heading of the segment the head is currently on — too short a segment
+    // (GPS jitter, or the very last point) leaves the previous heading alone
+    // rather than snapping the camera toward a direction that isn't real.
+    const from = coordinates[replay.head.index];
+    const to = coordinates[Math.min(replay.head.index + 1, coordinates.length - 1)];
+    if (from && to) {
+      const segmentMeters = haversineMeters({ lat: from[1], lon: from[0] }, { lat: to[1], lon: to[0] });
+      if (segmentMeters >= CHASE_BEARING_MIN_METERS) {
+        chaseBearing.current = bearingDegrees({ lat: from[1], lon: from[0] }, { lat: to[1], lon: to[0] });
+      }
+    }
+
+    if (!chasing.current) {
+      chasing.current = true;
+      instance.easeTo({
+        center: head,
+        bearing: chaseBearing.current,
+        pitch: CHASE_PITCH,
+        zoom: CHASE_ZOOM,
+        duration: CHASE_TRANSITION_MS,
+      });
+    } else {
+      // Instant, not eased: the head's own position already animates smoothly
+      // on the run's clock (see replayFrameAt), so an eased camera here would
+      // just lag a beat behind a dot that's already moving — the two need to
+      // move in lockstep, not race each other.
+      instance.jumpTo({ center: head, bearing: chaseBearing.current, pitch: CHASE_PITCH, zoom: CHASE_ZOOM });
     }
   }, [replay, coordinates]);
 

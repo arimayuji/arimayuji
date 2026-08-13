@@ -37,6 +37,19 @@ export function haversineMeters(a: LatLon, b: LatLon): number {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** Compass heading from `a` to `b`, 0–360° with 0 = north — the initial bearing of the great-circle path, not a flat-plane angle (which drifts noticeably at the distances a chase camera cares about). */
+export function bearingDegrees(a: LatLon, b: LatLon): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const dLon = toRad(b.lon - a.lon);
+
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  const degrees = (Math.atan2(y, x) * 180) / Math.PI;
+  return (degrees + 360) % 360;
+}
+
 /** Scalar Kalman filter for a single noisy signal (used once per axis). */
 export class ScalarKalman {
   private value: number | null = null;
