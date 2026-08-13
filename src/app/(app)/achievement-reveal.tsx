@@ -5,7 +5,7 @@ import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { formatDeltaDuration } from "@/lib/tracking/geoFilter";
 import { TIER_LABEL, type Achievement } from "@/lib/tracking/achievements";
 import type { RunRecord } from "@/lib/tracking/personalRecords";
-import { TIER_PAINT } from "@/lib/plateMetal";
+import { TIER_PAINT, tintedStops } from "@/lib/plateMetal";
 import { AchievementPlate } from "./achievement-plate";
 import { ModalPortal } from "./modal-portal";
 import { HORSE_FULL_BODY_PATHS } from "../horse-mark";
@@ -21,9 +21,11 @@ import { HORSE_FULL_BODY_PATHS } from "../horse-mark";
  * there is no timer chain to keep in sync and nothing to unwind if the modal
  * is closed mid-reveal.
  *
- * The box itself is deliberately *not* tinted to the tier. Everything the
- * athlete can see before the lid comes off is neutral chrome and graphite; the
- * rarity only arrives with the light.
+ * The lid's own chrome is tinted to the tier now too — a rubi/platina/
+ * diamante/prata/ouro finish the same way a Rainbow Six crate skin reads its
+ * rarity off the case, not just the drop inside it — using the exact same
+ * `tintedStops` ramp the plate itself is painted with, so the box and what
+ * comes out of it are provably the same metal.
  */
 
 const VIEW_BOX = "0 -80 240 240";
@@ -47,17 +49,36 @@ const LID_FRONT = "M 26 96 L 174 96 L 174 79 L 26 79 Z";
 const LID_SIDE = "M 174 96 L 222 64 L 222 47 L 174 79 Z";
 const LID_TOP = "M 26 79 L 174 79 L 222 47 L 74 47 Z";
 
-const CHROME_STOPS: ReadonlyArray<readonly [number, string]> = [
-  [0, "#ffffff"], [4, "#d3dee7"], [12, "#8d9cab"], [20, "#63707e"], [26, "#aab8c5"],
-  [28, "#ffffff"], [32, "#ffffff"], [34, "#9fadbb"], [39, "#39434e"], [41, "#101519"],
-  [48, "#0e1317"], [52, "#48535e"], [58, "#8d9baa"], [66, "#c3cfda"], [72, "#eef4f9"],
-  [76, "#ffffff"], [82, "#cfdae3"], [92, "#93a1af"], [100, "#b9c5d1"],
-];
+/**
+ * Maps the horse mark's own 0–100 art space flat onto `LID_TOP`'s
+ * parallelogram — bottom-left (26,79), a (148,0) width vector along the
+ * front edge, a (48,-32) depth vector up the receding side — instead of an
+ * eyeballed rotate() that never actually matched that quad's shear. Occupies
+ * the middle 60% of the face (`F`), so it reads as stamped flat into the lid
+ * rather than floating tilted above it.
+ */
+const LID_TOP_BL: readonly [number, number] = [26, 79];
+const LID_TOP_WIDTH: readonly [number, number] = [148, 0];
+const LID_TOP_DEPTH: readonly [number, number] = [48, -32];
+const LID_MARK_FILL = 0.6;
 
-function ChromeStops() {
+function lidMarkMatrix(): string {
+  const [bx, by] = LID_TOP_BL;
+  const [wx] = LID_TOP_WIDTH;
+  const [dx, dy] = LID_TOP_DEPTH;
+  const f = LID_MARK_FILL;
+  const a = (wx / 100) * f;
+  const c = (dx / 100) * f;
+  const d = (dy / 100) * f;
+  const e = bx + (wx + dx) * ((1 - f) / 2);
+  const g = by + dy * ((1 - f) / 2);
+  return `matrix(${a} 0 ${c} ${d} ${e} ${g})`;
+}
+
+function ChromeStops({ stops }: { stops: ReadonlyArray<readonly [number, string]> }) {
   return (
     <>
-      {CHROME_STOPS.map(([offset, color]) => (
+      {stops.map(([offset, color]) => (
         <stop key={offset} offset={`${offset}%`} stopColor={color} />
       ))}
     </>
@@ -89,15 +110,19 @@ function BoxInterior({ uid, glow }: { uid: string; glow: string }) {
   );
 }
 
-function BoxShell({ uid, glow }: { uid: string; glow: string }) {
+function BoxShell({ uid, achievement }: { uid: string; achievement: Achievement }) {
+  const paint = TIER_PAINT[achievement.tier];
+  const lidStops = tintedStops(paint, achievement.hueShift, achievement.tintScale);
+  const lidMarkTransform = lidMarkMatrix();
+
   return (
     <svg viewBox={VIEW_BOX} className="absolute inset-0 h-full w-full" aria-hidden="true">
       <defs>
         <linearGradient id={`${uid}-lid`} x1="0" y1="42" x2="0" y2="100" gradientUnits="userSpaceOnUse">
-          <ChromeStops />
+          <ChromeStops stops={lidStops} />
         </linearGradient>
         <linearGradient id={`${uid}-lidtop`} x1="26" y1="98" x2="222" y2="45" gradientUnits="userSpaceOnUse">
-          <ChromeStops />
+          <ChromeStops stops={lidStops} />
         </linearGradient>
         <linearGradient id={`${uid}-body`} x1="0" y1="90" x2="0" y2="152" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#333c46" />
@@ -114,7 +139,7 @@ function BoxShell({ uid, glow }: { uid: string; glow: string }) {
         <path d={BOX_SIDE} fill={`url(#${uid}-side)`} />
         <path d={BOX_FRONT} fill={`url(#${uid}-body)`} />
       </g>
-      <path d="M 30 121 L 170 121" stroke={glow} strokeWidth="2.6" opacity="0.6" strokeLinecap="round" />
+      <path d="M 30 121 L 170 121" stroke={paint.glow} strokeWidth="2.6" opacity="0.6" strokeLinecap="round" />
       <text
         x="100"
         y="141"
@@ -133,14 +158,9 @@ function BoxShell({ uid, glow }: { uid: string; glow: string }) {
           <path d={LID_TOP} fill={`url(#${uid}-lidtop)`} />
           <path d={LID_FRONT} fill={`url(#${uid}-lid)`} />
         </g>
-        <g
-          transform="translate(106 40) scale(0.30) rotate(-14)"
-          fill="none"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <g transform="translate(3 3)" stroke="#ffffff" opacity="0.5">
+        {/* Flat on the lid's own face, not tilted above it — see lidMarkMatrix(). */}
+        <g transform={lidMarkTransform} fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+          <g transform="translate(2.4 2.4)" stroke="#ffffff" opacity="0.5">
             {HORSE_FULL_BODY_PATHS.map((d) => (
               <path key={d} d={d} />
             ))}
@@ -202,7 +222,7 @@ function Stage({
           </div>
         </div>
       </div>
-      <BoxShell uid={uid} glow={glow} />
+      <BoxShell uid={uid} achievement={achievement} />
     </>
   );
 }
