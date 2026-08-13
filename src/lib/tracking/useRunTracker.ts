@@ -109,6 +109,15 @@ export function useRunTracker() {
   const lastFilteredRef = useRef<LatLon | null>(null);
   const lastFixTimestampRef = useRef<number | null>(null);
   const justResumedRef = useRef(false);
+  /**
+   * Filtered step distances too small to clear `isLikelyDrift` on their own,
+   * held here instead of thrown away. A walker's real per-fix movement can
+   * sit under that floor for several fixes in a row even while genuinely
+   * moving the whole time — accumulating lets that movement clear the floor
+   * (and get credited in full) a fix or two later instead of every small
+   * step being individually discarded as noise.
+   */
+  const pendingDriftMetersRef = useRef(0);
 
   const runIdRef = useRef<string>(newRunId());
   const startedAtRef = useRef<number | null>(null);
@@ -204,6 +213,7 @@ export function useRunTracker() {
         lastFixTimestampRef.current = timestamp;
         startedAtRef.current = Date.now();
         lastAnnounceTimeRef.current = timestamp;
+        pendingDriftMetersRef.current = 0;
         startTicking();
         return { ...s, status: "tracking" };
       });
@@ -226,6 +236,7 @@ export function useRunTracker() {
         lastRawRef.current = { lat, lon };
         lastFilteredRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
+        pendingDriftMetersRef.current = 0;
         return;
       }
 
@@ -240,19 +251,24 @@ export function useRunTracker() {
       const filteredPoint: LatLon = { lat: filteredLat, lon: filteredLon };
       const filteredStep = haversineMeters(lastFilteredRef.current, filteredPoint);
 
-      // Position-delta drift detection alone punishes slow movement: a walker
-      // at ~1.2m/s can cover under 5m between two fixes even while genuinely
-      // moving the whole time, and isLikelyDrift has no way to tell that
-      // apart from standing still with the same few metres of GPS jitter.
-      // The chip's own Doppler-derived speed doesn't have that ambiguity —
-      // per this file's own design basis above, it's preferred over a
-      // derived distance/time speed for exactly this reason — so a fix
-      // reporting real motion overrides a "looks like drift" position delta.
+      // Position-delta drift detection alone punishes slow movement: a
+      // walker at ~1.2m/s can cover under 5m between two fixes even while
+      // genuinely moving the whole time, and deciding "is this drift"
+      // per fix has no way to tell that apart from standing still with the
+      // same few metres of GPS jitter. Two independent signals correct for
+      // it: the chip's own Doppler-derived speed doesn't share that
+      // ambiguity (this file's header already names it as preferred over a
+      // derived distance/time speed, for exactly this reason), and holding
+      // each too-small step in `pendingDriftMetersRef` instead of discarding
+      // it outright means real movement that's slow rather than absent still
+      // clears the bar a fix or two later — credited in full, not lost.
+      pendingDriftMetersRef.current += filteredStep;
       const stationary =
-        isLikelyDrift(filteredStep, accuracy) &&
+        isLikelyDrift(pendingDriftMetersRef.current, accuracy) &&
         (speed === null || speed < FILTER_CONFIG.stoppedSpeedMps);
       if (!stationary) {
-        distanceRef.current += filteredStep;
+        distanceRef.current += pendingDriftMetersRef.current;
+        pendingDriftMetersRef.current = 0;
         pointsRef.current.push({ lat: filteredLat, lon: filteredLon, timestamp });
       }
 
@@ -355,6 +371,7 @@ export function useRunTracker() {
       pauseStartedAtRef.current = null;
       distanceRef.current = 0;
       pointsRef.current = [];
+      pendingDriftMetersRef.current = 0;
       pauseEventsRef.current = [];
       lastAnnounceDistanceRef.current = 0;
       lastAnnounceTimeRef.current = null;
