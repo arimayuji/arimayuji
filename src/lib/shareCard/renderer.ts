@@ -19,10 +19,9 @@
  * never recorded.
  */
 
-import { HORSE_BUST_PATHS, HORSE_FULL_BODY_PATHS } from "@/app/horse-mark";
+import { HORSE_FULL_BODY_PATHS } from "@/app/horse-mark";
 import type { DistanceUnit } from "../preferences";
 import {
-  CHROME_STOPS,
   TIER_PAINT,
   plateLabelFontSize,
   platePolygon,
@@ -636,35 +635,63 @@ function drawPlate(
 /** Bleeds off the right edge, the way the preview card floats it. */
 const SHOE_SLOT = { x: 300, y: 806, width: 440 };
 
-const SHOE_MIDSOLE = `M 17 56 C 9 61, 5.5 70, 9.5 78 C 13 84.4, 22 86.8, 32 86.8 L 120 86.8
-  C 145 86.8, 166 79.5, 179 68 C 183.5 64, 185.5 60.6, 183.5 58.8
-  C 181.5 57.2, 178 58.8, 174.5 61.4 C 165 66.4, 153 68.6, 137 69.8
-  C 110 71.6, 76 71.4, 51 67.6 C 34.5 65, 23.5 60.6, 17 56 Z`;
-const SHOE_OUTSOLE = `M 8 73 C 9 81.4, 20 85.1, 30 85.1 L 120 85.1
-  C 144 85.1, 165 78, 178 66.4 L 185 59`;
-const SHOE_PLATE = `M 12 67 C 15.5 75, 31 79, 56 80.4 C 92 82.2, 124 80.6, 146 75.4
-  C 165 70.8, 177.5 62.2, 187 51.2`;
-const SHOE_PLATE_SHEEN = `M 12 64.4 C 15.5 72.4, 31 76.4, 56 77.8 C 92 79.6, 124 78, 146 72.8
-  C 165 68.2, 177.5 59.6, 187 48.6`;
-const SHOE_UPPER = `M 171 62.8 C 173.5 56, 168 50, 158 48.5 C 144 46, 128 40, 112 32.6
-  C 100 27.2, 90 22.6, 80 19.6 C 72 17.4, 67 19.4, 66 23.4
-  C 65 27, 63.5 29.4, 59.5 30.6 C 52 32.8, 45 28.4, 39 21.4
-  C 34.5 16, 30.5 11.6, 26 11.4 C 19.5 11.2, 14 16.4, 11.5 25.4
-  C 9.6 33, 10.4 45, 17 56 C 23.5 60.6, 34.5 65, 51 67.6
-  C 76 71.4, 110 71.6, 137 69.8 C 151 68.8, 163 66.6, 171 62.8 Z`;
-const SHOE_OVERLAY = `M 84 30 C 87 45, 96 58, 110 66 C 120 71, 132 73.4, 146 71.6
-  C 134 66, 122 58.4, 111 49 C 100 39.4, 89 30.6, 84 30 Z`;
-const SHOE_DETAILS = [
-  "M 18 26 C 15.5 36, 15.5 47, 18 56",
-  "M 76 22 C 70 27, 62 31, 55 30",
-  "M 133 42 C 118 35.5, 104 29.5, 92 25",
-];
-const SHOE_LACES: ReadonlyArray<readonly [number, number, number, number]> = [
-  [131, 45.5, 133, 40.5],
-  [118, 39.5, 120, 34.5],
-  [105, 33.5, 107, 28.5],
-  [93, 28, 95, 23],
-];
+/**
+ * The real generated collectible art (see /public/shoe) instead of a
+ * hand-drawn vector shoe. Only three angles exist — not a full 3D model —
+ * so "turning" is a cross-fade between them rather than a true rotation;
+ * see `shoeAngleAt` below for the sequence and timing that sells it.
+ */
+const SHOE_IMAGE_SRC = {
+  side: "/shoe/shoe-side.png",
+  front: "/shoe/shoe-front.png",
+  rear: "/shoe/shoe-rear.png",
+} as const;
+type ShoeAngle = keyof typeof SHOE_IMAGE_SRC;
+
+const shoeImageCache: Partial<Record<ShoeAngle, HTMLImageElement>> = {};
+
+/**
+ * Kicks off loading on first request and returns the element only once it's
+ * actually decoded — `img.complete`/`naturalWidth` is the standard readiness
+ * check, cheaper than tracking load state separately. `null` before that
+ * just means this frame draws nothing for the shoe; at 720p over localhost
+ * that window is milliseconds, well before the shoe's own pop-in delay ever
+ * makes it visible in the first place.
+ */
+function getShoeImage(angle: ShoeAngle): HTMLImageElement | null {
+  if (typeof window === "undefined") return null;
+  let img = shoeImageCache[angle];
+  if (!img) {
+    img = new Image();
+    img.src = SHOE_IMAGE_SRC[angle];
+    shoeImageCache[angle] = img;
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+/**
+ * Look around, don't spin: side, glance to the front, back to side, glance
+ * to the back — then settle, never looping. Timed to actually finish inside
+ * the real window the shoe is ever on screen for: it pops in at
+ * `ROUTE_DRAW_END + 480` and the whole card ends at `SHARE_CARD_DURATION_MS`,
+ * which leaves under 2.1s total — a slower cycle would just get cut off
+ * mid-fade on every single card, never seen in full.
+ */
+const SHOE_ANGLE_SEQUENCE: readonly ShoeAngle[] = ["side", "front", "side", "rear"];
+const SHOE_ANGLE_HOLD_MS = 380;
+const SHOE_ANGLE_FADE_MS = 280;
+const SHOE_ANGLE_SEGMENT_MS = SHOE_ANGLE_HOLD_MS + SHOE_ANGLE_FADE_MS;
+
+function shoeAngleAt(elapsedSincePop: number): { from: ShoeAngle; to: ShoeAngle; mix: number } {
+  const clamped = Math.max(0, elapsedSincePop);
+  const maxIndex = SHOE_ANGLE_SEQUENCE.length - 2;
+  const index = Math.min(Math.floor(clamped / SHOE_ANGLE_SEGMENT_MS), maxIndex);
+  const from = SHOE_ANGLE_SEQUENCE[index];
+  const to = SHOE_ANGLE_SEQUENCE[index + 1];
+  const withinSegment = clamped - index * SHOE_ANGLE_SEGMENT_MS;
+  if (withinSegment < SHOE_ANGLE_HOLD_MS) return { from, to: from, mix: 0 };
+  return { from, to, mix: easeOut(clamp01((withinSegment - SHOE_ANGLE_HOLD_MS) / SHOE_ANGLE_FADE_MS)) };
+}
 
 function parseHex(hex: string): [number, number, number] {
   const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -673,22 +700,34 @@ function parseHex(hex: string): [number, number, number] {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
+/** One angle, centred at the current origin, scaled to `targetWidth` with its own aspect ratio. */
+function drawShoeAngle(ctx: CanvasRenderingContext2D, angle: ShoeAngle, targetWidth: number, alpha: number) {
+  if (alpha <= 0) return;
+  const img = getShoeImage(angle);
+  if (!img) return;
+  const h = targetWidth * (img.naturalHeight / img.naturalWidth);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, -targetWidth / 2, -h / 2, targetWidth, h);
+}
+
 /**
- * The registered shoe, in the same chrome register as the locker's showcase —
- * a side-profile racer whose body stays polished metal whatever colour the
- * athlete picked, so `color` speaks through the glow and the plate line rather
- * than repainting the whole shoe.
+ * The registered shoe — real photographed collectible art now, not a
+ * hand-drawn chrome outline. `color` no longer tints the shoe body itself (a
+ * raster photo can't take a per-pixel tint the way the old vector fills
+ * could); it still speaks through the glow behind it, same reasoning
+ * ShoeShowcase settled on when it made the same swap.
  */
 function drawShoe(
   ctx: CanvasRenderingContext2D,
   shoe: ShareCardShoe,
   elapsed: number,
 ) {
-  const pop = easeOut(stage(elapsed, ROUTE_DRAW_END + 480, 520));
+  const popStart = ROUTE_DRAW_END + 480;
+  const pop = easeOut(stage(elapsed, popStart, 520));
   if (pop <= 0) return;
 
   const [r, g, b] = parseHex(shoe.color);
-  const scale = (SHOE_SLOT.width / 184) * (0.9 + 0.1 * pop);
+  const targetWidth = SHOE_SLOT.width * (0.9 + 0.1 * pop);
 
   ctx.save();
   ctx.globalAlpha = pop;
@@ -706,92 +745,17 @@ function drawShoe(
   const float = floatingMotion(elapsed);
   ctx.translate(0, float.bobY * pop);
   ctx.rotate(float.rotZ * pop);
-  ctx.scale(float.turnScaleX, 1);
 
-  ctx.scale(scale, scale);
-  ctx.translate(-96, -49);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-
-  const midsole = new Path2D(SHOE_MIDSOLE);
-  const upper = new Path2D(SHOE_UPPER);
-
+  const cardAlpha = pop;
+  const { from, to, mix } = shoeAngleAt(Math.max(0, elapsed - popStart));
   ctx.save();
-  ctx.clip(midsole);
-  const foam = ctx.createLinearGradient(0, 55, 0, 88);
-  foam.addColorStop(0, "#ffffff");
-  foam.addColorStop(0.2, "#edf2f7");
-  foam.addColorStop(0.48, "#c6d0da");
-  foam.addColorStop(0.76, "#9aa6b2");
-  foam.addColorStop(1, "#79848f");
-  ctx.fillStyle = foam;
-  ctx.fillRect(0, 0, 200, 96);
-  ctx.fillStyle = `rgba(${r},${g},${b},0.09)`;
-  ctx.fillRect(0, 0, 200, 96);
-  ctx.strokeStyle = "#7b8793";
-  ctx.lineWidth = 6;
-  ctx.stroke(new Path2D(SHOE_OUTSOLE));
-  ctx.strokeStyle = `rgb(${Math.round(r * 0.28)},${Math.round(g * 0.28)},${Math.round(b * 0.28)})`;
-  ctx.lineWidth = 2.6;
-  ctx.stroke(new Path2D(SHOE_PLATE));
-  ctx.strokeStyle = "rgba(255,255,255,0.65)";
-  ctx.lineWidth = 1.1;
-  ctx.stroke(new Path2D(SHOE_PLATE_SHEEN));
+  drawShoeAngle(ctx, from, targetWidth, cardAlpha * (1 - mix));
   ctx.restore();
-
-  ctx.strokeStyle = "#11151a";
-  ctx.lineWidth = 2.2;
-  ctx.stroke(midsole);
-
-  const chrome = ctx.createLinearGradient(0, 10, 0, 72);
-  for (const [offset, color] of CHROME_STOPS) chrome.addColorStop(offset / 100, color);
-  ctx.fillStyle = chrome;
-  ctx.fill(upper);
-  ctx.stroke(upper);
-
-  ctx.save();
-  ctx.clip(upper);
-  ctx.fillStyle = `rgba(${r},${g},${b},0.1)`;
-  ctx.fillRect(0, 0, 200, 96);
-  ctx.strokeStyle = "rgba(255,255,255,0.85)";
-  ctx.lineWidth = 1.6;
-  ctx.stroke(new Path2D("M 14 20 C 38 22, 68 30, 94 40"));
-  ctx.strokeStyle = "rgba(255,255,255,0.7)";
-  ctx.lineWidth = 1.4;
-  ctx.stroke(new Path2D("M 122 46 C 142 52, 158 56, 172 58"));
-  ctx.fillStyle = "#11151a";
-  ctx.fill(new Path2D(SHOE_OVERLAY));
-  ctx.restore();
-
-  ctx.strokeStyle = "rgba(201,212,223,0.7)";
-  ctx.lineWidth = 1.5;
-  strokePathData(ctx, SHOE_DETAILS);
-
-  ctx.strokeStyle = "#e6edf4";
-  ctx.lineWidth = 2.4;
-  for (const [x1, y1, x2, y2] of SHOE_LACES) {
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+  if (mix > 0) {
+    ctx.save();
+    drawShoeAngle(ctx, to, targetWidth, cardAlpha * mix);
+    ctx.restore();
   }
-  ctx.fillStyle = "#eef2f7";
-  ctx.strokeStyle = "#11151a";
-  ctx.lineWidth = 0.6;
-  for (const [x, y] of SHOE_LACES) {
-    ctx.beginPath();
-    ctx.arc(x, y, 1.7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  ctx.save();
-  ctx.translate(92, 38);
-  ctx.scale(0.24, 0.24);
-  ctx.strokeStyle = "#f4f6fb";
-  ctx.lineWidth = 5;
-  strokePathData(ctx, HORSE_BUST_PATHS);
-  ctx.restore();
 
   ctx.restore();
 }
