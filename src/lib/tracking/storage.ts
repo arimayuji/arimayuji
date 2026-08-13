@@ -81,6 +81,14 @@ export interface CompletedRun {
    * Undefined means "not computed yet", not "zero gain".
    */
   elevationGainMeters?: number;
+  /**
+   * Standard distances (in meters, matching `STANDARD_DISTANCES`) whose
+   * achievement box has already been opened. Purely so revisiting an old run
+   * doesn't replay the unboxing every single time — the achievement, its tier
+   * and its artwork are all derived from the run itself, so losing this list
+   * costs nothing but one extra animation. Undefined means "none opened yet".
+   */
+  openedRecordMeters?: number[];
 }
 
 /**
@@ -249,6 +257,19 @@ export async function updateRunElevationGain(runId: string, elevationGainMeters:
   );
   if (!run) return;
   run.elevationGainMeters = elevationGainMeters;
+  await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
+}
+
+/** Records that this run's achievement at `targetMeters` has been unboxed — see `CompletedRun.openedRecordMeters`. */
+export async function markRecordOpened(runId: string, targetMeters: number): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const run = await withStore<CompletedRun | undefined>(RUNS_STORE, "readonly", (store) =>
+    store.get(runId),
+  );
+  if (!run) return;
+  const opened = run.openedRecordMeters ?? [];
+  if (opened.includes(targetMeters)) return;
+  run.openedRecordMeters = [...opened, targetMeters];
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
 }
 

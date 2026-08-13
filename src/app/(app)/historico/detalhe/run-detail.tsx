@@ -5,18 +5,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { computeElevationGain } from "@/lib/elevation";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
+import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
 import { computeSplits, type Split } from "@/lib/tracking/splits";
 import {
   deleteCompletedRun,
   getCompletedRun,
   listCompletedRuns,
+  markRecordOpened,
   runMovingSeconds,
   updateRunElevationGain,
   type CompletedRun,
 } from "@/lib/tracking/storage";
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, metersPerUnit, paceLabel, unitLabel } from "@/lib/units";
+import { AchievementReveal } from "../../achievement-reveal";
 import { PrBadge } from "../../pr-badge";
 import { RouteReplay } from "../../route-replay";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../../ui";
@@ -100,6 +103,8 @@ export function RunDetail({ id }: { id: string }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [computedElevationGain, setComputedElevationGain] = useState<number | null>(null);
+  const [openedMeters, setOpenedMeters] = useState<number[]>([]);
+  const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +114,7 @@ export function RunDetail({ id }: { id: string }) {
         setLoad({ status: "not-found" });
         return;
       }
+      setOpenedMeters(run.openedRecordMeters ?? []);
       setLoad({ status: "ready", run, records: computeRunRecords(run, allRuns) });
     });
     return () => {
@@ -161,6 +167,19 @@ export function RunDetail({ id }: { id: string }) {
   const newRecords = records.filter((r) => r.isNewRecord);
   const splits = computeSplits(run.points, metersPerUnit(unit));
   const elevationGain = run.elevationGainMeters ?? computedElevationGain;
+
+  /**
+   * The flag is written optimistically and its failure swallowed: it only
+   * decides whether the box animation replays, and a record whose "opened"
+   * state was never persisted still shows the same item. It is written when
+   * the lid actually comes off, not when the modal opens, so the card behind
+   * doesn't give the tier away while the box is still shut.
+   */
+  const handleRecordUnboxed = (record: RunRecord) => {
+    if (openedMeters.includes(record.targetMeters)) return;
+    setOpenedMeters((current) => [...current, record.targetMeters]);
+    markRecordOpened(run.id, record.targetMeters).catch(() => {});
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -220,7 +239,15 @@ export function RunDetail({ id }: { id: string }) {
             <CardTitle aside={<NoticeBadge>{newRecords.length}</NoticeBadge>}>Conquistas dessa corrida</CardTitle>
             <div className="flex flex-col gap-2.5">
               {newRecords.map((record) => (
-                <PrBadge key={record.targetMeters} record={record} />
+                <PrBadge
+                  key={record.targetMeters}
+                  record={record}
+                  achievement={computeAchievement(run.id, record)}
+                  opened={openedMeters.includes(record.targetMeters)}
+                  onOpen={() =>
+                    setRevealing({ record, wasOpened: openedMeters.includes(record.targetMeters) })
+                  }
+                />
               ))}
             </div>
           </Card>
@@ -271,6 +298,16 @@ export function RunDetail({ id }: { id: string }) {
           Voltar pro histórico
         </Link>
       </Screen>
+
+      {revealing && (
+        <AchievementReveal
+          record={revealing.record}
+          achievement={computeAchievement(run.id, revealing.record)}
+          alreadyOpened={revealing.wasOpened}
+          onOpened={() => handleRecordUnboxed(revealing.record)}
+          onClose={() => setRevealing(null)}
+        />
+      )}
     </>
   );
 }

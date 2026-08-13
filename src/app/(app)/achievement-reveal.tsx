@@ -1,0 +1,328 @@
+"use client";
+
+import { useState, useSyncExternalStore } from "react";
+import { formatDeltaDuration } from "@/lib/tracking/geoFilter";
+import { TIER_LABEL, type Achievement } from "@/lib/tracking/achievements";
+import type { RunRecord } from "@/lib/tracking/personalRecords";
+import { AchievementPlate, TIER_PAINT } from "./achievement-plate";
+import { ModalPortal } from "./modal-portal";
+import { HORSE_BUST_PATHS } from "../horse-mark";
+
+/**
+ * Opening the box.
+ *
+ * A shoebox drawn in the same chrome/ink register as the showcase shoe, in a
+ * three-quarter view: lid lifts and tips away, light floods out of the mouth
+ * in the tier's colour, and the plate rises out and settles into the shared
+ * `pr-drift`/`pr-tumble-*` float. The whole sequence is one `data-unbox` flip
+ * — the choreography is per-element transition delays in globals.css, so
+ * there is no timer chain to keep in sync and nothing to unwind if the modal
+ * is closed mid-reveal.
+ *
+ * The box itself is deliberately *not* tinted to the tier. Everything the
+ * athlete can see before the lid comes off is neutral chrome and graphite; the
+ * rarity only arrives with the light.
+ */
+
+const VIEW_BOX = "0 -80 240 240";
+
+const BOX = {
+  frontBottomLeft: "30 150",
+  frontBottomRight: "170 150",
+  frontTopLeft: "30 92",
+  frontTopRight: "170 92",
+  backTopLeft: "76 62",
+  backTopRight: "216 62",
+  backBottomRight: "216 120",
+};
+
+const BOX_FRONT = `M ${BOX.frontBottomLeft} L ${BOX.frontBottomRight} L ${BOX.frontTopRight} L ${BOX.frontTopLeft} Z`;
+const BOX_SIDE = `M ${BOX.frontBottomRight} L ${BOX.backBottomRight} L ${BOX.backTopRight} L ${BOX.frontTopRight} Z`;
+const BOX_MOUTH = `M ${BOX.frontTopLeft} L ${BOX.frontTopRight} L ${BOX.backTopRight} L ${BOX.backTopLeft} Z`;
+
+/** Overhangs the body by 4 units on each side, the way a real shoebox lid does. */
+const LID_FRONT = "M 26 96 L 174 96 L 174 79 L 26 79 Z";
+const LID_SIDE = "M 174 96 L 222 64 L 222 47 L 174 79 Z";
+const LID_TOP = "M 26 79 L 174 79 L 222 47 L 74 47 Z";
+
+const CHROME_STOPS: ReadonlyArray<readonly [number, string]> = [
+  [0, "#ffffff"], [4, "#d3dee7"], [12, "#8d9cab"], [20, "#63707e"], [26, "#aab8c5"],
+  [28, "#ffffff"], [32, "#ffffff"], [34, "#9fadbb"], [39, "#39434e"], [41, "#101519"],
+  [48, "#0e1317"], [52, "#48535e"], [58, "#8d9baa"], [66, "#c3cfda"], [72, "#eef4f9"],
+  [76, "#ffffff"], [82, "#cfdae3"], [92, "#93a1af"], [100, "#b9c5d1"],
+];
+
+function ChromeStops() {
+  return (
+    <>
+      {CHROME_STOPS.map(([offset, color]) => (
+        <stop key={offset} offset={`${offset}%`} stopColor={color} />
+      ))}
+    </>
+  );
+}
+
+const noopSubscribe = () => () => {};
+
+function getPrefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** Same `useSyncExternalStore` shape as `plano/page.tsx` — a browser-only read decided once, with no hydration mismatch. */
+function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(noopSubscribe, getPrefersReducedMotion, () => false);
+}
+
+function BoxInterior({ uid, glow }: { uid: string; glow: string }) {
+  return (
+    <svg viewBox={VIEW_BOX} className="absolute inset-0 h-full w-full" aria-hidden="true">
+      <defs>
+        {/* Reaches zero exactly at the top of the viewBox — anything still visible there gets a hard clipped edge instead of a light cone. */}
+        <linearGradient id={`${uid}-shaft`} x1="0" y1="76" x2="0" y2="-80" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor={glow} stopOpacity="0.55" />
+          <stop offset="30%" stopColor={glow} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={glow} stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id={`${uid}-mouth`} cx="0.5" cy="0.55" r="0.62">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="46%" stopColor={glow} />
+          <stop offset="100%" stopColor={glow} stopOpacity="0.55" />
+        </radialGradient>
+      </defs>
+      <path d={BOX_MOUTH} fill="#05070a" />
+      <g className="pr-unbox-shaft">
+        <path d="M 78 63 L 214 63 L 330 -150 L -40 -150 Z" fill={`url(#${uid}-shaft)`} />
+        <path d={BOX_MOUTH} fill={`url(#${uid}-mouth)`} />
+      </g>
+    </svg>
+  );
+}
+
+function BoxShell({ uid, glow }: { uid: string; glow: string }) {
+  return (
+    <svg viewBox={VIEW_BOX} className="absolute inset-0 h-full w-full" aria-hidden="true">
+      <defs>
+        <linearGradient id={`${uid}-lid`} x1="0" y1="42" x2="0" y2="100" gradientUnits="userSpaceOnUse">
+          <ChromeStops />
+        </linearGradient>
+        <linearGradient id={`${uid}-lidtop`} x1="26" y1="98" x2="222" y2="45" gradientUnits="userSpaceOnUse">
+          <ChromeStops />
+        </linearGradient>
+        <linearGradient id={`${uid}-body`} x1="0" y1="90" x2="0" y2="152" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#333c46" />
+          <stop offset="38%" stopColor="#1b222a" />
+          <stop offset="100%" stopColor="#0c1015" />
+        </linearGradient>
+        <linearGradient id={`${uid}-side`} x1="170" y1="96" x2="222" y2="66" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#10161d" />
+          <stop offset="100%" stopColor="#262e38" />
+        </linearGradient>
+      </defs>
+
+      <g stroke="#0a0e12" strokeWidth="2" strokeLinejoin="round">
+        <path d={BOX_SIDE} fill={`url(#${uid}-side)`} />
+        <path d={BOX_FRONT} fill={`url(#${uid}-body)`} />
+      </g>
+      <path d="M 30 121 L 170 121" stroke={glow} strokeWidth="2.6" opacity="0.6" strokeLinecap="round" />
+      <text
+        x="100"
+        y="141"
+        textAnchor="middle"
+        fontFamily="ui-monospace, monospace"
+        fontSize="10"
+        letterSpacing="3.4"
+        fill="#7c858e"
+      >
+        XANTHUS
+      </text>
+
+      <g className="pr-unbox-lid">
+        <g stroke="#0a0e12" strokeWidth="2" strokeLinejoin="round">
+          <path d={LID_SIDE} fill={`url(#${uid}-lid)`} />
+          <path d={LID_TOP} fill={`url(#${uid}-lidtop)`} />
+          <path d={LID_FRONT} fill={`url(#${uid}-lid)`} />
+        </g>
+        <g
+          transform="translate(106 40) scale(0.30) rotate(-14)"
+          fill="none"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <g transform="translate(3 3)" stroke="#ffffff" opacity="0.5">
+            {HORSE_BUST_PATHS.map((d) => (
+              <path key={d} d={d} />
+            ))}
+          </g>
+          <g stroke="#11151a" opacity="0.85">
+            {HORSE_BUST_PATHS.map((d) => (
+              <path key={d} d={d} />
+            ))}
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * `left`/`top`/`width` park the plate art (120 units wide) so its centre lands
+ * just clear of the open mouth inside the 240-unit box viewBox. It is plain
+ * HTML rather than part of either SVG so it can sit *between* the two layers —
+ * genuinely occluded by the box front while it is still inside — and still use
+ * the shared 3D tumble divs.
+ */
+function Stage({
+  achievement,
+  label,
+  uid,
+  tumbleDelayMs,
+}: {
+  achievement: Achievement;
+  label: string;
+  uid: string;
+  tumbleDelayMs: number;
+}) {
+  const glow = TIER_PAINT[achievement.tier].glow;
+  const delay = { animationDelay: `${tumbleDelayMs}ms` };
+
+  return (
+    <>
+      <BoxInterior uid={uid} glow={glow} />
+      <div
+        className="pr-unbox-item absolute left-[26.25%] top-[7.5%] w-1/2"
+        style={{ perspective: "900px" }}
+      >
+        <div
+          className="pr-unbox-glow pointer-events-none absolute left-1/2 top-1/2 h-[190%] w-[190%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-xl"
+          style={{ background: `radial-gradient(closest-side, ${glow}, transparent 74%)` }}
+        />
+        <div className="pr-drift relative" style={delay}>
+          <div
+            className="pr-tumble-y"
+            style={{ ...delay, transformStyle: "preserve-3d", transform: "rotateY(-26deg)" }}
+          >
+            <div
+              className="pr-tumble-x"
+              style={{ ...delay, transformStyle: "preserve-3d", transform: "rotateX(8deg) rotateZ(-3deg)" }}
+            >
+              <AchievementPlate achievement={achievement} label={label} />
+            </div>
+          </div>
+        </div>
+      </div>
+      <BoxShell uid={uid} glow={glow} />
+    </>
+  );
+}
+
+function improvementLine(record: RunRecord, achievement: Achievement): string {
+  if (record.previousBestSeconds === null || achievement.improvement === null) {
+    return "Primeira vez que você cobre essa distância.";
+  }
+  const saved = formatDeltaDuration(record.previousBestSeconds - record.splitSeconds);
+  const percent = (achievement.improvement * 100).toLocaleString("pt-BR", {
+    maximumFractionDigits: 1,
+  });
+  return `${saved} mais rápido que seu melhor anterior — ${percent}% de ganho.`;
+}
+
+export function AchievementReveal({
+  record,
+  achievement,
+  alreadyOpened,
+  onOpened,
+  onClose,
+}: {
+  record: RunRecord;
+  achievement: Achievement;
+  alreadyOpened: boolean;
+  /** Fires the instant the lid starts moving, never on mount — the card underneath must not wear its tier before the athlete has seen it. */
+  onOpened: () => void;
+  onClose: () => void;
+}) {
+  const reducedMotion = usePrefersReducedMotion();
+  const [opened, setOpened] = useState(alreadyOpened || reducedMotion);
+  const paint = TIER_PAINT[achievement.tier];
+
+  const handleOpen = () => {
+    setOpened(true);
+    onOpened();
+  };
+
+  return (
+    <ModalPortal>
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-black/95 px-6 py-8 text-foreground backdrop-blur-md">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fechar"
+          className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          >
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+
+        <div className="w-full max-w-[340px]" data-unbox={opened ? "open" : "sealed"}>
+          <button
+            type="button"
+            disabled={opened}
+            onClick={handleOpen}
+            aria-label={opened ? undefined : "Abrir a caixa"}
+            className="relative block aspect-square w-full overflow-hidden disabled:cursor-default"
+          >
+            <Stage
+              achievement={achievement}
+              label={record.label}
+              uid={`unbox-${record.targetMeters}`}
+              tumbleDelayMs={alreadyOpened || reducedMotion ? 0 : 1100}
+            />
+          </button>
+
+          {opened ? (
+            <div className="pr-unbox-copy mt-2 text-center">
+              <p
+                className="font-mono text-xs font-semibold uppercase tracking-[0.3em]"
+                style={{ color: paint.glow }}
+              >
+                {TIER_LABEL[achievement.tier]}
+              </p>
+              <h2 className="mt-2 text-lg font-semibold text-balance text-white">
+                Seu melhor tempo nos {record.label}!
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-pretty text-white/70">
+                {improvementLine(record, achievement)}
+              </p>
+              <p className="mt-4 font-mono text-[11px] tracking-[0.18em] text-white/40">
+                Nº {achievement.serial}
+              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-6 rounded-full border border-white/25 px-6 py-2.5 text-sm font-semibold text-white"
+              >
+                Guardar
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 text-center">
+              <p className="text-sm font-semibold text-white">Toque pra abrir</p>
+              <p className="mt-1 text-xs text-white/55">
+                Cada conquista vem com uma peça só sua, gerada a partir dessa corrida.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}

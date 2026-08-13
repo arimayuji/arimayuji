@@ -13,6 +13,7 @@ import {
   deleteCompletedRun,
   listCompletedRuns,
   listShoes,
+  markRecordOpened,
   runMovingSeconds,
   summarizeShoes,
   updateRunTracks,
@@ -20,7 +21,9 @@ import {
   type RunTrack,
 } from "@/lib/tracking/storage";
 import { RouteMap } from "../route-map";
+import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
+import { AchievementReveal } from "../achievement-reveal";
 import { PrBadge } from "../pr-badge";
 import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboarding";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
@@ -92,6 +95,8 @@ export default function RunPage() {
    * doesn't retroactively change what the finished summary says was raced against. */
   const [activeGhost, setActiveGhost] = useState<CompletedRun | null>(null);
   const [runRecords, setRunRecords] = useState<RunRecord[]>([]);
+  const [openedRecordMeters, setOpenedRecordMeters] = useState<number[]>([]);
+  const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
 
   /**
    * Personal-record check: best split for each standard distance this run
@@ -162,6 +167,9 @@ export default function RunPage() {
   const [musicSearchFailed, setMusicSearchFailed] = useState(false);
 
   const displayedTracks = [...(state.finishedRun?.tracks ?? []), ...manualTracks];
+
+  /** Narrowing on `state.finishedRun` doesn't survive into the record callbacks below. */
+  const finishedRun = state.finishedRun;
 
   const handleMusicSearch = async (e: FormEvent) => {
     e.preventDefault();
@@ -251,7 +259,16 @@ export default function RunPage() {
     setMusicResults(null);
     setDiscarding(false);
     setRunRecords([]);
+    setOpenedRecordMeters([]);
+    setRevealing(null);
     reset();
+  };
+
+  /** See the same handler in historico/detalhe/run-detail.tsx — the persisted flag only decides whether the box animation replays. */
+  const handleRecordUnboxed = (runId: string, record: RunRecord) => {
+    if (openedRecordMeters.includes(record.targetMeters)) return;
+    setOpenedRecordMeters((current) => [...current, record.targetMeters]);
+    markRecordOpened(runId, record.targetMeters).catch(() => {});
   };
 
   /**
@@ -596,14 +613,35 @@ export default function RunPage() {
             </div>
           </div>
 
-          {runRecords.some((r) => r.isNewRecord) && (
+          {finishedRun && runRecords.some((r) => r.isNewRecord) && (
             <div className="flex w-full max-w-xs flex-col gap-2">
               {runRecords
                 .filter((r) => r.isNewRecord)
                 .map((record) => (
-                  <PrBadge key={record.targetMeters} record={record} />
+                  <PrBadge
+                    key={record.targetMeters}
+                    record={record}
+                    achievement={computeAchievement(finishedRun.id, record)}
+                    opened={openedRecordMeters.includes(record.targetMeters)}
+                    onOpen={() =>
+                      setRevealing({
+                        record,
+                        wasOpened: openedRecordMeters.includes(record.targetMeters),
+                      })
+                    }
+                  />
                 ))}
             </div>
+          )}
+
+          {revealing && finishedRun && (
+            <AchievementReveal
+              record={revealing.record}
+              achievement={computeAchievement(finishedRun.id, revealing.record)}
+              alreadyOpened={revealing.wasOpened}
+              onOpened={() => handleRecordUnboxed(finishedRun.id, revealing.record)}
+              onClose={() => setRevealing(null)}
+            />
           )}
 
           {state.finishedRun.pauseEvents && state.finishedRun.pauseEvents.length > 0 && (
