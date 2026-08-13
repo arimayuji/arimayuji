@@ -76,6 +76,24 @@ const easeOut = (t: number) => 1 - Math.pow(1 - clamp01(t), 3);
 const stage = (elapsed: number, start: number, duration: number) =>
   clamp01((elapsed - start) / duration);
 
+/**
+ * The "zero gravity" bob/tumble the shoe and the medal already do in CSS
+ * (`pr-drift`/`pr-tumble-x`/`pr-tumble-y` in globals.css) — re-expressed as a
+ * pure function of elapsed time so it can be baked into recorded frames,
+ * where a CSS animation next to the canvas would simply not be captured.
+ * translateY and rotateZ map straight onto `ctx.translate`/`ctx.rotate`; the
+ * true 3D turn of rotateY has no 2D equivalent, so it's faked with a
+ * horizontal scale oscillation — the same trick a flipping coin sprite uses.
+ */
+function floatingMotion(elapsed: number) {
+  const t = elapsed / 1000;
+  const bobY = Math.sin((t / 6) * Math.PI * 2) * 11;
+  const rotZ = (0.5 + 4.5 * Math.sin((t / 6.5) * Math.PI * 2)) * (Math.PI / 180);
+  const turnDeg = 30 * Math.sin((t / 9) * Math.PI * 2);
+  const turnScaleX = Math.cos((turnDeg * Math.PI) / 180);
+  return { bobY, rotZ, turnScaleX };
+}
+
 export interface ShareCardRecord {
   label: string;
   achievement: Achievement;
@@ -526,6 +544,11 @@ function drawPlate(
   ctx.arc(0, 0, PLATE_SLOT.size * 0.85, 0, Math.PI * 2);
   ctx.fill();
 
+  const float = floatingMotion(elapsed);
+  ctx.translate(0, float.bobY * pop);
+  ctx.rotate(float.rotZ * pop);
+  ctx.scale(float.turnScaleX, 1);
+
   ctx.scale(scale, scale);
   ctx.translate(-60, -60);
   ctx.lineCap = "round";
@@ -679,6 +702,11 @@ function drawShoe(
   ctx.beginPath();
   ctx.arc(0, 0, SHOE_SLOT.width * 0.6, 0, Math.PI * 2);
   ctx.fill();
+
+  const float = floatingMotion(elapsed);
+  ctx.translate(0, float.bobY * pop);
+  ctx.rotate(float.rotZ * pop);
+  ctx.scale(float.turnScaleX, 1);
 
   ctx.scale(scale, scale);
   ctx.translate(-96, -49);
