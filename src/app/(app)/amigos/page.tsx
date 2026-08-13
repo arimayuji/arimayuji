@@ -50,7 +50,7 @@ function PersonRow({ connection, children }: { connection: FriendConnection; chi
 }
 
 export default function AmigosPage() {
-  const { status, refresh } = useAuth();
+  const { status } = useAuth();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [connections, setConnections] = useState<FriendConnection[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -306,9 +306,7 @@ export default function AmigosPage() {
         )}
       </Screen>
 
-      {showAccountPrompt && (
-        <AccountPrompt onClose={() => setShowAccountPrompt(false)} onSignedIn={refresh} returnTo={RETURN_TO} />
-      )}
+      {showAccountPrompt && <AccountPrompt onClose={() => setShowAccountPrompt(false)} returnTo={RETURN_TO} />}
     </>
   );
 }

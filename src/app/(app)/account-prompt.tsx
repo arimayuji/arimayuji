@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { requestPhoneCode, signInWithGoogle, signInWithMicrosoft, verifyPhoneCode } from "@/lib/auth";
+import { signInWithGoogle, signInWithMicrosoft } from "@/lib/auth";
 import { ModalPortal } from "./modal-portal";
 
 const STROKE = {
@@ -18,72 +17,17 @@ const UNLOCKS = [
   { title: "Professor/aluno", body: "seu treinador acompanha seus treinos de verdade" },
 ];
 
-type PhoneStage = "closed" | "phone" | "code";
-
-/** `55` (Brazil) is the default country code when the person doesn't type their own `+`. */
-function normalizePhone(input: string): string {
-  const trimmed = input.trim();
-  if (trimmed.startsWith("+")) return trimmed.replace(/[^\d+]/g, "");
-  return `+55${trimmed.replace(/\D/g, "")}`;
-}
-
 /**
  * Shown the moment something genuinely needs an account (rating a place,
  * adding a friend/coach) — never on load, never for recording a run or
  * viewing history, which stay account-free. `returnTo` is the path the
  * OAuth provider sends the browser back to; it must already be registered
- * as an Appwrite "platform" hostname. `onSignedIn` fires after a phone
- * login, which — unlike OAuth — completes without a page redirect, so the
- * caller needs an explicit cue to refresh its own auth state.
+ * as an Appwrite "platform" hostname. Phone/SMS sign-in was dropped —
+ * every remaining provider is OAuth, which always completes with a full
+ * page reload at `returnTo`, so there's no in-page "just signed in" moment
+ * for a caller to hook into.
  */
-export function AccountPrompt({
-  onClose,
-  onSignedIn,
-  returnTo,
-}: {
-  onClose: () => void;
-  onSignedIn?: () => void;
-  returnTo: string;
-}) {
-  const [phoneStage, setPhoneStage] = useState<PhoneStage>("closed");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [phoneUserId, setPhoneUserId] = useState<string | null>(null);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [phoneSubmitting, setPhoneSubmitting] = useState(false);
-
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPhoneSubmitting(true);
-    setPhoneError(null);
-    try {
-      const userId = await requestPhoneCode(normalizePhone(phone));
-      if (!userId) throw new Error("no-appwrite");
-      setPhoneUserId(userId);
-      setPhoneStage("code");
-    } catch {
-      setPhoneError("Não deu pra enviar o código — confere o número e tenta de novo.");
-    } finally {
-      setPhoneSubmitting(false);
-    }
-  };
-
-  const handleConfirmCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneUserId) return;
-    setPhoneSubmitting(true);
-    setPhoneError(null);
-    try {
-      await verifyPhoneCode(phoneUserId, code.trim());
-      onSignedIn?.();
-      onClose();
-    } catch {
-      setPhoneError("Código errado ou expirado — confere e tenta de novo.");
-    } finally {
-      setPhoneSubmitting(false);
-    }
-  };
-
+export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; returnTo: string }) {
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
@@ -158,63 +102,6 @@ export function AccountPrompt({
                 <MicrosoftIcon />
                 Continuar com Microsoft
               </button>
-
-              {phoneStage === "closed" && (
-                <button
-                  type="button"
-                  onClick={() => setPhoneStage("phone")}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-foreground py-3.5 text-sm font-semibold text-background"
-                >
-                  <PhoneIcon />
-                  Continuar com telefone
-                </button>
-              )}
-
-              {phoneStage === "phone" && (
-                <form onSubmit={handleSendCode} className="flex flex-col gap-2 rounded-xl border border-border p-3.5 text-left">
-                  <label className="text-xs font-medium text-muted">Seu número de telefone</label>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    autoFocus
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="(11) 99999-9999"
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-                  />
-                  <button
-                    type="submit"
-                    disabled={phoneSubmitting || !phone.trim()}
-                    className="mt-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
-                  >
-                    {phoneSubmitting ? "Enviando…" : "Enviar código"}
-                  </button>
-                </form>
-              )}
-
-              {phoneStage === "code" && (
-                <form onSubmit={handleConfirmCode} className="flex flex-col gap-2 rounded-xl border border-border p-3.5 text-left">
-                  <label className="text-xs font-medium text-muted">Código enviado por SMS</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoFocus
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="123456"
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-center font-mono text-lg tracking-widest outline-none focus:border-accent"
-                  />
-                  <button
-                    type="submit"
-                    disabled={phoneSubmitting || !code.trim()}
-                    className="mt-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
-                  >
-                    {phoneSubmitting ? "Confirmando…" : "Confirmar"}
-                  </button>
-                </form>
-              )}
-
-              {phoneError && <p className="text-xs text-bad">{phoneError}</p>}
             </div>
 
             <p className="mt-5 border-t border-border pt-4 text-[11px] leading-relaxed text-muted">
@@ -246,15 +133,6 @@ function MicrosoftIcon() {
       <rect x="12.8" y="2" width="9.2" height="9.2" fill="#7FBA00" />
       <rect x="2" y="12.8" width="9.2" height="9.2" fill="#00A4EF" />
       <rect x="12.8" y="12.8" width="9.2" height="9.2" fill="#FFB900" />
-    </svg>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="7" y="2.5" width="10" height="19" rx="2" />
-      <path d="M11 18.5h2" />
     </svg>
   );
 }

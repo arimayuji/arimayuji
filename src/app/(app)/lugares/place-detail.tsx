@@ -212,9 +212,7 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
         </Link>
       </Screen>
 
-      {showAccountPrompt && (
-        <AccountPrompt onClose={() => setShowAccountPrompt(false)} onSignedIn={refresh} returnTo={RETURN_TO} />
-      )}
+      {showAccountPrompt && <AccountPrompt onClose={() => setShowAccountPrompt(false)} returnTo={RETURN_TO} />}
 
       {showRateModal && account && (
         <RatePlaceModal
