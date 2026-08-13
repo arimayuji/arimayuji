@@ -306,6 +306,7 @@ export default function PlanoPage() {
   const [weeklyKm, setWeeklyKm] = useState<number | null>(null);
   const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [planRevealed, setPlanRevealed] = useState(false);
+  const [showExample, setShowExample] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   const handleBuildSequenceDone = useCallback(() => setPlanRevealed(true), []);
 
@@ -472,8 +473,12 @@ export default function PlanoPage() {
     <>
       <ScreenHeader
         title="Plano"
-        badge={<ExampleBadge />}
-        subtitle="Prévia de como o plano semanal vai ser apresentado. Ainda não é o seu plano."
+        badge={showExample ? <ExampleBadge /> : undefined}
+        subtitle={
+          showExample
+            ? "Prévia de como o plano semanal vai ser apresentado. Ainda não é o seu plano."
+            : "Defina sua meta e registre corridas pra gerar seu plano de verdade."
+        }
       />
 
       <Screen>
@@ -508,53 +513,83 @@ export default function PlanoPage() {
           </Link>
         </Card>
 
-        <Card className="pr-enter" style={delay(110)}>
-          <CardTitle aside={<ExampleBadge>semana de exemplo</ExampleBadge>}>
-            Semana 3 de 12 — base
-          </CardTitle>
-          <div className="mb-5 grid grid-cols-3 gap-3 border-b border-border pb-4">
-            <Stat label="Volume" value={String(TOTAL_DEMO_KM)} unit="km" />
-            <Stat label="Sessões" value={String(DEMO_SESSION_COUNT)} />
-            <Stat label="Forte" value="1" />
-          </div>
-          <ul className="flex flex-col gap-3">
-            {DEMO_WEEK.map((session, index) => (
-              <SessionRow
-                key={session.day}
-                session={session}
-                index={index}
-                isLast={index === DEMO_WEEK.length - 1}
-              />
-            ))}
-          </ul>
-          <p className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted">
-            Números de demonstração. Assim que os dois itens acima estiverem prontos, essa tela
-            vira o seu plano de verdade.
-          </p>
-        </Card>
+        {showExample ? (
+          <>
+            <Card className="pr-enter" style={delay(110)}>
+              <CardTitle aside={<ExampleBadge>semana de exemplo</ExampleBadge>}>
+                Semana 3 de 12 — base
+              </CardTitle>
+              <div className="mb-5 grid grid-cols-3 gap-3 border-b border-border pb-4">
+                <Stat label="Volume" value={String(TOTAL_DEMO_KM)} unit="km" />
+                <Stat label="Sessões" value={String(DEMO_SESSION_COUNT)} />
+                <Stat label="Forte" value="1" />
+              </div>
+              <ul className="flex flex-col gap-3">
+                {DEMO_WEEK.map((session, index) => (
+                  <SessionRow
+                    key={session.day}
+                    session={session}
+                    index={index}
+                    isLast={index === DEMO_WEEK.length - 1}
+                  />
+                ))}
+              </ul>
+              <p className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted">
+                Números de demonstração. Assim que os dois itens acima estiverem prontos, essa tela
+                vira o seu plano de verdade.
+              </p>
+            </Card>
 
-        <Card className="pr-enter" style={delay(260)}>
-          <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
-            Por que essa semana tem essa cara
-          </CardTitle>
-          <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-            A semana acima é inventada, mas o formato dela não é aleatório — cada decisão do
-            motor de treino vem acompanhada da evidência por trás, com a força dela classificada.
-            Aqui vai uma prévia real dessa mecânica.
-          </p>
-          <ul className="flex flex-col gap-3">
-            {FEATURED_EVIDENCE_IDS.map((id) => {
-              const fact = getEvidenceById(id);
-              return fact ? <EvidenceFactRow key={id} fact={fact} /> : null;
-            })}
-          </ul>
-          <Link
-            href="/estudos"
-            className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
+            <Card className="pr-enter" style={delay(260)}>
+              <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
+                Por que essa semana tem essa cara
+              </CardTitle>
+              <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+                A semana acima é inventada, mas o formato dela não é aleatório — cada decisão do
+                motor de treino vem acompanhada da evidência por trás, com a força dela classificada.
+                Aqui vai uma prévia real dessa mecânica.
+              </p>
+              <ul className="flex flex-col gap-3">
+                {FEATURED_EVIDENCE_IDS.map((id) => {
+                  const fact = getEvidenceById(id);
+                  return fact ? <EvidenceFactRow key={id} fact={fact} /> : null;
+                })}
+              </ul>
+              <Link
+                href="/estudos"
+                className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
+              >
+                Ver todos os estudos
+              </Link>
+            </Card>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowExample(true)}
+            className="pr-enter flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 text-left"
+            style={delay(110)}
           >
-            Ver todos os estudos
-          </Link>
-        </Card>
+            <span>
+              <span className="block text-sm font-semibold">Ver uma amostra de como fica</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-muted text-pretty">
+                Uma semana com números inventados só pra mostrar o formato — não é o seu plano.
+              </span>
+            </span>
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0 text-muted"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </button>
+        )}
       </Screen>
     </>
   );

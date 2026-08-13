@@ -40,7 +40,7 @@ export function EvidenceFactRow({ fact }: { fact: EvidenceFact }) {
         {fact.bullets.map((bullet) => (
           <li key={bullet} className="flex gap-1.5 text-sm leading-snug text-pretty">
             <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-current opacity-40" aria-hidden="true" />
-            {renderBullet(bullet)}
+            <span>{renderBullet(bullet)}</span>
           </li>
         ))}
       </ul>
