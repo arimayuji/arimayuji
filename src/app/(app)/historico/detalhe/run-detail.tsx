@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { estimateCalories } from "@/lib/calories";
+import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { computeElevationGain } from "@/lib/elevation";
+import { shareRunWithCoaches } from "@/lib/runsSync";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
@@ -128,6 +130,13 @@ export function RunDetail({ id }: { id: string }) {
   const [computedElevationGain, setComputedElevationGain] = useState<number | null>(null);
   const [openedMeters, setOpenedMeters] = useState<number[]>([]);
   const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
+  const [coaches, setCoaches] = useState<CoachConnection[] | null>(null);
+  const [sharedWith, setSharedWith] = useState<string[]>([]);
+  const [sharingId, setSharingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    listCoachConnections("accepted").then((rows) => setCoaches(rows.filter((c) => c.myRole === "student")));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,6 +220,13 @@ export function RunDetail({ id }: { id: string }) {
     setDeleting(true);
     await deleteCompletedRun(run.id);
     router.push("/historico");
+  };
+
+  const handleShareWithCoach = async (coachId: string) => {
+    setSharingId(coachId);
+    const result = await shareRunWithCoaches(run, [coachId]);
+    setSharingId(null);
+    if (result.ok) setSharedWith((current) => [...current, coachId]);
   };
 
   return (
@@ -298,6 +314,37 @@ export function RunDetail({ id }: { id: string }) {
         )}
 
         <SplitsTable splits={splits} unit={unit} />
+
+        {coaches !== null && coaches.length > 0 && (
+          <Card className="pr-enter" style={delay(170)}>
+            <CardTitle>Enviar pro treinador</CardTitle>
+            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+              Só essa corrida, só pra quem você escolher aqui — nada é enviado automaticamente.
+            </p>
+            <ul className="flex flex-col gap-2">
+              {coaches.map((connection) => {
+                const sent = sharedWith.includes(connection.otherId);
+                return (
+                  <li key={connection.relationship.$id} className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-sm">
+                      {connection.profile?.displayName ?? "Corredor(a)"}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={sent || sharingId === connection.otherId}
+                      onClick={() => handleShareWithCoach(connection.otherId)}
+                      className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-semibold disabled:opacity-60 ${
+                        sent ? "bg-good/15 text-good" : "bg-accent text-accent-foreground"
+                      }`}
+                    >
+                      {sent ? "Enviado" : sharingId === connection.otherId ? "Enviando…" : "Enviar"}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        )}
 
         <Card className="pr-enter" style={delay(180)}>
           {confirmingDelete ? (

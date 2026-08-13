@@ -749,6 +749,19 @@ export default function PerfilPage() {
           </Link>
         </Card>
 
+        <Card className="pr-enter" style={delay(95)}>
+          <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Treinador</CardTitle>
+          <Link href="/treinador" className="flex items-center justify-between gap-3">
+            <p className="text-sm leading-relaxed text-muted text-pretty">
+              Conecte com quem te treina ou com quem você treina — e escolha corrida por corrida o que
+              compartilhar.
+            </p>
+            <span className="shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground">
+              Ver
+            </span>
+          </Link>
+        </Card>
+
         <Card className="pr-enter" style={delay(60)}>
           <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
             Preferências de corrida
