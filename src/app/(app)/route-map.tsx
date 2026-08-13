@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type SVGProps,
+} from "react";
 // Pinned to maplibre-gl 5: 6.x splits its web worker into sibling ES modules
 // that import each other by relative path, and Turbopack content-hashes those
 // filenames when it emits them, so the worker 404s on its own import and the
@@ -16,6 +24,7 @@ import {
   findFastestStretch,
   projectRoute,
   routeSegments,
+  stretchStarts,
   type FastestStretch,
 } from "@/lib/tracking/routeProjection";
 import type { StoredPoint } from "@/lib/tracking/storage";
@@ -71,8 +80,11 @@ function useColorScheme(): ColorScheme | null {
 
 const ROUTE_SOURCE = "route";
 const FASTEST_SOURCE = "route-fastest";
-const REPLAY_SOURCE = "route-replay";
-const REPLAY_TAIL_SOURCE = "route-replay-tail";
+const HALO_LAYER = "route-halo";
+const LINE_LAYER = "route-line";
+const FASTEST_LAYER = "route-fastest";
+/** Everything the replay overlay redraws for itself, hidden on the canvas while it plays. */
+const BASE_LAYERS = [HALO_LAYER, LINE_LAYER, FASTEST_LAYER];
 const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false } as const;
 
 /** How far the finished trace fades back while the replay head draws over it — still visible as the shape being filled in, never competing with it. */
@@ -138,6 +150,125 @@ const lerpLngLat = (a: [number, number], b: [number, number], f: number): [numbe
   a[1] + (b[1] - a[1]) * f,
 ];
 
+interface Pixel {
+  x: number;
+  y: number;
+}
+
+const lerpXY = (a: Pixel, b: Pixel, f: number): Pixel => ({
+  x: a.x + (b.x - a.x) * f,
+  y: a.y + (b.y - a.y) * f,
+});
+
+const svgPoints = (points: Pixel[]) =>
+  points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+
+/** The same per-stretch split `routeSegments` does, in whatever space `values` is in. */
+function stretchesOf<T>(points: Pick<StoredPoint, "timestamp">[], values: T[]): T[][] {
+  const starts = stretchStarts(points);
+  return starts
+    .map((from, i) => values.slice(from, starts[i + 1] ?? values.length))
+    .filter((stretch) => stretch.length >= 2);
+}
+
+const REPLAY_BLOOM = "route-replay-bloom";
+const REPLAY_GLOW = "route-replay-glow";
+
+function Stretches({
+  stretches,
+  ...stroke
+}: { stretches: Pixel[][] } & SVGProps<SVGPolylineElement>) {
+  return stretches.map((points, i) => (
+    <polyline
+      key={i}
+      points={svgPoints(points)}
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...stroke}
+    />
+  ));
+}
+
+/**
+ * The replay drawn as SVG on top of the basemap rather than as GL layers
+ * inside it. The canvas desaturation below is a CSS filter on the whole
+ * `<canvas>`, and a GL layer cannot opt out of it — it washed the accent out
+ * to a pale lavender. Out here the line keeps its own colour, and the
+ * technique is the one the keyless fallback already uses (see `RouteTrace`).
+ *
+ * `projected` is every point run through `map.project`, which holds for the
+ * life of the view because this map never pans or zooms after its one
+ * `fitBounds` — see the `interactive: false` note in RouteTiles.
+ */
+function ReplayOverlay({
+  points,
+  projected,
+  replay,
+  scheme,
+}: {
+  points: Pick<StoredPoint, "timestamp">[];
+  projected: Pixel[];
+  replay: ReplayCursor;
+  scheme: ColorScheme;
+}) {
+  const ghost = stretchesOf(points, projected);
+  const drawn = replayStretches(points, projected, lerpXY, replay.head);
+  const tail = replayStretches(points, projected, lerpXY, replay.head, replay.tail);
+
+  return (
+    <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+      <defs>
+        <filter id={REPLAY_BLOOM} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
+        <filter id={REPLAY_GLOW} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <Stretches stretches={ghost} stroke={HALO_COLOR[scheme]} strokeWidth="8" strokeOpacity="0.55" />
+      <Stretches
+        stretches={ghost}
+        stroke={ROUTE_COLOR[scheme]}
+        strokeWidth="4.5"
+        strokeOpacity={GHOSTED_ROUTE_OPACITY}
+      />
+
+      <Stretches
+        stretches={drawn}
+        stroke={ROUTE_COLOR[scheme]}
+        strokeWidth="10"
+        strokeOpacity="0.6"
+        filter={`url(#${REPLAY_BLOOM})`}
+      />
+      <Stretches
+        stretches={drawn}
+        stroke={ROUTE_COLOR[scheme]}
+        strokeWidth="4.5"
+        filter={`url(#${REPLAY_GLOW})`}
+      />
+      <Stretches
+        stretches={tail}
+        stroke={FASTEST_COLOR}
+        strokeWidth="11"
+        strokeOpacity="0.5"
+        filter={`url(#${REPLAY_BLOOM})`}
+      />
+      <Stretches
+        stretches={tail}
+        stroke={FASTEST_COLOR}
+        strokeWidth="4.5"
+        filter={`url(#${REPLAY_GLOW})`}
+      />
+    </svg>
+  );
+}
+
 function RouteTiles({
   points,
   live,
@@ -156,11 +287,20 @@ function RouteTiles({
   const startMarker = useRef<Marker | null>(null);
   const endMarker = useRef<Marker | null>(null);
   const headMarker = useRef<Marker | null>(null);
+  const replaying = useRef(replay !== null);
+  const [toPixels, setToPixels] = useState<((c: [number, number]) => Pixel) | null>(null);
 
   const geometry = useMemo(() => routeGeometry(points), [points]);
   // The style loads asynchronously, so the sources can only be filled in
   // once `load` fires — by then a live run may already have moved on.
   const latest = useRef(geometry);
+
+  const active = replay !== null;
+  const coordinates = useMemo(() => points.map(lngLat), [points]);
+  const projected = useMemo(
+    () => (toPixels && active ? coordinates.map(toPixels) : null),
+    [coordinates, toPixels, active],
+  );
 
   useEffect(() => {
     const instance = new MapLibreMap({
@@ -188,73 +328,32 @@ function RouteTiles({
         type: "geojson",
         data: multiLine(fastest ? [fastest] : []),
       });
-      instance.addSource(REPLAY_SOURCE, { type: "geojson", data: multiLine([]) });
-      instance.addSource(REPLAY_TAIL_SOURCE, { type: "geojson", data: multiLine([]) });
 
-      const line = { "line-cap": "round", "line-join": "round" } as const;
+      const line = {
+        "line-cap": "round",
+        "line-join": "round",
+        visibility: replaying.current ? "none" : "visible",
+      } as const;
       instance.addLayer({
-        id: "route-halo",
+        id: HALO_LAYER,
         type: "line",
         source: ROUTE_SOURCE,
         layout: line,
         paint: { "line-color": HALO_COLOR[scheme], "line-width": 8, "line-opacity": 0.55 },
       });
       instance.addLayer({
-        id: "route-line",
+        id: LINE_LAYER,
         type: "line",
         source: ROUTE_SOURCE,
         layout: line,
         paint: { "line-color": ROUTE_COLOR[scheme], "line-width": 4.5 },
       });
       instance.addLayer({
-        id: "route-fastest",
+        id: FASTEST_LAYER,
         type: "line",
         source: FASTEST_SOURCE,
         layout: line,
         paint: { "line-color": FASTEST_COLOR, "line-width": 2.2, "line-dasharray": [2, 1.6] },
-      });
-
-      // The replay stacks four lines: a wide blurred bloom so the drawn part
-      // lifts off the basemap, the drawn route itself, then the same pair
-      // again in white for the short stretch just behind the head — which is
-      // what makes which way the run is going readable without an arrow.
-      instance.addLayer({
-        id: "replay-glow",
-        type: "line",
-        source: REPLAY_SOURCE,
-        layout: line,
-        paint: {
-          "line-color": ROUTE_COLOR[scheme],
-          "line-width": 14,
-          "line-blur": 10,
-          "line-opacity": 0.75,
-        },
-      });
-      instance.addLayer({
-        id: "replay-line",
-        type: "line",
-        source: REPLAY_SOURCE,
-        layout: line,
-        paint: { "line-color": ROUTE_COLOR[scheme], "line-width": 4.5 },
-      });
-      instance.addLayer({
-        id: "replay-tail-glow",
-        type: "line",
-        source: REPLAY_TAIL_SOURCE,
-        layout: line,
-        paint: {
-          "line-color": FASTEST_COLOR,
-          "line-width": 15,
-          "line-blur": 11,
-          "line-opacity": 0.6,
-        },
-      });
-      instance.addLayer({
-        id: "replay-tail",
-        type: "line",
-        source: REPLAY_TAIL_SOURCE,
-        layout: line,
-        paint: { "line-color": FASTEST_COLOR, "line-width": 4.5 },
       });
 
       startMarker.current = new Marker({ element: markerElement(START_MARKER) })
@@ -267,6 +366,17 @@ function RouteTiles({
         .addTo(instance);
     });
 
+    // Republished as a new function identity so the overlay reprojects: the
+    // camera settles once here, but a live run refits its bounds as it grows.
+    const publishProjection = () =>
+      setToPixels(() => (coordinate: [number, number]) => {
+        const { x, y } = instance.project(coordinate);
+        return { x, y };
+      });
+    instance.on("move", publishProjection);
+    instance.on("resize", publishProjection);
+    publishProjection();
+
     map.current = instance;
     return () => {
       instance.remove();
@@ -274,33 +384,27 @@ function RouteTiles({
       startMarker.current = null;
       endMarker.current = null;
       headMarker.current = null;
+      setToPixels(null);
     };
   }, [styleUrl, scheme, live]);
 
   useEffect(() => {
+    replaying.current = replay !== null;
     const instance = map.current;
-    const source = instance?.getSource<GeoJSONSource>(REPLAY_SOURCE);
-    if (!instance || !source) return; // style still loading — the next frame lands after it
+    if (!instance?.getLayer(LINE_LAYER)) return; // style still loading — the next frame lands after it
 
-    const tailSource = instance.getSource<GeoJSONSource>(REPLAY_TAIL_SOURCE)!;
-    const active = replay !== null;
-    instance.setPaintProperty("route-line", "line-opacity", active ? GHOSTED_ROUTE_OPACITY : 1);
-    instance.setLayoutProperty("route-fastest", "visibility", active ? "none" : "visible");
-    if (endMarker.current) endMarker.current.getElement().style.opacity = active ? "0" : "1";
+    // The whole trace is redrawn by the overlay while playback runs, so the
+    // canvas gives up its copy rather than showing a filtered one underneath.
+    for (const layer of BASE_LAYERS) {
+      instance.setLayoutProperty(layer, "visibility", replay ? "none" : "visible");
+    }
+    if (endMarker.current) endMarker.current.getElement().style.opacity = replay ? "0" : "1";
 
     if (!replay) {
-      source.setData(multiLine([]));
-      tailSource.setData(multiLine([]));
       headMarker.current?.remove();
       headMarker.current = null;
       return;
     }
-
-    const coordinates = points.map(lngLat);
-    source.setData(multiLine(replayStretches(points, coordinates, lerpLngLat, replay.head)));
-    tailSource.setData(
-      multiLine(replayStretches(points, coordinates, lerpLngLat, replay.head, replay.tail)),
-    );
 
     const head = replayHead(coordinates, replay.head, lerpLngLat);
     if (headMarker.current) headMarker.current.setLngLat(head);
@@ -309,7 +413,7 @@ function RouteTiles({
         .setLngLat(head)
         .addTo(instance);
     }
-  }, [replay, points]);
+  }, [replay, coordinates]);
 
   useEffect(() => {
     latest.current = geometry;
@@ -327,25 +431,22 @@ function RouteTiles({
   }, [geometry]);
 
   return (
-    <div
-      ref={container}
-      // MapTiler's dark style leans blue; this desaturates it toward the
-      // app's own steel/chrome palette (see the brand mark's gradient in
-      // src/app/icon.svg) instead of reading as a generic map-provider blue.
-      className="h-full w-full [&_.maplibregl-canvas]:saturate-[0.35] [&_.maplibregl-canvas]:contrast-[1.12] [&_.maplibregl-canvas]:brightness-[0.92]"
-      role="img"
-      aria-label="Trajeto percorrido"
-    />
+    <div className="relative h-full w-full">
+      <div
+        ref={container}
+        // MapTiler's dark style leans blue; this desaturates it toward the
+        // app's own steel/chrome palette (see the brand mark's gradient in
+        // src/app/icon.svg) instead of reading as a generic map-provider blue.
+        className="h-full w-full [&_.maplibregl-canvas]:saturate-[0.35] [&_.maplibregl-canvas]:contrast-[1.12] [&_.maplibregl-canvas]:brightness-[0.92]"
+        role="img"
+        aria-label="Trajeto percorrido"
+      />
+      {replay && projected && (
+        <ReplayOverlay points={points} projected={projected} replay={replay} scheme={scheme} />
+      )}
+    </div>
   );
 }
-
-const lerpXY = (a: { x: number; y: number }, b: { x: number; y: number }, f: number) => ({
-  x: a.x + (b.x - a.x) * f,
-  y: a.y + (b.y - a.y) * f,
-});
-
-const svgPoints = (points: { x: number; y: number }[]) =>
-  points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 
 /**
  * No basemap: either no MapTiler key is configured, or the map hasn't been
