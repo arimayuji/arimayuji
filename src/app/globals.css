@@ -70,6 +70,21 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* The browser's own up/down stepper never matches this app's own styled
+   inputs — every numeric field here already has its own touch target
+   (a pill slider, a swatch grid, plain digits), so the native spinner is
+   pure visual noise on top, not a second way to use the field. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /*
  * Landing page motion.
  *

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Reveal } from "./reveal";
 import { HORSE_BUST_PATHS } from "./horse-mark";
 import { DistanceCountUp, DurationCountUp } from "./run-preview-stats";
+import { StandaloneGate } from "./standalone-gate";
 
 /** Sets the per-element animation delay consumed by the CSS in globals.css. */
 const delay = (ms: number, extra?: CSSProperties) =>
@@ -841,7 +842,8 @@ const COMMUNITY_ITEMS = [
 
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col font-sans">
+    <StandaloneGate>
+      <div className="flex flex-1 flex-col font-sans">
       <noscript>
         <style>{`[data-reveal]{opacity:1!important;animation:none!important}.pr-draw{stroke-dashoffset:0!important}.pr-pop{opacity:1!important}.pr-bar{transform:none!important}`}</style>
       </noscript>
@@ -1412,6 +1414,7 @@ export default function Home() {
       </footer>
 
       <Reveal />
-    </div>
+      </div>
+    </StandaloneGate>
   );
 }
