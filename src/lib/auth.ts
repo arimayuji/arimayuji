@@ -52,6 +52,14 @@ export function signInWithGoogle(returnTo: string): void {
   appwrite.account.createOAuth2Session({ provider: OAuthProvider.Google, success: url, failure: url });
 }
 
+/** Covers Hotmail, Outlook and Live accounts — they're all the same Microsoft identity underneath. */
+export function signInWithMicrosoft(returnTo: string): void {
+  const appwrite = getAppwrite();
+  if (!appwrite) return;
+  const url = `${window.location.origin}${returnTo}`;
+  appwrite.account.createOAuth2Session({ provider: OAuthProvider.Microsoft, success: url, failure: url });
+}
+
 /**
  * Step 1 of phone sign-in: sends an SMS with a one-time code and returns
  * the userId the code was issued for — Appwrite mints a fresh one per
