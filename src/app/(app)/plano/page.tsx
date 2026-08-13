@@ -454,7 +454,7 @@ export default function PlanoPage() {
             <ul className="flex flex-col gap-3">
               {plan.evidenceTopics.map((topic) => {
                 const fact = getEvidenceForTopicRanked(topic)[0];
-                return fact ? <EvidenceFactRow key={topic} fact={fact} /> : null;
+                return fact ? <EvidenceFactRow key={topic} fact={fact} topic={topic} /> : null;
               })}
             </ul>
             <Link
@@ -552,7 +552,7 @@ export default function PlanoPage() {
               <ul className="flex flex-col gap-3">
                 {FEATURED_EVIDENCE_IDS.map((id) => {
                   const fact = getEvidenceById(id);
-                  return fact ? <EvidenceFactRow key={id} fact={fact} /> : null;
+                  return fact ? <EvidenceFactRow key={id} fact={fact} topic={fact.topic} /> : null;
                 })}
               </ul>
               <Link
