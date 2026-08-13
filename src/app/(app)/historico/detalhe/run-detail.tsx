@@ -45,6 +45,26 @@ type LoadState =
   | { status: "not-found" }
   | { status: "ready"; run: CompletedRun; records: RunRecord[] };
 
+function ShareIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="19" r="2.5" />
+      <path d="m8.2 10.7 7.6-4.4M8.2 13.3l7.6 4.4" />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg
@@ -195,7 +215,19 @@ export function RunDetail({ id }: { id: string }) {
 
   return (
     <>
-      <ScreenHeader title={formatRunDate(started)} subtitle={`${timeFormatter.format(started)} · gravado neste aparelho`} />
+      <ScreenHeader
+        title={formatRunDate(started)}
+        subtitle={`${timeFormatter.format(started)} · gravado neste aparelho`}
+        badge={
+          <Link
+            href={`/compartilhar?run=${run.id}`}
+            aria-label="Compartilhar essa corrida"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:text-accent"
+          >
+            <ShareIcon />
+          </Link>
+        }
+      />
 
       <Screen>
         <div className="pr-enter" style={delay(20)}>

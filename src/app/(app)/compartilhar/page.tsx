@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { Suspense, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
 import { ShareCardPreview } from "../share-card-preview";
@@ -41,7 +42,24 @@ const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
 
 const NO_RUN_TEXT = "Fui correr 🏃 — Xanthus";
 
+/**
+ * `?run=<id>` — set when opened from a specific run's own detail screen
+ * (see historico/detalhe/run-detail.tsx's share button) so that run gets
+ * shared instead of always defaulting to the most recent one. A query
+ * param rather than a dynamic segment for the same reason /historico/detalhe
+ * uses one: run ids are generated per-device in IndexedDB, so there is no
+ * static list to give a static export.
+ */
 export default function CompartilharPage() {
+  return (
+    <Suspense fallback={null}>
+      <CompartilharContent />
+    </Suspense>
+  );
+}
+
+function CompartilharContent() {
+  const requestedRunId = useSearchParams().get("run");
   const [scenario, setScenario] = useState<ScenarioId | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photo, setPhoto] = useState<HTMLImageElement | null>(null);
@@ -59,10 +77,11 @@ export default function CompartilharPage() {
     listCompletedRuns().then(setRuns);
   }, []);
 
-  const run = useMemo(
-    () => (runs ? [...runs].sort((a, b) => b.startedAt - a.startedAt)[0] ?? null : null),
-    [runs],
-  );
+  const run = useMemo(() => {
+    if (!runs) return null;
+    const requested = requestedRunId ? runs.find((r) => r.id === requestedRunId) : null;
+    return requested ?? [...runs].sort((a, b) => b.startedAt - a.startedAt)[0] ?? null;
+  }, [runs, requestedRunId]);
 
   /** Defaults to the sky matching the hour the run actually started at, until the athlete picks another. */
   const activeScenario = scenario ?? (run ? scenarioForRun(run) : "madrugada");
