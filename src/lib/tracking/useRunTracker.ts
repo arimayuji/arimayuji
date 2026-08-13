@@ -240,7 +240,17 @@ export function useRunTracker() {
       const filteredPoint: LatLon = { lat: filteredLat, lon: filteredLon };
       const filteredStep = haversineMeters(lastFilteredRef.current, filteredPoint);
 
-      const stationary = isLikelyDrift(filteredStep, accuracy);
+      // Position-delta drift detection alone punishes slow movement: a walker
+      // at ~1.2m/s can cover under 5m between two fixes even while genuinely
+      // moving the whole time, and isLikelyDrift has no way to tell that
+      // apart from standing still with the same few metres of GPS jitter.
+      // The chip's own Doppler-derived speed doesn't have that ambiguity —
+      // per this file's own design basis above, it's preferred over a
+      // derived distance/time speed for exactly this reason — so a fix
+      // reporting real motion overrides a "looks like drift" position delta.
+      const stationary =
+        isLikelyDrift(filteredStep, accuracy) &&
+        (speed === null || speed < FILTER_CONFIG.stoppedSpeedMps);
       if (!stationary) {
         distanceRef.current += filteredStep;
         pointsRef.current.push({ lat: filteredLat, lon: filteredLon, timestamp });

@@ -230,13 +230,20 @@ export function RouteReplay({
               {playing ? "Pausar" : started ? "Continuar" : "Replay"}
             </button>
 
-            {/* Generous vertical hit target around a thin visual track — a video scrubber sized for a thumb, not a mouse pointer. */}
+            {/*
+              Generous vertical hit target around a thin visual track — a
+              video scrubber sized for a thumb, not a mouse pointer. Left
+              edge stops short of the full width: MapTiler's own attribution
+              control lives bottom-left (their ToS requires it stay visible),
+              and a full-bleed bar would sit right on top of it, both
+              visually and for touches.
+            */}
             <div
               ref={trackRef}
               onClick={(event) => event.stopPropagation()}
               onPointerDown={handleTrackPointerDown}
               onPointerMove={handleTrackPointerMove}
-              className="absolute inset-x-0 bottom-0 flex h-8 cursor-pointer touch-none items-center px-3"
+              className="absolute right-3 bottom-3 left-16 flex h-8 cursor-pointer touch-none items-center"
             >
               <div className="relative h-1 w-full rounded-full bg-white/20">
                 <div

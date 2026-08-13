@@ -227,22 +227,29 @@ function Stretches({
  * behind the camera), which read as a stray straight line slashing across
  * the map when connected into a polyline.
  *
- * That window is a fixed real-world duration (`CHASE_TRAIL_SECONDS`), not
- * `replay.tail` (9% of the run's *total* time): early in a long run's
+ * That window is a fixed real-world *distance* (`CHASE_TRAIL_METERS`), not
+ * `replay.tail` (9% of the run's total time) and not a fixed duration
+ * either. Time doesn't work: at an easy walking pace the trail behind a
+ * fixed number of seconds is barely anything, and early in a long run's
  * playback, 9% of total time is still almost all of the elapsed-so-far
  * time, so `replay.tail` collapses toward the run's actual start — right
  * back into the same far-away, wrong-side-of-the-camera points the window
- * exists to keep out. A fixed number of real seconds behind the head stays
- * short (a couple hundred metres at running pace) no matter where in the
- * run the head currently is.
+ * exists to keep out. Bounding by ground actually covered keeps the trail a
+ * comet-tail length that reads the same at any pace, and stays inside the
+ * "safe" radius around the camera regardless of how long that stretch took
+ * to run.
  */
-const CHASE_TRAIL_SECONDS = 40;
+const CHASE_TRAIL_METERS = 400;
 
-/** Furthest-back point still within `CHASE_TRAIL_SECONDS` of the head, walking backward by each fix's own timestamp rather than by a share of the whole run. */
-function chaseTrailFrame(points: Pick<StoredPoint, "timestamp">[], headIndex: number): ReplayFrame {
-  const headTimestamp = points[headIndex]?.timestamp ?? 0;
+/** Furthest-back point whose distance-so-far from the head is still under `CHASE_TRAIL_METERS`, walking backward and summing real ground covered rather than a share of the whole run. */
+function chaseTrailFrame(
+  points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[],
+  headIndex: number,
+): ReplayFrame {
   let index = headIndex;
-  while (index > 0 && headTimestamp - points[index - 1].timestamp <= CHASE_TRAIL_SECONDS * 1000) {
+  let covered = 0;
+  while (index > 0 && covered < CHASE_TRAIL_METERS) {
+    covered += haversineMeters(points[index - 1], points[index]);
     index--;
   }
   return { index, fraction: 0, meters: 0, seconds: 0, windowMeters: 0, windowSeconds: 0 };
@@ -254,7 +261,7 @@ function ReplayOverlay({
   replay,
   scheme,
 }: {
-  points: Pick<StoredPoint, "timestamp">[];
+  points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
   projected: Pixel[];
   replay: ReplayCursor;
   scheme: ColorScheme;
