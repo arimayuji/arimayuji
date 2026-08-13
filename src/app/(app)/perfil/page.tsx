@@ -93,6 +93,37 @@ const SHOE_COLOR_SWATCHES = [
 
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
+/**
+ * Real, commonly-run models across the brands runners actually reach for —
+ * not exhaustive, just enough that searching "vapor" or "kayano" finds
+ * something. Selecting one only pre-fills the plain brand/model/color fields
+ * below; there's no separate "preset mode" to fall out of, since typing a
+ * model that isn't listed here already works the same way it always did.
+ */
+const SHOE_PRESETS: ReadonlyArray<{ brand: string; name: string; color: string }> = [
+  { brand: "Nike", name: "Pegasus 41", color: "#2f6fed" },
+  { brand: "Nike", name: "Vaporfly 3", color: "#f5a623" },
+  { brand: "Nike", name: "Alphafly 3", color: "#eb4d4d" },
+  { brand: "Nike", name: "Invincible 3", color: "#8b5cf6" },
+  { brand: "Adidas", name: "Adizero Boston 12", color: "#3ecf6e" },
+  { brand: "Adidas", name: "Adizero Adios Pro 4", color: "#11151a" },
+  { brand: "Adidas", name: "Ultraboost 23", color: "#c9ccd1" },
+  { brand: "Asics", name: "Gel-Kayano 31", color: "#00c2d1" },
+  { brand: "Asics", name: "Novablast 5", color: "#f7d716" },
+  { brand: "Asics", name: "Metaspeed Sky Paris", color: "#eb4d4d" },
+  { brand: "Hoka", name: "Clifton 9", color: "#ec4899" },
+  { brand: "Hoka", name: "Mach 6", color: "#00c2d1" },
+  { brand: "Hoka", name: "Bondi 9", color: "#c9ccd1" },
+  { brand: "Brooks", name: "Ghost 16", color: "#2f6fed" },
+  { brand: "Brooks", name: "Glycerin 22", color: "#8b5cf6" },
+  { brand: "New Balance", name: "1080v14", color: "#11151a" },
+  { brand: "New Balance", name: "FuelCell SC Elite v4", color: "#eb4d4d" },
+  { brand: "Saucony", name: "Ride 17", color: "#f5a623" },
+  { brand: "Saucony", name: "Endorphin Speed 4", color: "#3ecf6e" },
+  { brand: "Puma", name: "Deviate Nitro 3", color: "#eb4d4d" },
+  { brand: "Mizuno", name: "Wave Rider 28", color: "#00c2d1" },
+];
+
 /** Fields the athlete fills in — the rest of a `Shoe` (id, createdAt) is storage's business. */
 type ShoeDraft = Pick<Shoe, "brand" | "name" | "color" | "photoDataUrl">;
 
@@ -116,6 +147,19 @@ function ShoeForm({
 }) {
   const [draft, setDraft] = useState<ShoeDraft>(initial);
   const [saving, setSaving] = useState(false);
+  const [presetQuery, setPresetQuery] = useState("");
+
+  const presetMatches =
+    presetQuery.trim().length > 0
+      ? SHOE_PRESETS.filter((preset) =>
+          `${preset.brand} ${preset.name}`.toLowerCase().includes(presetQuery.trim().toLowerCase()),
+        ).slice(0, 6)
+      : [];
+
+  function applyPreset(preset: { brand: string; name: string; color: string }) {
+    setDraft((current) => ({ ...current, brand: preset.brand, name: preset.name, color: preset.color }));
+    setPresetQuery("");
+  }
 
   function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -143,6 +187,42 @@ function ShoeForm({
       }}
       className="mt-3 flex flex-col gap-3 rounded-xl border border-border bg-background p-3"
     >
+      <label className="relative block space-y-1.5">
+        <span className="text-xs font-medium">Buscar tênis (opcional)</span>
+        <input
+          type="text"
+          value={presetQuery}
+          onChange={(e) => setPresetQuery(e.target.value)}
+          placeholder="Ex.: Pegasus, Kayano, Vaporfly…"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+        />
+        {presetMatches.length > 0 && (
+          <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-surface shadow-lg">
+            {presetMatches.map((preset) => (
+              <li key={`${preset.brand}-${preset.name}`}>
+                <button
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-background"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 rounded-full border border-border"
+                    style={{ backgroundColor: preset.color }}
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="text-muted">{preset.brand}</span> {preset.name}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-[11px] leading-relaxed text-muted">
+          Não achou o seu? Digite marca e modelo direto nos campos abaixo.
+        </p>
+      </label>
+
       <label className="block space-y-1.5">
         <span className="text-xs font-medium">Marca</span>
         <input
