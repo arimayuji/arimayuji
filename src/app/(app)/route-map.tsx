@@ -92,7 +92,13 @@ const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false } as const;
  * "riding along" reads the run the way running it felt, not the way it
  * looks flattened onto a map.
  */
-const CHASE_PITCH = 65;
+/**
+ * 65° made any nearby elevated road (an overpass, a viaduct) foreshorten
+ * into an almost edge-on streak — real geometry, not a rendering bug, but
+ * dramatic enough to read as one. 52° keeps the tilted, riding-along feel
+ * without flattening nearby verticals into that.
+ */
+const CHASE_PITCH = 52;
 const CHASE_ZOOM = 17.6;
 /** Below this the two points behind a bearing calculation are close enough that GPS noise, not real heading, would decide which way the camera faces. */
 const CHASE_BEARING_MIN_METERS = 3;
