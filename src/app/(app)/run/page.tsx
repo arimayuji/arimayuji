@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
+import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
+import { startLiveSession, updateLiveSession, endLiveSession } from "@/lib/liveRuns";
 import {
   formatDeltaDuration,
   formatDistanceKm,
@@ -112,6 +114,10 @@ export default function RunPage() {
   const [shareCopied, setShareCopied] = useState(false);
   /** Null while nothing is recording; 0–1 while the card animation is being captured. */
   const [videoProgress, setVideoProgress] = useState<number | null>(null);
+  /** Accepted coaches this athlete could go live with — empty for almost everyone, which is why the picker below only renders when it isn't. */
+  const [coaches, setCoaches] = useState<CoachConnection[]>([]);
+  /** Which coach (if any) this run is being shared live with — chosen before starting, null means "not live". */
+  const [liveCoachId, setLiveCoachId] = useState<string | null>(null);
 
   /**
    * Personal-record check: best split for each standard distance this run
@@ -149,6 +155,16 @@ export default function RunPage() {
     });
   }, [state.status]);
 
+  /** Same re-fetch-on-return-to-idle reasoning as the effect above — a coach accepted mid-session should be pickable for the very next run. */
+  useEffect(() => {
+    if (state.status !== "idle") return;
+    listCoachConnections("accepted").then((rows) => {
+      const asStudent = rows.filter((c) => c.myRole === "student");
+      setCoaches(asStudent);
+      setLiveCoachId((current) => (asStudent.some((c) => c.otherId === current) ? current : null));
+    });
+  }, [state.status]);
+
   const selectedGhost = recentRuns.find((r) => r.id === selectedGhostId) ?? null;
 
   /**
@@ -159,6 +175,72 @@ export default function RunPage() {
    */
   const [preferences, updatePreferences] = usePreferences();
   const announceMeters = preferences.announceIntervalMeters;
+
+  /**
+   * Live position sharing — a ping to the chosen coach every few seconds
+   * while `tracking`/`paused`, never more often than that (a live map only
+   * needs to be roughly current, not frame-perfect, and every extra request
+   * is data and battery the athlete is paying for mid-run). The session
+   * starts the moment tracking actually begins (not at the idle "choose a
+   * coach" step, since warmup might never complete) and ends the moment
+   * it stops being `tracking`/`paused` for any reason — finished, or this
+   * screen unmounting entirely — so a coach never keeps watching a dot that
+   * stopped moving for a reason they can't see.
+   */
+  const liveSessionActiveRef = useRef(false);
+  const lastLivePushRef = useRef(0);
+  const LIVE_PUSH_INTERVAL_MS = 6000;
+
+  useEffect(() => {
+    const live = state.status === "tracking" || state.status === "paused";
+    if (live && liveCoachId && state.runId) {
+      const lastPoint = state.points[state.points.length - 1];
+      if (lastPoint) {
+        const payload = {
+          distanceMeters: state.distanceMeters,
+          currentPaceSecPerKm: state.currentPaceSecPerKm,
+          elapsedSeconds: state.elapsedSeconds,
+          lat: lastPoint.lat,
+          lon: lastPoint.lon,
+        };
+        if (!liveSessionActiveRef.current) {
+          liveSessionActiveRef.current = true;
+          lastLivePushRef.current = Date.now();
+          void startLiveSession(
+            state.runId,
+            Date.now() - state.elapsedSeconds * 1000,
+            [liveCoachId],
+            payload,
+          );
+        } else if (Date.now() - lastLivePushRef.current >= LIVE_PUSH_INTERVAL_MS) {
+          lastLivePushRef.current = Date.now();
+          void updateLiveSession(state.runId, payload);
+        }
+      }
+    } else if (liveSessionActiveRef.current && state.runId) {
+      liveSessionActiveRef.current = false;
+      void endLiveSession(state.runId);
+    }
+  }, [
+    liveCoachId,
+    state.runId,
+    state.status,
+    state.distanceMeters,
+    state.currentPaceSecPerKm,
+    state.elapsedSeconds,
+    state.points,
+  ]);
+
+  // Belt-and-suspenders: if this screen unmounts mid-run (navigated away,
+  // not "finished" the normal way) the effect above never gets a chance to
+  // see the status change, so the live row would otherwise linger until the
+  // coach's own staleness check catches it.
+  useEffect(() => {
+    return () => {
+      if (liveSessionActiveRef.current && state.runId) void endLiveSession(state.runId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * While a run is being recorded the app's bottom tab bar is hidden: no
@@ -551,6 +633,43 @@ export default function RunPage() {
                     >
                       {formatDistanceKm(run.distanceMeters)} km ·{" "}
                       {new Date(run.startedAt).toLocaleDateString("pt-BR")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {coaches.length > 0 && (
+              <div className="block space-y-1.5">
+                <span className="text-sm font-medium">Compartilhar ao vivo (opcional)</span>
+                <p className="text-xs text-muted">
+                  Enquanto a corrida rolar, essa pessoa vê sua posição e seu pace num mapa. Some sozinho
+                  quando a corrida terminar.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLiveCoachId(null)}
+                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                      liveCoachId === null
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border bg-surface text-foreground hover:border-accent"
+                    }`}
+                  >
+                    Não compartilhar
+                  </button>
+                  {coaches.map((connection) => (
+                    <button
+                      key={connection.relationship.$id}
+                      type="button"
+                      onClick={() => setLiveCoachId(connection.otherId)}
+                      className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                        liveCoachId === connection.otherId
+                          ? "border-accent bg-accent text-accent-foreground"
+                          : "border-border bg-surface text-foreground hover:border-accent"
+                      }`}
+                    >
+                      {connection.profile?.displayName ?? "Corredor(a)"}
                     </button>
                   ))}
                 </div>

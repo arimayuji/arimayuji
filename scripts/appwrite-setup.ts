@@ -324,6 +324,49 @@ async function main() {
     }),
   );
 
+  // -------------------------------------------------------------- live_runs
+  console.log("\nlive_runs");
+  await ensure("table live_runs", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "live_runs",
+      name: "live_runs",
+      // Same "who may create at all" vs. "who may read/update this one" split
+      // as every other table here: row-level permissions are set by the app
+      // when the athlete actually goes live, scoped to the coach(es) they
+      // picked for that run.
+      permissions: [Permission.create(Role.users())],
+      rowSecurity: true,
+    }),
+  );
+  // Row ID is the run's own local id (see runIdRef in useRunTracker.ts) —
+  // one row per in-progress run, found again by id rather than a query, and
+  // naturally gone (deleted) the moment the run ends.
+  await ensure("live_runs.userId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "userId", size: 36, required: true }),
+  );
+  await ensure("live_runs.startedAt", () =>
+    tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "startedAt", required: true }),
+  );
+  await ensure("live_runs.distanceMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "distanceMeters", required: true, min: 0 }),
+  );
+  await ensure("live_runs.currentPaceSecPerKm", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "currentPaceSecPerKm", required: false, min: 0 }),
+  );
+  await ensure("live_runs.elapsedSeconds", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "elapsedSeconds", required: true, min: 0 }),
+  );
+  await ensure("live_runs.lat", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "lat", required: true, min: -90, max: 90 }),
+  );
+  await ensure("live_runs.lon", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "lon", required: true, min: -180, max: 180 }),
+  );
+  await ensure("live_runs.updatedAtMs", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "updatedAtMs", required: true, min: 0 }),
+  );
+
   console.log("\nDone. Every table/column/index above either already existed or was just created.");
 }
 

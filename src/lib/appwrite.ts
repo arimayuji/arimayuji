@@ -32,6 +32,7 @@ export const TABLES = {
   coachRelationships: "coach_relationships",
   placeRatings: "place_ratings",
   runs: "runs",
+  liveRuns: "live_runs",
 } as const;
 
 interface AppwriteServices {

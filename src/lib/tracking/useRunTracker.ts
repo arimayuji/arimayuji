@@ -51,6 +51,8 @@ export interface StartOptions {
 
 export interface RunTrackerState {
   status: RunStatus;
+  /** The id this run will be saved under — set the moment `start()` is called, null before that. Exposed so a caller can key something else (e.g. a live-sharing session) to the same run without duplicating id generation. */
+  runId: string | null;
   gpsQuality: GpsQuality;
   distanceMeters: number;
   elapsedSeconds: number;
@@ -80,6 +82,7 @@ function newRunId(): string {
 export function useRunTracker() {
   const [state, setState] = useState<RunTrackerState>({
     status: "idle",
+    runId: null,
     gpsQuality: "searching",
     distanceMeters: 0,
     elapsedSeconds: 0,
@@ -353,6 +356,7 @@ export function useRunTracker() {
 
       setState({
         status: "warming",
+        runId: runIdRef.current,
         gpsQuality: "searching",
         distanceMeters: 0,
         elapsedSeconds: 0,
@@ -481,6 +485,7 @@ export function useRunTracker() {
   const reset = useCallback(() => {
     setState({
       status: "idle",
+      runId: null,
       gpsQuality: "searching",
       distanceMeters: 0,
       elapsedSeconds: 0,
