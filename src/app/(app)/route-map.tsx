@@ -24,7 +24,6 @@ import {
   findFastestStretch,
   projectRoute,
   routeSegments,
-  stretchStarts,
   type FastestStretch,
 } from "@/lib/tracking/routeProjection";
 import type { StoredPoint } from "@/lib/tracking/storage";
@@ -176,14 +175,6 @@ const lerpXY = (a: Pixel, b: Pixel, f: number): Pixel => ({
 const svgPoints = (points: Pixel[]) =>
   points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 
-/** The same per-stretch split `routeSegments` does, in whatever space `values` is in. */
-function stretchesOf<T>(points: Pick<StoredPoint, "timestamp">[], values: T[]): T[][] {
-  const starts = stretchStarts(points);
-  return starts
-    .map((from, i) => values.slice(from, starts[i + 1] ?? values.length))
-    .filter((stretch) => stretch.length >= 2);
-}
-
 const REPLAY_BLOOM = "route-replay-bloom";
 const REPLAY_GLOW = "route-replay-glow";
 
@@ -216,6 +207,15 @@ function Stretches({
  * sitting still on its one `fitBounds` or riding along behind the replay
  * head. See the `interactive: false` note in RouteTiles for why *user*
  * panning is still off regardless.
+ *
+ * Only the trailing window behind the head is drawn — not the whole route
+ * the way the old top-down replay showed a fading "ghost" of what's still
+ * to come. Two reasons: it doesn't make sense to see the rest of the run's
+ * shape from inside a first-person camera, and `map.project` gives garbage
+ * screen coordinates for points far outside the current view once the
+ * camera is pitched this steeply (they can land anywhere, including well
+ * behind the camera), which read as a stray straight line slashing across
+ * the map when connected into a polyline.
  */
 function ReplayOverlay({
   points,
@@ -228,9 +228,7 @@ function ReplayOverlay({
   replay: ReplayCursor;
   scheme: ColorScheme;
 }) {
-  const ghost = stretchesOf(points, projected);
-  const drawn = replayStretches(points, projected, lerpXY, replay.head);
-  const tail = replayStretches(points, projected, lerpXY, replay.head, replay.tail);
+  const trail = replayStretches(points, projected, lerpXY, replay.head, replay.tail);
 
   return (
     <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
@@ -247,36 +245,28 @@ function ReplayOverlay({
         </filter>
       </defs>
 
-      <Stretches stretches={ghost} stroke={HALO_COLOR[scheme]} strokeWidth="8" strokeOpacity="0.55" />
       <Stretches
-        stretches={ghost}
-        stroke={ROUTE_COLOR[scheme]}
-        strokeWidth="4.5"
-        strokeOpacity={GHOSTED_ROUTE_OPACITY}
-      />
-
-      <Stretches
-        stretches={drawn}
+        stretches={trail}
         stroke={ROUTE_COLOR[scheme]}
         strokeWidth="10"
         strokeOpacity="0.6"
         filter={`url(#${REPLAY_BLOOM})`}
       />
       <Stretches
-        stretches={drawn}
+        stretches={trail}
         stroke={ROUTE_COLOR[scheme]}
         strokeWidth="4.5"
         filter={`url(#${REPLAY_GLOW})`}
       />
       <Stretches
-        stretches={tail}
+        stretches={trail}
         stroke={FASTEST_COLOR}
         strokeWidth="11"
         strokeOpacity="0.5"
         filter={`url(#${REPLAY_BLOOM})`}
       />
       <Stretches
-        stretches={tail}
+        stretches={trail}
         stroke={FASTEST_COLOR}
         strokeWidth="4.5"
         filter={`url(#${REPLAY_GLOW})`}

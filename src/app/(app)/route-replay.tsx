@@ -20,9 +20,18 @@ import { RouteMap } from "./route-map";
  * count-up animation dressed as one.
  */
 
-/** How long the playback takes on the wall clock: short enough that a 5k doesn't outstay its welcome, long enough that a long run still reads as movement. */
+/**
+ * How long the playback takes on the wall clock. Tuned for the chase camera,
+ * not the old top-down view: watching a line trace itself out reads fine at
+ * a few seconds flat, but *riding along* a whole run in under 5 seconds — the
+ * previous 4500–9000ms range, which a 15-minute run hit the floor of just as
+ * hard as a 5-minute one — plays like the camera teleporting, not running.
+ * Scaling by real time instead keeps the sense of pace: a slow kilometre
+ * still takes longer to ride than a fast one, same principle `replay.ts`
+ * already applies to the head's position.
+ */
 function playbackMillis(totalSeconds: number): number {
-  return Math.min(9000, Math.max(4500, totalSeconds * 4));
+  return Math.min(26000, Math.max(10000, totalSeconds * 12));
 }
 
 /** The finished trace comes back this long after the head lands, so the last frame is readable before the map returns to normal. */
