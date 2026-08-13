@@ -82,7 +82,7 @@ const TABS: TabDefinition[] = [
   {
     href: "/perfil",
     label: "Perfil",
-    alsoMatches: ["/compartilhar"],
+    alsoMatches: ["/compartilhar", "/amigos"],
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
         <circle cx="12" cy="8.25" r="3.75" />

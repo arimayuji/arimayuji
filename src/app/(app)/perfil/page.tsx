@@ -614,6 +614,18 @@ export default function PerfilPage() {
           </Link>
         </Card>
 
+        <Card className="pr-enter" style={delay(90)}>
+          <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Amigos</CardTitle>
+          <Link href="/amigos" className="flex items-center justify-between gap-3">
+            <p className="text-sm leading-relaxed text-muted text-pretty">
+              Adicione quem você corre junto pelo @ e responda os convites que chegarem.
+            </p>
+            <span className="shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground">
+              Ver
+            </span>
+          </Link>
+        </Card>
+
         <Card className="pr-enter" style={delay(60)}>
           <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
             Preferências de corrida

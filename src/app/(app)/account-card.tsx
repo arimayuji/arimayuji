@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signOut } from "@/lib/auth";
 import { useAuth } from "@/lib/useAuth";
 import { Card, CardTitle, NoticeBadge } from "./ui";
@@ -66,6 +67,16 @@ export function AccountCard() {
             Sair
           </button>
         </div>
+      )}
+
+      {status === "signed-in" && profile && (
+        <Link
+          href="/amigos"
+          className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm"
+        >
+          <span className="text-muted">Amigos e convites</span>
+          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
+        </Link>
       )}
 
       {showPrompt && status === "signed-out" && (
