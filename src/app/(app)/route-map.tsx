@@ -408,12 +408,19 @@ function RouteTiles({
   useEffect(() => {
     replaying.current = replay !== null;
     const instance = map.current;
-    if (!instance?.getLayer(LINE_LAYER)) return; // style still loading — the next frame lands after it
+    if (!instance) return;
 
     // The whole trace is redrawn by the overlay while playback runs, so the
     // canvas gives up its copy rather than showing a filtered one underneath.
-    for (const layer of BASE_LAYERS) {
-      instance.setLayoutProperty(layer, "visibility", replay ? "none" : "visible");
+    // Guarded on the layer existing rather than gating this whole effect on
+    // it (the old shape): the style — and these layers — only exist once
+    // `style.load` fires, but the chase camera below doesn't need any of
+    // that to move, and shouldn't sit frozen top-down just because a slow
+    // or failed tile load hasn't reached that point yet.
+    if (instance.getLayer(LINE_LAYER)) {
+      for (const layer of BASE_LAYERS) {
+        instance.setLayoutProperty(layer, "visibility", replay ? "none" : "visible");
+      }
     }
     if (endMarker.current) endMarker.current.getElement().style.opacity = replay ? "0" : "1";
 
