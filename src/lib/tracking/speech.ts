@@ -19,9 +19,16 @@ export function unlockSpeech(): void {
 
 export function speak(text: string, lang = "pt-BR"): void {
   if (!isSpeechSupported()) return;
-  window.speechSynthesis.cancel(); // don't queue stale announcements behind a new one
+  const synth = window.speechSynthesis;
+  synth.cancel(); // don't queue stale announcements behind a new one
+  // Chrome on Android is known to leave the synthesizer in a paused state
+  // after the tab loses and regains focus (locking the screen mid-run does
+  // this) — cancel() alone doesn't clear that, so an announcement can go
+  // out completely silent with no error to catch. resume() is a no-op when
+  // nothing is paused, so it's safe to call unconditionally here.
+  synth.resume();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
   utterance.rate = 1;
-  window.speechSynthesis.speak(utterance);
+  synth.speak(utterance);
 }

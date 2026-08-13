@@ -84,7 +84,19 @@ const LINE_LAYER = "route-line";
 const FASTEST_LAYER = "route-fastest";
 /** Everything the replay overlay redraws for itself, hidden on the canvas while it plays. */
 const BASE_LAYERS = [HALO_LAYER, LINE_LAYER, FASTEST_LAYER];
-const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false } as const;
+/**
+ * Tilted rather than flat top-down even for the plain overview — a finished
+ * trace or a live run in progress — so the same real building-extrusion
+ * data the chase camera rides through (MapTiler's "Building 3D" layer,
+ * `fill-extrusion`, present from zoom 15) actually reads as buildings
+ * instead of flat roof shapes. Safe to go steeper than the chase camera's
+ * own pitch: the artifact that forced that one down (an ordinary street's
+ * casing and fill layers visibly separating) only showed up zoomed in
+ * close on individual streets, and this view stays zoomed out to the whole
+ * route's bounds.
+ */
+const IDLE_PITCH = 50;
+const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false, pitch: IDLE_PITCH } as const;
 
 /**
  * Replay's camera: tilted and zoomed to street level, following the head
@@ -466,7 +478,6 @@ function RouteTiles({
           ...FIT_OPTIONS,
           animate: true,
           duration: CHASE_TRANSITION_MS,
-          pitch: 0,
           bearing: 0,
         });
       }
