@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 // Pinned to maplibre-gl 5: 6.x splits its web worker into sibling ES modules
 // that import each other by relative path, and Turbopack content-hashes those
 // filenames when it emits them, so the worker 404s on its own import and the
@@ -11,6 +11,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { maptilerStyleUrl, type ColorScheme } from "@/lib/maptiler";
 import { haversineMeters } from "@/lib/tracking/geoFilter";
+import { replayHead, replayStretches, type ReplayCursor } from "@/lib/tracking/replay";
 import {
   findFastestStretch,
   projectRoute,
@@ -70,7 +71,12 @@ function useColorScheme(): ColorScheme | null {
 
 const ROUTE_SOURCE = "route";
 const FASTEST_SOURCE = "route-fastest";
+const REPLAY_SOURCE = "route-replay";
+const REPLAY_TAIL_SOURCE = "route-replay-tail";
 const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false } as const;
+
+/** How far the finished trace fades back while the replay head draws over it — still visible as the shape being filled in, never competing with it. */
+const GHOSTED_ROUTE_OPACITY = 0.22;
 
 /** Reproduces the old SVG glow: a wider halo in the basemap's own ground colour keeps the route legible over busy streets. */
 const HALO_COLOR: Record<ColorScheme, string> = { light: "#ffffff", dark: "#0b0e11" };
@@ -124,22 +130,32 @@ function markerElement(className: string, pulsing = false): HTMLElement {
 const START_MARKER = "block h-3 w-3 rounded-full border-2 border-black/50 bg-white";
 const FINISH_MARKER = "block h-3 w-3 rounded-full border-2 border-accent bg-background";
 const LIVE_MARKER = "relative block h-3 w-3 rounded-full bg-accent";
+const REPLAY_MARKER =
+  "relative block h-3.5 w-3.5 rounded-full bg-white shadow-[0_0_14px_2px_rgba(234,241,255,0.85)]";
+
+const lerpLngLat = (a: [number, number], b: [number, number], f: number): [number, number] => [
+  a[0] + (b[0] - a[0]) * f,
+  a[1] + (b[1] - a[1]) * f,
+];
 
 function RouteTiles({
   points,
   live,
   scheme,
   styleUrl,
+  replay,
 }: {
   points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
   live: boolean;
   scheme: ColorScheme;
   styleUrl: string;
+  replay: ReplayCursor | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const startMarker = useRef<Marker | null>(null);
   const endMarker = useRef<Marker | null>(null);
+  const headMarker = useRef<Marker | null>(null);
 
   const geometry = useMemo(() => routeGeometry(points), [points]);
   // The style loads asynchronously, so the sources can only be filled in
@@ -172,6 +188,8 @@ function RouteTiles({
         type: "geojson",
         data: multiLine(fastest ? [fastest] : []),
       });
+      instance.addSource(REPLAY_SOURCE, { type: "geojson", data: multiLine([]) });
+      instance.addSource(REPLAY_TAIL_SOURCE, { type: "geojson", data: multiLine([]) });
 
       const line = { "line-cap": "round", "line-join": "round" } as const;
       instance.addLayer({
@@ -196,6 +214,49 @@ function RouteTiles({
         paint: { "line-color": FASTEST_COLOR, "line-width": 2.2, "line-dasharray": [2, 1.6] },
       });
 
+      // The replay stacks four lines: a wide blurred bloom so the drawn part
+      // lifts off the basemap, the drawn route itself, then the same pair
+      // again in white for the short stretch just behind the head — which is
+      // what makes which way the run is going readable without an arrow.
+      instance.addLayer({
+        id: "replay-glow",
+        type: "line",
+        source: REPLAY_SOURCE,
+        layout: line,
+        paint: {
+          "line-color": ROUTE_COLOR[scheme],
+          "line-width": 14,
+          "line-blur": 10,
+          "line-opacity": 0.75,
+        },
+      });
+      instance.addLayer({
+        id: "replay-line",
+        type: "line",
+        source: REPLAY_SOURCE,
+        layout: line,
+        paint: { "line-color": ROUTE_COLOR[scheme], "line-width": 4.5 },
+      });
+      instance.addLayer({
+        id: "replay-tail-glow",
+        type: "line",
+        source: REPLAY_TAIL_SOURCE,
+        layout: line,
+        paint: {
+          "line-color": FASTEST_COLOR,
+          "line-width": 15,
+          "line-blur": 11,
+          "line-opacity": 0.6,
+        },
+      });
+      instance.addLayer({
+        id: "replay-tail",
+        type: "line",
+        source: REPLAY_TAIL_SOURCE,
+        layout: line,
+        paint: { "line-color": FASTEST_COLOR, "line-width": 4.5 },
+      });
+
       startMarker.current = new Marker({ element: markerElement(START_MARKER) })
         .setLngLat(start)
         .addTo(instance);
@@ -212,8 +273,43 @@ function RouteTiles({
       map.current = null;
       startMarker.current = null;
       endMarker.current = null;
+      headMarker.current = null;
     };
   }, [styleUrl, scheme, live]);
+
+  useEffect(() => {
+    const instance = map.current;
+    const source = instance?.getSource<GeoJSONSource>(REPLAY_SOURCE);
+    if (!instance || !source) return; // style still loading — the next frame lands after it
+
+    const tailSource = instance.getSource<GeoJSONSource>(REPLAY_TAIL_SOURCE)!;
+    const active = replay !== null;
+    instance.setPaintProperty("route-line", "line-opacity", active ? GHOSTED_ROUTE_OPACITY : 1);
+    instance.setLayoutProperty("route-fastest", "visibility", active ? "none" : "visible");
+    if (endMarker.current) endMarker.current.getElement().style.opacity = active ? "0" : "1";
+
+    if (!replay) {
+      source.setData(multiLine([]));
+      tailSource.setData(multiLine([]));
+      headMarker.current?.remove();
+      headMarker.current = null;
+      return;
+    }
+
+    const coordinates = points.map(lngLat);
+    source.setData(multiLine(replayStretches(points, coordinates, lerpLngLat, replay.head)));
+    tailSource.setData(
+      multiLine(replayStretches(points, coordinates, lerpLngLat, replay.head, replay.tail)),
+    );
+
+    const head = replayHead(coordinates, replay.head, lerpLngLat);
+    if (headMarker.current) headMarker.current.setLngLat(head);
+    else {
+      headMarker.current = new Marker({ element: markerElement(REPLAY_MARKER, true) })
+        .setLngLat(head)
+        .addTo(instance);
+    }
+  }, [replay, points]);
 
   useEffect(() => {
     latest.current = geometry;
@@ -243,6 +339,14 @@ function RouteTiles({
   );
 }
 
+const lerpXY = (a: { x: number; y: number }, b: { x: number; y: number }, f: number) => ({
+  x: a.x + (b.x - a.x) * f,
+  y: a.y + (b.y - a.y) * f,
+});
+
+const svgPoints = (points: { x: number; y: number }[]) =>
+  points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+
 /**
  * No basemap: either no MapTiler key is configured, or the map hasn't been
  * handed the browser's colour scheme yet (this is what the prerendered HTML
@@ -253,18 +357,20 @@ function RouteTiles({
 function RouteTrace({
   points,
   live,
+  replay,
 }: {
   points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
   live: boolean;
+  replay: ReplayCursor | null;
 }) {
   const route = projectRoute(points)!;
   const stretch = fastestStretchRange(points);
   const fastestPoints =
     stretch &&
-    route.projected
-      .slice(stretch.startIndex, stretch.endIndex + 1)
-      .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
-      .join(" ");
+    svgPoints(route.projected.slice(stretch.startIndex, stretch.endIndex + 1));
+  const drawn = replay && replayStretches(points, route.projected, lerpXY, replay.head);
+  const tail = replay && replayStretches(points, route.projected, lerpXY, replay.head, replay.tail);
+  const head = replay && replayHead(route.projected, replay.head, lerpXY);
 
   return (
     <svg
@@ -305,11 +411,45 @@ function RouteTrace({
           strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"
+          opacity={replay ? GHOSTED_ROUTE_OPACITY : 1}
           filter="url(#route-map-glow)"
         />
       ))}
 
-      {fastestPoints && (
+      {drawn?.map((stretchPoints, i) => (
+        <polyline
+          key={`replay-${i}`}
+          points={svgPoints(stretchPoints)}
+          fill="none"
+          stroke="#5b8dff"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#route-map-glow-strong)"
+        />
+      ))}
+
+      {tail?.map((stretchPoints, i) => (
+        <polyline
+          key={`replay-tail-${i}`}
+          points={svgPoints(stretchPoints)}
+          fill="none"
+          stroke="#eaf1ff"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#route-map-glow-strong)"
+        />
+      ))}
+
+      {head && (
+        <>
+          <circle cx={head.x} cy={head.y} r="3.4" fill="#5b8dff" className="pr-halo" />
+          <circle cx={head.x} cy={head.y} r="1.7" fill="#ffffff" />
+        </>
+      )}
+
+      {!replay && fastestPoints && (
         <polyline
           points={fastestPoints}
           fill="none"
@@ -324,7 +464,7 @@ function RouteTrace({
 
       <circle cx={route.start.x} cy={route.start.y} r="1.8" fill="#ffffff" />
 
-      {live ? (
+      {replay ? null : live ? (
         <>
           <circle cx={route.end.x} cy={route.end.y} r="4" fill="#5b8dff" className="pr-halo" />
           <circle cx={route.end.x} cy={route.end.y} r="1.8" fill="#5b8dff" />
@@ -349,6 +489,8 @@ export function RouteMap({
   live = false,
   square = true,
   rounded = true,
+  replay = null,
+  children,
 }: {
   points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
   className?: string;
@@ -358,6 +500,10 @@ export function RouteMap({
   square?: boolean;
   /** False for the full-bleed live background — a rounded corner clipped against the viewport edge just looks like a bug. */
   rounded?: boolean;
+  /** Current position of a playback of this run (see src/lib/tracking/replay.ts); null draws the finished trace. */
+  replay?: ReplayCursor | null;
+  /** Overlays positioned against the map itself — the replay controls and readout. */
+  children?: ReactNode;
 }) {
   const scheme = useColorScheme();
   const styleUrl = scheme && maptilerStyleUrl(scheme);
@@ -373,16 +519,18 @@ export function RouteMap({
           {live ? "Aguardando trajeto GPS…" : "Sem trajeto GPS suficiente pra desenhar o mapa."}
         </div>
       ) : showTiles ? (
-        <RouteTiles points={points} live={live} scheme={scheme} styleUrl={styleUrl} />
+        <RouteTiles points={points} live={live} scheme={scheme} styleUrl={styleUrl} replay={replay} />
       ) : (
-        <RouteTrace points={points} live={live} />
+        <RouteTrace points={points} live={live} replay={replay} />
       )}
 
-      {live && hasRoute && (
+      {live && hasRoute && !replay && (
         <span className="absolute right-3 bottom-3 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-medium text-white/80 backdrop-blur-sm">
           você está aqui
         </span>
       )}
+
+      {children}
     </div>
   );
 }

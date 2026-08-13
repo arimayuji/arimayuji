@@ -15,6 +15,7 @@ import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
 import { GoalDatePicker } from "../date-picker";
 import { ShareCardTeaser } from "../share-card";
+import { ShoeShowcase } from "../shoe-showcase";
 import {
   createShoe,
   deleteShoe,
@@ -294,6 +295,57 @@ function ShoeRow({
 }
 
 /**
+ * The registered shoe as the floating showcase item — the one place in the
+ * app that shows a shoe as an object instead of a row in a list, tinted to
+ * the colour it was registered in. Tapping cycles the catalog.
+ */
+function ShoeHero({
+  shoes,
+  summaryFor,
+  unit,
+}: {
+  shoes: Shoe[];
+  summaryFor: (name: string) => ShoeSummary | undefined;
+  unit: DistanceUnit;
+}) {
+  const [index, setIndex] = useState(0);
+  const shoe = shoes[Math.min(index, shoes.length - 1)];
+  const totalMeters = summaryFor(shoe.name)?.totalMeters ?? 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => setIndex((current) => (current + 1) % shoes.length)}
+      disabled={shoes.length < 2}
+      className="relative mb-4 flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-[#0b0e11] pb-6 disabled:cursor-default"
+    >
+      <ShoeShowcase color={shoe.color} className="relative w-[62%]" />
+
+      <span className="absolute inset-x-4 bottom-3 flex items-end justify-between gap-3 text-left">
+        <span className="min-w-0">
+          {shoe.brand && (
+            <span className="block truncate font-mono text-[10px] uppercase tracking-[0.14em] text-white/45">
+              {shoe.brand}
+            </span>
+          )}
+          <span className="block truncate text-sm font-medium text-white">{shoe.name}</span>
+        </span>
+        <span className="shrink-0 font-mono text-sm tabular-nums text-white/85">
+          {formatDistance(totalMeters, unit)}
+          <span className="ml-1 text-[10px] text-white/50">{unitLabel(unit)}</span>
+        </span>
+      </span>
+
+      {shoes.length > 1 && (
+        <span className="absolute top-3 right-4 font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">
+          toque pra trocar
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
  * The shoe catalog: real registered shoes (brand, model, color, optional
  * photo) crossed with the mileage each has accumulated. The two halves stay
  * matched only by name — deleting a shoe here never touches run history.
@@ -332,39 +384,42 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
       ) : shoes.length === 0 ? (
         <p className="text-xs leading-relaxed text-muted">Nenhum tênis registrado ainda.</p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {shoes.map((shoe) =>
-            editingId === shoe.id ? (
-              <li key={shoe.id} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
-                <ShoeForm
-                  initial={shoe}
-                  submitLabel="Salvar"
-                  onCancel={() => setEditingId(null)}
-                  onSubmit={async (draft) => {
-                    await updateShoe({ ...shoe, ...draft });
-                    setEditingId(null);
+        <>
+          <ShoeHero shoes={shoes} summaryFor={summaryFor} unit={unit} />
+          <ul className="flex flex-col gap-3">
+            {shoes.map((shoe) =>
+              editingId === shoe.id ? (
+                <li key={shoe.id} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+                  <ShoeForm
+                    initial={shoe}
+                    submitLabel="Salvar"
+                    onCancel={() => setEditingId(null)}
+                    onSubmit={async (draft) => {
+                      await updateShoe({ ...shoe, ...draft });
+                      setEditingId(null);
+                      await refresh();
+                    }}
+                  />
+                </li>
+              ) : (
+                <ShoeRow
+                  key={shoe.id}
+                  shoe={shoe}
+                  summary={summaryFor(shoe.name)}
+                  unit={unit}
+                  onEdit={() => {
+                    setAdding(false);
+                    setEditingId(shoe.id);
+                  }}
+                  onDelete={async () => {
+                    await deleteShoe(shoe.id);
                     await refresh();
                   }}
                 />
-              </li>
-            ) : (
-              <ShoeRow
-                key={shoe.id}
-                shoe={shoe}
-                summary={summaryFor(shoe.name)}
-                unit={unit}
-                onEdit={() => {
-                  setAdding(false);
-                  setEditingId(shoe.id);
-                }}
-                onDelete={async () => {
-                  await deleteShoe(shoe.id);
-                  await refresh();
-                }}
-              />
-            ),
-          )}
-        </ul>
+              ),
+            )}
+          </ul>
+        </>
       )}
 
       {adding ? (

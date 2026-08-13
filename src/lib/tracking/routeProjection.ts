@@ -17,7 +17,7 @@ import type { StoredPoint } from "./storage";
 const METERS_PER_DEG_LAT = 111_320;
 
 /** Index where each unbroken stretch of tracking begins — a new one starts at any gap over `GPS_GAP_THRESHOLD_SECONDS`. */
-function stretchStarts(points: Pick<StoredPoint, "timestamp">[]): number[] {
+export function stretchStarts(points: Pick<StoredPoint, "timestamp">[]): number[] {
   const starts = [0];
   for (let i = 1; i < points.length; i++) {
     if ((points[i].timestamp - points[i - 1].timestamp) / 1000 >= GPS_GAP_THRESHOLD_SECONDS) starts.push(i);

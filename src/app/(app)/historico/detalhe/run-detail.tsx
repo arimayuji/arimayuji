@@ -18,7 +18,7 @@ import {
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, metersPerUnit, paceLabel, unitLabel } from "@/lib/units";
 import { PrBadge } from "../../pr-badge";
-import { RouteMap } from "../../route-map";
+import { RouteReplay } from "../../route-replay";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../../ui";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -174,7 +174,7 @@ export function RunDetail({ id }: { id: string }) {
 
       <Screen>
         <div className="pr-enter" style={delay(20)}>
-          <RouteMap points={run.points} />
+          <RouteReplay points={run.points} unit={unit} />
         </div>
 
         <Card className="pr-enter" style={delay(50)}>
