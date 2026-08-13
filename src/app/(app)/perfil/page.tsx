@@ -824,6 +824,31 @@ export default function PerfilPage() {
           </div>
         </Card>
 
+        <Card className="pr-enter" style={delay(235)}>
+          <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Peso</CardTitle>
+          <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+            Só usado pra estimar calorias gastas em cada corrida (≈1 kcal/kg/km, mais o custo
+            real de subida). Sem peso cadastrado, o app simplesmente não mostra a estimativa —
+            nunca inventa um número em cima de um peso chutado.
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="25"
+              max="250"
+              placeholder="Ex.: 70"
+              value={profile.weightKg ?? ""}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                updateProfile({ weightKg: value > 0 ? value : undefined });
+              }}
+              className="min-h-12 w-28 rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
+            />
+            <span className="text-sm text-muted">kg</span>
+          </div>
+        </Card>
+
         <PainCard />
 
         <Card className="pr-enter" style={delay(260)}>

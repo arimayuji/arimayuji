@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { estimateCalories } from "@/lib/calories";
 import { computeElevationGain } from "@/lib/elevation";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeAchievement } from "@/lib/tracking/achievements";
@@ -18,6 +19,7 @@ import {
   type CompletedRun,
 } from "@/lib/tracking/storage";
 import { usePreferences } from "@/lib/usePreferences";
+import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { formatAveragePace, formatDistance, metersPerUnit, paceLabel, unitLabel } from "@/lib/units";
 import { AchievementReveal } from "../../achievement-reveal";
 import { PrBadge } from "../../pr-badge";
@@ -100,6 +102,7 @@ export function RunDetail({ id }: { id: string }) {
   const router = useRouter();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [{ distanceUnit: unit }] = usePreferences();
+  const [runnerProfile] = useRunnerProfile();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [computedElevationGain, setComputedElevationGain] = useState<number | null>(null);
@@ -167,6 +170,9 @@ export function RunDetail({ id }: { id: string }) {
   const newRecords = records.filter((r) => r.isNewRecord);
   const splits = computeSplits(run.points, metersPerUnit(unit));
   const elevationGain = run.elevationGainMeters ?? computedElevationGain;
+  const calories = runnerProfile.weightKg
+    ? estimateCalories(run.distanceMeters, elevationGain, runnerProfile.weightKg)
+    : null;
 
   /**
    * The flag is written optimistically and its failure swallowed: it only
@@ -216,12 +222,18 @@ export function RunDetail({ id }: { id: string }) {
               </p>
             </div>
           </div>
-          {(run.shoeName || elevationGain !== null) && (
+          {(run.shoeName || elevationGain !== null || calories !== null) && (
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-border pt-3 text-xs text-muted">
               {elevationGain !== null && (
                 <p>
                   <span className="uppercase tracking-wide">Ganho de elevação</span>{" "}
                   <span className="text-foreground">{elevationGain}m</span>
+                </p>
+              )}
+              {calories !== null && (
+                <p>
+                  <span className="uppercase tracking-wide">Calorias</span>{" "}
+                  <span className="text-foreground">{calories} kcal</span>
                 </p>
               )}
               {run.shoeName && (

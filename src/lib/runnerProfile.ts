@@ -1,8 +1,12 @@
 /**
- * The inputs the plan engine (`src/lib/plan`) needs, persisted for real —
- * same localStorage pattern as `preferences.ts`. Kept as its own module
- * rather than folded into preferences: this is race/fitness data specific
- * to plan generation, not a general app setting.
+ * Race/fitness data about the runner, persisted for real — same
+ * localStorage pattern as `preferences.ts`. Kept as its own module rather
+ * than folded into preferences: this is personal athlete data, not a
+ * general app setting. Most of it feeds the plan engine (`src/lib/plan`);
+ * `weightKg` doesn't — it exists only so `src/lib/calories.ts` has a real
+ * body mass to estimate energy cost from, and is never inferred or
+ * defaulted, since a calorie estimate built on a guessed weight is just a
+ * fabricated number with extra steps.
  *
  * `currentWeeklyKm` is deliberately *not* stored here — it's computed from
  * real recorded runs (see `estimateWeeklyKm` in `tracking/storage.ts`)
@@ -17,6 +21,7 @@ export interface RunnerProfile {
   recentRaceDistanceMeters?: number;
   recentRaceTimeSeconds?: number;
   weeklyRunDays?: number;
+  weightKg?: number;
 }
 
 export const GOAL_DISTANCE_OPTIONS = [
@@ -56,6 +61,9 @@ function sanitize(raw: unknown): RunnerProfile {
     value.weeklyRunDays <= 6
   ) {
     profile.weeklyRunDays = value.weeklyRunDays;
+  }
+  if (typeof value.weightKg === "number" && value.weightKg >= 25 && value.weightKg <= 250) {
+    profile.weightKg = value.weightKg;
   }
   return profile;
 }
