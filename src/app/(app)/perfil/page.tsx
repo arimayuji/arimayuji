@@ -77,6 +77,22 @@ function SegmentedButton({
 
 const DEFAULT_SHOE_COLOR = "#2f6fed";
 
+/** A hand-picked palette instead of the phone's native color wheel — keeps the picker in the app's own visual language rather than dropping into OS chrome. */
+const SHOE_COLOR_SWATCHES = [
+  "#2f6fed",
+  "#eb4d4d",
+  "#f5a623",
+  "#f7d716",
+  "#3ecf6e",
+  "#00c2d1",
+  "#8b5cf6",
+  "#ec4899",
+  "#c9ccd1",
+  "#11151a",
+];
+
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
 /** Fields the athlete fills in — the rest of a `Shoe` (id, createdAt) is storage's business. */
 type ShoeDraft = Pick<Shoe, "brand" | "name" | "color" | "photoDataUrl">;
 
@@ -150,16 +166,43 @@ function ShoeForm({
         />
       </label>
 
-      <label className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium">Cor</span>
-        <input
-          type="color"
-          aria-label="Cor do tênis"
-          value={draft.color}
-          onChange={(e) => setDraft({ ...draft, color: e.target.value })}
-          className="h-10 w-16 shrink-0 cursor-pointer rounded-lg border border-border bg-surface"
-        />
-      </label>
+      <div className="space-y-2">
+        <span className="block text-xs font-medium">Cor</span>
+        <div className="flex flex-wrap gap-2">
+          {SHOE_COLOR_SWATCHES.map((swatch) => (
+            <button
+              key={swatch}
+              type="button"
+              aria-label={`Cor ${swatch}`}
+              aria-pressed={draft.color.toLowerCase() === swatch}
+              onClick={() => setDraft({ ...draft, color: swatch })}
+              className={`h-9 w-9 shrink-0 rounded-lg border-2 transition-transform ${
+                draft.color.toLowerCase() === swatch
+                  ? "scale-105 border-accent"
+                  : "border-border hover:border-accent/60"
+              }`}
+              style={{ backgroundColor: swatch }}
+            />
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="h-9 w-9 shrink-0 rounded-lg border border-border"
+            style={{ backgroundColor: HEX_COLOR_PATTERN.test(draft.color) ? draft.color : "transparent" }}
+          />
+          <input
+            type="text"
+            inputMode="text"
+            aria-label="Cor personalizada em hexadecimal"
+            value={draft.color}
+            onChange={(e) => setDraft({ ...draft, color: e.target.value })}
+            placeholder="#2f6fed"
+            maxLength={7}
+            className="w-28 rounded-lg border border-border bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-accent"
+          />
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {draft.photoDataUrl && (
