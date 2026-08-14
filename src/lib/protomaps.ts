@@ -26,6 +26,18 @@ const TILES_BASE_URL =
   process.env.NEXT_PUBLIC_TILES_BASE_URL ?? "https://pub-72a6391a200c440a9466c2e0d774e84f.r2.dev";
 
 const SOURCE_ID = "protomaps";
+const TERRAIN_SOURCE_ID = "terrain";
+/**
+ * A real 3D terrain mesh is the one thing that reads as "hilly" even where
+ * OSM has no building footprints traced at all — unlike the buildings
+ * extrusion above, ground elevation exists everywhere, so this is what
+ * actually fixes a residential street looking flat just because nobody's
+ * mapped its buildings. Self-hosted the same way as the basemap: a regional
+ * pmtiles extract (Mapterhorn's public Terrarium-encoded DEM, z0–10 — plenty
+ * of resolution for hills at street scale, since fine city-block bumps are
+ * past what's meaningful to show anyway) uploaded to the same R2 bucket.
+ */
+const TERRAIN_EXAGGERATION = 1.2;
 
 let protocolRegistered = false;
 
@@ -62,6 +74,21 @@ function buildingExtrusion(scheme: ColorScheme, flavor: Flavor): LayerSpecificat
   };
 }
 
+/** Shaded relief from the same DEM that drives the 3D terrain mesh — visible even at a flat pitch, where the mesh displacement itself isn't. Sits right after the earth fill so water/landuse/roads/labels above it stay fully legible. */
+function hillshade(scheme: ColorScheme): LayerSpecification {
+  return {
+    id: "hillshade",
+    type: "hillshade",
+    source: TERRAIN_SOURCE_ID,
+    paint: {
+      "hillshade-exaggeration": 0.5,
+      "hillshade-shadow-color": scheme === "dark" ? "#000000" : "#5c5c5c",
+      "hillshade-highlight-color": scheme === "dark" ? "#3a3a3a" : "#ffffff",
+      "hillshade-accent-color": scheme === "dark" ? "#000000" : "#8f8f8f",
+    },
+  };
+}
+
 /** A complete MapLibre style object (not a URL to fetch) — sidesteps the whole "style.json fetch silently never resolves" failure mode the old MapTiler integration had to work around with a timeout. Tile data, glyphs and the sprite are still real network fetches, just all against our own R2 bucket. */
 export function protomapsStyle(scheme: ColorScheme): StyleSpecification {
   const flavor = namedFlavor(scheme);
@@ -69,6 +96,14 @@ export function protomapsStyle(scheme: ColorScheme): StyleSpecification {
   const withExtrudedBuildings = baseLayers.map((layer) =>
     layer.id === "buildings" ? buildingExtrusion(scheme, flavor) : layer,
   );
+  // Right after "earth", ahead of landcover/water/roads/buildings — shaded
+  // relief reads as ground texture, not a layer painted over the map.
+  const earthIndex = withExtrudedBuildings.findIndex((layer) => layer.id === "earth");
+  const withHillshade = [
+    ...withExtrudedBuildings.slice(0, earthIndex + 1),
+    hillshade(scheme),
+    ...withExtrudedBuildings.slice(earthIndex + 1),
+  ];
 
   return {
     version: 8,
@@ -81,7 +116,15 @@ export function protomapsStyle(scheme: ColorScheme): StyleSpecification {
         attribution:
           '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
       },
+      [TERRAIN_SOURCE_ID]: {
+        type: "raster-dem",
+        url: `pmtiles://${TILES_BASE_URL}/brazil-terrain.pmtiles`,
+        encoding: "terrarium",
+        tileSize: 512,
+        attribution: 'Relevo © <a href="https://mapterhorn.com">Mapterhorn</a>',
+      },
     },
-    layers: withExtrudedBuildings,
+    terrain: { source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_EXAGGERATION },
+    layers: withHillshade,
   };
 }
