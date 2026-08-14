@@ -57,7 +57,7 @@ export function formatEmblemKm(km: number): string {
   return km >= 1000 ? `${(km / 1000).toLocaleString("pt-BR")} mil` : km.toLocaleString("pt-BR");
 }
 
-// --- Deterministic visual identity, one fixed design per milestone ---
+// --- Deterministic identity, one fixed seed per milestone ---
 
 /** FNV-1a, 32-bit — same small dependency-free hash `achievements.ts` uses, so two different collectible systems don't need two hash implementations. */
 function hash(text: string): number {
@@ -69,18 +69,12 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
-export type EmblemPattern = "rays" | "dots" | "chevrons" | "waves";
-const PATTERNS: readonly EmblemPattern[] = ["rays", "dots", "chevrons", "waves"];
-
 export interface Emblem {
   km: number;
-  hue: number;
-  hue2: number;
-  pattern: EmblemPattern;
-  /** Notch count around the rim — grows with the milestone's position on the ladder, so a 10 000 km pin visibly carries more detail than a 5 km one. */
-  notches: number;
-  /** Rotates the whole rim pattern so two milestones with the same pattern don't line up identically. */
-  spin: number;
+  /** Feeds the generative artwork in emblemArt.ts — this module only owns the milestone's identity, not its visuals. */
+  seed: number;
+  /** Position on the ladder, 0-indexed — the artwork's rarity axis. */
+  tier: number;
 }
 
 /**
@@ -90,16 +84,5 @@ export interface Emblem {
  * just unlocked or opened again a year later.
  */
 export function computeEmblem(km: number): Emblem {
-  const seed = hash(`emblem|${km}`);
-  const bits = (shift: number, mod: number) => (seed >>> shift) % mod;
-  const tierIndex = Math.max(0, EMBLEM_LADDER_KM.indexOf(km));
-
-  return {
-    km,
-    hue: bits(0, 360),
-    hue2: bits(8, 360),
-    pattern: PATTERNS[bits(16, PATTERNS.length)],
-    notches: 8 + tierIndex * 2,
-    spin: bits(20, 360),
-  };
+  return { km, seed: hash(`emblem|${km}`), tier: Math.max(0, EMBLEM_LADDER_KM.indexOf(km)) };
 }

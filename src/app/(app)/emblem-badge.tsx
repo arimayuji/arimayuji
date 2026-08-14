@@ -1,16 +1,17 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useMemo } from "react";
+import { computeEmblemArt } from "@/lib/emblemArt";
 import type { Emblem } from "@/lib/tracking/emblems";
 
 /**
- * The lifetime-distance collectible itself: a round enamel pin, not a cut
- * metal plate — see emblems.ts for why this stays visually its own thing
- * rather than a variant of `AchievementPlate`. Three states share this one
- * component so the collection grid and the reveal modal never risk drifting
- * apart: `locked` (not reached yet — a dim outline, no hue), `sealed`
- * (reached but not yet opened — the real hue glows through a frosted face,
- * but the actual pattern stays hidden) and the fully `opened` design.
+ * The lifetime-distance collectible itself — generative flow-field art (see
+ * emblemArt.ts) inside a round frame, not a hand-drawn plate. Three states
+ * share this one component so the collection grid and the reveal modal never
+ * risk drifting apart: `locked` (not reached yet — a dim outline, nothing
+ * computed), `sealed` (reached but not yet opened — the piece's own palette
+ * glows through a grained mystery field, but the actual composition stays
+ * hidden) and the fully `opened` artwork.
  */
 
 const TAU = Math.PI * 2;
@@ -20,67 +21,45 @@ function polar(cx: number, cy: number, r: number, angleDeg: number): [number, nu
   return [cx + r * Math.sin(a), cy - r * Math.cos(a)];
 }
 
-function RimNotches({ count, spin }: { count: number; spin: number }) {
-  const ticks = Array.from({ length: count }, (_, i) => {
-    const angle = (i / count) * 360 + spin;
-    const [x1, y1] = polar(60, 60, 50, angle);
-    const [x2, y2] = polar(60, 60, 56, angle);
-    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} />;
-  });
-  return (
-    <g stroke="#0b0f13" strokeWidth="1.6" strokeLinecap="round" opacity="0.55">
-      {ticks}
-    </g>
-  );
-}
-
-function PatternRing({ emblem, ink }: { emblem: Emblem; ink: string }) {
-  const count = 10;
-  const shapes = Array.from({ length: count }, (_, i) => {
-    const angle = (i / count) * 360 + emblem.spin;
-
-    if (emblem.pattern === "rays") {
-      const [x1, y1] = polar(60, 60, 18, angle);
-      const [x2, y2] = polar(60, 60, 34, angle);
-      return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} />;
-    }
-    if (emblem.pattern === "dots") {
-      const [x, y] = polar(60, 60, 34, angle);
-      return <circle key={i} cx={x} cy={y} r="2.1" fill={ink} stroke="none" />;
-    }
-    if (emblem.pattern === "chevrons") {
-      const tip = polar(60, 60, 36, angle);
-      const left = polar(60, 60, 28, angle - 8);
-      const right = polar(60, 60, 28, angle + 8);
-      return (
-        <polyline key={i} points={`${left[0]},${left[1]} ${tip[0]},${tip[1]} ${right[0]},${right[1]}`} />
-      );
-    }
-    // waves
-    const inner = polar(60, 60, 26, angle);
-    const outer = polar(60, 60, i % 2 === 0 ? 36 : 30, angle + 180 / count);
-    return <line key={i} x1={inner[0]} y1={inner[1]} x2={outer[0]} y2={outer[1]} />;
-  });
-
-  return (
-    <g
-      stroke={ink}
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-      opacity="0.8"
-    >
-      {shapes}
-    </g>
-  );
-}
-
 function LockIcon() {
   return (
     <g stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none">
       <rect x="49" y="58" width="22" height="17" rx="3" />
       <path d="M53.5 58v-6.5a6.5 6.5 0 0 1 13 0V58" />
+    </g>
+  );
+}
+
+/** Grain filter shared by the sealed and opened states — the noise field is what keeps a flat gradient from reading as a plain colour swatch. */
+function GrainFilter({ id, seed, frequency }: { id: string; seed: number; frequency: number }) {
+  return (
+    <filter id={id} x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency={frequency}
+        numOctaves={2}
+        seed={seed}
+        stitchTiles="stitch"
+        result="noise"
+      />
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0" />
+    </filter>
+  );
+}
+
+/** Top three rungs of the ladder only: a thin rainbow dial ringing the frame, the "legendary" tell at a glance. */
+function PrismaticRing() {
+  const count = 60;
+  const ticks = Array.from({ length: count }, (_, i) => {
+    const angle = (i / count) * 360;
+    const hue = (i / count) * 360;
+    const [x1, y1] = polar(60, 60, 57, angle);
+    const [x2, y2] = polar(60, 60, 60, angle);
+    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={`hsl(${hue} 85% 62%)`} />;
+  });
+  return (
+    <g strokeWidth="1.4" strokeLinecap="round" opacity="0.85">
+      {ticks}
     </g>
   );
 }
@@ -95,15 +74,21 @@ export function EmblemBadge({
   className?: string;
 }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const hueA = `hsl(${emblem.hue} 72% 56%)`;
-  const hueB = `hsl(${emblem.hue2} 72% 42%)`;
-  const ink = "#0b0f13";
+  const art = useMemo(() => computeEmblemArt(emblem.seed, emblem.tier), [emblem.seed, emblem.tier]);
 
   if (state === "locked") {
     return (
       <svg viewBox="0 0 120 120" className={className} fill="none" aria-hidden="true">
         <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" strokeWidth="2" className="text-border" />
-        <circle cx="60" cy="60" r="48" strokeDasharray="1.5 6" stroke="currentColor" strokeWidth="2" className="text-muted/50" />
+        <circle
+          cx="60"
+          cy="60"
+          r="48"
+          strokeDasharray="1.5 6"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="text-muted/50"
+        />
         <text
           x="60"
           y="70"
@@ -124,14 +109,21 @@ export function EmblemBadge({
     return (
       <svg viewBox="0 0 120 120" className={className} fill="none" aria-hidden="true">
         <defs>
-          <radialGradient id={`${uid}-sealed`} cx="0.38" cy="0.32" r="0.85">
-            <stop offset="0%" stopColor={hueA} stopOpacity="0.9" />
-            <stop offset="100%" stopColor={hueB} stopOpacity="0.55" />
+          <radialGradient id={`${uid}-bg`} cx="0.4" cy="0.35" r="0.85">
+            <stop offset="0%" stopColor={art.bgInner} />
+            <stop offset="100%" stopColor={art.bgOuter} />
           </radialGradient>
+          <GrainFilter id={`${uid}-grain`} seed={art.grainSeed} frequency={art.grainFrequency} />
+          <clipPath id={`${uid}-clip`}>
+            <circle cx="60" cy="60" r="48" />
+          </clipPath>
         </defs>
-        <circle cx="60" cy="60" r="52" fill={`url(#${uid}-sealed)`} opacity="0.35" />
-        <circle cx="60" cy="60" r="48" fill="none" stroke={hueA} strokeWidth="2" strokeDasharray="3 4" />
-        <g className="text-white/80">
+        <g clipPath={`url(#${uid}-clip)`}>
+          <circle cx="60" cy="60" r="52" fill={`url(#${uid}-bg)`} />
+          <rect x="0" y="0" width="120" height="120" filter={`url(#${uid}-grain)`} style={{ mixBlendMode: "overlay" }} />
+        </g>
+        <circle cx="60" cy="60" r="48" fill="none" stroke={art.accent} strokeWidth="2" strokeDasharray="3 4" />
+        <g className="text-white/85">
           <LockIcon />
         </g>
       </svg>
@@ -141,26 +133,36 @@ export function EmblemBadge({
   return (
     <svg viewBox="0 0 120 120" className={className} fill="none" aria-hidden="true">
       <defs>
-        <radialGradient id={`${uid}-face`} cx="0.35" cy="0.3" r="0.9">
-          <stop offset="0%" stopColor={hueA} />
-          <stop offset="100%" stopColor={hueB} />
+        <radialGradient id={`${uid}-bg`} cx="0.4" cy="0.35" r="0.9">
+          <stop offset="0%" stopColor={art.bgInner} />
+          <stop offset="100%" stopColor={art.bgOuter} />
         </radialGradient>
+        <GrainFilter id={`${uid}-grain`} seed={art.grainSeed} frequency={art.grainFrequency} />
+        <clipPath id={`${uid}-clip`}>
+          <circle cx="60" cy="60" r="56" />
+        </clipPath>
       </defs>
 
-      <circle cx="60" cy="60" r="56" fill={ink} />
-      <RimNotches count={emblem.notches} spin={emblem.spin} />
-      <circle cx="60" cy="60" r="48" fill={`url(#${uid}-face)`} stroke={ink} strokeWidth="1.6" />
-      <PatternRing emblem={emblem} ink="#ffffff" />
-      <circle cx="60" cy="60" r="17" fill={ink} opacity="0.85" />
-
-      <g fontFamily="ui-monospace, monospace" textAnchor="middle" fill="#ffffff">
-        <text x="60" y="63" fontSize="15" fontWeight="700">
-          {emblem.km >= 1000 ? `${emblem.km / 1000}k` : emblem.km}
-        </text>
-        <text x="60" y="72.5" fontSize="6" letterSpacing="1.4" opacity="0.75">
-          KM
-        </text>
+      <g clipPath={`url(#${uid}-clip)`}>
+        <circle cx="60" cy="60" r="60" fill={`url(#${uid}-bg)`} />
+        <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+          {art.ribbons.map((ribbon, i) => (
+            <path key={i} d={ribbon.d} stroke={ribbon.color} strokeWidth={ribbon.width} opacity={ribbon.opacity} />
+          ))}
+        </g>
+        <rect
+          x="0"
+          y="0"
+          width="120"
+          height="120"
+          filter={`url(#${uid}-grain)`}
+          style={{ mixBlendMode: "overlay" }}
+          opacity="0.8"
+        />
       </g>
+
+      {art.prismatic && <PrismaticRing />}
+      <circle cx="60" cy="60" r="56" fill="none" stroke="#0b0f13" strokeWidth="2" opacity="0.55" />
     </svg>
   );
 }
