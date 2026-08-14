@@ -12,6 +12,14 @@ import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
 import { computeSplits, type Split } from "@/lib/tracking/splits";
 import {
+  computeVdot,
+  paceZonesFromVdot,
+  timeInZones,
+  ZONE_NUMBER,
+  ZONE_ORDER,
+  type PaceZoneName,
+} from "@/lib/plan";
+import {
   deleteCompletedRun,
   getCompletedRun,
   listCompletedRuns,
@@ -19,6 +27,7 @@ import {
   runMovingSeconds,
   updateRunElevationGain,
   type CompletedRun,
+  type StoredPoint,
 } from "@/lib/tracking/storage";
 import { usePreferences } from "@/lib/usePreferences";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
@@ -115,6 +124,75 @@ function SplitsTable({ splits, unit }: { splits: Split[]; unit: "km" | "mi" }) {
             </li>
           );
         })}
+      </ul>
+    </Card>
+  );
+}
+
+const ZONE_LABEL: Record<PaceZoneName, string> = {
+  easy: "Fácil",
+  marathon: "Maratona",
+  threshold: "Limiar",
+  interval: "Intervalado",
+  repetition: "Repetição",
+};
+
+/** Green-to-red intensity ramp using the app's existing semantic colors — no new palette, just Z1 calm through Z5 hardest. */
+const ZONE_BAR_COLOR: Record<PaceZoneName, string> = {
+  easy: "bg-good/60",
+  marathon: "bg-good",
+  threshold: "bg-accent",
+  interval: "bg-warn",
+  repetition: "bg-bad",
+};
+
+/**
+ * Time spent in each pace zone, one km split at a time — always computed on
+ * real kilometers regardless of the athlete's display unit preference,
+ * since the zone paces themselves (`PaceZones`) are defined in seconds per
+ * km. Null when there's no recent-race time on file to derive zones from
+ * (`/perfil`), or the run's too short for even one full split.
+ */
+function ZonesCard({ points }: { points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[] }) {
+  const [runnerProfile] = useRunnerProfile();
+  if (!runnerProfile.recentRaceDistanceMeters || !runnerProfile.recentRaceTimeSeconds) return null;
+
+  const kmSplits = computeSplits(points, 1000);
+  if (kmSplits.length === 0) return null;
+
+  const zones = paceZonesFromVdot(
+    computeVdot(runnerProfile.recentRaceDistanceMeters, runnerProfile.recentRaceTimeSeconds),
+  );
+  const seconds = timeInZones(kmSplits, zones);
+  const totalSeconds = ZONE_ORDER.reduce((sum, zone) => sum + seconds[zone], 0);
+  if (totalSeconds <= 0) return null;
+
+  return (
+    <Card className="pr-enter" style={delay(150)}>
+      <CardTitle>Tempo por zona</CardTitle>
+      <div className="mb-4 flex h-2 overflow-hidden rounded-full bg-background">
+        {ZONE_ORDER.map((zone) =>
+          seconds[zone] > 0 ? (
+            <div
+              key={zone}
+              className={ZONE_BAR_COLOR[zone]}
+              style={{ width: `${(seconds[zone] / totalSeconds) * 100}%` }}
+            />
+          ) : null,
+        )}
+      </div>
+      <ul className="flex flex-col gap-2">
+        {ZONE_ORDER.filter((zone) => seconds[zone] > 0).map((zone) => (
+          <li key={zone} className="flex items-center gap-3 text-sm">
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${ZONE_BAR_COLOR[zone]}`} />
+            <span className="flex-1 text-foreground">
+              Z{ZONE_NUMBER[zone]} · {ZONE_LABEL[zone]}
+            </span>
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
+              {formatElapsed(seconds[zone])}
+            </span>
+          </li>
+        ))}
       </ul>
     </Card>
   );
@@ -314,6 +392,8 @@ export function RunDetail({ id }: { id: string }) {
         )}
 
         <SplitsTable splits={splits} unit={unit} />
+
+        <ZonesCard points={run.points} />
 
         {coaches !== null && coaches.length > 0 && (
           <Card className="pr-enter" style={delay(170)}>

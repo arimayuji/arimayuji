@@ -9,6 +9,7 @@ import { EvidenceFactRow } from "../evidence-row";
 import {
   activePainSignal,
   generatePlan,
+  ZONE_NUMBER,
   type GeneratedPlan,
   type PlannedSession as EngineSession,
   type PaceZoneName,
@@ -99,6 +100,11 @@ const ZONE_LABEL: Record<PaceZoneName, string> = {
   interval: "Intervalado",
   repetition: "Repetição",
 };
+
+/** "Z1 · Fácil" — the numbered vocabulary a watch or Strava already trained the athlete to recognize, paired with the descriptive name so it's not just a bare number. */
+function zoneDisplayLabel(zone: PaceZoneName): string {
+  return `Z${ZONE_NUMBER[zone]} · ${ZONE_LABEL[zone]}`;
+}
 
 const PHASE_LABEL: Record<string, string> = {
   base: "base",
@@ -199,7 +205,7 @@ function PaceZonesCard({ zones }: { zones: PaceZones }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {rows.map(([zone, secPerKm]) => (
           <div key={zone}>
-            <span className="text-[11px] uppercase tracking-wide text-muted">{ZONE_LABEL[zone]}</span>
+            <span className="text-[11px] uppercase tracking-wide text-muted">{zoneDisplayLabel(zone)}</span>
             <p className="font-mono text-lg tabular-nums">
               {formatPace(secPerKm)}
               <span className="ml-1 text-xs text-muted">/km</span>

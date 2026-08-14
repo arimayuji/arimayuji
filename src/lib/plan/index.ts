@@ -1,4 +1,6 @@
 export { computeVdot, paceForZone, paceZonesFromVdot, predictRaceTime } from "./vdot";
+export { classifyPace, timeInZones, ZONE_NUMBER, ZONE_ORDER } from "./zones";
+export type { TimeInZones } from "./zones";
 export { buildVolumeRamp, PAIN_VOLUME_ADJUSTMENT } from "./volumeProgression";
 export { buildWeekSessions, phaseForWeek } from "./periodization";
 export { generatePlan } from "./generatePlan";
