@@ -14,10 +14,16 @@ import {
 // filenames when it emits them, so the worker 404s on its own import and the
 // map renders an empty background — no tiles, no line. 5.x inlines the worker
 // in the bundle, which is what a static export needs.
-import { AttributionControl, Map as MapLibreMap, Marker, type GeoJSONSource } from "maplibre-gl";
+import {
+  AttributionControl,
+  Map as MapLibreMap,
+  Marker,
+  type GeoJSONSource,
+  type StyleSpecification,
+} from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { maptilerStyleUrl, type ColorScheme } from "@/lib/maptiler";
+import { ensurePmtilesProtocol, protomapsStyle, type ColorScheme } from "@/lib/protomaps";
 import { bearingDegrees, haversineMeters } from "@/lib/tracking/geoFilter";
 import { replayHead, replayStretches, type ReplayCursor, type ReplayFrame } from "@/lib/tracking/replay";
 import {
@@ -29,8 +35,9 @@ import {
 import type { StoredPoint } from "@/lib/tracking/storage";
 
 /**
- * The GPS trace on a real MapTiler basemap, so the run reads as streets the
- * user recognises rather than a shape floating in the dark. Where tracking
+ * The GPS trace on a real basemap (see src/lib/protomaps.ts), so the run
+ * reads as streets the user recognises rather than a shape floating in the
+ * dark. Where tracking
  * silently gapped the line breaks instead of cutting across ground that was
  * never recorded — see routeProjection.ts.
  */
@@ -87,9 +94,9 @@ const BASE_LAYERS = [HALO_LAYER, LINE_LAYER, FASTEST_LAYER];
 /**
  * Tilted rather than flat top-down even for the plain overview — a finished
  * trace or a live run in progress — so the same real building-extrusion
- * data the chase camera rides through (MapTiler's "Building 3D" layer,
- * `fill-extrusion`, present from zoom 15) actually reads as buildings
- * instead of flat roof shapes. Safe to go steeper than the chase camera's
+ * data the chase camera rides through (our own `buildings` fill-extrusion
+ * layer, see src/lib/protomaps.ts, present from zoom 14) actually reads as
+ * buildings instead of flat roof shapes. Safe to go steeper than the chase camera's
  * own pitch: the artifact that forced that one down (an ordinary street's
  * casing and fill layers visibly separating) only showed up zoomed in
  * close on individual streets, and this view stays zoomed out to the whole
@@ -98,7 +105,7 @@ const BASE_LAYERS = [HALO_LAYER, LINE_LAYER, FASTEST_LAYER];
 const IDLE_PITCH = 50;
 const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false, pitch: IDLE_PITCH } as const;
 
-/** How long to wait for MapTiler's style before treating it as failed rather than still loading — generous for a slow connection, not so long the screen just looks stuck. */
+/** How long to wait for the basemap's tile data before treating it as failed rather than still loading — generous for a slow connection, not so long the screen just looks stuck. */
 const TILE_LOAD_TIMEOUT_MS = 9000;
 
 /**
@@ -344,13 +351,13 @@ function RouteTiles({
   points,
   live,
   scheme,
-  styleUrl,
+  style,
   replay,
 }: {
   points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
   live: boolean;
   scheme: ColorScheme;
-  styleUrl: string;
+  style: StyleSpecification;
   replay: ReplayCursor | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -390,14 +397,14 @@ function RouteTiles({
   );
 
   useEffect(() => {
-    // MapTiler unreachable (blocked DNS/network, an outage, a bad key)
-    // doesn't always surface as an error event before `style.load` — on a
-    // genuinely dead connection it just never fires, and the map sits on a
-    // blank canvas forever with nothing telling anyone why. `loaded` plus
-    // the timeout below is the fallback signal for that case; the `error`
-    // listener further down catches the faster case where the browser does
-    // report the failed fetch, so a real network error doesn't have to sit
-    // out the full timeout before anything happens.
+    // A dead connection (or a genuinely down R2 bucket) doesn't always
+    // surface as an error event before `style.load` — it can just never
+    // fire, leaving the map on a blank canvas forever with nothing telling
+    // anyone why. `loaded` plus the timeout below is the fallback signal
+    // for that case; the `error` listener further down catches the faster
+    // case where the browser does report the failed fetch, so a real
+    // network error doesn't have to sit out the full timeout before
+    // anything happens.
     let loaded = false;
     let settled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -413,15 +420,17 @@ function RouteTiles({
     };
     const failTimer = setTimeout(handleFailure, TILE_LOAD_TIMEOUT_MS);
 
+    ensurePmtilesProtocol();
+
     const instance = new MapLibreMap({
       container: container.current!,
-      style: styleUrl,
+      style,
       bounds: latest.current.bounds,
       fitBoundsOptions: FIT_OPTIONS,
       // This map sits inside a scrolling screen and replaces a still image:
       // a draggable map would swallow the scroll gesture on a phone.
       interactive: false,
-      // MapTiler's terms require the attribution; placing it manually keeps
+      // Protomaps/OSM attribution is required; placing it manually keeps
       // it clear of the "você está aqui" chip in the opposite corner.
       attributionControl: false,
       // Above the default 60°: the replay's chase camera (CHASE_PITCH) wants
@@ -517,7 +526,7 @@ function RouteTiles({
       headMarker.current = null;
       setToPixels(null);
     };
-  }, [styleUrl, scheme, live, retryAttempt]);
+  }, [style, scheme, live, retryAttempt]);
 
   useEffect(() => {
     replaying.current = replay !== null;
@@ -610,7 +619,7 @@ function RouteTiles({
     <div className="relative h-full w-full">
       <div
         ref={container}
-        // MapTiler's dark style leans blue; this desaturates it toward the
+        // The dark flavor's water leans blue; this desaturates it toward the
         // app's own steel/chrome palette (see the brand mark's gradient in
         // src/app/icon.svg) instead of reading as a generic map-provider blue.
         // The chase camera gets a gentler version of the same filter: at
@@ -658,9 +667,9 @@ function RouteTiles({
 }
 
 /**
- * No basemap: either no MapTiler key is configured, or the map hasn't been
- * handed the browser's colour scheme yet (this is what the prerendered HTML
- * contains). Draws the bare trace on a fixed near-black surface — a
+ * No basemap: the map hasn't been handed the browser's colour scheme yet
+ * (this is what the prerendered HTML contains). Draws the bare trace on a
+ * fixed near-black surface — a
  * deliberately dark "map surface" rather than a themed card, so it doesn't
  * invert to a stark light square in light mode.
  */
@@ -816,9 +825,13 @@ export function RouteMap({
   children?: ReactNode;
 }) {
   const scheme = useColorScheme();
-  const styleUrl = scheme && maptilerStyleUrl(scheme);
+  // Memoized on `scheme` alone: protomapsStyle() builds a fresh object every
+  // call, and a new reference here would otherwise retrigger the map-creation
+  // effect (and reload the whole map) on every unrelated re-render of this
+  // component.
+  const style = useMemo(() => (scheme ? protomapsStyle(scheme) : null), [scheme]);
   const hasRoute = points.length >= 2;
-  const showTiles = hasRoute && scheme !== null && styleUrl !== null;
+  const showTiles = hasRoute && scheme !== null && style !== null;
 
   return (
     <div
@@ -829,7 +842,7 @@ export function RouteMap({
           {live ? "Aguardando trajeto GPS…" : "Sem trajeto GPS suficiente pra desenhar o mapa."}
         </div>
       ) : showTiles ? (
-        <RouteTiles points={points} live={live} scheme={scheme} styleUrl={styleUrl} replay={replay} />
+        <RouteTiles points={points} live={live} scheme={scheme} style={style} replay={replay} />
       ) : (
         <RouteTrace points={points} live={live} replay={replay} />
       )}

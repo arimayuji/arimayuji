@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 // Pinned to maplibre-gl 5 for the same reason route-map.tsx is — see the
 // comment there about the 6.x worker breaking under a static export.
 import { AttributionControl, Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { maptilerStyleUrl, type ColorScheme } from "@/lib/maptiler";
+import { ensurePmtilesProtocol, protomapsStyle, type ColorScheme } from "@/lib/protomaps";
 
 /**
  * A coach's live view of one student's position — a single marker that
@@ -39,15 +39,19 @@ export function LiveMap({ lat, lon, className = "" }: { lat: number; lon: number
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const scheme = useColorScheme();
-  const styleUrl = scheme && maptilerStyleUrl(scheme);
+  // Memoized on `scheme` alone: protomapsStyle() builds a fresh object every
+  // call, and a new reference here would retrigger the map-creation effect
+  // below on every unrelated re-render.
+  const style = useMemo(() => (scheme ? protomapsStyle(scheme) : null), [scheme]);
 
   // One map instance per style (i.e. per light/dark flip) — MapLibre has no
   // cheap way to swap a loaded style's tiles, and this screen doesn't need one.
   useEffect(() => {
-    if (!styleUrl || !container.current) return;
+    if (!style || !container.current) return;
+    ensurePmtilesProtocol();
     const map = new MapLibreMap({
       container: container.current,
-      style: styleUrl,
+      style,
       center: [lon, lat],
       zoom: 15,
       attributionControl: false,
@@ -60,10 +64,10 @@ export function LiveMap({ lat, lon, className = "" }: { lat: number; lon: number
       mapRef.current = null;
       markerRef.current = null;
     };
-    // Deliberately only re-run on styleUrl — lat/lon updates are handled by
+    // Deliberately only re-run on style — lat/lon updates are handled by
     // the effect below, moving the existing marker instead of rebuilding the map.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [styleUrl]);
+  }, [style]);
 
   useEffect(() => {
     markerRef.current?.setLngLat([lon, lat]);
@@ -73,8 +77,6 @@ export function LiveMap({ lat, lon, className = "" }: { lat: number; lon: number
   if (scheme === null) {
     return <div className={`animate-pulse bg-border/40 ${className}`} aria-hidden="true" />;
   }
-  // No MapTiler key configured — degrade silently, same contract maptilerStyleUrl documents.
-  if (!styleUrl) return null;
 
   return <div ref={container} className={className} role="img" aria-label="Mapa com a posição atual" />;
 }

@@ -3,7 +3,7 @@ import type { StoredPoint } from "./storage";
 
 /**
  * The geometry of a GPS trace, in two shapes: `routeSegments` for drawing it
- * on a real basemap (see src/lib/maptiler.ts) and `projectRoute` for the
+ * on a real basemap (see src/lib/protomaps.ts) and `projectRoute` for the
  * basemap-less fallback, flattened into a square SVG viewBox.
  *
  * Both split the trace the same way, and that split is the point: this is
