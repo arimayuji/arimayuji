@@ -707,14 +707,15 @@ function RouteTiles({
         // keeps it recognisably a blue road, with our own accent-coloured
         // trail still the most saturated thing on screen either way.
         //
-        // `live` also mutes the attribution control's own click handling:
-        // this is the fixed full-bleed backdrop behind an in-progress run
-        // (see `RouteMap` in run/page.tsx), the exact screen a phone sits
-        // against a pocket or an arm during. `interactive: false` on the map
-        // instance already blocks panning/zooming, but MapLibre's compact
-        // attribution button is a plain DOM element outside that handler —
-        // a stray touch can still toggle it open into a white attribution
-        // panel covering part of the run screen. Nothing here hides the
+        // Also mutes the attribution control's own click handling, on every
+        // map this component renders — not just the live full-bleed run
+        // backdrop. `interactive: false` on the map instance already blocks
+        // panning/zooming, but MapLibre's compact attribution button is a
+        // plain DOM element outside that handler, and it turns out a stray
+        // touch reaches it just as easily on a finished run's own detail map
+        // (a phone going back in a pocket after stopping, not just one still
+        // recording) as on the live one — same white attribution panel
+        // popping up over the screen either way. Nothing here hides the
         // control itself (the attribution stays visible, satisfying the
         // OSM/Protomaps requirement); it only stops that one button from
         // reacting to touches it was never meant to receive.
@@ -722,7 +723,7 @@ function RouteTiles({
           replay
             ? "h-full w-full [&_.maplibregl-canvas]:saturate-[0.55] [&_.maplibregl-canvas]:brightness-[0.9]"
             : "h-full w-full [&_.maplibregl-canvas]:saturate-[0.35] [&_.maplibregl-canvas]:contrast-[1.12] [&_.maplibregl-canvas]:brightness-[0.92]"
-        } ${live ? "[&_.maplibregl-ctrl-attrib]:pointer-events-none" : ""}`}
+        } [&_.maplibregl-ctrl-attrib]:pointer-events-none`}
         role="img"
         aria-label="Trajeto percorrido"
       />
