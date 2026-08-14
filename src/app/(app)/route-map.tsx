@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -602,7 +603,21 @@ function RouteTiles({
     };
   }, [style, scheme, live, retryAttempt]);
 
-  useEffect(() => {
+  /**
+   * `useLayoutEffect`, not `useEffect`: this runs once per replay frame (a
+   * fresh `replay` object every animation-frame tick from route-replay.tsx),
+   * and it's what moves the camera (`jumpTo`/`easeTo` below). Moving the
+   * camera fires MapLibre's own "move" event, which republishes `toPixels`
+   * and schedules the re-render `BaseRouteOverlay`/`ReplayOverlay` need to
+   * redraw at the new camera position. A plain effect runs *after* the
+   * browser has already painted the frame that advanced the head's position
+   * — so every single frame briefly painted the new head sitting on the
+   * *previous* frame's camera projection before snapping into place, which
+   * is exactly what read as choppy. Layout effects (and the state updates
+   * they trigger) flush before paint, so the camera move and the overlay's
+   * reprojection land in the same frame the head itself moved in.
+   */
+  useLayoutEffect(() => {
     const instance = map.current;
     if (!instance) return;
 
