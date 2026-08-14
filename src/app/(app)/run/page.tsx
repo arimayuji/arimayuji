@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
@@ -28,9 +28,22 @@ import {
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
-import { formatEmblemKm, milestonesJustCrossed, totalDistanceMeters } from "@/lib/tracking/emblems";
+import {
+  EMBLEM_ACCENT,
+  formatEmblemKm,
+  milestonesJustCrossed,
+  nextMilestone,
+  totalDistanceMeters,
+} from "@/lib/tracking/emblems";
+import {
+  formatTimeHours,
+  nextTimeMilestone,
+  TIME_ACCENT,
+  totalMovingHours,
+} from "@/lib/tracking/collectibles";
 import { AchievementReveal } from "../achievement-reveal";
 import { EmblemBadge } from "../emblem-badge";
+import { EmblemProgressBar } from "../emblem-progress-bar";
 import { EmblemReveal } from "../emblem-reveal";
 import { PrBadge } from "../pr-badge";
 import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboarding";
@@ -209,6 +222,80 @@ function formatGoalEta(totalSeconds: number | null): string {
   return formatElapsed(Math.round(totalSeconds));
 }
 
+interface EmblemProgressEntry {
+  key: string;
+  icon: ReactNode;
+  accent: string;
+  label: string;
+  deltaLabel: string;
+  milestoneLabel: string;
+  beforeProgress: number;
+  afterProgress: number;
+  remainingLabel: string;
+}
+
+const DISTANCE_PROGRESS_ICON = (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 19 9 6 13 15 16 9 20 19" />
+  </svg>
+);
+
+const TIME_PROGRESS_ICON = (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </svg>
+);
+
+/**
+ * The distância/tempo bars for the finish screen's "XP gained" strip — see
+ * emblem-progress-bar.tsx. Elevação is left out: its gain is computed
+ * lazily the first time a run's own detail screen is opened (see
+ * `CompletedRun.elevationGainMeters`), so it simply isn't known yet at the
+ * instant a run finishes.
+ */
+function computeEmblemProgress(run: CompletedRun, allRuns: CompletedRun[]): EmblemProgressEntry[] {
+  const entries: EmblemProgressEntry[] = [];
+
+  const afterMeters = totalDistanceMeters(allRuns);
+  const beforeMeters = afterMeters - run.distanceMeters;
+  const nextDistanceBefore = nextMilestone(beforeMeters);
+  const nextDistanceAfter = nextMilestone(afterMeters);
+  if (nextDistanceBefore && nextDistanceAfter && nextDistanceBefore.km === nextDistanceAfter.km) {
+    entries.push({
+      key: "distancia",
+      icon: DISTANCE_PROGRESS_ICON,
+      accent: EMBLEM_ACCENT[nextDistanceAfter.km] ?? "#5b8dff",
+      label: "Distância",
+      deltaLabel: `+${(run.distanceMeters / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km`,
+      milestoneLabel: `${formatEmblemKm(nextDistanceAfter.km)} km`,
+      beforeProgress: nextDistanceBefore.progress,
+      afterProgress: nextDistanceAfter.progress,
+      remainingLabel: `Faltam ${(nextDistanceAfter.remainingMeters / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km`,
+    });
+  }
+
+  const afterHours = totalMovingHours(allRuns);
+  const beforeHours = afterHours - runMovingSeconds(run) / 3600;
+  const nextTimeBefore = nextTimeMilestone(beforeHours);
+  const nextTimeAfter = nextTimeMilestone(afterHours);
+  if (nextTimeBefore && nextTimeAfter && nextTimeBefore.value === nextTimeAfter.value) {
+    entries.push({
+      key: "tempo",
+      icon: TIME_PROGRESS_ICON,
+      accent: TIME_ACCENT[nextTimeAfter.value] ?? "#5b8dff",
+      label: "Tempo",
+      deltaLabel: `+${(runMovingSeconds(run) / 3600).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} h`,
+      milestoneLabel: formatTimeHours(nextTimeAfter.value),
+      beforeProgress: nextTimeBefore.progress,
+      afterProgress: nextTimeAfter.progress,
+      remainingLabel: `Faltam ${nextTimeAfter.remaining.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} h`,
+    });
+  }
+
+  return entries;
+}
+
 export default function RunPage() {
   const { state, start, pause, resume, finish, reset, setPauseReason } = useRunTracker();
   const [discarding, setDiscarding] = useState(false);
@@ -232,6 +319,8 @@ export default function RunPage() {
   /** Lifetime-distance milestones this run's own distance pushed the total past — see emblems.ts. Kept entirely separate from `runRecords`/`revealing` above, same as the two systems stay separate everywhere else. */
   const [crossedEmblemsKm, setCrossedEmblemsKm] = useState<number[]>([]);
   const [openedEmblemsKm, setOpenedEmblemsKm] = useState<number[]>([]);
+  /** "XP gained" bars toward whichever ladder rung this run moved the needle on without finishing it — see emblem-progress-bar.tsx for why a crossed milestone excludes that ladder from this list instead of also appearing here. */
+  const [emblemProgress, setEmblemProgress] = useState<EmblemProgressEntry[]>([]);
   const [revealingEmblemKm, setRevealingEmblemKm] = useState<number | null>(null);
   const shareSupport = useShareSupport();
   const reducedMotion = usePrefersReducedMotion();
@@ -261,6 +350,7 @@ export default function RunPage() {
       // what the lifetime total looked like the instant before it counted.
       const newTotal = totalDistanceMeters(allRuns);
       setCrossedEmblemsKm(milestonesJustCrossed(newTotal - run.distanceMeters, newTotal));
+      setEmblemProgress(computeEmblemProgress(run, allRuns));
     });
   }, [state.status, state.finishedRun]);
 
@@ -504,6 +594,7 @@ export default function RunPage() {
     setCrossedEmblemsKm([]);
     setOpenedEmblemsKm([]);
     setRevealingEmblemKm(null);
+    setEmblemProgress([]);
     reset();
   };
 
@@ -1129,6 +1220,14 @@ export default function RunPage() {
                     </span>
                   </button>
                 ))}
+            </div>
+          )}
+
+          {emblemProgress.length > 0 && (
+            <div className="flex w-full max-w-xs flex-col gap-2">
+              {emblemProgress.map(({ key, ...entry }) => (
+                <EmblemProgressBar key={key} {...entry} />
+              ))}
             </div>
           )}
 
