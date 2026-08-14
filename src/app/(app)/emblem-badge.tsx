@@ -104,11 +104,20 @@ export function EmblemBadge({
 
   return (
     <div className={`${className} relative aspect-square overflow-hidden rounded-full`}>
+      {/*
+        The commissioned art sits on its own dark backdrop inside a square
+        frame — the coin itself only fills about 72-75% of that square's
+        width, so a plain circular crop left a visible dark ring around the
+        actual medallion (read as "an old CD" rather than a coin with no
+        edge at all). scale-[1.4] zooms in past that backdrop so the coin's
+        own rim reaches the container's edge; sealed stacks the blur's own
+        softening on top of that same base zoom.
+      */}
       {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed R2 asset doesn't need next/image anyway. */}
       <img
         src={emblemImageUrl(km)}
         alt=""
-        className={`h-full w-full object-cover ${state === "sealed" ? "scale-125 blur-md brightness-[0.45] saturate-150" : ""}`}
+        className={`h-full w-full object-cover ${state === "sealed" ? "scale-[1.65] blur-md brightness-[0.45] saturate-150" : "scale-[1.4]"}`}
       />
       {state === "sealed" && (
         <span className="absolute inset-0 flex items-center justify-center text-white/85">
