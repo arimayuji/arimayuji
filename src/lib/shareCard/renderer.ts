@@ -93,6 +93,15 @@ function floatingMotion(elapsed: number) {
   return { bobY, rotZ, turnScaleX };
 }
 
+/**
+ * `"trajeto"` is the original card: a small route map with the stats
+ * anchored bottom-left. `"numero"` leads with the distance instead — a
+ * single huge number centred on the frame, photo or scenario filling the
+ * rest, no route drawn at all. Same underlying data either way; only how
+ * `drawShareCardFrame` composes it changes.
+ */
+export type ShareCardLayout = "trajeto" | "numero";
+
 export interface ShareCardRecord {
   label: string;
   achievement: Achievement;
@@ -107,6 +116,8 @@ export interface ShareCardInput {
   run: CompletedRun;
   scenario: ScenarioId;
   unit: DistanceUnit;
+  /** Defaults to "trajeto" — the original route-map card. */
+  layout?: ShareCardLayout;
   record?: ShareCardRecord | null;
   shoe?: ShareCardShoe | null;
   /** A photo the athlete chose, already decoded. Replaces the illustrated sky when present. */
@@ -120,6 +131,7 @@ interface Point {
 
 export interface ShareCardScene {
   scenario: ScenarioId;
+  layout: ShareCardLayout;
   photo: HTMLImageElement | null;
   /** Every fix's timestamp, in input order — `replayStretches` splits on these to honour tracking gaps. */
   points: { timestamp: number }[];
@@ -195,6 +207,7 @@ export function buildShareCardScene({
   run,
   scenario,
   unit,
+  layout = "trajeto",
   record = null,
   shoe = null,
   photo = null,
@@ -204,6 +217,7 @@ export function buildShareCardScene({
 
   return {
     scenario,
+    layout,
     photo,
     points: run.points.map((point) => ({ timestamp: point.timestamp })),
     projected: (projection?.projected ?? []).map((point) => ({
@@ -229,6 +243,9 @@ export function shareCardFontSpecs(scene: ShareCardScene): string[] {
     `400 44px ${scene.fontFamily}`,
     `400 26px ${scene.fontFamily}`,
     `700 22px ${scene.fontFamily}`,
+    `600 176px ${scene.fontFamily}`,
+    `400 54px ${scene.fontFamily}`,
+    `400 40px ${scene.fontFamily}`,
   ];
 }
 
@@ -507,8 +524,19 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
   });
 }
 
+interface PlateSlot {
+  x: number;
+  y: number;
+  size: number;
+}
+
 /** To the right of the numbers, not over the route: the medal and the stats read as one block that way. */
-const PLATE_SLOT = { x: 582, y: 1020, size: 200 };
+const TRAJETO_PLATE_SLOT: PlateSlot = { x: 582, y: 1020, size: 200 };
+/** Centred below the stats row — the "numero" layout has nothing off to one side for it to sit next to. */
+const NUMERO_PLATE_SLOT: PlateSlot = { x: SHARE_CARD_WIDTH / 2, y: 970, size: 170 };
+/** The route-draw phase runs first on "trajeto"; "numero" has no equivalent runway, so its accessory pops in much sooner, right after the stats settle. */
+const TRAJETO_PLATE_POP_START = ROUTE_DRAW_END + 480;
+const NUMERO_PLATE_POP_START = 1450;
 
 /**
  * The gem-cut plate, drawn the same way the SVG component draws it: every
@@ -522,25 +550,27 @@ function drawPlate(
   scene: ShareCardScene,
   record: ShareCardRecord,
   elapsed: number,
+  slot: PlateSlot,
+  popStart: number,
 ) {
-  const pop = easeOut(stage(elapsed, ROUTE_DRAW_END + 480, 520));
+  const pop = easeOut(stage(elapsed, popStart, 520));
   if (pop <= 0) return;
 
   const { achievement } = record;
   const paint = TIER_PAINT[achievement.tier];
   const stops = tintedStops(paint, achievement.hueShift, achievement.tintScale);
-  const scale = (PLATE_SLOT.size / 120) * (0.86 + 0.14 * pop);
+  const scale = (slot.size / 120) * (0.86 + 0.14 * pop);
 
   ctx.save();
   ctx.globalAlpha = pop;
-  ctx.translate(PLATE_SLOT.x, PLATE_SLOT.y);
+  ctx.translate(slot.x, slot.y);
 
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, PLATE_SLOT.size * 0.85);
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, slot.size * 0.85);
   glow.addColorStop(0, `${paint.glow}66`);
   glow.addColorStop(1, `${paint.glow}00`);
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(0, 0, PLATE_SLOT.size * 0.85, 0, Math.PI * 2);
+  ctx.arc(0, 0, slot.size * 0.85, 0, Math.PI * 2);
   ctx.fill();
 
   const float = floatingMotion(elapsed);
@@ -632,8 +662,16 @@ function drawPlate(
   ctx.restore();
 }
 
+interface ShoeSlot {
+  x: number;
+  y: number;
+  width: number;
+}
+
 /** Bleeds off the right edge, the way the preview card floats it. */
-const SHOE_SLOT = { x: 300, y: 806, width: 440 };
+const TRAJETO_SHOE_SLOT: ShoeSlot = { x: 300, y: 806, width: 440 };
+/** Centred and smaller — "numero" has no route box for it to bleed past. */
+const NUMERO_SHOE_SLOT: ShoeSlot = { x: (SHARE_CARD_WIDTH - 320) / 2, y: 980, width: 320 };
 
 /**
  * The real generated collectible art (see /public/shoe) instead of a
@@ -768,25 +806,26 @@ function drawShoe(
   ctx: CanvasRenderingContext2D,
   shoe: ShareCardShoe,
   elapsed: number,
+  slot: ShoeSlot,
+  popStart: number,
 ) {
-  const popStart = ROUTE_DRAW_END + 480;
   const pop = easeOut(stage(elapsed, popStart, 520));
   if (pop <= 0) return;
 
   const [r, g, b] = parseHex(shoe.color);
-  const targetWidth = SHOE_SLOT.width * (0.9 + 0.1 * pop);
+  const targetWidth = slot.width * (0.9 + 0.1 * pop);
 
   ctx.save();
   ctx.globalAlpha = pop;
-  ctx.translate(SHOE_SLOT.x + SHOE_SLOT.width / 2, SHOE_SLOT.y);
+  ctx.translate(slot.x + slot.width / 2, slot.y);
 
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, SHOE_SLOT.width * 0.6);
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, slot.width * 0.6);
   glow.addColorStop(0, `rgba(${r},${g},${b},0.6)`);
   glow.addColorStop(0.55, `rgba(${r},${g},${b},0.22)`);
   glow.addColorStop(1, `rgba(${r},${g},${b},0)`);
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(0, 0, SHOE_SLOT.width * 0.6, 0, Math.PI * 2);
+  ctx.arc(0, 0, slot.width * 0.6, 0, Math.PI * 2);
   ctx.fill();
 
   const float = floatingMotion(elapsed);
@@ -813,6 +852,86 @@ function drawShoe(
  * step it on the wall clock and a preview step it on rAF without the two
  * drifting apart.
  */
+/**
+ * "numero" leads with the distance itself instead of the route: one huge
+ * number, centred, with time and pace small underneath — the composition a
+ * lot of runners already build by hand in a photo editor before posting
+ * (a big stat stamped over an action shot), done natively instead of asking
+ * them to leave the app to get it. No route box in this layout at all; the
+ * number is the whole point.
+ */
+const NUMBER_POP_START = 260;
+const NUMBER_POP_MS = 600;
+const NUMBER_FONT_PX = 176;
+const NUMBER_UNIT_FONT_PX = 54;
+const NUMBER_BASELINE_Y = 660;
+
+function drawNumberHero(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed: number) {
+  const pop = easeOut(stage(elapsed, NUMBER_POP_START, NUMBER_POP_MS));
+  if (pop <= 0) return;
+
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `600 ${NUMBER_FONT_PX}px ${scene.fontFamily}`;
+  const numberWidth = ctx.measureText(scene.distance).width;
+  ctx.font = `400 ${NUMBER_UNIT_FONT_PX}px ${scene.fontFamily}`;
+  const unitWidth = ctx.measureText(scene.distanceUnit).width;
+  const gap = 16;
+  const startX = (SHARE_CARD_WIDTH - (numberWidth + gap + unitWidth)) / 2;
+
+  ctx.globalAlpha = pop;
+  const scale = 0.94 + 0.06 * pop;
+  ctx.translate(SHARE_CARD_WIDTH / 2, NUMBER_BASELINE_Y);
+  ctx.scale(scale, scale);
+  ctx.translate(-SHARE_CARD_WIDTH / 2, -NUMBER_BASELINE_Y);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `600 ${NUMBER_FONT_PX}px ${scene.fontFamily}`;
+  ctx.fillText(scene.distance, startX, NUMBER_BASELINE_Y);
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.font = `400 ${NUMBER_UNIT_FONT_PX}px ${scene.fontFamily}`;
+  ctx.fillText(scene.distanceUnit, startX + numberWidth + gap, NUMBER_BASELINE_Y);
+  ctx.restore();
+}
+
+const NUMBER_STATS_START = NUMBER_POP_START + 420;
+const NUMBER_STATS_LABEL_Y = 760;
+const NUMBER_STATS_VALUE_Y = 808;
+const NUMBER_STATS_COLUMN_WIDTH = 220;
+
+function drawNumberStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed: number) {
+  const columns: { label: string; value: string }[] = [
+    { label: "TEMPO", value: scene.duration },
+    { label: "PACE", value: `${scene.pace}/${scene.distanceUnit}` },
+  ];
+  const totalWidth = NUMBER_STATS_COLUMN_WIDTH * columns.length;
+  const startX = (SHARE_CARD_WIDTH - totalWidth) / 2 + NUMBER_STATS_COLUMN_WIDTH / 2;
+
+  columns.forEach((column, index) => {
+    const alpha = easeOut(stage(elapsed, NUMBER_STATS_START + index * 110, 400));
+    if (alpha <= 0) return;
+    const x = startX + index * NUMBER_STATS_COLUMN_WIDTH;
+    const rise = (1 - alpha) * 14;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `400 22px ${scene.fontFamily}`;
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    const labelWidth = trackedWidth(ctx, column.label, 2.4);
+    trackedText(ctx, column.label, x - labelWidth / 2, NUMBER_STATS_LABEL_Y + rise, 2.4);
+
+    ctx.textAlign = "center";
+    ctx.font = `400 40px ${scene.fontFamily}`;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(column.value, x, NUMBER_STATS_VALUE_Y + rise);
+    ctx.restore();
+  });
+  ctx.textAlign = "left";
+}
+
 export function drawShareCardFrame(
   ctx: CanvasRenderingContext2D,
   scene: ShareCardScene,
@@ -825,12 +944,18 @@ export function drawShareCardFrame(
 
   if (scene.photo) drawPhoto(ctx, scene.photo);
   else drawScenario(ctx, scene.scenario);
-  drawRoute(ctx, scene, elapsed);
+
+  if (scene.layout === "numero") drawNumberHero(ctx, scene, elapsed);
+  else drawRoute(ctx, scene, elapsed);
 
   // A record and a shoe want the same slot; the record wins, because a card
   // announcing a PR is doing a different job than one showing off the kit.
-  if (scene.record) drawPlate(ctx, scene, scene.record, elapsed);
-  else if (scene.shoe) drawShoe(ctx, scene.shoe, elapsed);
+  const [plateSlot, plateStart, shoeSlot, shoeStart] =
+    scene.layout === "numero"
+      ? [NUMERO_PLATE_SLOT, NUMERO_PLATE_POP_START, NUMERO_SHOE_SLOT, NUMERO_PLATE_POP_START]
+      : [TRAJETO_PLATE_SLOT, TRAJETO_PLATE_POP_START, TRAJETO_SHOE_SLOT, TRAJETO_PLATE_POP_START];
+  if (scene.record) drawPlate(ctx, scene, scene.record, elapsed, plateSlot, plateStart);
+  else if (scene.shoe) drawShoe(ctx, scene.shoe, elapsed, shoeSlot, shoeStart);
 
   const chromeAlpha = easeOut(stage(elapsed, 0, 360));
   drawPill(ctx, scene, "XANTHUS", null, STAT_LEFT, CHROME_TOP, chromeAlpha);
@@ -848,5 +973,6 @@ export function drawShareCardFrame(
     );
   }
 
-  drawStats(ctx, scene, elapsed);
+  if (scene.layout === "numero") drawNumberStats(ctx, scene, elapsed);
+  else drawStats(ctx, scene, elapsed);
 }

@@ -13,7 +13,7 @@ import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/u
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords } from "@/lib/tracking/personalRecords";
-import { buildShareCardScene, scenarioForRun } from "@/lib/shareCard/renderer";
+import { buildShareCardScene, scenarioForRun, type ShareCardLayout } from "@/lib/shareCard/renderer";
 import { buildShareCardVideoFile, canRecordShareVideo } from "@/lib/shareCard/video";
 import {
   listCompletedRuns,
@@ -56,6 +56,7 @@ export default function CompartilharPage() {
 
 function CompartilharContent() {
   const requestedRunId = useSearchParams().get("run");
+  const [layout, setLayout] = useState<ShareCardLayout>("trajeto");
   const [scenario, setScenario] = useState<ScenarioId | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photo, setPhoto] = useState<HTMLImageElement | null>(null);
@@ -95,6 +96,7 @@ function CompartilharContent() {
     const built = buildShareCardScene({
       run,
       scenario: activeScenario,
+      layout,
       unit: preferences.distanceUnit,
       photo,
       shoe: shoe ? { name: shoe.name, color: shoe.color } : null,
@@ -103,7 +105,7 @@ function CompartilharContent() {
         : null,
     });
     return built.projected.length >= 2 ? built : null;
-  }, [run, runs, activeScenario, preferences.distanceUnit, photo, shoe]);
+  }, [run, runs, activeScenario, layout, preferences.distanceUnit, photo, shoe]);
 
   const shareText = useMemo(() => {
     if (!run) return NO_RUN_TEXT;
@@ -251,6 +253,7 @@ function CompartilharContent() {
           ) : (
             <ShareCard
               scenario={activeScenario}
+              layout={layout}
               photoUrl={photoUrl ?? undefined}
               shoe={shoe ? { name: shoe.name, color: shoe.color } : undefined}
             />
@@ -263,7 +266,40 @@ function CompartilharContent() {
             : "Percurso, distância, tempo e pace acima são de demonstração — não são de nenhuma corrida real."}
         </p>
 
-        <Card className="pr-enter" style={delay(170)}>
+        <Card className="pr-enter" style={delay(155)}>
+          <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Estilo do card</CardTitle>
+          <p className="text-xs leading-relaxed text-muted text-pretty">
+            Trajeto mostra o mapinha da corrida. Número deixa a distância gigante, ocupando o
+            centro do card.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(
+              [
+                { id: "trajeto" as const, label: "Trajeto", hint: "mapa + números" },
+                { id: "numero" as const, label: "Número", hint: "número em destaque" },
+              ]
+            ).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setLayout(option.id)}
+                aria-pressed={layout === option.id}
+                className={`min-h-14 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  layout === option.id
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border bg-background text-foreground hover:border-accent"
+                }`}
+              >
+                <span className="block">{option.label}</span>
+                <span className="mt-0.5 block text-[11px] font-normal text-muted">
+                  {option.hint}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="pr-enter" style={delay(185)}>
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Sua foto</CardTitle>
           <p className="text-xs leading-relaxed text-muted text-pretty">
             Suba uma foto da sua corrida pra usar como fundo do card, no lugar de um cenário
@@ -298,7 +334,7 @@ function CompartilharContent() {
           </div>
         </Card>
 
-        <Card className={`pr-enter ${photoUrl ? "opacity-50" : ""}`} style={delay(185)}>
+        <Card className={`pr-enter ${photoUrl ? "opacity-50" : ""}`} style={delay(200)}>
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
             Cenário de fundo
           </CardTitle>
@@ -331,7 +367,7 @@ function CompartilharContent() {
         </Card>
 
         {shoes && shoes.length > 0 && (
-          <Card className="pr-enter" style={delay(195)}>
+          <Card className="pr-enter" style={delay(215)}>
             <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
               Tênis em destaque
             </CardTitle>

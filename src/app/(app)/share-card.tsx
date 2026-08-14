@@ -130,11 +130,14 @@ function Scrim() {
 export function ShareCard({
   compact = false,
   scenario = "madrugada",
+  layout = "trajeto",
   photoUrl,
   shoe,
 }: {
   compact?: boolean;
   scenario?: ScenarioId;
+  /** "numero" previews the big-number layout instead — see shareCard/renderer.ts for the real, animated version this stands in for. */
+  layout?: "trajeto" | "numero";
   photoUrl?: string;
   shoe?: { name: string; color: string };
 }) {
@@ -165,76 +168,78 @@ export function ShareCard({
       )}
       <Scrim />
 
-      <svg
-        viewBox="0 0 320 400"
-        className="absolute inset-0 h-full w-full"
-        preserveAspectRatio="xMidYMid slice"
-        aria-hidden="true"
-      >
-        {/* Lifted clear of the stats block at the bottom of the card. */}
-        <g className="pr-enter" transform="translate(0 -28)" style={delay(120)}>
-          <path
-            d={DEMO_ROUTE}
-            pathLength={1}
-            fill="none"
-            stroke="#ffffff"
-            strokeWidth="9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity="0.18"
-            className="pr-draw"
-            style={delay(120, { "--pr-dur": "1.8s" } as CSSProperties)}
-          />
-          <path
-            d={DEMO_ROUTE}
-            pathLength={1}
-            fill="none"
-            stroke="#ffffff"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="pr-draw"
-            style={delay(120, { "--pr-dur": "1.8s" } as CSSProperties)}
-          />
-          <circle
-            cx="42"
-            cy="250"
-            r="6"
-            fill="#ffffff"
-            className="pr-pop"
-            style={delay(120)}
-          />
-          <circle
-            cx="262"
-            cy="112"
-            r="6"
-            fill="none"
-            stroke="#ffffff"
-            strokeWidth="3"
-            className="pr-pop"
-            style={delay(1750)}
-          />
-        </g>
-      </svg>
+      {layout === "trajeto" && (
+        <svg
+          viewBox="0 0 320 400"
+          className="absolute inset-0 h-full w-full"
+          preserveAspectRatio="xMidYMid slice"
+          aria-hidden="true"
+        >
+          {/* Lifted clear of the stats block at the bottom of the card. */}
+          <g className="pr-enter" transform="translate(0 -28)" style={delay(120)}>
+            <path
+              d={DEMO_ROUTE}
+              pathLength={1}
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="9"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.18"
+              className="pr-draw"
+              style={delay(120, { "--pr-dur": "1.8s" } as CSSProperties)}
+            />
+            <path
+              d={DEMO_ROUTE}
+              pathLength={1}
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="pr-draw"
+              style={delay(120, { "--pr-dur": "1.8s" } as CSSProperties)}
+            />
+            <circle
+              cx="42"
+              cy="250"
+              r="6"
+              fill="#ffffff"
+              className="pr-pop"
+              style={delay(120)}
+            />
+            <circle
+              cx="262"
+              cy="112"
+              r="6"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="3"
+              className="pr-pop"
+              style={delay(1750)}
+            />
+          </g>
+        </svg>
+      )}
 
-      {shoe && (
+      {shoe && layout === "trajeto" && (
         <ShoeShowcase
           color={shoe.color}
           className="pointer-events-none absolute right-[-2%] top-[46%] w-[62%] -translate-y-1/2"
         />
       )}
 
-      <div className="absolute inset-0 flex flex-col justify-between p-4 text-white">
-        <div className="flex items-start justify-between gap-2">
-          <span className="rounded-full bg-black/35 px-2.5 py-1 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.14em] backdrop-blur-sm">
-            Xanthus
-          </span>
-          <span className="rounded-full bg-black/35 px-2.5 py-1 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.14em] backdrop-blur-sm">
-            {SCENARIOS[scenario].short.toLowerCase()}
-          </span>
-        </div>
+      <div className="absolute inset-0 flex items-start justify-between gap-2 p-4 text-white">
+        <span className="rounded-full bg-black/35 px-2.5 py-1 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.14em] backdrop-blur-sm">
+          Xanthus
+        </span>
+        <span className="rounded-full bg-black/35 px-2.5 py-1 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.14em] backdrop-blur-sm">
+          {SCENARIOS[scenario].short.toLowerCase()}
+        </span>
+      </div>
 
-        <div>
+      {layout === "trajeto" ? (
+        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
           {!compact && (
             <p className="font-mono text-[11px] tracking-wide text-white/75">{DEMO_STATS.when}</p>
           )}
@@ -256,7 +261,27 @@ export function ShareCard({
             </div>
           </dl>
         </div>
-      </div>
+      ) : (
+        <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 flex-col items-center text-center text-white">
+          <p className="font-mono text-6xl font-semibold tabular-nums leading-none">
+            {DEMO_STATS.distance}
+            <span className="ml-1.5 text-2xl font-normal text-white/80">km</span>
+          </p>
+          <dl className="mt-4 flex gap-8 font-mono tabular-nums">
+            <div>
+              <dt className="text-[10px] uppercase tracking-wide text-white/70">Tempo</dt>
+              <dd className="text-lg">{DEMO_STATS.duration}</dd>
+            </div>
+            <div>
+              <dt className="text-[10px] uppercase tracking-wide text-white/70">Pace</dt>
+              <dd className="text-lg">
+                {DEMO_STATS.pace}
+                <span className="ml-1 text-xs text-white/70">/km</span>
+              </dd>
+            </div>
+          </dl>
+        </div>
+      )}
     </div>
   );
 }
