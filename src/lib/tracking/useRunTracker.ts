@@ -341,7 +341,15 @@ export function useRunTracker() {
       setState((s) => ({ ...s, gpsQuality: "searching" }));
       return; // keep the watch alive, GPS may recover (tunnel, tree cover, ...)
     }
-    setState((s) => ({ ...s, error: err.message }));
+    // Once denied, the browser won't prompt again on its own — the raw
+    // GeolocationPositionError message ("User denied Geolocation") doesn't
+    // tell anyone that, or where to go fix it, so this is the one error
+    // code worth a message written for a person instead of passed through.
+    const message =
+      err.code === err.PERMISSION_DENIED
+        ? "Localização bloqueada pro Xanthus. Ativa em Ajustes do aparelho → Apps → Xanthus → Permissões → Localização, aí volta aqui."
+        : err.message;
+    setState((s) => ({ ...s, error: message }));
   }, []);
 
   const beginWatch = useCallback(() => {
