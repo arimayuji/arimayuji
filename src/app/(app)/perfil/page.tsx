@@ -88,6 +88,15 @@ function CoachIcon({ className }: { className?: string }) {
   );
 }
 
+function EmblemsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <circle cx="12" cy="10" r="6.2" />
+      <path d="M9 15.3 7.6 21l4.4-2.6L16.4 21l-1.4-5.7" />
+    </svg>
+  );
+}
+
 function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
@@ -780,6 +789,19 @@ export default function PerfilPage() {
             <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
               Parques e rotas avaliados por segurança, percurso, estrutura, iluminação e fluxo — curadoria
               inicial mais nota real de quem já correu lá.
+            </p>
+            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
+          </Link>
+        </Card>
+
+        <Card className="pr-enter" style={delay(85)}>
+          <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>Emblemas</CardTitle>
+          <Link href="/emblemas" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+              <EmblemsIcon className="h-5 w-5" />
+            </span>
+            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
+              Sua coleção de marcos de quilometragem — cada um escondido até você destravar e abrir.
             </p>
             <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
           </Link>

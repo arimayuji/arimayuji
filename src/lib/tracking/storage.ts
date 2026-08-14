@@ -135,11 +135,12 @@ export interface PainCheckIn {
 }
 
 const DB_NAME = "xanthus";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const ACTIVE_STORE = "activeRun";
 const RUNS_STORE = "runs";
 const SHOES_STORE = "shoes";
 const PAIN_STORE = "painCheckIns";
+const EMBLEMS_STORE = "emblemsOpened";
 const ACTIVE_KEY = "current";
 
 function newShoeId(): string {
@@ -166,6 +167,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(PAIN_STORE)) {
         db.createObjectStore(PAIN_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(EMBLEMS_STORE)) {
+        db.createObjectStore(EMBLEMS_STORE, { keyPath: "km" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -291,6 +295,26 @@ export async function markRecordOpened(runId: string, targetMeters: number): Pro
   if (opened.includes(targetMeters)) return;
   run.openedRecordMeters = [...opened, targetMeters];
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
+}
+
+/**
+ * A distance-milestone emblem's own store — not a field on `CompletedRun`
+ * like `openedRecordMeters` is, since a lifetime milestone isn't tied to any
+ * one run and has to stay readable even after the run that crossed it is
+ * later deleted (a discarded test run, an accidental double-save).
+ */
+export async function markEmblemOpened(km: number): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  await withStore(EMBLEMS_STORE, "readwrite", (store) => store.put({ km, openedAt: Date.now() }));
+}
+
+/** Every milestone (by its km value) the athlete has already tapped open — see `markEmblemOpened`. */
+export async function listOpenedEmblemKm(): Promise<number[]> {
+  if (typeof indexedDB === "undefined") return [];
+  const rows = await withStore<{ km: number; openedAt: number }[]>(EMBLEMS_STORE, "readonly", (store) =>
+    store.getAll(),
+  );
+  return rows.map((row) => row.km);
 }
 
 export async function createShoe(shoe: Omit<Shoe, "id" | "createdAt">): Promise<Shoe> {

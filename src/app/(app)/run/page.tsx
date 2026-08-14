@@ -15,6 +15,7 @@ import {
   deleteCompletedRun,
   listCompletedRuns,
   listShoes,
+  markEmblemOpened,
   markRecordOpened,
   runMovingSeconds,
   summarizeShoes,
@@ -27,7 +28,10 @@ import {
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
+import { computeEmblem, formatEmblemKm, milestonesJustCrossed, totalDistanceMeters } from "@/lib/tracking/emblems";
 import { AchievementReveal } from "../achievement-reveal";
+import { EmblemBadge } from "../emblem-badge";
+import { EmblemReveal } from "../emblem-reveal";
 import { PrBadge } from "../pr-badge";
 import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboarding";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
@@ -225,6 +229,10 @@ export default function RunPage() {
   const [openedRecordMeters, setOpenedRecordMeters] = useState<number[]>([]);
   const [savedRpe, setSavedRpe] = useState<number | null>(null);
   const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
+  /** Lifetime-distance milestones this run's own distance pushed the total past — see emblems.ts. Kept entirely separate from `runRecords`/`revealing` above, same as the two systems stay separate everywhere else. */
+  const [crossedEmblemsKm, setCrossedEmblemsKm] = useState<number[]>([]);
+  const [openedEmblemsKm, setOpenedEmblemsKm] = useState<number[]>([]);
+  const [revealingEmblemKm, setRevealingEmblemKm] = useState<number | null>(null);
   const shareSupport = useShareSupport();
   const reducedMotion = usePrefersReducedMotion();
   const [shareCopied, setShareCopied] = useState(false);
@@ -248,6 +256,11 @@ export default function RunPage() {
     const run = state.finishedRun;
     listCompletedRuns().then((allRuns) => {
       setRunRecords(computeRunRecords(run, allRuns));
+      // `allRuns` already includes this run (finish() saves it before this
+      // effect's fetch fires), so subtracting its own distance back out is
+      // what the lifetime total looked like the instant before it counted.
+      const newTotal = totalDistanceMeters(allRuns);
+      setCrossedEmblemsKm(milestonesJustCrossed(newTotal - run.distanceMeters, newTotal));
     });
   }, [state.status, state.finishedRun]);
 
@@ -488,6 +501,9 @@ export default function RunPage() {
     setOpenedRecordMeters([]);
     setSavedRpe(null);
     setRevealing(null);
+    setCrossedEmblemsKm([]);
+    setOpenedEmblemsKm([]);
+    setRevealingEmblemKm(null);
     reset();
   };
 
@@ -496,6 +512,12 @@ export default function RunPage() {
     if (openedRecordMeters.includes(record.targetMeters)) return;
     setOpenedRecordMeters((current) => [...current, record.targetMeters]);
     markRecordOpened(runId, record.targetMeters).catch(() => {});
+  };
+
+  const handleEmblemOpened = (km: number) => {
+    if (openedEmblemsKm.includes(km)) return;
+    setOpenedEmblemsKm((current) => [...current, km]);
+    markEmblemOpened(km).catch(() => {});
   };
 
   const handleRpeSelect = (runId: string, rpe: number) => {
@@ -1084,6 +1106,41 @@ export default function RunPage() {
             />
           )}
 
+          {crossedEmblemsKm.filter((km) => !openedEmblemsKm.includes(km)).length > 0 && (
+            <div className="flex w-full max-w-xs flex-col gap-2">
+              {crossedEmblemsKm
+                .filter((km) => !openedEmblemsKm.includes(km))
+                .map((km) => (
+                  <button
+                    key={km}
+                    type="button"
+                    onClick={() => setRevealingEmblemKm(km)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 p-4 text-left"
+                  >
+                    <span className="h-11 w-11 shrink-0">
+                      <EmblemBadge emblem={computeEmblem(km)} state="sealed" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground">Novo emblema!</p>
+                      <p className="text-xs text-muted">{formatEmblemKm(km)} km na vida</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">
+                      Abrir
+                    </span>
+                  </button>
+                ))}
+            </div>
+          )}
+
+          {revealingEmblemKm !== null && (
+            <EmblemReveal
+              km={revealingEmblemKm}
+              alreadyOpened={openedEmblemsKm.includes(revealingEmblemKm)}
+              onOpened={() => handleEmblemOpened(revealingEmblemKm)}
+              onClose={() => setRevealingEmblemKm(null)}
+            />
+          )}
+
           {state.finishedRun.pauseEvents && state.finishedRun.pauseEvents.length > 0 && (
             <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
               <div className="flex items-center justify-between gap-2">
@@ -1290,7 +1347,14 @@ export default function RunPage() {
               .
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex w-full max-w-xs flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
+            >
+              Nova corrida
+            </button>
             <button
               type="button"
               onClick={handleDiscard}
@@ -1298,13 +1362,6 @@ export default function RunPage() {
               className="text-sm text-muted underline hover:text-bad disabled:opacity-60"
             >
               {discarding ? "Descartando…" : "Descartar corrida"}
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
-            >
-              Nova corrida
             </button>
           </div>
         </main>
