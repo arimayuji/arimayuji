@@ -28,7 +28,7 @@ import {
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
-import { computeEmblem, formatEmblemKm, milestonesJustCrossed, totalDistanceMeters } from "@/lib/tracking/emblems";
+import { formatEmblemKm, milestonesJustCrossed, totalDistanceMeters } from "@/lib/tracking/emblems";
 import { AchievementReveal } from "../achievement-reveal";
 import { EmblemBadge } from "../emblem-badge";
 import { EmblemReveal } from "../emblem-reveal";
@@ -1118,7 +1118,7 @@ export default function RunPage() {
                     className="flex w-full items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 p-4 text-left"
                   >
                     <span className="h-11 w-11 shrink-0">
-                      <EmblemBadge emblem={computeEmblem(km)} state="sealed" />
+                      <EmblemBadge km={km} state="sealed" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-foreground">Novo emblema!</p>

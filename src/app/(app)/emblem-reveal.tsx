@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
-import { computeEmblemArt } from "@/lib/emblemArt";
-import { computeEmblem, EMBLEM_LADDER_KM, formatEmblemKm } from "@/lib/tracking/emblems";
+import { EMBLEM_ACCENT, EMBLEM_LADDER_KM, formatEmblemKm } from "@/lib/tracking/emblems";
 import { EmblemBadge } from "./emblem-badge";
 import { ModalPortal } from "./modal-portal";
 
@@ -29,8 +28,7 @@ export function EmblemReveal({
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const [opened, setOpened] = useState(alreadyOpened || reducedMotion);
-  const emblem = computeEmblem(km);
-  const art = useMemo(() => computeEmblemArt(emblem.seed, emblem.tier), [emblem.seed, emblem.tier]);
+  const accent = EMBLEM_ACCENT[km] ?? "#5b8dff";
   const rank = EMBLEM_LADDER_KM.indexOf(km) + 1;
 
   const handleOpen = () => {
@@ -71,7 +69,7 @@ export function EmblemReveal({
             {!opened && !reducedMotion && (
               <span
                 className="pr-halo pointer-events-none absolute inset-0 rounded-full blur-2xl"
-                style={{ backgroundColor: art.accent, opacity: 0.4 }}
+                style={{ backgroundColor: accent, opacity: 0.4 }}
                 aria-hidden="true"
               />
             )}
@@ -80,7 +78,7 @@ export function EmblemReveal({
                 opened ? "scale-100" : "scale-90 active:scale-95"
               }`}
             >
-              <EmblemBadge emblem={emblem} state={opened ? "opened" : "sealed"} />
+              <EmblemBadge km={km} state={opened ? "opened" : "sealed"} />
             </span>
           </button>
 
@@ -88,7 +86,7 @@ export function EmblemReveal({
             <div className="mt-4">
               <p
                 className="font-mono text-xs font-semibold uppercase tracking-[0.3em]"
-                style={{ color: art.accent }}
+                style={{ color: accent }}
               >
                 Emblema Nº {rank}
               </p>

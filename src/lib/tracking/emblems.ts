@@ -57,32 +57,35 @@ export function formatEmblemKm(km: number): string {
   return km >= 1000 ? `${(km / 1000).toLocaleString("pt-BR")} mil` : km.toLocaleString("pt-BR");
 }
 
-// --- Deterministic identity, one fixed seed per milestone ---
-
-/** FNV-1a, 32-bit — same small dependency-free hash `achievements.ts` uses, so two different collectible systems don't need two hash implementations. */
-function hash(text: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
-
-export interface Emblem {
-  km: number;
-  /** Feeds the generative artwork in emblemArt.ts — this module only owns the milestone's identity, not its visuals. */
-  seed: number;
-  /** Position on the ladder, 0-indexed — the artwork's rarity axis. */
-  tier: number;
-}
+// --- Artwork ---
 
 /**
- * The seed is the milestone's own km value — fixed forever, unlike
- * `computeAchievement`'s per-run seed, since a lifetime milestone isn't tied
- * to any one run and has to look the same in the collection whether it was
- * just unlocked or opened again a year later.
+ * One real piece of art per milestone — commissioned once from an image
+ * model (not generated per-device or per-run) and hosted as a static file
+ * on the same R2 bucket the basemap tiles live on, so showing an emblem
+ * costs one small image fetch and nothing at request time. The ladder is a
+ * fixed, small set (see `EMBLEM_LADDER_KM`), which is exactly what makes
+ * "generate it once, host it forever" work here — there's no per-user or
+ * per-run variation to account for.
  */
-export function computeEmblem(km: number): Emblem {
-  return { km, seed: hash(`emblem|${km}`), tier: Math.max(0, EMBLEM_LADDER_KM.indexOf(km)) };
+const EMBLEM_IMAGE_BASE_URL =
+  process.env.NEXT_PUBLIC_TILES_BASE_URL ?? "https://pub-72a6391a200c440a9466c2e0d774e84f.r2.dev";
+
+export function emblemImageUrl(km: number): string {
+  return `${EMBLEM_IMAGE_BASE_URL}/emblems/${km}.webp`;
 }
+
+/** A representative colour picked by hand from each piece — for the surrounding UI chrome (reveal glow, heading) to match its own artwork instead of one shared brand colour. */
+export const EMBLEM_ACCENT: Readonly<Record<number, string>> = {
+  5: "#8fb8e0",
+  10: "#35e0d0",
+  25: "#4ade80",
+  50: "#d4a24c",
+  100: "#ff6a3d",
+  250: "#e0559a",
+  500: "#8d7bf0",
+  1000: "#d4af37",
+  2500: "#8fd6ff",
+  5000: "#f2c94c",
+  10000: "#ffd76a",
+};

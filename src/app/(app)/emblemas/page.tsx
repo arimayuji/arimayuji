@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  computeEmblem,
   crossedMilestones,
   EMBLEM_LADDER_KM,
   formatEmblemKm,
@@ -100,7 +99,7 @@ export default function EmblemasPage() {
                   onClick={() => setRevealingKm(km)}
                   className="flex flex-col items-center gap-1.5 rounded-xl p-2 disabled:cursor-default"
                 >
-                  <EmblemBadge emblem={computeEmblem(km)} state={state} className="block h-16 w-16" />
+                  <EmblemBadge km={km} state={state} className="block h-16 w-16" />
                   <span
                     className={`font-mono text-[10px] ${isCrossed ? "text-foreground" : "text-muted/60"}`}
                   >
