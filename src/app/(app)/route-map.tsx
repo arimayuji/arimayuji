@@ -955,23 +955,41 @@ export function RouteMap({
   // component.
   const style = useMemo(() => (scheme ? protomapsStyle(scheme) : null), [scheme]);
   const hasRoute = points.length >= 2;
-  const showTiles = hasRoute && scheme !== null && style !== null;
+  // A live run only needs one real fix to be worth showing a map for — the
+  // basemap centres on it with a "you're here" marker and no line yet,
+  // rather than the full run sitting on a blank screen with just
+  // "Aguardando trajeto GPS…" until a *second* fix lands, which on a real
+  // device's first few seconds of signal (or the warmup gate in
+  // useRunTracker, which holds points back until 3 consecutive good fixes)
+  // can visibly outlast "the run has clearly already started." A finished
+  // run still needs two points — there's no live position to centre on
+  // once tracking has stopped, only a route worth drawing or not.
+  const hasPosition = live ? points.length >= 1 : hasRoute;
+  const showTiles = hasPosition && scheme !== null && style !== null;
 
   return (
     <div
       className={`relative w-full overflow-hidden ${rounded ? "rounded-2xl" : ""} ${showTiles && scheme === "light" ? "bg-[#eef1f3]" : "bg-[#0b0e11]"} ${square ? "aspect-square" : ""} ${className}`}
     >
-      {!hasRoute ? (
+      {!hasPosition ? (
         <div className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-white/40">
           {live ? "Aguardando trajeto GPS…" : "Sem trajeto GPS suficiente pra desenhar o mapa."}
         </div>
       ) : showTiles ? (
         <RouteTiles points={points} live={live} scheme={scheme} style={style} replay={replay} />
-      ) : (
+      ) : hasRoute ? (
+        // The keyless/no-scheme SVG fallback needs a real two-point route to
+        // project — it isn't built to draw a single "here" dot on its own,
+        // and that gap is normally invisible (`scheme` resolves synchronously
+        // on the client) so it only ever shows once a route already exists.
         <RouteTrace points={points} live={live} replay={replay} />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-white/40">
+          Aguardando trajeto GPS…
+        </div>
       )}
 
-      {live && hasRoute && !replay && (
+      {live && showTiles && !replay && (
         <span className="absolute right-3 bottom-3 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-medium text-white/80 backdrop-blur-sm">
           você está aqui
         </span>
