@@ -154,6 +154,27 @@ const CHASE_BEARING_MIN_METERS = 3;
 /** How long the camera takes to swoop from the overview into the chase position, and back out again when playback ends. */
 const CHASE_TRANSITION_MS = 700;
 
+/**
+ * The chase camera tilts further down on a descent and pulls back up on a
+ * climb — the same "leaning into the hill" the ground-level GPS trace can't
+ * show on its own. Slope comes from `queryTerrainElevation`, reading the
+ * terrain mesh (src/lib/protomaps.ts) already loaded for the 3D view, not a
+ * separate lookup — this is why that terrain data was worth adding on its
+ * own first.
+ */
+const CHASE_PITCH_MIN = 22;
+const CHASE_PITCH_MAX = 48;
+/** Degrees of pitch shift per 1% grade. */
+const CHASE_PITCH_PER_GRADE_PERCENT = 1.6;
+/**
+ * Slope is measured over a stretch this long ahead of the current segment,
+ * not point-to-point — consecutive GPS fixes can be a few meters apart,
+ * close enough that terrain-tile resolution and ordinary GPS noise would
+ * turn into a pitch that twitches on every frame instead of leaning
+ * smoothly into an actual hill.
+ */
+const CHASE_SLOPE_LOOKAHEAD_METERS = 50;
+
 /** How far the finished trace fades back while the replay head draws over it — still visible as the shape being filled in, never competing with it. */
 const GHOSTED_ROUTE_OPACITY = 0.22;
 
@@ -300,6 +321,57 @@ function chaseTrailFrame(
   return { index, fraction: 0, meters: 0, seconds: 0, windowMeters: 0, windowSeconds: 0 };
 }
 
+/** Index of the point at least `meters` ahead of `fromIndex`, walking forward and summing real ground covered — same "distance, not point count" reasoning as `chaseTrailFrame`, facing the other way. */
+function coordinateAheadIndex(
+  coordinates: [number, number][],
+  fromIndex: number,
+  meters: number,
+): number {
+  let index = fromIndex;
+  let covered = 0;
+  while (index < coordinates.length - 1 && covered < meters) {
+    covered += haversineMeters(
+      { lat: coordinates[index][1], lon: coordinates[index][0] },
+      { lat: coordinates[index + 1][1], lon: coordinates[index + 1][0] },
+    );
+    index++;
+  }
+  return index;
+}
+
+/**
+ * Chase camera pitch for the segment starting at `fromIndex` — steeper
+ * downhill tilts further down, steeper uphill pulls the camera back up,
+ * both clamped to `CHASE_PITCH_MIN`/`MAX` so an unusually steep stretch
+ * still looks like a plausible camera angle rather than a flip. Falls back
+ * to the flat base pitch when the terrain tile at this spot hasn't loaded
+ * yet — a guessed slope would be worse than none.
+ */
+function chaseSlopePitch(
+  instance: MapLibreMap,
+  coordinates: [number, number][],
+  fromIndex: number,
+): number {
+  const aheadIndex = coordinateAheadIndex(coordinates, fromIndex, CHASE_SLOPE_LOOKAHEAD_METERS);
+  if (aheadIndex === fromIndex) return CHASE_PITCH;
+
+  const from = coordinates[fromIndex];
+  const ahead = coordinates[aheadIndex];
+  const elevFrom = instance.queryTerrainElevation(from);
+  const elevAhead = instance.queryTerrainElevation(ahead);
+  if (elevFrom === null || elevAhead === null) return CHASE_PITCH;
+
+  const groundMeters = haversineMeters(
+    { lat: from[1], lon: from[0] },
+    { lat: ahead[1], lon: ahead[0] },
+  );
+  if (groundMeters < 1) return CHASE_PITCH;
+
+  const gradePercent = ((elevAhead - elevFrom) / groundMeters) * 100;
+  const pitch = CHASE_PITCH - gradePercent * CHASE_PITCH_PER_GRADE_PERCENT;
+  return Math.min(CHASE_PITCH_MAX, Math.max(CHASE_PITCH_MIN, pitch));
+}
+
 function ReplayOverlay({
   points,
   projected,
@@ -380,6 +452,7 @@ function RouteTiles({
   const replaying = useRef(replay !== null);
   const chasing = useRef(false);
   const chaseBearing = useRef(0);
+  const chasePitch = useRef(CHASE_PITCH);
   const [toPixels, setToPixels] = useState<((c: [number, number]) => Pixel) | null>(null);
   /**
    * A blank canvas with no explanation reads as broken, not "still loading" —
@@ -592,6 +665,7 @@ function RouteTiles({
       if (segmentMeters >= CHASE_BEARING_MIN_METERS) {
         chaseBearing.current = bearingDegrees({ lat: from[1], lon: from[0] }, { lat: to[1], lon: to[0] });
       }
+      chasePitch.current = chaseSlopePitch(instance, coordinates, replay.head.index);
     }
 
     if (!chasing.current) {
@@ -599,7 +673,7 @@ function RouteTiles({
       instance.easeTo({
         center: head,
         bearing: chaseBearing.current,
-        pitch: CHASE_PITCH,
+        pitch: chasePitch.current,
         zoom: CHASE_ZOOM,
         duration: CHASE_TRANSITION_MS,
       });
@@ -608,7 +682,7 @@ function RouteTiles({
       // on the run's clock (see replayFrameAt), so an eased camera here would
       // just lag a beat behind a dot that's already moving — the two need to
       // move in lockstep, not race each other.
-      instance.jumpTo({ center: head, bearing: chaseBearing.current, pitch: CHASE_PITCH, zoom: CHASE_ZOOM });
+      instance.jumpTo({ center: head, bearing: chaseBearing.current, pitch: chasePitch.current, zoom: CHASE_ZOOM });
     }
   }, [replay, coordinates]);
 
