@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { listCompletedRuns, type CompletedRun } from "@/lib/tracking/storage";
+import { listCompletedRuns, listPainCheckIns, type CompletedRun, type PainCheckIn } from "@/lib/tracking/storage";
 import {
   bucketPaceSecPerUnit,
   dailyBuckets,
@@ -9,10 +9,19 @@ import {
   weeklyBuckets,
   type WeekBucket,
 } from "@/lib/tracking/stats";
+import {
+  computeConstancyWeeks,
+  tallyConstancy,
+  type ConstancyWeek,
+  type WeeklyTarget,
+} from "@/lib/tracking/constancy";
 import { formatDistance, metersPerUnit, paceLabel, toUnit, unitLabel } from "@/lib/units";
 import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
+import { useRunnerProfile } from "@/lib/useRunnerProfile";
+import type { WeeklyTargetKind } from "@/lib/runnerProfile";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
+import { PillSlider } from "../pill-slider";
 
 /**
  * The dashboard `/historico`'s own summary card has been promising since it
@@ -93,6 +102,194 @@ function WeekComparison({ weeks, unit }: { weeks: WeekBucket[]; unit: DistanceUn
         </p>
       )}
     </Section>
+  );
+}
+
+const CONSTANCY_WEEKS = 52;
+
+/**
+ * A weekly consistency ledger, not a daily streak — the athlete's own target
+ * (N runs or X km, never both) judges whole calendar weeks instead of days,
+ * since the plan engine always leaves at least one rest day and a daily
+ * streak would fight that outright. A week with a logged pain check-in is
+ * marked *protected* automatically — it counts neither for nor against, the
+ * same "no dialog, just find it marked" idea behind a streak freeze, except
+ * here it's earned by reporting pain honestly rather than by luck. See
+ * tracking/constancy.ts for the full reasoning.
+ */
+function ConstancyCard({
+  runs,
+  painCheckIns,
+}: {
+  runs: CompletedRun[];
+  painCheckIns: PainCheckIn[];
+}) {
+  const [profile, setProfile] = useRunnerProfile();
+  const [draftKind, setDraftKind] = useState<WeeklyTargetKind>(profile.weeklyTargetKind ?? "runs");
+  const [draftValue, setDraftValue] = useState(profile.weeklyTargetValue ?? (draftKind === "runs" ? 3 : 15));
+  const [editing, setEditing] = useState(false);
+
+  const target: WeeklyTarget | null = useMemo(
+    () =>
+      profile.weeklyTargetKind && profile.weeklyTargetValue
+        ? { kind: profile.weeklyTargetKind, value: profile.weeklyTargetValue }
+        : null,
+    [profile.weeklyTargetKind, profile.weeklyTargetValue],
+  );
+
+  const weeks = useMemo(
+    () => (target ? computeConstancyWeeks(runs, painCheckIns, target, CONSTANCY_WEEKS) : []),
+    [runs, painCheckIns, target],
+  );
+  const tally = useMemo(() => tallyConstancy(weeks), [weeks]);
+  const visibleWeeks = useMemo(() => weeks.filter((w) => !w.beforeFirstRun), [weeks]);
+
+  const handleSaveTarget = () => {
+    setProfile({ weeklyTargetKind: draftKind, weeklyTargetValue: draftValue });
+    setEditing(false);
+  };
+
+  if (!target || editing) {
+    return (
+      <Section title="Constância" delayMs={50}>
+        {!target && (
+          <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+            Não é sobre nunca faltar — é sobre cumprir uma meta sua, semana após semana, no seu
+            ritmo. Escolha como quer medir isso.
+          </p>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setDraftKind("runs")}
+            aria-pressed={draftKind === "runs"}
+            className={`min-h-11 flex-1 rounded-xl border px-3 text-sm font-medium ${
+              draftKind === "runs"
+                ? "border-accent bg-accent text-accent-foreground"
+                : "border-border bg-background text-foreground"
+            }`}
+          >
+            Corridas por semana
+          </button>
+          <button
+            type="button"
+            onClick={() => setDraftKind("km")}
+            aria-pressed={draftKind === "km"}
+            className={`min-h-11 flex-1 rounded-xl border px-3 text-sm font-medium ${
+              draftKind === "km"
+                ? "border-accent bg-accent text-accent-foreground"
+                : "border-border bg-background text-foreground"
+            }`}
+          >
+            Km por semana
+          </button>
+        </div>
+        <div className="mt-4">
+          <PillSlider
+            min={draftKind === "runs" ? 1 : 5}
+            max={draftKind === "runs" ? 7 : 100}
+            step={draftKind === "runs" ? 1 : 5}
+            value={draftValue}
+            onChange={setDraftValue}
+            formatValue={(v) => (draftKind === "runs" ? `${v}x` : `${v} km`)}
+          />
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          {target && (
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSaveTarget}
+            className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground"
+          >
+            Salvar meta
+          </button>
+        </div>
+      </Section>
+    );
+  }
+
+  return (
+    <Section
+      title="Constância"
+      delayMs={50}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-2xl font-semibold tabular-nums">
+            {tally.met}
+            <span className="text-sm text-muted"> de {tally.judged} semanas</span>
+          </p>
+          <p className="mt-0.5 text-xs text-muted">
+            Meta: {target.kind === "runs" ? `${target.value}x por semana` : `${target.value} km por semana`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setDraftKind(target.kind);
+            setDraftValue(target.value);
+            setEditing(true);
+          }}
+          className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted"
+        >
+          Editar meta
+        </button>
+      </div>
+
+      {visibleWeeks.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {visibleWeeks.map((week) => (
+            <ConstancyCell key={week.weekStart} week={week} />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 text-[10px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-[3px] bg-good" /> cumprida
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-[3px] border border-accent/70 bg-accent/25" /> protegida
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-[3px] bg-border" /> não cumprida
+        </span>
+      </div>
+    </Section>
+  );
+}
+
+function ConstancyCell({ week }: { week: ConstancyWeek }) {
+  const dateLabel = new Date(week.weekStart).toLocaleDateString("pt-BR");
+  if (week.inProgress) {
+    return (
+      <span
+        title={`Semana de ${dateLabel} — em andamento`}
+        className="h-2.5 w-2.5 rounded-[3px] border border-dashed border-muted"
+      />
+    );
+  }
+  if (week.protected) {
+    return (
+      <span
+        title={`Semana de ${dateLabel} — protegida (dor registrada)`}
+        className="h-2.5 w-2.5 rounded-[3px] border border-accent/70 bg-accent/25"
+      />
+    );
+  }
+  return (
+    <span
+      title={`Semana de ${dateLabel} — ${week.met ? "cumprida" : "não cumprida"}`}
+      className={`h-2.5 w-2.5 rounded-[3px] ${week.met ? "bg-good" : "bg-border"}`}
+    />
   );
 }
 
@@ -304,6 +501,7 @@ function DailyVolumeChart({ runs, unit }: { runs: CompletedRun[]; unit: Distance
 
 export default function EstatisticasPage() {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
+  const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [{ distanceUnit: unit }] = usePreferences();
 
   useEffect(() => {
@@ -315,6 +513,9 @@ export default function EstatisticasPage() {
       .catch(() => {
         if (!cancelled) setLoad({ status: "error" });
       });
+    listPainCheckIns().then((checkIns) => {
+      if (!cancelled) setPainCheckIns(checkIns);
+    });
     return () => {
       cancelled = true;
     };
@@ -362,6 +563,7 @@ export default function EstatisticasPage() {
         {load.status === "ready" && runs.length > 0 && (
           <>
             <WeekComparison weeks={weeks} unit={unit} />
+            <ConstancyCard runs={runs} painCheckIns={painCheckIns} />
             <WeeklyVolumeChart weeks={weeks} unit={unit} />
             <PaceTrendChart weeks={weeks} unit={unit} />
             <MonthCard runs={runs} unit={unit} />

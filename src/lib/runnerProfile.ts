@@ -14,6 +14,8 @@
  * happened.
  */
 
+export type WeeklyTargetKind = "runs" | "km";
+
 export interface RunnerProfile {
   goalDistanceMeters?: number;
   /** ISO date (yyyy-mm-dd). */
@@ -22,6 +24,9 @@ export interface RunnerProfile {
   recentRaceTimeSeconds?: number;
   weeklyRunDays?: number;
   weightKg?: number;
+  /** The athlete's own weekly consistency target (see tracking/constancy.ts) — one unit or the other, never both, since it's "did I keep showing up" measured one way, not a combined score. */
+  weeklyTargetKind?: WeeklyTargetKind;
+  weeklyTargetValue?: number;
 }
 
 export const GOAL_DISTANCE_OPTIONS = [
@@ -64,6 +69,12 @@ function sanitize(raw: unknown): RunnerProfile {
   }
   if (typeof value.weightKg === "number" && value.weightKg >= 25 && value.weightKg <= 250) {
     profile.weightKg = value.weightKg;
+  }
+  if (value.weeklyTargetKind === "runs" || value.weeklyTargetKind === "km") {
+    profile.weeklyTargetKind = value.weeklyTargetKind;
+  }
+  if (typeof value.weeklyTargetValue === "number" && value.weeklyTargetValue > 0) {
+    profile.weeklyTargetValue = value.weeklyTargetValue;
   }
   return profile;
 }
