@@ -112,6 +112,20 @@ export interface ShareCardShoe {
   color: string;
 }
 
+export interface ShareCardTrack {
+  name: string;
+  artist: string;
+}
+
+/**
+ * `"none"` never mentions the track even if the run has one logged.
+ * `"chip"` keeps the usual photo/scenario background and adds a small
+ * "playing" pill naming the track. `"background"` replaces the photo/scenario
+ * background outright with the album artwork itself — the "só música"
+ * template, no personal photo or illustrated sky at all.
+ */
+export type ShareCardMusicMode = "none" | "chip" | "background";
+
 export interface ShareCardInput {
   run: CompletedRun;
   scenario: ScenarioId;
@@ -120,8 +134,13 @@ export interface ShareCardInput {
   layout?: ShareCardLayout;
   record?: ShareCardRecord | null;
   shoe?: ShareCardShoe | null;
-  /** A photo the athlete chose, already decoded. Replaces the illustrated sky when present. */
+  /** A photo the athlete chose, already decoded. Replaces the illustrated sky when present — unless `musicMode` is "background", which takes over the whole backdrop instead. */
   photo?: HTMLImageElement | null;
+  track?: ShareCardTrack | null;
+  /** Defaults to "none". Ignored (treated as "none") when `track` is null. */
+  musicMode?: ShareCardMusicMode;
+  /** The track's decoded artwork, already loaded — required for `musicMode: "background"`, optional (shown as a small thumbnail) for `"chip"`. */
+  albumArt?: HTMLImageElement | null;
 }
 
 interface Point {
@@ -133,6 +152,9 @@ export interface ShareCardScene {
   scenario: ScenarioId;
   layout: ShareCardLayout;
   photo: HTMLImageElement | null;
+  track: ShareCardTrack | null;
+  musicMode: ShareCardMusicMode;
+  albumArt: HTMLImageElement | null;
   /** Every fix's timestamp, in input order — `replayStretches` splits on these to honour tracking gaps. */
   points: { timestamp: number }[];
   /** Same points projected into the route box, in device pixels. */
@@ -211,6 +233,9 @@ export function buildShareCardScene({
   record = null,
   shoe = null,
   photo = null,
+  track = null,
+  musicMode = "none",
+  albumArt = null,
 }: ShareCardInput): ShareCardScene {
   const projection = projectRoute(run.points, { viewBoxSize: 1, paddingFraction: 0.04 });
   const seconds = runMovingSeconds(run);
@@ -219,6 +244,9 @@ export function buildShareCardScene({
     scenario,
     layout,
     photo,
+    track,
+    musicMode: track ? musicMode : "none",
+    albumArt,
     points: run.points.map((point) => ({ timestamp: point.timestamp })),
     projected: (projection?.projected ?? []).map((point) => ({
       x: ROUTE_BOX.x + point.x * ROUTE_BOX.size,
@@ -465,18 +493,98 @@ function drawPill(
   ctx.restore();
 }
 
+/** Binary-searches the longest prefix of `text` (plus an ellipsis) that still fits `maxWidth` at the context's current font. */
+function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (ctx.measureText(`${text.slice(0, mid)}…`).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return `${text.slice(0, lo)}…`;
+}
+
+/**
+ * The "playing" pill for `musicMode: "chip"` — a small rounded artwork
+ * thumbnail (when the lookup returned one) plus a truncated "Track —
+ * Artista" line. Each layout hands this its own safe slot: `align` controls
+ * whether `x` is the pill's left edge or its centre, so trajeto (left-aligned
+ * chrome throughout) and numero (centred throughout) each get a pill that
+ * matches the rest of their own text instead of a third alignment style.
+ */
+function drawMusicChip(
+  ctx: CanvasRenderingContext2D,
+  scene: ShareCardScene,
+  elapsed: number,
+  x: number,
+  y: number,
+  align: "left" | "center",
+  popStart: number,
+) {
+  if (!scene.track) return;
+  const alpha = easeOut(stage(elapsed, popStart, 380));
+  if (alpha <= 0) return;
+
+  const height = 56;
+  const artSize = height - 14;
+  const hasArt = !!scene.albumArt;
+  const label = hasArt ? `${scene.track.name} — ${scene.track.artist}` : `♪ ${scene.track.name} — ${scene.track.artist}`;
+  const padLeft = hasArt ? artSize + 26 : 24;
+  const maxWidth = 560;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = `400 24px ${scene.fontFamily}`;
+  ctx.textBaseline = "middle";
+  const text = truncateToWidth(ctx, label, maxWidth - padLeft - 24);
+  const textWidth = ctx.measureText(text).width;
+  const width = padLeft + textWidth + 24;
+  const left = align === "left" ? x : x - width / 2;
+
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
+  roundedRect(ctx, left, y, width, height, height / 2);
+  ctx.fill();
+
+  if (hasArt && scene.albumArt) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(left + 7 + artSize / 2, y + height / 2, artSize / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(scene.albumArt, left + 7, y + 7, artSize, artSize);
+    ctx.restore();
+  }
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(text, left + padLeft, y + height / 2 + 1);
+  ctx.restore();
+}
+
+const TRAJETO_MUSIC_CHIP_POP_START = ROUTE_DRAW_END + 40;
+const NUMERO_MUSIC_CHIP_POP_START = 160;
+const NUMERO_MUSIC_CHIP_Y = 250;
+
 function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed: number) {
   const left = STAT_LEFT;
   ctx.textBaseline = "alphabetic";
 
-  const whenAlpha = easeOut(stage(elapsed, ROUTE_DRAW_END + 40, 420));
-  if (whenAlpha > 0) {
-    ctx.save();
-    ctx.globalAlpha = whenAlpha;
-    ctx.fillStyle = "rgba(255,255,255,0.78)";
-    ctx.font = `400 26px ${scene.fontFamily}`;
-    ctx.fillText(scene.when, left, STAT_WHEN_BASELINE + (1 - whenAlpha) * 18);
-    ctx.restore();
+  // The music chip takes over the "when" line's slot when there's a track to
+  // show — the two are never both drawn, since both are a single small line
+  // of context sitting right above the big distance number.
+  if (scene.musicMode !== "none" && scene.track) {
+    drawMusicChip(ctx, scene, elapsed, left, STAT_WHEN_BASELINE - 40, "left", TRAJETO_MUSIC_CHIP_POP_START);
+  } else {
+    const whenAlpha = easeOut(stage(elapsed, ROUTE_DRAW_END + 40, 420));
+    if (whenAlpha > 0) {
+      ctx.save();
+      ctx.globalAlpha = whenAlpha;
+      ctx.fillStyle = "rgba(255,255,255,0.78)";
+      ctx.font = `400 26px ${scene.fontFamily}`;
+      ctx.fillText(scene.when, left, STAT_WHEN_BASELINE + (1 - whenAlpha) * 18);
+      ctx.restore();
+    }
   }
 
   const distanceAlpha = easeOut(stage(elapsed, ROUTE_DRAW_END + 160, 460));
@@ -942,7 +1050,11 @@ export function drawShareCardFrame(
   ctx.textAlign = "left";
   ctx.clearRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
 
-  if (scene.photo) drawPhoto(ctx, scene.photo);
+  // "Só música" replaces the photo/scenario backdrop outright with the
+  // track's own artwork — the whole point of that template. Falls through to
+  // the usual photo-or-scenario choice if the artwork somehow isn't loaded.
+  if (scene.musicMode === "background" && scene.albumArt) drawPhoto(ctx, scene.albumArt);
+  else if (scene.photo) drawPhoto(ctx, scene.photo);
   else drawScenario(ctx, scene.scenario);
 
   if (scene.layout === "numero") drawNumberHero(ctx, scene, elapsed);
@@ -959,9 +1071,10 @@ export function drawShareCardFrame(
 
   const chromeAlpha = easeOut(stage(elapsed, 0, 360));
   drawPill(ctx, scene, "XANTHUS", null, STAT_LEFT, CHROME_TOP, chromeAlpha);
-  // The scenario badge names the illustrated sky; over someone's own photo it
-  // would be naming a background that isn't there.
-  if (!scene.photo) {
+  // The scenario badge names the illustrated sky; over someone's own photo —
+  // or the album art in "só música" — it would be naming a background that
+  // isn't there.
+  if (!scene.photo && scene.musicMode !== "background") {
     drawPill(
       ctx,
       scene,
@@ -973,6 +1086,20 @@ export function drawShareCardFrame(
     );
   }
 
-  if (scene.layout === "numero") drawNumberStats(ctx, scene, elapsed);
-  else drawStats(ctx, scene, elapsed);
+  if (scene.layout === "numero") {
+    drawNumberStats(ctx, scene, elapsed);
+    if (scene.musicMode !== "none") {
+      drawMusicChip(
+        ctx,
+        scene,
+        elapsed,
+        SHARE_CARD_WIDTH / 2,
+        NUMERO_MUSIC_CHIP_Y,
+        "center",
+        NUMERO_MUSIC_CHIP_POP_START,
+      );
+    }
+  } else {
+    drawStats(ctx, scene, elapsed);
+  }
 }
