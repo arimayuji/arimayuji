@@ -99,7 +99,18 @@ const IDLE_PITCH = 50;
 const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false, pitch: IDLE_PITCH } as const;
 
 /** How long to wait for MapTiler's style before treating it as failed rather than still loading — generous for a slow connection, not so long the screen just looks stuck. */
-const TILE_LOAD_TIMEOUT_MS = 8000;
+const TILE_LOAD_TIMEOUT_MS = 9000;
+
+/**
+ * A flaky connection (cell handoff, Wi-Fi reassociating, a DNS blip) often
+ * clears itself within a few seconds — silently retrying a couple of times
+ * before ever showing the user a failure message turns "the map's broken"
+ * into "the map took a beat," which is what actually happened most of the
+ * time this was reported. Only after these are exhausted does the retry
+ * button in the UI take over as the (unlimited) manual fallback.
+ */
+const MAX_AUTO_RETRIES = 2;
+const AUTO_RETRY_DELAY_MS = 2000;
 
 /**
  * Replay's camera: tilted and zoomed to street level, following the head
@@ -361,6 +372,10 @@ function RouteTiles({
    */
   const [tilesFailed, setTilesFailed] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
+  // Persists across the map-creation effect's own re-runs (including the
+  // silent auto-retries it triggers itself) so the budget below is spent
+  // once per mounted map, not reset every time the effect re-fires.
+  const autoRetriesRef = useRef(0);
 
   const geometry = useMemo(() => routeGeometry(points), [points]);
   // The style loads asynchronously, so the sources can only be filled in
@@ -375,13 +390,28 @@ function RouteTiles({
   );
 
   useEffect(() => {
-    // MapTiler unreachable (blocked DNS/network, an outage, a bad key) never
-    // surfaces as an error event here — `style.load` just never fires, and
-    // the map sits on a blank canvas forever with nothing telling anyone
-    // why. This is the one signal available for that: if the style hasn't
-    // loaded by the time a normal connection would have finished it, treat
-    // it as failed and say so instead of leaving the screen looking broken.
-    const failTimer = setTimeout(() => setTilesFailed(true), TILE_LOAD_TIMEOUT_MS);
+    // MapTiler unreachable (blocked DNS/network, an outage, a bad key)
+    // doesn't always surface as an error event before `style.load` — on a
+    // genuinely dead connection it just never fires, and the map sits on a
+    // blank canvas forever with nothing telling anyone why. `loaded` plus
+    // the timeout below is the fallback signal for that case; the `error`
+    // listener further down catches the faster case where the browser does
+    // report the failed fetch, so a real network error doesn't have to sit
+    // out the full timeout before anything happens.
+    let loaded = false;
+    let settled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const handleFailure = () => {
+      if (settled) return;
+      settled = true;
+      if (autoRetriesRef.current < MAX_AUTO_RETRIES) {
+        autoRetriesRef.current += 1;
+        retryTimer = setTimeout(() => setRetryAttempt((n) => n + 1), AUTO_RETRY_DELAY_MS);
+      } else {
+        setTilesFailed(true);
+      }
+    };
+    const failTimer = setTimeout(handleFailure, TILE_LOAD_TIMEOUT_MS);
 
     const instance = new MapLibreMap({
       container: container.current!,
@@ -404,6 +434,9 @@ function RouteTiles({
     // render, so on a weak signal — the normal case right after a run — the
     // trace itself would be held back by the basemap it's drawn over.
     instance.on("style.load", () => {
+      loaded = true;
+      settled = true;
+      autoRetriesRef.current = 0;
       clearTimeout(failTimer);
       setTilesFailed(false);
       const { segments, fastest, start, end } = latest.current;
@@ -451,6 +484,17 @@ function RouteTiles({
         .addTo(instance);
     });
 
+    // Fires for a failed style/sprite/glyph fetch — a real network error,
+    // as opposed to the timeout above, which also covers a request that
+    // never resolves at all. Only counts before the style has loaded: once
+    // markers and layers are up, a later `error` is something harmless like
+    // a single missing tile, not a reason to blank the whole map out.
+    instance.on("error", () => {
+      if (loaded) return;
+      clearTimeout(failTimer);
+      handleFailure();
+    });
+
     // Republished as a new function identity so the overlay reprojects: the
     // camera settles once here, but a live run refits its bounds as it grows.
     const publishProjection = () =>
@@ -465,6 +509,7 @@ function RouteTiles({
     map.current = instance;
     return () => {
       clearTimeout(failTimer);
+      clearTimeout(retryTimer);
       instance.remove();
       map.current = null;
       startMarker.current = null;
@@ -598,6 +643,7 @@ function RouteTiles({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              autoRetriesRef.current = 0;
               setTilesFailed(false);
               setRetryAttempt((n) => n + 1);
             }}
