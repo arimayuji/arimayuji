@@ -105,6 +105,21 @@ const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false, pitch: IDLE_PITC
  * flicker.
  */
 const LIVE_FIT_DURATION_MS = 700;
+/**
+ * How often a *live* run's camera is actually allowed to re-fit. Every
+ * `fitBounds` call drives an eased ~700ms animation, and MapLibre fires its
+ * own "move" event on every frame of that animation — each of which makes
+ * `BaseRouteOverlay` re-project *every point of the route so far* through
+ * `toPixels` (a real `map.project()` call each), not just the new one. Doing
+ * that on every single GPS fix means the total work across a run grows with
+ * the square of how long the route has gotten, which is exactly what "o
+ * percurso sendo preenchido tá muito lagged" turned out to be: imperceptible
+ * on a short run, and visibly worse the longer one goes. Capping how often
+ * the *camera* actually re-fits keeps that compounding cost flat regardless
+ * of route length — the start/end markers still move on every single point
+ * (cheap, O(1)), so only the camera ever lags slightly behind, not the line.
+ */
+const LIVE_REFIT_INTERVAL_MS = 2500;
 
 /** How long to wait for the basemap's tile data before treating it as failed rather than still loading — generous for a slow connection, not so long the screen just looks stuck. */
 const TILE_LOAD_TIMEOUT_MS = 9000;
@@ -476,6 +491,8 @@ function RouteTiles({
   const chasing = useRef(false);
   const chaseBearing = useRef(0);
   const chasePitch = useRef(CHASE_PITCH);
+  /** Wall-clock time of the last live re-fit — see `LIVE_REFIT_INTERVAL_MS`. Reset to 0 whenever a fresh map instance is created, so its very first fit is never held back by the throttle. */
+  const lastLiveFitAtRef = useRef(0);
   const [toPixels, setToPixels] = useState<((c: [number, number]) => Pixel) | null>(null);
   /**
    * A blank canvas with no explanation reads as broken, not "still loading" —
@@ -554,6 +571,7 @@ function RouteTiles({
       loaded = true;
       settled = true;
       autoRetriesRef.current = 0;
+      lastLiveFitAtRef.current = 0;
       clearTimeout(failTimer);
       setTilesFailed(false);
       const { start, end } = latest.current;
@@ -686,10 +704,19 @@ function RouteTiles({
 
     startMarker.current.setLngLat(geometry.start);
     endMarker.current.setLngLat(geometry.end);
-    instance.fitBounds(
-      geometry.bounds,
-      live ? { ...FIT_OPTIONS, animate: true, duration: LIVE_FIT_DURATION_MS } : FIT_OPTIONS,
-    );
+
+    if (!live) {
+      instance.fitBounds(geometry.bounds, FIT_OPTIONS);
+      return;
+    }
+
+    // See `LIVE_REFIT_INTERVAL_MS` — the camera itself is throttled, not the
+    // markers above, so the drawn line and its endpoints stay perfectly live
+    // while only the framing lags by up to the throttle window.
+    const now = Date.now();
+    if (now - lastLiveFitAtRef.current < LIVE_REFIT_INTERVAL_MS) return;
+    lastLiveFitAtRef.current = now;
+    instance.fitBounds(geometry.bounds, { ...FIT_OPTIONS, animate: true, duration: LIVE_FIT_DURATION_MS });
   }, [geometry, live]);
 
   return (
@@ -715,15 +742,21 @@ function RouteTiles({
         // touch reaches it just as easily on a finished run's own detail map
         // (a phone going back in a pocket after stopping, not just one still
         // recording) as on the live one — same white attribution panel
-        // popping up over the screen either way. Nothing here hides the
-        // control itself (the attribution stays visible, satisfying the
-        // OSM/Protomaps requirement); it only stops that one button from
-        // reacting to touches it was never meant to receive.
+        // popping up over the screen either way. `pointer-events-none` alone
+        // stops *new* taps from opening it, but a `<details>` element already
+        // toggled open (from a tap that landed before this shipped, or from
+        // MapLibre's own compact-mode heuristics on a narrow viewport) stays
+        // open regardless — its content is real DOM, not something a click
+        // handler is still gating. Forcing `.maplibregl-ctrl-attrib-inner`
+        // closed with `!important` (needed to outrank MapLibre's own
+        // `.maplibregl-compact-show …{display:block}` override) makes the
+        // panel impossible to open at all, full stop — leaving only the
+        // small "i" icon MapLibre still requires for the credit itself.
         className={`${
           replay
             ? "h-full w-full [&_.maplibregl-canvas]:saturate-[0.55] [&_.maplibregl-canvas]:brightness-[0.9]"
             : "h-full w-full [&_.maplibregl-canvas]:saturate-[0.35] [&_.maplibregl-canvas]:contrast-[1.12] [&_.maplibregl-canvas]:brightness-[0.92]"
-        } [&_.maplibregl-ctrl-attrib]:pointer-events-none`}
+        } [&_.maplibregl-ctrl-attrib]:pointer-events-none [&_.maplibregl-ctrl-attrib-inner]:!hidden`}
         role="img"
         aria-label="Trajeto percorrido"
       />

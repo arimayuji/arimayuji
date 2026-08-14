@@ -135,18 +135,30 @@ function CompartilharContent() {
           },
         });
         if (file) {
-          const payload = navigator.canShare({ files: [file], text: shareText, url })
-            ? { files: [file], text: shareText, url }
-            : { files: [file], text: shareText };
+          const withUrl = navigator.canShare({ files: [file], text: shareText, url });
           try {
-            await navigator.share(payload);
+            await navigator.share(withUrl ? { files: [file], text: shareText, url } : { files: [file], text: shareText });
           } catch (shareErr) {
             // AbortError is the user cancelling the sheet themselves — not a failure worth surfacing.
-            if (shareErr instanceof Error && shareErr.name !== "AbortError") {
-              setShareNotice(
-                "O aparelho recusou compartilhar o vídeo — tenta de novo, ou copia o link abaixo.",
-              );
+            if (shareErr instanceof Error && shareErr.name === "AbortError") {
+              return;
             }
+            // `canShare` saying yes doesn't guarantee `share` actually succeeds
+            // with that exact combination — on Android, a file+text+url payload
+            // is a known case where the share sheet's own intent resolution can
+            // still reject what canShare accepted. One retry dropping the url
+            // (file+text only) recovers most of those before giving up.
+            if (withUrl) {
+              try {
+                await navigator.share({ files: [file], text: shareText });
+                return;
+              } catch (retryErr) {
+                if (retryErr instanceof Error && retryErr.name === "AbortError") return;
+              }
+            }
+            setShareNotice(
+              "O aparelho recusou compartilhar o vídeo — tenta de novo, ou copia o link abaixo.",
+            );
           }
           return;
         }
