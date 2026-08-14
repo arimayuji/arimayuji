@@ -135,13 +135,16 @@ export interface PainCheckIn {
 }
 
 const DB_NAME = "xanthus";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const ACTIVE_STORE = "activeRun";
 const RUNS_STORE = "runs";
 const SHOES_STORE = "shoes";
 const PAIN_STORE = "painCheckIns";
 const EMBLEMS_STORE = "emblemsOpened";
 const ACTIVE_KEY = "current";
+
+/** The three lifetime ladders collectibles are tracked against — see emblems.ts (distância) and collectibles.ts (elevação, tempo). */
+export type EmblemCategory = "distancia" | "elevacao" | "tempo";
 
 function newShoeId(): string {
   return `shoe_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -168,9 +171,17 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(PAIN_STORE)) {
         db.createObjectStore(PAIN_STORE, { keyPath: "id" });
       }
-      if (!db.objectStoreNames.contains(EMBLEMS_STORE)) {
-        db.createObjectStore(EMBLEMS_STORE, { keyPath: "km" });
+      // v4 kept one emblem ladder (distância only), keyed by its raw km
+      // number. Two more ladders (elevação, tempo) now share this store, and
+      // their milestone values can collide with a km value (e.g. 500 hours
+      // vs 500 km), so the key has to carry the category too. Dropping and
+      // recreating the store loses previously-opened flags — the one
+      // one-time cost is a distance emblem the athlete already saw briefly
+      // replaying its open animation, not any real data.
+      if (db.objectStoreNames.contains(EMBLEMS_STORE)) {
+        db.deleteObjectStore(EMBLEMS_STORE);
       }
+      db.createObjectStore(EMBLEMS_STORE, { keyPath: "id" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -297,24 +308,32 @@ export async function markRecordOpened(runId: string, targetMeters: number): Pro
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
 }
 
-/**
- * A distance-milestone emblem's own store — not a field on `CompletedRun`
- * like `openedRecordMeters` is, since a lifetime milestone isn't tied to any
- * one run and has to stay readable even after the run that crossed it is
- * later deleted (a discarded test run, an accidental double-save).
- */
-export async function markEmblemOpened(km: number): Promise<void> {
-  if (typeof indexedDB === "undefined") return;
-  await withStore(EMBLEMS_STORE, "readwrite", (store) => store.put({ km, openedAt: Date.now() }));
+interface OpenedEmblemRow {
+  id: string;
+  category: EmblemCategory;
+  value: number;
+  openedAt: number;
 }
 
-/** Every milestone (by its km value) the athlete has already tapped open — see `markEmblemOpened`. */
-export async function listOpenedEmblemKm(): Promise<number[]> {
+const emblemRowId = (category: EmblemCategory, value: number): string => `${category}:${value}`;
+
+/**
+ * A milestone emblem's own store — not a field on `CompletedRun` like
+ * `openedRecordMeters` is, since a lifetime milestone isn't tied to any one
+ * run and has to stay readable even after the run that crossed it is later
+ * deleted (a discarded test run, an accidental double-save).
+ */
+export async function markEmblemOpened(category: EmblemCategory, value: number): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const row: OpenedEmblemRow = { id: emblemRowId(category, value), category, value, openedAt: Date.now() };
+  await withStore(EMBLEMS_STORE, "readwrite", (store) => store.put(row));
+}
+
+/** Every milestone the athlete has already tapped open, across all three ladders — see `markEmblemOpened`. */
+export async function listOpenedEmblems(): Promise<Pick<OpenedEmblemRow, "category" | "value">[]> {
   if (typeof indexedDB === "undefined") return [];
-  const rows = await withStore<{ km: number; openedAt: number }[]>(EMBLEMS_STORE, "readonly", (store) =>
-    store.getAll(),
-  );
-  return rows.map((row) => row.km);
+  const rows = await withStore<OpenedEmblemRow[]>(EMBLEMS_STORE, "readonly", (store) => store.getAll());
+  return rows.map((row) => ({ category: row.category, value: row.value }));
 }
 
 export async function createShoe(shoe: Omit<Shoe, "id" | "createdAt">): Promise<Shoe> {

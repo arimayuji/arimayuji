@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
-import { EMBLEM_ACCENT, EMBLEM_LADDER_KM, formatEmblemKm } from "@/lib/tracking/emblems";
+import { collectibleDisplay } from "@/lib/tracking/collectibles";
+import type { EmblemCategory } from "@/lib/tracking/storage";
 import { EmblemBadge } from "./emblem-badge";
 import { ModalPortal } from "./modal-portal";
 
@@ -15,12 +16,14 @@ import { ModalPortal } from "./modal-portal";
  * ceremony for two systems that are meant to stay separate.
  */
 export function EmblemReveal({
-  km,
+  category = "distancia",
+  value,
   alreadyOpened,
   onOpened,
   onClose,
 }: {
-  km: number;
+  category?: EmblemCategory;
+  value: number;
   alreadyOpened: boolean;
   /** Fires the instant the pop starts, never on mount — same rule the PR reveal follows. */
   onOpened: () => void;
@@ -28,8 +31,7 @@ export function EmblemReveal({
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const [opened, setOpened] = useState(alreadyOpened || reducedMotion);
-  const accent = EMBLEM_ACCENT[km] ?? "#5b8dff";
-  const rank = EMBLEM_LADDER_KM.indexOf(km) + 1;
+  const { accent, rank, title, subtitle } = collectibleDisplay(category, value);
 
   const handleOpen = () => {
     setOpened(true);
@@ -78,7 +80,12 @@ export function EmblemReveal({
                 opened ? "scale-100" : "scale-90 active:scale-95"
               }`}
             >
-              <EmblemBadge km={km} state={opened ? "opened" : "sealed"} />
+              <EmblemBadge
+                category={category}
+                value={value}
+                accent={accent}
+                state={opened ? "opened" : "sealed"}
+              />
             </span>
           </button>
 
@@ -90,12 +97,8 @@ export function EmblemReveal({
               >
                 Emblema Nº {rank}
               </p>
-              <h2 className="mt-2 text-lg font-semibold text-balance text-white">
-                {formatEmblemKm(km)} km na vida
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-pretty text-white/70">
-                Soma de tudo que você já rodou dentro do Xanthus, corrida após corrida.
-              </p>
+              <h2 className="mt-2 text-lg font-semibold text-balance text-white">{title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-pretty text-white/70">{subtitle}</p>
               <button
                 type="button"
                 onClick={onClose}
@@ -107,9 +110,7 @@ export function EmblemReveal({
           ) : (
             <div className="mt-4">
               <p className="text-sm font-semibold text-white">Toque pra abrir</p>
-              <p className="mt-1 text-xs text-white/55">
-                Um emblema novo pra sua coleção de quilometragem.
-              </p>
+              <p className="mt-1 text-xs text-white/55">Um emblema novo pra sua coleção.</p>
             </div>
           )}
         </div>

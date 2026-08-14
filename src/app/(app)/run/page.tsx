@@ -517,7 +517,7 @@ export default function RunPage() {
   const handleEmblemOpened = (km: number) => {
     if (openedEmblemsKm.includes(km)) return;
     setOpenedEmblemsKm((current) => [...current, km]);
-    markEmblemOpened(km).catch(() => {});
+    markEmblemOpened("distancia", km).catch(() => {});
   };
 
   const handleRpeSelect = (runId: string, rpe: number) => {
@@ -1118,7 +1118,7 @@ export default function RunPage() {
                     className="flex w-full items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 p-4 text-left"
                   >
                     <span className="h-11 w-11 shrink-0">
-                      <EmblemBadge km={km} state="sealed" />
+                      <EmblemBadge category="distancia" value={km} state="sealed" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-foreground">Novo emblema!</p>
@@ -1134,7 +1134,8 @@ export default function RunPage() {
 
           {revealingEmblemKm !== null && (
             <EmblemReveal
-              km={revealingEmblemKm}
+              category="distancia"
+              value={revealingEmblemKm}
               alreadyOpened={openedEmblemsKm.includes(revealingEmblemKm)}
               onOpened={() => handleEmblemOpened(revealingEmblemKm)}
               onClose={() => setRevealingEmblemKm(null)}

@@ -1,17 +1,20 @@
 "use client";
 
 import { emblemImageUrl } from "@/lib/tracking/emblems";
+import type { EmblemCategory } from "@/lib/tracking/storage";
 import { HORSE_FULL_BODY_PATHS } from "../horse-mark";
 
 /**
- * The lifetime-distance collectible itself — a real, once-commissioned piece
- * of art per milestone (see emblems.ts), not generated on-device. Three
- * states share this one component so the collection grid and the reveal
- * modal never risk drifting apart: `locked` (not reached yet — a dim
- * outline, no artwork fetched at all), `sealed` (reached but not yet
- * opened — the real piece, heavily blurred and darkened, so its colour mood
- * shows through without giving away the actual design) and the fully
- * `opened` artwork, crisp.
+ * The lifetime collectible itself. The distância ladder uses a real,
+ * once-commissioned piece of art per milestone (see emblems.ts) — elevação
+ * and tempo don't have commissioned art of their own yet, so they render a
+ * generated chrome-and-glow badge instead (`GeneratedBadgeArt`), keeping the
+ * same three-state ritual rather than looking unfinished. Three states share
+ * this one component so the collection grid and the reveal modal never risk
+ * drifting apart: `locked` (not reached yet — a dim outline, no artwork
+ * fetched at all), `sealed` (reached but not yet opened — heavily blurred
+ * and darkened, so its colour mood shows through without giving away the
+ * actual design) and the fully `opened` artwork, crisp.
  *
  * The brand mark on top of the opened artwork is the *real* vector logo
  * (`HORSE_FULL_BODY_PATHS`, the same path data the PR plate stamps), not
@@ -19,8 +22,9 @@ import { HORSE_FULL_BODY_PATHS } from "../horse-mark";
  * for "a horse logo" only ever draws *a* horse, never *this* one. Same
  * `translate(39.8 30) scale(0.44)` placement `achievement-plate.tsx` uses
  * for its own compact/circular badge slot, glowing rather than engraved
- * since it sits on a luminous route-line piece rather than the plate's own
- * lit chrome face.
+ * since it sits on a luminous piece rather than the plate's own lit chrome
+ * face — shared across all three ladders, so every collectible still reads
+ * as unmistakably Xanthus regardless of which one has real commissioned art.
  */
 
 function HorseGlowMark() {
@@ -46,6 +50,68 @@ function HorseGlowMark() {
   );
 }
 
+function ElevationGlyph({ accent }: { accent: string }) {
+  return (
+    <g stroke={accent} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none">
+      <path d="M22 82 46 40 60 62 76 34 98 82Z" />
+      <path d="M69 46 76 34 83 46" opacity="0.85" />
+    </g>
+  );
+}
+
+function TimeGlyph({ accent }: { accent: string }) {
+  return (
+    <g stroke={accent} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none">
+      <path d="M42 30h36M42 90h36" />
+      <path d="M42 30c0 15 14 19 18 30-4 11-18 15-18 30M78 30c0 15-14 19-18 30 4 11 18 15 18 30" />
+    </g>
+  );
+}
+
+/**
+ * The generated stand-in for elevação/tempo, which have no commissioned art
+ * yet: a dark radial glow in the milestone's own accent colour, styled like
+ * the app's own icon set (`STROKE` in app-shell.tsx) rather than trying to
+ * imitate the distância ladder's photographic medallions. The category glyph
+ * sits small in a bottom-right corner rather than centred — `HorseGlowMark`
+ * (added by the caller on top of this) is centred the same way it is on the
+ * distância artwork, and the two competed for the same middle of the badge
+ * before this was shrunk out of the way.
+ */
+function GeneratedBadgeArt({
+  category,
+  accent,
+  sealed,
+}: {
+  category: Exclude<EmblemCategory, "distancia">;
+  accent: string;
+  sealed: boolean;
+}) {
+  return (
+    <div
+      className={`absolute inset-0 ${sealed ? "blur-md brightness-[0.55] saturate-150" : ""}`}
+      style={{ background: `radial-gradient(circle at 32% 28%, ${accent}4d, #10141a 72%)` }}
+    >
+      <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        <defs>
+          <filter id="collectible-badge-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <circle cx="60" cy="60" r="56" fill="none" stroke={accent} strokeOpacity="0.35" strokeWidth="2" />
+        {/* Shrunk into the bottom-right corner, out of HorseGlowMark's centred spot — see the component comment above. */}
+        <g filter="url(#collectible-badge-glow)" transform="translate(57 57) scale(0.42)">
+          {category === "elevacao" ? <ElevationGlyph accent={accent} /> : <TimeGlyph accent={accent} />}
+        </g>
+      </svg>
+    </div>
+  );
+}
+
 function LockIcon() {
   return (
     <svg
@@ -65,11 +131,17 @@ function LockIcon() {
 }
 
 export function EmblemBadge({
-  km,
+  category = "distancia",
+  value,
+  accent = "#5b8dff",
   state,
   className = "block w-full",
 }: {
-  km: number;
+  category?: EmblemCategory;
+  /** The milestone's raw value — km for distância, metres for elevação, hours for tempo. */
+  value: number;
+  /** Colour for the generated elevação/tempo art — see `collectibleDisplay` in collectibles.ts. Unused for distância, whose colour comes from its own artwork. */
+  accent?: string;
   state: "locked" | "sealed" | "opened";
   className?: string;
 }) {
@@ -102,6 +174,20 @@ export function EmblemBadge({
     );
   }
 
+  if (category !== "distancia") {
+    return (
+      <div className={`${className} relative aspect-square overflow-hidden rounded-full`}>
+        <GeneratedBadgeArt category={category} accent={accent} sealed={state === "sealed"} />
+        {state === "sealed" && (
+          <span className="absolute inset-0 flex items-center justify-center text-white/85">
+            <LockIcon />
+          </span>
+        )}
+        {state === "opened" && <HorseGlowMark />}
+      </div>
+    );
+  }
+
   return (
     <div className={`${className} relative aspect-square overflow-hidden rounded-full`}>
       {/*
@@ -115,7 +201,7 @@ export function EmblemBadge({
       */}
       {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed R2 asset doesn't need next/image anyway. */}
       <img
-        src={emblemImageUrl(km)}
+        src={emblemImageUrl(value)}
         alt=""
         className={`h-full w-full object-cover ${state === "sealed" ? "scale-[1.65] blur-md brightness-[0.45] saturate-150" : "scale-[1.4]"}`}
       />
