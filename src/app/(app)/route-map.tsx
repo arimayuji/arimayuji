@@ -14,13 +14,7 @@ import {
 // filenames when it emits them, so the worker 404s on its own import and the
 // map renders an empty background — no tiles, no line. 5.x inlines the worker
 // in the bundle, which is what a static export needs.
-import {
-  AttributionControl,
-  Map as MapLibreMap,
-  Marker,
-  type GeoJSONSource,
-  type StyleSpecification,
-} from "maplibre-gl";
+import { AttributionControl, Map as MapLibreMap, Marker, type StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { ensurePmtilesProtocol, protomapsStyle, type ColorScheme } from "@/lib/protomaps";
@@ -37,9 +31,10 @@ import type { StoredPoint } from "@/lib/tracking/storage";
 /**
  * The GPS trace on a real basemap (see src/lib/protomaps.ts), so the run
  * reads as streets the user recognises rather than a shape floating in the
- * dark. Where tracking
- * silently gapped the line breaks instead of cutting across ground that was
- * never recorded — see routeProjection.ts.
+ * dark. Where tracking silently gapped the line breaks instead of cutting
+ * across ground that was never recorded — see routeProjection.ts. Drawn as
+ * an SVG overlay on top of the map canvas rather than a GL layer inside it —
+ * see `BaseRouteOverlay`'s own comment for why.
  */
 
 /**
@@ -84,13 +79,6 @@ function useColorScheme(): ColorScheme | null {
   );
 }
 
-const ROUTE_SOURCE = "route";
-const FASTEST_SOURCE = "route-fastest";
-const HALO_LAYER = "route-halo";
-const LINE_LAYER = "route-line";
-const FASTEST_LAYER = "route-fastest";
-/** Everything the replay overlay redraws for itself, hidden on the canvas while it plays. */
-const BASE_LAYERS = [HALO_LAYER, LINE_LAYER, FASTEST_LAYER];
 /**
  * Tilted rather than flat top-down even for the plain overview — a finished
  * trace or a live run in progress — so the same real building-extrusion
@@ -210,10 +198,6 @@ function routeGeometry(points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[])
     start: lngLat(points[0]),
     end: lngLat(points[points.length - 1]),
   };
-}
-
-function multiLine(coordinates: [number, number][][]): GeoJSON.Feature<GeoJSON.MultiLineString> {
-  return { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates } };
 }
 
 function markerElement(className: string, pulsing = false): HTMLElement {
@@ -431,6 +415,45 @@ function ReplayOverlay({
   );
 }
 
+/**
+ * The finished (or in-progress) trace itself, drawn as SVG over the map
+ * canvas rather than as a MapLibre GL layer inside it — same technique
+ * `ReplayOverlay` above already uses, and for the same reason `ReplayOverlay`
+ * gives for staying out of the canvas's own CSS filter. Here it matters even
+ * more: with 3D terrain and building extrusions both active (see
+ * src/lib/protomaps.ts), a GL line layer is real geometry sitting *inside*
+ * that 3D scene, and a building standing between the pitched camera and a
+ * stretch of the route legitimately — correctly, even — occludes it, the
+ * same way a real building would block part of a street in a photo taken
+ * from that angle. That read as the route being "picotada": whole stretches
+ * blinking out wherever a building happened to sit in front of them. A DOM
+ * overlay has no concept of that scene's depth at all, so it always paints
+ * over every building and hill regardless — the same guarantee a Marker's
+ * own DOM element already gets for the start/end/head pins.
+ */
+function BaseRouteOverlay({
+  geometry,
+  toPixels,
+  scheme,
+}: {
+  geometry: RouteGeometry;
+  toPixels: (c: [number, number]) => Pixel;
+  scheme: ColorScheme;
+}) {
+  const stretches = geometry.segments.map((segment) => segment.map(toPixels));
+  const fastest = geometry.fastest ? [geometry.fastest.map(toPixels)] : [];
+
+  return (
+    <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+      <Stretches stretches={stretches} stroke={HALO_COLOR[scheme]} strokeWidth="8" strokeOpacity="0.55" />
+      <Stretches stretches={stretches} stroke={ROUTE_COLOR[scheme]} strokeWidth="4.5" />
+      {fastest.length > 0 && (
+        <Stretches stretches={fastest} stroke={FASTEST_COLOR} strokeWidth="2.2" strokeDasharray="4.4 3.5" />
+      )}
+    </svg>
+  );
+}
+
 function RouteTiles({
   points,
   live,
@@ -449,7 +472,6 @@ function RouteTiles({
   const startMarker = useRef<Marker | null>(null);
   const endMarker = useRef<Marker | null>(null);
   const headMarker = useRef<Marker | null>(null);
-  const replaying = useRef(replay !== null);
   const chasing = useRef(false);
   const chaseBearing = useRef(0);
   const chasePitch = useRef(CHASE_PITCH);
@@ -533,40 +555,7 @@ function RouteTiles({
       autoRetriesRef.current = 0;
       clearTimeout(failTimer);
       setTilesFailed(false);
-      const { segments, fastest, start, end } = latest.current;
-
-      instance.addSource(ROUTE_SOURCE, { type: "geojson", data: multiLine(segments) });
-      instance.addSource(FASTEST_SOURCE, {
-        type: "geojson",
-        data: multiLine(fastest ? [fastest] : []),
-      });
-
-      const line = {
-        "line-cap": "round",
-        "line-join": "round",
-        visibility: replaying.current ? "none" : "visible",
-      } as const;
-      instance.addLayer({
-        id: HALO_LAYER,
-        type: "line",
-        source: ROUTE_SOURCE,
-        layout: line,
-        paint: { "line-color": HALO_COLOR[scheme], "line-width": 8, "line-opacity": 0.55 },
-      });
-      instance.addLayer({
-        id: LINE_LAYER,
-        type: "line",
-        source: ROUTE_SOURCE,
-        layout: line,
-        paint: { "line-color": ROUTE_COLOR[scheme], "line-width": 4.5 },
-      });
-      instance.addLayer({
-        id: FASTEST_LAYER,
-        type: "line",
-        source: FASTEST_SOURCE,
-        layout: line,
-        paint: { "line-color": FASTEST_COLOR, "line-width": 2.2, "line-dasharray": [2, 1.6] },
-      });
+      const { start, end } = latest.current;
 
       startMarker.current = new Marker({ element: markerElement(START_MARKER) })
         .setLngLat(start)
@@ -614,22 +603,9 @@ function RouteTiles({
   }, [style, scheme, live, retryAttempt]);
 
   useEffect(() => {
-    replaying.current = replay !== null;
     const instance = map.current;
     if (!instance) return;
 
-    // The whole trace is redrawn by the overlay while playback runs, so the
-    // canvas gives up its copy rather than showing a filtered one underneath.
-    // Guarded on the layer existing rather than gating this whole effect on
-    // it (the old shape): the style — and these layers — only exist once
-    // `style.load` fires, but the chase camera below doesn't need any of
-    // that to move, and shouldn't sit frozen top-down just because a slow
-    // or failed tile load hasn't reached that point yet.
-    if (instance.getLayer(LINE_LAYER)) {
-      for (const layer of BASE_LAYERS) {
-        instance.setLayoutProperty(layer, "visibility", replay ? "none" : "visible");
-      }
-    }
     if (endMarker.current) endMarker.current.getElement().style.opacity = replay ? "0" : "1";
 
     if (!replay) {
@@ -689,15 +665,12 @@ function RouteTiles({
   useEffect(() => {
     latest.current = geometry;
     const instance = map.current;
-    const source = instance?.getSource<GeoJSONSource>(ROUTE_SOURCE);
-    if (!instance || !source) return; // style still loading — its handler reads `latest` itself
+    // Markers only exist once `style.load` fires (see above) — its handler
+    // reads `latest` itself, so there's nothing left to do here before that.
+    if (!instance || !startMarker.current || !endMarker.current) return;
 
-    source.setData(multiLine(geometry.segments));
-    instance
-      .getSource<GeoJSONSource>(FASTEST_SOURCE)!
-      .setData(multiLine(geometry.fastest ? [geometry.fastest] : []));
-    startMarker.current!.setLngLat(geometry.start);
-    endMarker.current!.setLngLat(geometry.end);
+    startMarker.current.setLngLat(geometry.start);
+    endMarker.current.setLngLat(geometry.end);
     instance.fitBounds(
       geometry.bounds,
       live ? { ...FIT_OPTIONS, animate: true, duration: LIVE_FIT_DURATION_MS } : FIT_OPTIONS,
@@ -726,6 +699,7 @@ function RouteTiles({
         role="img"
         aria-label="Trajeto percorrido"
       />
+      {!replay && toPixels && <BaseRouteOverlay geometry={geometry} toPixels={toPixels} scheme={scheme} />}
       {replay && projected && (
         <ReplayOverlay points={points} projected={projected} replay={replay} scheme={scheme} />
       )}

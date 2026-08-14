@@ -885,38 +885,25 @@ export default function RunPage() {
 
       {state.status === "warming" && (
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <div className="relative flex items-center justify-center">
-            {/*
-             * A soft halo in the clip's own off-white, well past its edges —
-             * bridges the hard cut from the video's near-white background
-             * (#fbfbfb, fixed regardless of theme — see below) into the dark
-             * screen so it reads as one glowing loading centerpiece instead
-             * of a small sticker dropped on black.
-             */}
-            <div
-              className="absolute h-64 w-64 rounded-full bg-white/20 blur-3xl"
-              aria-hidden="true"
-            />
-            {/*
-             * Fixed light background, not `bg-surface` — the clip's own
-             * background is a near-white off-white, and that token flips
-             * dark in dark mode. A themed background would put a stark white
-             * rectangle in the middle of a dark screen; a fixed one plus the
-             * feathered mask below is what actually blends it in.
-             */}
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="relative block h-56 w-56 bg-white sm:h-64 sm:w-64"
-              style={{
-                maskImage: "radial-gradient(circle, black 60%, transparent 88%)",
-                WebkitMaskImage: "radial-gradient(circle, black 60%, transparent 88%)",
-              }}
-              src="/running-loop.mp4"
-            />
-          </div>
+          {/*
+           * Same treatment as the splash clip (see splash.tsx): the source is
+           * baked black-line-art-on-white with no alpha channel. A CSS mask
+           * can only crop that white square into a softer-edged white square
+           * — it never actually removes the background, which is what showed
+           * up as a stark light box on a dark screen. In light mode the
+           * clip's own white background already matches the app's, so it
+           * plays untouched; in dark mode `invert` flips it to white-on-black
+           * and `mix-blend-screen` drops the now-black ground out entirely,
+           * leaving just the runners floating on the real theme background.
+           */}
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="block h-56 w-56 sm:h-64 sm:w-64 dark:invert dark:mix-blend-screen"
+            src="/running-loop.mp4"
+          />
           <p className="text-lg font-medium">Procurando GPS&hellip;</p>
           <p className="max-w-xs text-sm text-muted">
             Fique a céu aberto. O cronômetro começa assim que o sinal ficar estável.

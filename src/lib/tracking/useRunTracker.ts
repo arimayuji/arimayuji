@@ -269,7 +269,12 @@ export function useRunTracker() {
       if (!stationary) {
         distanceRef.current += pendingDriftMetersRef.current;
         pendingDriftMetersRef.current = 0;
-        pointsRef.current.push({ lat: filteredLat, lon: filteredLon, timestamp });
+        // A new array, not `.push()` on the old one: `state.points` below is
+        // this same reference, and `route-map.tsx` depends on it by identity
+        // (`useMemo(..., [points])`) to know a new fix arrived — mutating in
+        // place would leave that memo (and the live marker riding on it)
+        // frozen at wherever the run happened to be on the first render.
+        pointsRef.current = [...pointsRef.current, { lat: filteredLat, lon: filteredLon, timestamp }];
       }
 
       const rawSpeed =
