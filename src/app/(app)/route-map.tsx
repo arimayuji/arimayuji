@@ -98,6 +98,9 @@ const BASE_LAYERS = [HALO_LAYER, LINE_LAYER, FASTEST_LAYER];
 const IDLE_PITCH = 50;
 const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false, pitch: IDLE_PITCH } as const;
 
+/** How long to wait for MapTiler's style before treating it as failed rather than still loading — generous for a slow connection, not so long the screen just looks stuck. */
+const TILE_LOAD_TIMEOUT_MS = 8000;
+
 /**
  * Replay's camera: tilted and zoomed to street level, following the head
  * from behind instead of the fixed top-down view a finished trace gets —
@@ -348,6 +351,16 @@ function RouteTiles({
   const chasing = useRef(false);
   const chaseBearing = useRef(0);
   const [toPixels, setToPixels] = useState<((c: [number, number]) => Pixel) | null>(null);
+  /**
+   * A blank canvas with no explanation reads as broken, not "still loading" —
+   * this turns "the map never showed up" into a message and a retry instead
+   * of a silent black square. `retryAttempt` is only ever bumped by the
+   * button below; it exists purely so re-clicking it re-triggers the map
+   * creation effect, since `styleUrl`/`scheme`/`live` alone wouldn't change
+   * between one failed attempt and the next.
+   */
+  const [tilesFailed, setTilesFailed] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   const geometry = useMemo(() => routeGeometry(points), [points]);
   // The style loads asynchronously, so the sources can only be filled in
@@ -362,6 +375,14 @@ function RouteTiles({
   );
 
   useEffect(() => {
+    // MapTiler unreachable (blocked DNS/network, an outage, a bad key) never
+    // surfaces as an error event here — `style.load` just never fires, and
+    // the map sits on a blank canvas forever with nothing telling anyone
+    // why. This is the one signal available for that: if the style hasn't
+    // loaded by the time a normal connection would have finished it, treat
+    // it as failed and say so instead of leaving the screen looking broken.
+    const failTimer = setTimeout(() => setTilesFailed(true), TILE_LOAD_TIMEOUT_MS);
+
     const instance = new MapLibreMap({
       container: container.current!,
       style: styleUrl,
@@ -383,6 +404,8 @@ function RouteTiles({
     // render, so on a weak signal — the normal case right after a run — the
     // trace itself would be held back by the basemap it's drawn over.
     instance.on("style.load", () => {
+      clearTimeout(failTimer);
+      setTilesFailed(false);
       const { segments, fastest, start, end } = latest.current;
 
       instance.addSource(ROUTE_SOURCE, { type: "geojson", data: multiLine(segments) });
@@ -441,6 +464,7 @@ function RouteTiles({
 
     map.current = instance;
     return () => {
+      clearTimeout(failTimer);
       instance.remove();
       map.current = null;
       startMarker.current = null;
@@ -448,7 +472,7 @@ function RouteTiles({
       headMarker.current = null;
       setToPixels(null);
     };
-  }, [styleUrl, scheme, live]);
+  }, [styleUrl, scheme, live, retryAttempt]);
 
   useEffect(() => {
     replaying.current = replay !== null;
@@ -561,6 +585,27 @@ function RouteTiles({
       />
       {replay && projected && (
         <ReplayOverlay points={points} projected={projected} replay={replay} scheme={scheme} />
+      )}
+      {tilesFailed && (
+        <div
+          role="status"
+          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center"
+        >
+          <p className="rounded-xl bg-black/55 px-3 py-2 text-xs text-white/85 backdrop-blur-sm">
+            Não foi possível carregar o mapa. Confere sua conexão.
+          </p>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setTilesFailed(false);
+              setRetryAttempt((n) => n + 1);
+            }}
+            className="pointer-events-auto rounded-full bg-black/55 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm active:scale-95"
+          >
+            Tentar de novo
+          </button>
+        </div>
       )}
     </div>
   );
