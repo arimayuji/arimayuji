@@ -706,11 +706,23 @@ function RouteTiles({
         // reads as a stray line rather than a real road. Less aggressive here
         // keeps it recognisably a blue road, with our own accent-coloured
         // trail still the most saturated thing on screen either way.
-        className={
+        //
+        // `live` also mutes the attribution control's own click handling:
+        // this is the fixed full-bleed backdrop behind an in-progress run
+        // (see `RouteMap` in run/page.tsx), the exact screen a phone sits
+        // against a pocket or an arm during. `interactive: false` on the map
+        // instance already blocks panning/zooming, but MapLibre's compact
+        // attribution button is a plain DOM element outside that handler —
+        // a stray touch can still toggle it open into a white attribution
+        // panel covering part of the run screen. Nothing here hides the
+        // control itself (the attribution stays visible, satisfying the
+        // OSM/Protomaps requirement); it only stops that one button from
+        // reacting to touches it was never meant to receive.
+        className={`${
           replay
             ? "h-full w-full [&_.maplibregl-canvas]:saturate-[0.55] [&_.maplibregl-canvas]:brightness-[0.9]"
             : "h-full w-full [&_.maplibregl-canvas]:saturate-[0.35] [&_.maplibregl-canvas]:contrast-[1.12] [&_.maplibregl-canvas]:brightness-[0.92]"
-        }
+        } ${live ? "[&_.maplibregl-ctrl-attrib]:pointer-events-none" : ""}`}
         role="img"
         aria-label="Trajeto percorrido"
       />
