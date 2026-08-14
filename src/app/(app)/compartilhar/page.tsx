@@ -14,11 +14,7 @@ import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords } from "@/lib/tracking/personalRecords";
 import { buildShareCardScene, scenarioForRun } from "@/lib/shareCard/renderer";
-import {
-  buildShareCardVideoFile,
-  canRecordShareVideo,
-  canShareVideoFiles,
-} from "@/lib/shareCard/video";
+import { buildShareCardVideoFile, canRecordShareVideo } from "@/lib/shareCard/video";
 import {
   listCompletedRuns,
   listShoes,
@@ -125,13 +121,7 @@ function CompartilharContent() {
     setShareNotice(null);
     const url = window.location.origin;
 
-    if (
-      scene &&
-      shareSupport === "share" &&
-      !reducedMotion &&
-      canRecordShareVideo() &&
-      canShareVideoFiles()
-    ) {
+    if (scene && shareSupport === "share" && !reducedMotion && canRecordShareVideo()) {
       setVideoProgress(0);
       try {
         let lastShown = 0;

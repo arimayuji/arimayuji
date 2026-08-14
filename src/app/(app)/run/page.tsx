@@ -42,11 +42,7 @@ import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/u
 import { useShareSupport } from "@/lib/share";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { buildShareCardScene, scenarioForRun } from "@/lib/shareCard/renderer";
-import {
-  buildShareCardVideoFile,
-  canRecordShareVideo,
-  canShareVideoFiles,
-} from "@/lib/shareCard/video";
+import { buildShareCardVideoFile, canRecordShareVideo } from "@/lib/shareCard/video";
 import { useImmersiveMode } from "../app-shell";
 import { NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
@@ -529,12 +525,7 @@ export default function RunPage() {
 
     // Someone who asked the OS for less motion gets the text, not a six-second
     // animation generated on their behalf.
-    if (
-      shareSupport === "share" &&
-      !reducedMotion &&
-      canRecordShareVideo() &&
-      canShareVideoFiles()
-    ) {
+    if (shareSupport === "share" && !reducedMotion && canRecordShareVideo()) {
       setVideoProgress(0);
       try {
         const file = await buildShareVideo(run, unit);

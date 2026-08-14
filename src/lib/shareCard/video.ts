@@ -154,34 +154,12 @@ export async function recordShareCardVideo(
   return { blob, mimeType };
 }
 
-/**
- * Whether the share sheet would take a video of this kind at all, asked with
- * an empty stand-in *before* six seconds are spent recording one — the check
- * is against the file's name and type, not its bytes. `navigator.canShare`
- * is the documented capability probe and it is not implied by
- * `navigator.share` existing: Safari has `share` and rejects most file
- * payloads.
- */
-export function canShareVideoFiles(): boolean {
-  if (typeof navigator === "undefined" || typeof navigator.canShare !== "function") return false;
-  const mimeType = shareVideoMimeType();
-  if (!mimeType) return false;
-  try {
-    const probe = new File([], shareVideoFileName(mimeType), {
-      type: shareVideoBaseMime(mimeType),
-    });
-    return navigator.canShare({ files: [probe] });
-  } catch {
-    return false;
-  }
-}
-
 /** The recorded card as a `File`. Null for every failure, which the caller reads as "fall back to text". */
 export async function buildShareCardVideoFile(
   scene: ShareCardScene,
   options: { onProgress?: (fraction: number) => void } = {},
 ): Promise<File | null> {
-  if (!canRecordShareVideo() || !canShareVideoFiles()) return null;
+  if (!canRecordShareVideo()) return null;
 
   const recorded = await recordShareCardVideo(scene, options);
   if (!recorded) return null;
@@ -189,5 +167,10 @@ export async function buildShareCardVideoFile(
   const file = new File([recorded.blob], shareVideoFileName(recorded.mimeType), {
     type: shareVideoBaseMime(recorded.mimeType),
   });
+  // Checked against the real recorded bytes, not a zero-byte stand-in taken
+  // before recording even started — some browsers' `canShare` reads an empty
+  // probe file as unshareable regardless of its declared type, which made
+  // this reject every device capable of sharing a real one.
+  if (typeof navigator.canShare !== "function") return file;
   return navigator.canShare({ files: [file] }) ? file : null;
 }
