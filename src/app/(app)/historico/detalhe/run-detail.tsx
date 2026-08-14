@@ -348,7 +348,7 @@ export function RunDetail({ id }: { id: string }) {
               </p>
             </div>
           </div>
-          {(run.shoeName || elevationGain !== null || calories !== null) && (
+          {(run.shoeName || elevationGain !== null || calories !== null || run.rpe !== undefined) && (
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-border pt-3 text-xs text-muted">
               {elevationGain !== null && (
                 <p>
@@ -366,6 +366,19 @@ export function RunDetail({ id }: { id: string }) {
                 <p>
                   <span className="uppercase tracking-wide">Tênis</span>{" "}
                   <span className="text-foreground">{run.shoeName}</span>
+                </p>
+              )}
+              {run.rpe !== undefined && (
+                <p>
+                  <span className="uppercase tracking-wide">Esforço percebido</span>{" "}
+                  <span className="text-foreground">{run.rpe}/10</span>
+                </p>
+              )}
+              {run.rpe !== undefined && (
+                <p>
+                  {/* Foster's session-RPE: load = RPE × minutes moved — the same hardware-free training-load formula Strava falls back to without a heart-rate sensor. */}
+                  <span className="uppercase tracking-wide">Carga do treino</span>{" "}
+                  <span className="text-foreground">{Math.round(run.rpe * (seconds / 60))}</span>
                 </p>
               )}
             </div>

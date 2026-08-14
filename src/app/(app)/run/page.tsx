@@ -18,6 +18,7 @@ import {
   markRecordOpened,
   runMovingSeconds,
   summarizeShoes,
+  updateRunRpe,
   updateRunTracks,
   type CompletedRun,
   type RunTrack,
@@ -134,6 +135,55 @@ function GhostDeltaPill({ deltaSeconds }: { deltaSeconds: number }) {
   );
 }
 
+/** Borg CR10 anchors, condensed to plain pt-BR — the same 1-10 scale Strava falls back to as "Perceived Exertion" when there's no heart-rate sensor. */
+const RPE_LABEL: Record<number, string> = {
+  1: "Muito leve",
+  2: "Leve",
+  3: "Leve",
+  4: "Moderado",
+  5: "Moderado",
+  6: "Um pouco forte",
+  7: "Forte",
+  8: "Forte",
+  9: "Muito forte",
+  10: "Máximo esforço",
+};
+
+/**
+ * The one intensity signal GPS pace alone can't give — a cool flat easy day
+ * and a hot hilly one can log the same pace but felt nothing alike. Asked
+ * once, right here, while the run is still fresh: this is what the athlete
+ * would forget by tomorrow, not something worth a settings-page form later.
+ */
+function RpeCard({ value, onSelect }: { value: number | null; onSelect: (rpe: number) => void }) {
+  return (
+    <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
+      <span className="text-xs uppercase tracking-wide text-muted">Como foi o esforço?</span>
+      <div className="mt-3 grid grid-cols-5 gap-2">
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onSelect(n)}
+            className={`flex h-9 items-center justify-center rounded-lg border font-mono text-sm font-semibold transition-colors ${
+              value === n
+                ? "border-accent bg-accent text-accent-foreground"
+                : "border-border bg-background text-foreground hover:border-accent"
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        {value !== null
+          ? `${value} — ${RPE_LABEL[value]}`
+          : "1 é bem leve, 10 é o máximo que você conseguiria dar."}
+      </p>
+    </div>
+  );
+}
+
 const GPS_LABEL: Record<string, { label: string; className: string }> = {
   searching: { label: "Procurando sinal", className: "bg-bad" },
   weak: { label: "Sinal fraco", className: "bg-warn" },
@@ -173,6 +223,7 @@ export default function RunPage() {
   const [activeGhost, setActiveGhost] = useState<CompletedRun | null>(null);
   const [runRecords, setRunRecords] = useState<RunRecord[]>([]);
   const [openedRecordMeters, setOpenedRecordMeters] = useState<number[]>([]);
+  const [savedRpe, setSavedRpe] = useState<number | null>(null);
   const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
   const shareSupport = useShareSupport();
   const reducedMotion = usePrefersReducedMotion();
@@ -435,6 +486,7 @@ export default function RunPage() {
     setDiscarding(false);
     setRunRecords([]);
     setOpenedRecordMeters([]);
+    setSavedRpe(null);
     setRevealing(null);
     reset();
   };
@@ -444,6 +496,11 @@ export default function RunPage() {
     if (openedRecordMeters.includes(record.targetMeters)) return;
     setOpenedRecordMeters((current) => [...current, record.targetMeters]);
     markRecordOpened(runId, record.targetMeters).catch(() => {});
+  };
+
+  const handleRpeSelect = (runId: string, rpe: number) => {
+    setSavedRpe(rpe);
+    updateRunRpe(runId, rpe).catch(() => {});
   };
 
   /**
@@ -1001,6 +1058,13 @@ export default function RunPage() {
               </p>
             </div>
           </div>
+
+          {finishedRun && (
+            <RpeCard
+              value={savedRpe ?? finishedRun.rpe ?? null}
+              onSelect={(rpe) => handleRpeSelect(finishedRun.id, rpe)}
+            />
+          )}
 
           {finishedRun && runRecords.some((r) => r.isNewRecord) && (
             <div className="flex w-full max-w-xs flex-col gap-2">

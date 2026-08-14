@@ -89,6 +89,15 @@ export interface CompletedRun {
    * costs nothing but one extra animation. Undefined means "none opened yet".
    */
   openedRecordMeters?: number[];
+  /**
+   * Rate of perceived exertion, 1-10 (Borg CR10), self-reported right after
+   * finishing. The one intensity signal GPS pace can't give on its own —
+   * pace alone can't tell an easy day on a cool flat road from a genuinely
+   * hard one fighting heat, hills or wind, so this is what session-RPE
+   * training load (`rpe × minutes`, Foster's method) is computed from.
+   * Undefined means "not reported", not "zero effort".
+   */
+  rpe?: number;
 }
 
 /**
@@ -257,6 +266,17 @@ export async function updateRunElevationGain(runId: string, elevationGainMeters:
   );
   if (!run) return;
   run.elevationGainMeters = elevationGainMeters;
+  await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
+}
+
+/** Records the athlete's own effort rating for an already-saved run — see `CompletedRun.rpe`. */
+export async function updateRunRpe(runId: string, rpe: number): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const run = await withStore<CompletedRun | undefined>(RUNS_STORE, "readonly", (store) =>
+    store.get(runId),
+  );
+  if (!run) return;
+  run.rpe = rpe;
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
 }
 
