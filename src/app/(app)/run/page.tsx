@@ -60,6 +60,71 @@ function formatPauseDuration(startedAt: number, endedAt: number | null): string 
   return formatDeltaDuration(seconds);
 }
 
+/** How long a hold has to last before it counts — long enough that a stray tap or a bump mid-stride can't trigger it, short enough that a deliberate hold doesn't feel like it's stuck. */
+const HOLD_TO_FINISH_MS = 850;
+
+/**
+ * Ending a run is the one action here with no undo — the summary screen is
+ * already built from whatever `finish()` freezes into `finishedRun`, and
+ * that's exactly what a sweaty thumb or a phone bouncing in an armband can
+ * hit by accident mid-run. A plain tap-to-confirm dialog doesn't help; on a
+ * touchscreen, dismissing that dialog is itself just another tap that can
+ * land wrong. Holding it down is the one gesture an accidental brush can't
+ * reproduce.
+ */
+function HoldToFinishButton({
+  onConfirm,
+  disabled,
+}: {
+  onConfirm: () => void;
+  disabled?: boolean;
+}) {
+  const [holding, setHolding] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancel = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setHolding(false);
+  }, []);
+
+  useEffect(() => cancel, [cancel]);
+
+  const start = useCallback(() => {
+    if (disabled || timerRef.current !== null) return;
+    setHolding(true);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      setHolding(false);
+      onConfirm();
+    }, HOLD_TO_FINISH_MS);
+  }, [disabled, onConfirm]);
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      className="relative flex-1 overflow-hidden rounded-full bg-bad py-4 text-base font-semibold text-white select-none disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 bg-white/25"
+        style={{
+          width: holding ? "100%" : "0%",
+          transition: holding ? `width ${HOLD_TO_FINISH_MS}ms linear` : "width 150ms ease-out",
+        }}
+      />
+      <span className="relative">{holding ? "Segura pra finalizar…" : "Finalizar"}</span>
+    </button>
+  );
+}
+
 function GhostDeltaPill({ deltaSeconds }: { deltaSeconds: number }) {
   const ahead = deltaSeconds >= 0;
   return (
@@ -911,13 +976,7 @@ export default function RunPage() {
                 {state.gpsQuality !== "good" ? "Aguardando sinal…" : "Retomar"}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => finish({ shoeName })}
-              className="flex-1 rounded-full bg-bad py-4 text-base font-semibold text-white hover:opacity-90"
-            >
-              Finalizar
-            </button>
+            <HoldToFinishButton onConfirm={() => finish({ shoeName })} />
           </div>
         </main>
       )}
