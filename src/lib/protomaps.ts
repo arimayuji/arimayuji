@@ -17,7 +17,7 @@
  */
 import { layers, namedFlavor, type Flavor } from "@protomaps/basemaps";
 import { addProtocol } from "maplibre-gl";
-import type { LayerSpecification, StyleSpecification } from "maplibre-gl";
+import type { FilterSpecification, LayerSpecification, StyleSpecification } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 
 export type ColorScheme = "light" | "dark";
@@ -27,6 +27,21 @@ const TILES_BASE_URL =
 
 const SOURCE_ID = "protomaps";
 const TERRAIN_SOURCE_ID = "terrain";
+const OVERTURE_SOURCE_ID = "overture-buildings";
+/**
+ * OSM's building coverage is uneven — dense in some neighborhoods, entirely
+ * untraced in others (see the "why does my street look flat" investigation).
+ * Overture Maps' buildings theme fuses OSM with Microsoft/Google
+ * satellite-derived footprints, giving far more complete coverage; the
+ * tradeoff is it's a much bigger dataset with no ready-made regional
+ * extract; this one was built by hand — DuckDB querying Overture's public
+ * S3 parquet release filtered to a Greater São Paulo bbox, tippecanoe to a
+ * vector tileset, converted to pmtiles — rather than pulled pre-packaged
+ * like the basemap and terrain. Scoped to where this app's runs actually
+ * are, not all of Brazil: the same pipeline re-run with a wider bbox is how
+ * that would grow later.
+ */
+const OVERTURE_BOUNDS: [number, number, number, number] = [-47.5, -24.3, -45.5, -22.7];
 /**
  * A real 3D terrain mesh is the one thing that reads as "hilly" even where
  * OSM has no building footprints traced at all — unlike the buildings
@@ -49,6 +64,19 @@ export function ensurePmtilesProtocol(): void {
   protocolRegistered = true;
 }
 
+const OVERTURE_BOUNDS_POLYGON = {
+  type: "Polygon" as const,
+  coordinates: [
+    [
+      [OVERTURE_BOUNDS[0], OVERTURE_BOUNDS[1]],
+      [OVERTURE_BOUNDS[2], OVERTURE_BOUNDS[1]],
+      [OVERTURE_BOUNDS[2], OVERTURE_BOUNDS[3]],
+      [OVERTURE_BOUNDS[0], OVERTURE_BOUNDS[3]],
+      [OVERTURE_BOUNDS[0], OVERTURE_BOUNDS[1]],
+    ],
+  ],
+};
+
 /**
  * `layers()` only gives buildings a flat fill — this swaps in a `fill-extrusion`
  * pass in the same slot so the 3D-tilted chase/idle camera (route-map.tsx's
@@ -56,6 +84,11 @@ export function ensurePmtilesProtocol(): void {
  * `min_height` are already resolved to meters by the basemap build; most
  * residential buildings simply have no OSM height tag at all, hence the flat
  * fallback rather than leaving them at 0 (invisible).
+ *
+ * Excluded inside `OVERTURE_BOUNDS`: the much denser Overture layer below
+ * covers that area, and OSM's sparser footprints there would just double up
+ * with it — slightly offset outlines stacked on the same block. Everywhere
+ * else in Brazil, this OSM layer is still the only building data there is.
  */
 function buildingExtrusion(scheme: ColorScheme, flavor: Flavor): LayerSpecification {
   return {
@@ -63,7 +96,28 @@ function buildingExtrusion(scheme: ColorScheme, flavor: Flavor): LayerSpecificat
     type: "fill-extrusion",
     source: SOURCE_ID,
     "source-layer": "buildings",
-    filter: ["in", "kind", "building", "building_part"],
+    filter: [
+      "all",
+      ["in", ["get", "kind"], ["literal", ["building", "building_part"]]],
+      ["!", ["within", OVERTURE_BOUNDS_POLYGON]],
+    ] satisfies FilterSpecification,
+    minzoom: 14,
+    paint: {
+      "fill-extrusion-color": flavor.buildings,
+      "fill-extrusion-height": ["coalesce", ["get", "height"], 6],
+      "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],
+      "fill-extrusion-opacity": scheme === "dark" ? 0.75 : 0.6,
+    },
+  };
+}
+
+/** The denser Overture-derived buildings for Greater São Paulo — same paint recipe as the OSM layer above, different source and no `kind` filter needed since this tileset only ever contains buildings. */
+function overtureBuildingExtrusion(scheme: ColorScheme, flavor: Flavor): LayerSpecification {
+  return {
+    id: "overture-buildings",
+    type: "fill-extrusion",
+    source: OVERTURE_SOURCE_ID,
+    "source-layer": "buildings",
     minzoom: 14,
     paint: {
       "fill-extrusion-color": flavor.buildings,
@@ -93,8 +147,10 @@ function hillshade(scheme: ColorScheme): LayerSpecification {
 export function protomapsStyle(scheme: ColorScheme): StyleSpecification {
   const flavor = namedFlavor(scheme);
   const baseLayers = layers(SOURCE_ID, flavor, { lang: "pt" });
-  const withExtrudedBuildings = baseLayers.map((layer) =>
-    layer.id === "buildings" ? buildingExtrusion(scheme, flavor) : layer,
+  const withExtrudedBuildings = baseLayers.flatMap((layer) =>
+    layer.id === "buildings"
+      ? [buildingExtrusion(scheme, flavor), overtureBuildingExtrusion(scheme, flavor)]
+      : [layer],
   );
   // Right after "earth", ahead of landcover/water/roads/buildings — shaded
   // relief reads as ground texture, not a layer painted over the map.
@@ -122,6 +178,12 @@ export function protomapsStyle(scheme: ColorScheme): StyleSpecification {
         encoding: "terrarium",
         tileSize: 512,
         attribution: 'Relevo © <a href="https://mapterhorn.com">Mapterhorn</a>',
+      },
+      [OVERTURE_SOURCE_ID]: {
+        type: "vector",
+        url: `pmtiles://${TILES_BASE_URL}/overture-sp-buildings.pmtiles`,
+        bounds: OVERTURE_BOUNDS,
+        attribution: 'Prédios © <a href="https://overturemaps.org">Overture Maps Foundation</a>',
       },
     },
     terrain: { source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_EXAGGERATION },
