@@ -71,6 +71,7 @@ function CompartilharContent() {
   const [preferences] = usePreferences();
   const [copied, setCopied] = useState(false);
   const [videoProgress, setVideoProgress] = useState<number | null>(null);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
 
   useEffect(() => {
     listShoes().then(setShoes);
@@ -121,6 +122,7 @@ function CompartilharContent() {
 
   async function handleShare() {
     if (videoProgress !== null) return;
+    setShareNotice(null);
     const url = window.location.origin;
 
     if (
@@ -146,13 +148,24 @@ function CompartilharContent() {
             : { files: [file], text: shareText };
           try {
             await navigator.share(payload);
-          } catch {
-            // Cancelled or blocked — the sheet closing is feedback enough.
+          } catch (shareErr) {
+            // AbortError is the user cancelling the sheet themselves — not a failure worth surfacing.
+            if (shareErr instanceof Error && shareErr.name !== "AbortError") {
+              setShareNotice(
+                "O aparelho recusou compartilhar o vídeo — tenta de novo, ou copia o link abaixo.",
+              );
+            }
           }
           return;
         }
+        // buildShareCardVideoFile resolved to null: recording produced no usable
+        // file (blocked codec, zero-byte capture, canShare rejected the result).
+        // Falling through silently here is exactly what read as "diz que gera e
+        // não gera nada" — say so instead of pretending the text fallback below
+        // was what was asked for.
+        setShareNotice("Não deu pra gerar o vídeo dessa vez — compartilhando só o texto.");
       } catch {
-        // Recording failed — fall through to the text share below.
+        setShareNotice("Não deu pra gerar o vídeo dessa vez — compartilhando só o texto.");
       } finally {
         setVideoProgress(null);
       }
@@ -400,6 +413,11 @@ function CompartilharContent() {
           )}
           <span className="relative">{buttonLabel}</span>
         </button>
+        {shareNotice && (
+          <p className="-mt-2 text-center text-xs leading-relaxed text-warn" role="status">
+            {shareNotice}
+          </p>
+        )}
         <p className="pr-enter -mt-2 text-center text-xs leading-relaxed text-muted" style={delay(280)}>
           {shareSupport === "clipboard"
             ? "Esse navegador não abre o menu nativo de compartilhar — copia o link e cola onde quiser."
