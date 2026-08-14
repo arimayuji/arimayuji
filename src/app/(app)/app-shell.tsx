@@ -69,6 +69,16 @@ const TABS: TabDefinition[] = [
     ),
   },
   {
+    href: "/progresso",
+    label: "Progresso",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
+        <path d="M4 15.5 9.5 10l3.5 3.5L20 6" />
+        <path d="M14.5 6h5.5v5.5" />
+      </svg>
+    ),
+  },
+  {
     href: "/plano",
     label: "Plano",
     icon: ({ className }) => (

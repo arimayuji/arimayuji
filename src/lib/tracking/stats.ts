@@ -1,5 +1,5 @@
 /**
- * Aggregating completed runs into weekly/daily buckets for the /estatisticas
+ * Aggregating completed runs into weekly/daily buckets for the /progresso
  * dashboard — pure functions over `CompletedRun[]`, no storage access of
  * their own, so they're cheap to unit-test and cheap to recompute on every
  * render at personal-app scale (same reasoning `allTimeBests` and

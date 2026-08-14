@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import Link from "next/link";
 import { listCompletedRuns, listPainCheckIns, type CompletedRun, type PainCheckIn } from "@/lib/tracking/storage";
 import {
   bucketPaceSecPerUnit,
@@ -64,6 +65,49 @@ function Section({
     <Card className="pr-enter" style={delay(delayMs)}>
       <CardTitle>{title}</CardTitle>
       {children}
+    </Card>
+  );
+}
+
+const ICON_STROKE = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+function EmblemsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <circle cx="12" cy="10" r="6.2" />
+      <path d="M9 15.3 7.6 21l4.4-2.6L16.4 21l-1.4-5.7" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M9 5.5 15.5 12 9 18.5" />
+    </svg>
+  );
+}
+
+/** Lives here rather than /perfil now — the collectible ladder is exactly the kind of thing this screen exists for, not a setting. */
+function EmblemsCard() {
+  return (
+    <Card className="pr-enter" style={delay(45)}>
+      <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>Emblemas</CardTitle>
+      <Link href="/emblemas" className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+          <EmblemsIcon className="h-5 w-5" />
+        </span>
+        <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
+          Sua coleção de marcos de quilometragem — cada um escondido até você destravar e abrir.
+        </p>
+        <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
+      </Link>
     </Card>
   );
 }
@@ -527,8 +571,8 @@ export default function EstatisticasPage() {
   return (
     <>
       <ScreenHeader
-        title="Estatísticas"
-        subtitle="Rodagem, ritmo e frequência — tudo calculado sobre as corridas salvas neste aparelho."
+        title="Progresso"
+        subtitle="Rodagem, ritmo, constância e conquistas — tudo calculado sobre as corridas salvas neste aparelho."
         badge={runs.length > 0 ? <NoticeBadge>dados reais</NoticeBadge> : undefined}
       />
 
@@ -564,6 +608,7 @@ export default function EstatisticasPage() {
           <>
             <WeekComparison weeks={weeks} unit={unit} />
             <ConstancyCard runs={runs} painCheckIns={painCheckIns} />
+            <EmblemsCard />
             <WeeklyVolumeChart weeks={weeks} unit={unit} />
             <PaceTrendChart weeks={weeks} unit={unit} />
             <MonthCard runs={runs} unit={unit} />

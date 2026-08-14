@@ -201,41 +201,6 @@ function Summary({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit }) {
  * lives afterward. Recomputed from `runs` (cheap enough at personal-app
  * scale) rather than stored, so it never drifts if history changes.
  */
-function ChartsIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4.5 19.5h15M7.5 19.5v-6M12 19.5v-10M16.5 19.5v-4" />
-    </svg>
-  );
-}
-
-function ChevronIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 5.5 15.5 12 9 18.5" />
-    </svg>
-  );
-}
-
-/** Always visible with at least one run — the pace-evolution gate inside `Summary` only decides whether *that one number* is worth showing yet, not whether weekly volume/frequency (which need far less history) are. */
-function StatisticsLinkCard() {
-  return (
-    <Card className="pr-enter" style={delay(62)}>
-      <CardTitle>Estatísticas</CardTitle>
-      <Link href="/estatisticas" className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-          <ChartsIcon className="h-5 w-5" />
-        </span>
-        <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-          Rodagem por semana, evolução de pace, comparação com a semana passada e o dia a dia
-          dos últimos treinos.
-        </p>
-        <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
-      </Link>
-    </Card>
-  );
-}
-
 function PersonalRecords({ runs }: { runs: CompletedRun[] }) {
   const bests = allTimeBests(runs);
   if (bests.length === 0) return null;
@@ -628,7 +593,6 @@ export default function HistoricoPage() {
         {load.status === "ready" && runs.length > 0 && (
           <>
             {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
-            <StatisticsLinkCard />
             <PersonalRecords runs={runs} />
             <RunFrequencyHeatmap runs={runs} unit={unit} />
             <ul className="flex flex-col gap-3">

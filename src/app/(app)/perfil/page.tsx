@@ -88,20 +88,28 @@ function CoachIcon({ className }: { className?: string }) {
   );
 }
 
-function EmblemsIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
-      <circle cx="12" cy="10" r="6.2" />
-      <path d="M9 15.3 7.6 21l4.4-2.6L16.4 21l-1.4-5.7" />
-    </svg>
-  );
-}
-
 function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
       <path d="M9 5.5 15.5 12 9 18.5" />
     </svg>
+  );
+}
+
+/**
+ * A plain label, not a `Card` — this screen collects a lot of unrelated
+ * settings in one scroll, and grouping them under a few named clusters is
+ * what actually addresses that ("muito poluída"), not moving cards around
+ * without changing what the page reads like.
+ */
+function SectionLabel({ children, delayMs }: { children: React.ReactNode; delayMs: number }) {
+  return (
+    <p
+      className="pr-enter mt-2 px-1 text-xs font-semibold tracking-[0.14em] text-muted uppercase first:mt-0"
+      style={delay(delayMs)}
+    >
+      {children}
+    </p>
   );
 }
 
@@ -551,7 +559,7 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
   const summaryFor = (name: string) => summaries.find((s) => s.name === name);
 
   return (
-    <Card className="pr-enter" style={delay(160)}>
+    <Card className="pr-enter" style={delay(240)}>
       <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>Meus tênis</CardTitle>
       <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
         Registre seus tênis com marca, cor e foto. A quilometragem de cada um vem das corridas
@@ -689,7 +697,7 @@ function PainCard() {
   };
 
   return (
-    <Card className="pr-enter" style={delay(235)}>
+    <Card className="pr-enter" style={delay(180)}>
       <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Como você está</CardTitle>
 
       {checkIns === null ? (
@@ -780,7 +788,8 @@ export default function PerfilPage() {
       <Screen>
         <AccountCard />
 
-        <Card className="pr-enter" style={delay(80)}>
+        <SectionLabel delayMs={40}>Descubra</SectionLabel>
+        <Card className="pr-enter" style={delay(50)}>
           <CardTitle aside={<NoticeBadge>São Paulo</NoticeBadge>}>Lugares pra correr</CardTitle>
           <Link href="/lugares" className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
@@ -794,20 +803,8 @@ export default function PerfilPage() {
           </Link>
         </Card>
 
-        <Card className="pr-enter" style={delay(85)}>
-          <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>Emblemas</CardTitle>
-          <Link href="/emblemas" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-              <EmblemsIcon className="h-5 w-5" />
-            </span>
-            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Sua coleção de marcos de quilometragem — cada um escondido até você destravar e abrir.
-            </p>
-            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
-          </Link>
-        </Card>
-
-        <Card className="pr-enter" style={delay(90)}>
+        <SectionLabel delayMs={70}>Comunidade</SectionLabel>
+        <Card className="pr-enter" style={delay(80)}>
           <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Amigos</CardTitle>
           <Link href="/amigos" className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
@@ -820,7 +817,7 @@ export default function PerfilPage() {
           </Link>
         </Card>
 
-        <Card className="pr-enter" style={delay(95)}>
+        <Card className="pr-enter" style={delay(90)}>
           <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Treinador</CardTitle>
           <Link href="/treinador" className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
@@ -834,7 +831,8 @@ export default function PerfilPage() {
           </Link>
         </Card>
 
-        <Card className="pr-enter" style={delay(60)}>
+        <SectionLabel delayMs={110}>Treino</SectionLabel>
+        <Card className="pr-enter" style={delay(120)}>
           <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
             Preferências de corrida
           </CardTitle>
@@ -882,9 +880,7 @@ export default function PerfilPage() {
           </fieldset>
         </Card>
 
-        <ShoesCard unit={prefs.distanceUnit} />
-
-        <Card className="pr-enter" style={delay(210)}>
+        <Card className="pr-enter" style={delay(150)}>
           <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
             Meta de prova
           </CardTitle>
@@ -989,7 +985,9 @@ export default function PerfilPage() {
           </div>
         </Card>
 
-        <Card className="pr-enter" style={delay(235)}>
+        <PainCard />
+
+        <Card className="pr-enter" style={delay(210)}>
           <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Peso</CardTitle>
           <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
             Só usado pra estimar calorias gastas em cada corrida (≈1 kcal/kg/km, mais o custo
@@ -1014,9 +1012,11 @@ export default function PerfilPage() {
           </div>
         </Card>
 
-        <PainCard />
+        <SectionLabel delayMs={230}>Equipamento</SectionLabel>
+        <ShoesCard unit={prefs.distanceUnit} />
 
-        <Card className="pr-enter" style={delay(260)}>
+        <SectionLabel delayMs={260}>Compartilhar e dados</SectionLabel>
+        <Card className="pr-enter" style={delay(270)}>
           <CardTitle>Card pra compartilhar</CardTitle>
           <Link href="/compartilhar" className="block rounded-xl focus:outline-accent">
             <ShareCardTeaser />
