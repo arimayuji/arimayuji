@@ -1,6 +1,7 @@
 "use client";
 
 import { emblemImageUrl } from "@/lib/tracking/emblems";
+import { HORSE_FULL_BODY_PATHS } from "../horse-mark";
 
 /**
  * The lifetime-distance collectible itself — a real, once-commissioned piece
@@ -11,7 +12,39 @@ import { emblemImageUrl } from "@/lib/tracking/emblems";
  * opened — the real piece, heavily blurred and darkened, so its colour mood
  * shows through without giving away the actual design) and the fully
  * `opened` artwork, crisp.
+ *
+ * The brand mark on top of the opened artwork is the *real* vector logo
+ * (`HORSE_FULL_BODY_PATHS`, the same path data the PR plate stamps), not
+ * something described in the image-generation prompt — an image model asked
+ * for "a horse logo" only ever draws *a* horse, never *this* one. Same
+ * `translate(39.8 30) scale(0.44)` placement `achievement-plate.tsx` uses
+ * for its own compact/circular badge slot, glowing rather than engraved
+ * since it sits on a luminous route-line piece rather than the plate's own
+ * lit chrome face.
  */
+
+function HorseGlowMark() {
+  return (
+    <svg
+      viewBox="0 0 120 120"
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      aria-hidden="true"
+    >
+      <g transform="translate(39.8 30) scale(0.44)" fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+        <g stroke="#ffffff" opacity="0.55" style={{ filter: "blur(2.5px)" }}>
+          {HORSE_FULL_BODY_PATHS.map((d) => (
+            <path key={d} d={d} />
+          ))}
+        </g>
+        <g stroke="#ffffff" opacity="0.92">
+          {HORSE_FULL_BODY_PATHS.map((d) => (
+            <path key={d} d={d} />
+          ))}
+        </g>
+      </g>
+    </svg>
+  );
+}
 
 function LockIcon() {
   return (
@@ -82,6 +115,7 @@ export function EmblemBadge({
           <LockIcon />
         </span>
       )}
+      {state === "opened" && <HorseGlowMark />}
     </div>
   );
 }
