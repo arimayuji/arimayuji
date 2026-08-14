@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { listRunsSharedByStudent, type SyncedRun } from "@/lib/runsSync";
+import { addRunComment, listRunComments, type RunComment } from "@/lib/runComments";
 import { getActiveLiveSession, type LiveRun } from "@/lib/liveRuns";
 import { getProfile, type Profile } from "@/lib/auth";
 import { formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
@@ -46,6 +47,9 @@ function AlunoContent() {
   const [runs, setRuns] = useState<SyncedRun[] | null>(null);
   const [liveRun, setLiveRun] = useState<LiveRun | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  const [comments, setComments] = useState<Map<string, RunComment[]>>(new Map());
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [postingComment, setPostingComment] = useState<string | null>(null);
 
   useEffect(() => {
     if (!studentId) return;
@@ -54,7 +58,11 @@ function AlunoContent() {
       if (!cancelled) setProfile(p);
     });
     listRunsSharedByStudent(studentId).then((rows) => {
-      if (!cancelled) setRuns(rows);
+      if (cancelled) return;
+      setRuns(rows);
+      listRunComments(rows.map((r) => r.$id)).then((byRun) => {
+        if (!cancelled) setComments(byRun);
+      });
     });
     return () => {
       cancelled = true;
@@ -88,6 +96,22 @@ function AlunoContent() {
   }, [studentId]);
 
   const liveStale = liveRun !== null && now !== null && now - liveRun.updatedAtMs > LIVE_STALE_MS;
+
+  const handlePostComment = async (run: SyncedRun) => {
+    if (!studentId) return;
+    const text = (commentDrafts[run.$id] ?? "").trim();
+    if (!text) return;
+    setPostingComment(run.$id);
+    const created = await addRunComment(run.$id, studentId, text);
+    setPostingComment(null);
+    if (!created) return;
+    setComments((current) => {
+      const next = new Map(current);
+      next.set(run.$id, [...(next.get(run.$id) ?? []), created]);
+      return next;
+    });
+    setCommentDrafts((current) => ({ ...current, [run.$id]: "" }));
+  };
 
   if (!studentId) {
     return (
@@ -189,6 +213,42 @@ function AlunoContent() {
                       </p>
                     </div>
                   </div>
+
+                  {(comments.get(run.$id) ?? []).length > 0 && (
+                    <ul className="mt-3 flex flex-col gap-2">
+                      {(comments.get(run.$id) ?? []).map((comment) => (
+                        <li key={comment.$id} className="rounded-lg bg-background px-3 py-2 text-xs leading-relaxed text-pretty">
+                          {comment.text}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <form
+                    className="mt-3 flex items-center gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      handlePostComment(run);
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={commentDrafts[run.$id] ?? ""}
+                      onChange={(event) =>
+                        setCommentDrafts((current) => ({ ...current, [run.$id]: event.target.value }))
+                      }
+                      placeholder="Deixar um comentário..."
+                      maxLength={500}
+                      className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs outline-none focus:border-accent"
+                    />
+                    <button
+                      type="submit"
+                      disabled={postingComment === run.$id || !(commentDrafts[run.$id] ?? "").trim()}
+                      className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-40"
+                    >
+                      {postingComment === run.$id ? "..." : "Enviar"}
+                    </button>
+                  </form>
                 </li>
               ))}
             </ul>

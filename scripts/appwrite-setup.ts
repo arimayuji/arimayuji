@@ -367,6 +367,43 @@ async function main() {
     tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "updatedAtMs", required: true, min: 0 }),
   );
 
+  // -------------------------------------------------------------- run_comments
+  console.log("\nrun_comments");
+  await ensure("table run_comments", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "run_comments",
+      name: "run_comments",
+      // A coach's note on a specific shared run — same "create for anyone,
+      // row-level read/update/delete set at write time" split as every
+      // other table here. Read is granted to the comment's author and the
+      // run's owner (the student) when the row is created, not here.
+      permissions: [Permission.create(Role.users())],
+      rowSecurity: true,
+    }),
+  );
+  // The `runs` table row this comment is attached to — not a declared
+  // foreign key (Appwrite has none), just a plain string matched by the app.
+  await ensure("run_comments.runRowId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "run_comments", key: "runRowId", size: 36, required: true }),
+  );
+  await ensure("run_comments.authorId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "run_comments", key: "authorId", size: 36, required: true }),
+  );
+  await ensure("run_comments.text", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "run_comments", key: "text", size: 500, required: true }),
+  );
+  await waitForColumn("run_comments", "runRowId");
+  await ensure("run_comments index: runRowId", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "run_comments",
+      key: "by_run",
+      type: TablesDBIndexType.Key,
+      columns: ["runRowId"],
+    }),
+  );
+
   console.log("\nDone. Every table/column/index above either already existed or was just created.");
 }
 

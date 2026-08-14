@@ -109,6 +109,35 @@ export async function shareRunWithCoaches(run: CompletedRun, coachIds: string[])
   }
 }
 
+/**
+ * The Appwrite row for one of *my own* runs, found by its exact start
+ * time — the same lookup key `shareRunWithCoaches` already uses to avoid
+ * duplicating a row on re-share. Null when this run was never shared (no
+ * row exists) or sharing isn't available, never an error — the caller
+ * reads that as "no comments to show," not "something went wrong."
+ */
+export async function getSyncedRun(startedAtMs: number): Promise<SyncedRun | null> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return null;
+  const account = await getCurrentAccount();
+  if (!account) return null;
+
+  try {
+    const result = await appwrite.tablesDB.listRows<SyncedRun>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.runs,
+      queries: [
+        Query.equal("userId", account.id),
+        Query.equal("startedAt", new Date(startedAtMs).toISOString()),
+        Query.limit(1),
+      ],
+    });
+    return result.rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Every run a specific student has shared with the signed-in coach — row-level permissions do the filtering, not this query. */
 export async function listRunsSharedByStudent(studentId: string): Promise<SyncedRun[]> {
   const appwrite = getAppwrite();

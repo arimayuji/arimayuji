@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { computeElevationGain } from "@/lib/elevation";
-import { shareRunWithCoaches } from "@/lib/runsSync";
+import { listRunComments, type RunComment } from "@/lib/runComments";
+import { getSyncedRun, shareRunWithCoaches } from "@/lib/runsSync";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
@@ -191,6 +192,48 @@ function ZonesCard({ points }: { points: Pick<StoredPoint, "lat" | "lon" | "time
             <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
               {formatElapsed(seconds[zone])}
             </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+/**
+ * Read-only comments a coach left on this run — only shows up once this run
+ * has actually been shared (a `SyncedRun` row exists for it); a run kept
+ * entirely local was never visible to any coach in the first place, so
+ * there's nothing to look up.
+ */
+function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
+  const [comments, setComments] = useState<RunComment[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSyncedRun(startedAtMs).then((synced) => {
+      if (cancelled) return;
+      if (!synced) {
+        setComments([]);
+        return;
+      }
+      listRunComments([synced.$id]).then((byRun) => {
+        if (!cancelled) setComments(byRun.get(synced.$id) ?? []);
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [startedAtMs]);
+
+  if (!comments || comments.length === 0) return null;
+
+  return (
+    <Card className="pr-enter" style={delay(160)}>
+      <CardTitle>Comentários do treinador</CardTitle>
+      <ul className="flex flex-col gap-2">
+        {comments.map((comment) => (
+          <li key={comment.$id} className="rounded-lg bg-background px-3 py-2 text-sm leading-relaxed text-pretty">
+            {comment.text}
           </li>
         ))}
       </ul>
@@ -407,6 +450,8 @@ export function RunDetail({ id }: { id: string }) {
         <SplitsTable splits={splits} unit={unit} />
 
         <ZonesCard points={run.points} />
+
+        <CommentsCard startedAtMs={run.startedAt} />
 
         {coaches !== null && coaches.length > 0 && (
           <Card className="pr-enter" style={delay(170)}>
