@@ -104,6 +104,18 @@ const BASE_LAYERS = [HALO_LAYER, LINE_LAYER, FASTEST_LAYER];
  */
 const IDLE_PITCH = 50;
 const FIT_OPTIONS = { padding: 24, maxZoom: 17, animate: false, pitch: IDLE_PITCH } as const;
+/**
+ * `animate: false` above is a real MapLibre option, not a no-op — it makes
+ * `fitBounds` snap instantly rather than ease. That's the right call for a
+ * finished run's one-time initial fit, but a live run re-fits on every GPS
+ * point, and firing that same instant snap several times a minute reads as
+ * the camera teleporting rather than following the run — which is what
+ * "não é fluido" turned out to mean here. `duration` short enough that a
+ * normal fix cadence lets one transition finish before the next starts, but
+ * long enough to actually look like continuous camera motion rather than a
+ * flicker.
+ */
+const LIVE_FIT_DURATION_MS = 700;
 
 /** How long to wait for the basemap's tile data before treating it as failed rather than still loading — generous for a slow connection, not so long the screen just looks stuck. */
 const TILE_LOAD_TIMEOUT_MS = 9000;
@@ -612,8 +624,11 @@ function RouteTiles({
       .setData(multiLine(geometry.fastest ? [geometry.fastest] : []));
     startMarker.current!.setLngLat(geometry.start);
     endMarker.current!.setLngLat(geometry.end);
-    instance.fitBounds(geometry.bounds, FIT_OPTIONS);
-  }, [geometry]);
+    instance.fitBounds(
+      geometry.bounds,
+      live ? { ...FIT_OPTIONS, animate: true, duration: LIVE_FIT_DURATION_MS } : FIT_OPTIONS,
+    );
+  }, [geometry, live]);
 
   return (
     <div className="relative h-full w-full">
