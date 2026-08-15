@@ -76,6 +76,33 @@ const easeOut = (t: number) => 1 - Math.pow(1 - clamp01(t), 3);
 const stage = (elapsed: number, start: number, duration: number) =>
   clamp01((elapsed - start) / duration);
 
+/** Overshoots past 1 before settling back — the impact wobble for something that "sticks" into place rather than fading in gently. */
+const easeOutBack = (t: number, overshoot = 1.7) => {
+  const clamped = clamp01(t);
+  const c3 = overshoot + 1;
+  return 1 + c3 * Math.pow(clamped - 1, 3) + overshoot * Math.pow(clamped - 1, 2);
+};
+
+/**
+ * A dart/boomerang landing instead of a fade-in: travels in fast from
+ * `(fromX, fromY)` — device pixels, pre-scale — overshoots its resting spot,
+ * and snaps back, the "unlocked" impact a lot of games use for a stat or
+ * badge that just appeared. `settle` goes 0 → ~1.15 → 1, so a caller wanting
+ * a matching scale-punch can drive it from the same number the position
+ * offset uses instead of computing its own curve. Alpha ramps in over the
+ * first slice of the stage so nothing is drawn fully transparent mid-flight.
+ */
+function dartLanding(elapsed: number, start: number, duration: number, fromX: number, fromY: number) {
+  const t = stage(elapsed, start, duration);
+  const settle = easeOutBack(t, 2.4);
+  return {
+    alpha: Math.min(1, t / 0.28),
+    offsetX: fromX * (1 - settle),
+    offsetY: fromY * (1 - settle),
+    settle,
+  };
+}
+
 /**
  * The "zero gravity" bob/tumble the shoe and the medal already do in CSS
  * (`pr-drift`/`pr-tumble-x`/`pr-tumble-y` in globals.css) — re-expressed as a
@@ -617,13 +644,15 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
     }
   }
 
-  const distanceAlpha = easeOut(stage(elapsed, ROUTE_DRAW_END + 160, 460));
-  if (distanceAlpha > 0) {
+  // Darts in from up and to the left instead of just scaling up in place —
+  // overshoots its resting spot by a few px and snaps back, same impact
+  // read as an unlocked stat in a game rather than a number fading on.
+  const distanceDart = dartLanding(elapsed, ROUTE_DRAW_END + 160, 460, -52, -40);
+  if (distanceDart.alpha > 0) {
     ctx.save();
-    ctx.globalAlpha = distanceAlpha;
-    // Scales up from the baseline's left edge, so the number lands rather than slides.
-    ctx.translate(left, STAT_DISTANCE_BASELINE);
-    ctx.scale(0.94 + 0.06 * distanceAlpha, 0.94 + 0.06 * distanceAlpha);
+    ctx.globalAlpha = distanceDart.alpha;
+    ctx.translate(left + distanceDart.offsetX, STAT_DISTANCE_BASELINE + distanceDart.offsetY);
+    ctx.scale(0.82 + 0.18 * distanceDart.settle, 0.82 + 0.18 * distanceDart.settle);
     ctx.fillStyle = "#ffffff";
     ctx.font = `600 108px ${scene.fontFamily}`;
     ctx.fillText(scene.distance, 0, 0);
@@ -640,23 +669,22 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
   ];
 
   columns.forEach((column, index) => {
-    const alpha = easeOut(stage(elapsed, ROUTE_DRAW_END + 300 + index * 110, 420));
-    if (alpha <= 0) return;
+    const dart = dartLanding(elapsed, ROUTE_DRAW_END + 300 + index * 110, 420, 0, -34);
+    if (dart.alpha <= 0) return;
     const x = left + index * 250;
-    const rise = (1 - alpha) * 16;
     ctx.save();
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = dart.alpha;
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     ctx.font = `400 22px ${scene.fontFamily}`;
-    trackedText(ctx, column.label, x, STAT_LABEL_BASELINE + rise, 2.4);
+    trackedText(ctx, column.label, x, STAT_LABEL_BASELINE + dart.offsetY, 2.4);
     ctx.fillStyle = "#ffffff";
     ctx.font = `400 42px ${scene.fontFamily}`;
-    ctx.fillText(column.value, x, STAT_VALUE_BASELINE + rise);
+    ctx.fillText(column.value, x, STAT_VALUE_BASELINE + dart.offsetY);
     if (column.suffix) {
       const valueWidth = ctx.measureText(column.value).width;
       ctx.font = `400 24px ${scene.fontFamily}`;
       ctx.fillStyle = "rgba(255,255,255,0.72)";
-      ctx.fillText(column.suffix, x + valueWidth + 8, STAT_VALUE_BASELINE + rise);
+      ctx.fillText(column.suffix, x + valueWidth + 8, STAT_VALUE_BASELINE + dart.offsetY);
     }
     ctx.restore();
   });
@@ -691,17 +719,22 @@ function drawPlate(
   slot: PlateSlot,
   popStart: number,
 ) {
-  const pop = easeOut(stage(elapsed, popStart, 520));
-  if (pop <= 0) return;
+  // A boomerang landing rather than a fade-in: flies in from off to the
+  // side with a fast spin that unwinds as it settles, overshoots its slot
+  // by a few degrees/px, and snaps into place — the "achievement unlocked"
+  // impact this is standing in for, not a gentle pop.
+  const dart = dartLanding(elapsed, popStart, 520, 100, -80);
+  if (dart.alpha <= 0) return;
 
   const { achievement } = record;
   const paint = TIER_PAINT[achievement.tier];
   const stops = tintedStops(paint, achievement.hueShift, achievement.tintScale);
-  const scale = (slot.size / 120) * (0.86 + 0.14 * pop);
+  const scale = (slot.size / 120) * (0.7 + 0.3 * dart.settle);
+  const spin = (1 - dart.settle) * Math.PI * 2.2;
 
   ctx.save();
-  ctx.globalAlpha = pop;
-  ctx.translate(slot.x, slot.y);
+  ctx.globalAlpha = dart.alpha;
+  ctx.translate(slot.x + dart.offsetX, slot.y + dart.offsetY);
 
   const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, slot.size * 0.85);
   glow.addColorStop(0, `${paint.glow}66`);
@@ -712,8 +745,8 @@ function drawPlate(
   ctx.fill();
 
   const float = floatingMotion(elapsed);
-  ctx.translate(0, float.bobY * pop);
-  ctx.rotate(float.rotZ * pop);
+  ctx.translate(0, float.bobY * dart.alpha);
+  ctx.rotate(float.rotZ * dart.alpha + spin);
   ctx.scale(float.turnScaleX, 1);
 
   ctx.scale(scale, scale);
@@ -778,7 +811,7 @@ function drawPlate(
   strokePathData(ctx, HORSE_FULL_BODY_PATHS);
   ctx.restore();
   ctx.strokeStyle = paint.ink;
-  ctx.globalAlpha = pop * 0.92;
+  ctx.globalAlpha = dart.alpha * 0.92;
   strokePathData(ctx, HORSE_FULL_BODY_PATHS);
   ctx.restore();
 
@@ -1005,8 +1038,8 @@ const NUMBER_UNIT_FONT_PX = 54;
 const NUMBER_BASELINE_Y = 660;
 
 function drawNumberHero(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed: number) {
-  const pop = easeOut(stage(elapsed, NUMBER_POP_START, NUMBER_POP_MS));
-  if (pop <= 0) return;
+  const dart = dartLanding(elapsed, NUMBER_POP_START, NUMBER_POP_MS, 0, -60);
+  if (dart.alpha <= 0) return;
 
   ctx.save();
   ctx.textAlign = "left";
@@ -1018,9 +1051,9 @@ function drawNumberHero(ctx: CanvasRenderingContext2D, scene: ShareCardScene, el
   const gap = 16;
   const startX = (SHARE_CARD_WIDTH - (numberWidth + gap + unitWidth)) / 2;
 
-  ctx.globalAlpha = pop;
-  const scale = 0.94 + 0.06 * pop;
-  ctx.translate(SHARE_CARD_WIDTH / 2, NUMBER_BASELINE_Y);
+  ctx.globalAlpha = dart.alpha;
+  const scale = 0.8 + 0.2 * dart.settle;
+  ctx.translate(SHARE_CARD_WIDTH / 2, NUMBER_BASELINE_Y + dart.offsetY);
   ctx.scale(scale, scale);
   ctx.translate(-SHARE_CARD_WIDTH / 2, -NUMBER_BASELINE_Y);
 
@@ -1047,24 +1080,23 @@ function drawNumberStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, e
   const startX = (SHARE_CARD_WIDTH - totalWidth) / 2 + NUMBER_STATS_COLUMN_WIDTH / 2;
 
   columns.forEach((column, index) => {
-    const alpha = easeOut(stage(elapsed, NUMBER_STATS_START + index * 110, 400));
-    if (alpha <= 0) return;
+    const dart = dartLanding(elapsed, NUMBER_STATS_START + index * 110, 400, 0, -30);
+    if (dart.alpha <= 0) return;
     const x = startX + index * NUMBER_STATS_COLUMN_WIDTH;
-    const rise = (1 - alpha) * 14;
 
     ctx.save();
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = dart.alpha;
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.font = `400 22px ${scene.fontFamily}`;
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     const labelWidth = trackedWidth(ctx, column.label, 2.4);
-    trackedText(ctx, column.label, x - labelWidth / 2, NUMBER_STATS_LABEL_Y + rise, 2.4);
+    trackedText(ctx, column.label, x - labelWidth / 2, NUMBER_STATS_LABEL_Y + dart.offsetY, 2.4);
 
     ctx.textAlign = "center";
     ctx.font = `400 40px ${scene.fontFamily}`;
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(column.value, x, NUMBER_STATS_VALUE_Y + rise);
+    ctx.fillText(column.value, x, NUMBER_STATS_VALUE_Y + dart.offsetY);
     ctx.restore();
   });
   ctx.textAlign = "left";

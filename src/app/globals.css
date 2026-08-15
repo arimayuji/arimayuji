@@ -115,6 +115,39 @@ body {
   }
 }
 
+/**
+ * A number that reads as burning, for the one stat that's literally a
+ * measure of energy spent (calorias) — same `background-clip: text` trick
+ * `.text-metal` uses, fire-coloured stops instead of chrome, with the
+ * gradient itself sliding and a brightness pulse so it flickers rather
+ * than sitting as a static gradient.
+ */
+.text-flame {
+  background-image: linear-gradient(0deg, #ff4d1a 0%, #ff8a1e 26%, #ffcf3f 50%, #ff8a1e 74%, #ff3d1a 100%);
+  background-size: 100% 220%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .text-flame {
+    animation: pr-flame 1.7s ease-in-out infinite;
+  }
+}
+
+@keyframes pr-flame {
+  0%,
+  100% {
+    background-position: 0% 10%;
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    background-position: 0% 90%;
+    filter: brightness(1.18) saturate(1.25);
+  }
+}
+
 /* A horizontally-scrollable chip row (the histórico period filter, ...) still
    scrolls with this — just without the OS drawing its own scrollbar track
    underneath, which reads as a stray grey bar on a row that's otherwise all

@@ -101,11 +101,14 @@ function StatQuadrant({
   label,
   value,
   unit,
+  flame = false,
 }: {
   icon: StatIconKey;
   label: string;
   value: string | number;
   unit?: string;
+  /** Calorias only, so far — a number spent as heat gets to look like it, instead of the same chrome every other stat wears. */
+  flame?: boolean;
 }) {
   return (
     <div className="rounded-xl border border-border bg-background p-3">
@@ -113,7 +116,9 @@ function StatQuadrant({
         <span className="text-[10px] uppercase tracking-wide text-muted">{label}</span>
         <StatIconBadge icon={icon} className="block h-7 w-7" />
       </div>
-      <p className="text-metal mt-1.5 truncate font-mono text-lg tabular-nums">
+      <p
+        className={`${flame ? "text-flame" : "text-metal"} mt-1.5 truncate font-mono text-lg tabular-nums`}
+      >
         {value}
         {unit && <span className="ml-1 text-xs text-muted">{unit}</span>}
       </p>
@@ -427,7 +432,7 @@ export function RunDetail({ id }: { id: string }) {
                 <StatQuadrant icon="elevacao" label="Ganho de elevação" value={elevationGain} unit="m" />
               )}
               {calories !== null && (
-                <StatQuadrant icon="calorias" label="Calorias" value={calories} unit="kcal" />
+                <StatQuadrant icon="calorias" label="Calorias" value={calories} unit="kcal" flame />
               )}
               {run.shoeName && (
                 <StatQuadrant icon="tenis" label="Tênis" value={run.shoeName} />
