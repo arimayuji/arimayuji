@@ -625,7 +625,7 @@ export default function RunPage() {
   const [showRunTips, setShowRunTips] = useState(false);
   /** True when the checklist was opened from the idle screen's "Rever dicas" link rather than as the gate before starting — completing it should just close it, not also start a run. */
   const [reviewingTips, setReviewingTips] = useState(false);
-  /** Drives the arrow-travels-across-the-button animation on tap — `group-hover` alone never fires on a touchscreen, which is most of this button's actual audience. */
+  /** Drives the arrow-travels-across-the-button animation on tap. */
   const [starting, setStarting] = useState(false);
   const START_ANIMATION_MS = 420;
 
@@ -1072,18 +1072,24 @@ export default function RunPage() {
               type="button"
               onClick={handleStartClick}
               disabled={starting}
-              className="group relative flex w-full items-center justify-center overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground disabled:cursor-default"
+              className="relative flex w-full items-center justify-center overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground disabled:cursor-default"
             >
-              <span
-                className={`transition-opacity duration-300 group-hover:opacity-0 ${starting ? "opacity-0" : ""}`}
-              >
+              {/*
+                No `hover:`/`group-hover:` here on purpose — this is a touch-only
+                screen, and a phone browser applying `:hover` on tap (and not
+                clearing it until some other tap elsewhere) previously left the
+                button stuck showing just the arrow with the label faded out,
+                which read as "the start button is broken" since there was no
+                second tap on this button to trigger the un-hover.
+              */}
+              <span className={`transition-opacity duration-300 ${starting ? "opacity-0" : ""}`}>
                 Iniciar corrida
               </span>
               <svg
                 aria-hidden="true"
                 viewBox="0 0 24 24"
                 fill="none"
-                className={`pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-all ease-out group-hover:left-1/2 group-hover:h-8 group-hover:w-8 group-hover:-translate-x-1/2 ${
+                className={`pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-all ease-out ${
                   starting
                     ? "!left-[calc(100%-3.25rem)] !h-8 !w-8 !translate-x-0 duration-[420ms]"
                     : "duration-300"
