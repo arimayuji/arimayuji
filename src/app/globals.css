@@ -274,6 +274,19 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/** One facet of a mirror ball catching the light — see `.pr-glint` below. */
+@keyframes pr-glint {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /*
  * Showcase tumble, split across two nested elements so the axes can run on
  * different periods: one shared cycle reads as a merry-go-round, while 9s of
@@ -404,6 +417,10 @@ input[type="number"]::-webkit-inner-spin-button {
 
   .pr-orbit {
     animation: pr-orbit 9s linear infinite;
+  }
+
+  .pr-glint {
+    animation: pr-glint 2.2s ease-in-out infinite;
   }
 
   .pr-worm {

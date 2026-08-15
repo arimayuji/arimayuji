@@ -91,6 +91,37 @@ export function EmblemReveal({
                   className="pointer-events-none absolute top-[16%] left-[22%] h-[18%] w-[18%] rounded-full bg-white/70 blur-md"
                   aria-hidden="true"
                 />
+                {/*
+                  Disco-ball facets: small coloured glints scattered across the
+                  sphere instead of just the one edge-riding ring, each on its
+                  own twinkle timer — a mirror ball never catches the light in
+                  only one spot at a time.
+                */}
+                <span
+                  className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+                  aria-hidden="true"
+                >
+                  {[
+                    { top: "28%", left: "62%", size: "10%", color: accent, delay: "0s" },
+                    { top: "58%", left: "20%", size: "7%", color: "#ffffff", delay: "0.5s" },
+                    { top: "70%", left: "68%", size: "8%", color: accent, delay: "1.1s" },
+                    { top: "40%", left: "42%", size: "6%", color: "#ffffff", delay: "1.6s" },
+                    { top: "20%", left: "40%", size: "6%", color: accent, delay: "0.85s" },
+                  ].map((glint, i) => (
+                    <span
+                      key={i}
+                      className="pr-glint absolute rounded-full blur-[2px]"
+                      style={{
+                        top: glint.top,
+                        left: glint.left,
+                        width: glint.size,
+                        height: glint.size,
+                        backgroundColor: glint.color,
+                        animationDelay: glint.delay,
+                      }}
+                    />
+                  ))}
+                </span>
               </>
             )}
             <span
