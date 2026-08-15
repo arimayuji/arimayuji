@@ -21,6 +21,7 @@
 
 import { HORSE_BUST_PATHS, HORSE_FULL_BODY_PATHS } from "@/app/horse-mark";
 import { PHOTO_FILTERS, type PhotoFilterId } from "./photoFilters";
+import type { TextEntranceId } from "./textEntrances";
 import type { DistanceUnit } from "../preferences";
 import {
   TIER_PAINT,
@@ -103,6 +104,64 @@ function dartLanding(elapsed: number, start: number, duration: number, fromX: nu
   };
 }
 
+/** How long before the card ends the exit motion finishes, and how long the exit itself takes. */
+const TEXT_EXIT_LEAD_MS = 480;
+const TEXT_EXIT_MS = 360;
+
+/**
+ * Generalizes `dartLanding` into a family of entrance *and* exit motions for
+ * on-card text/numbers, selectable per share the same way the photo filters
+ * are — "efeito do texto" instead of a colour preset. Every style returns
+ * this same shape (`alpha`/`offsetX`/`offsetY`/`settle`), so call sites don't
+ * branch on style themselves: they just plug the fields into the same
+ * position/scale math they already had for `dartLanding`. The exit half
+ * mirrors the entrance, timed to land `TEXT_EXIT_LEAD_MS` before the card's
+ * own `SHARE_CARD_DURATION_MS` ends — never shown as text just vanishing.
+ */
+function textMotion(
+  style: TextEntranceId,
+  elapsed: number,
+  start: number,
+  duration: number,
+  fromX: number,
+  fromY: number,
+) {
+  const exitStart = Math.max(start + duration, SHARE_CARD_DURATION_MS - TEXT_EXIT_LEAD_MS);
+  if (elapsed >= exitStart) {
+    const t = clamp01(stage(elapsed, exitStart, TEXT_EXIT_MS));
+    const easedIn = t * t; // ease-in — accelerates away, the mirror of the entrance's ease-out
+    switch (style) {
+      case "deslizar":
+        // Keeps travelling the same direction it slid in from, off the
+        // opposite side — a continuous pass-through rather than a retreat.
+        return { alpha: 1 - easedIn, offsetX: -fromX * easedIn, offsetY: -fromY * easedIn, settle: 1 };
+      case "zoom":
+        // No positional offset either way — shrinks back down in place.
+        return { alpha: 1 - easedIn, offsetX: 0, offsetY: 0, settle: 1 - 0.4 * easedIn };
+      case "bumerangue":
+      default:
+        // True to the name: leaves exactly the way it arrived.
+        return { alpha: 1 - easedIn, offsetX: fromX * easedIn, offsetY: fromY * easedIn, settle: 1 - 0.12 * easedIn };
+    }
+  }
+
+  switch (style) {
+    case "deslizar": {
+      const t = stage(elapsed, start, duration);
+      const eased = easeOut(t);
+      return { alpha: Math.min(1, t / 0.4), offsetX: fromX * (1 - eased), offsetY: fromY * (1 - eased), settle: eased };
+    }
+    case "zoom": {
+      const t = stage(elapsed, start, duration);
+      const settle = easeOutBack(t, 1.6);
+      return { alpha: Math.min(1, t / 0.3), offsetX: 0, offsetY: 0, settle };
+    }
+    case "bumerangue":
+    default:
+      return dartLanding(elapsed, start, duration, fromX, fromY);
+  }
+}
+
 /**
  * The "zero gravity" bob/tumble the shoe and the medal already do in CSS
  * (`pr-drift`/`pr-tumble-x`/`pr-tumble-y` in globals.css) — re-expressed as a
@@ -174,6 +233,8 @@ export interface ShareCardInput {
   video?: HTMLVideoElement | null;
   /** Defaults to "original" — a no-op filter. Ignored when neither `photo` nor `video` is set. */
   photoFilter?: PhotoFilterId;
+  /** Defaults to "bumerangue" — how the numbers/labels arrive and leave. */
+  textEntrance?: TextEntranceId;
   track?: ShareCardTrack | null;
   /** Defaults to "none". Ignored (treated as "none") when `track` is null. */
   musicMode?: ShareCardMusicMode;
@@ -192,6 +253,7 @@ export interface ShareCardScene {
   photo: HTMLImageElement | null;
   video: HTMLVideoElement | null;
   photoFilter: PhotoFilterId;
+  textEntrance: TextEntranceId;
   track: ShareCardTrack | null;
   musicMode: ShareCardMusicMode;
   albumArt: HTMLImageElement | null;
@@ -275,6 +337,7 @@ export function buildShareCardScene({
   photo = null,
   video = null,
   photoFilter = "original",
+  textEntrance = "bumerangue",
   track = null,
   musicMode = "none",
   albumArt = null,
@@ -288,6 +351,7 @@ export function buildShareCardScene({
     photo,
     video,
     photoFilter,
+    textEntrance,
     track,
     musicMode: track ? musicMode : "none",
     albumArt,
@@ -675,7 +739,7 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
   // Darts in from up and to the left instead of just scaling up in place —
   // overshoots its resting spot by a few px and snaps back, same impact
   // read as an unlocked stat in a game rather than a number fading on.
-  const distanceDart = dartLanding(elapsed, ROUTE_DRAW_END + 160, 460, -52, -40);
+  const distanceDart = textMotion(scene.textEntrance, elapsed, ROUTE_DRAW_END + 160, 460, -52, -40);
   if (distanceDart.alpha > 0) {
     ctx.save();
     ctx.globalAlpha = distanceDart.alpha;
@@ -697,7 +761,7 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
   ];
 
   columns.forEach((column, index) => {
-    const dart = dartLanding(elapsed, ROUTE_DRAW_END + 300 + index * 110, 420, 0, -34);
+    const dart = textMotion(scene.textEntrance, elapsed, ROUTE_DRAW_END + 300 + index * 110, 420, 0, -34);
     if (dart.alpha <= 0) return;
     const x = left + index * 250;
     ctx.save();
@@ -871,64 +935,6 @@ interface ShoeSlot {
 const TRAJETO_SHOE_SLOT: ShoeSlot = { x: 560, y: 890, width: 130 };
 const NUMERO_SHOE_SLOT: ShoeSlot = { x: (SHARE_CARD_WIDTH - 110) / 2, y: 980, width: 110 };
 
-/**
- * The real generated collectible art (see /public/shoe) instead of a
- * hand-drawn vector shoe. Only three angles exist — not a full 3D model —
- * so "turning" is a cross-fade between them rather than a true rotation;
- * see `shoeAngleAt` below for the sequence and timing that sells it.
- */
-const SHOE_IMAGE_SRC = {
-  side: "/shoe/shoe-side.png",
-  front: "/shoe/shoe-front.png",
-  rear: "/shoe/shoe-rear.png",
-} as const;
-type ShoeAngle = keyof typeof SHOE_IMAGE_SRC;
-
-const shoeImageCache: Partial<Record<ShoeAngle, HTMLImageElement>> = {};
-
-/**
- * Kicks off loading on first request and returns the element only once it's
- * actually decoded — `img.complete`/`naturalWidth` is the standard readiness
- * check, cheaper than tracking load state separately. `null` before that
- * just means this frame draws nothing for the shoe; at 720p over localhost
- * that window is milliseconds, well before the shoe's own pop-in delay ever
- * makes it visible in the first place.
- */
-function getShoeImage(angle: ShoeAngle): HTMLImageElement | null {
-  if (typeof window === "undefined") return null;
-  let img = shoeImageCache[angle];
-  if (!img) {
-    img = new Image();
-    img.src = SHOE_IMAGE_SRC[angle];
-    shoeImageCache[angle] = img;
-  }
-  return img.complete && img.naturalWidth > 0 ? img : null;
-}
-
-/**
- * Look around, don't spin: side, glance to the front, back to side, glance
- * to the back — then settle, never looping. Timed to actually finish inside
- * the real window the shoe is ever on screen for: it pops in at
- * `ROUTE_DRAW_END + 480` and the whole card ends at `SHARE_CARD_DURATION_MS`,
- * which leaves under 2.1s total — a slower cycle would just get cut off
- * mid-fade on every single card, never seen in full.
- */
-const SHOE_ANGLE_SEQUENCE: readonly ShoeAngle[] = ["side", "front", "side", "rear"];
-const SHOE_ANGLE_HOLD_MS = 380;
-const SHOE_ANGLE_FADE_MS = 280;
-const SHOE_ANGLE_SEGMENT_MS = SHOE_ANGLE_HOLD_MS + SHOE_ANGLE_FADE_MS;
-
-function shoeAngleAt(elapsedSincePop: number): { from: ShoeAngle; to: ShoeAngle; mix: number } {
-  const clamped = Math.max(0, elapsedSincePop);
-  const maxIndex = SHOE_ANGLE_SEQUENCE.length - 2;
-  const index = Math.min(Math.floor(clamped / SHOE_ANGLE_SEGMENT_MS), maxIndex);
-  const from = SHOE_ANGLE_SEQUENCE[index];
-  const to = SHOE_ANGLE_SEQUENCE[index + 1];
-  const withinSegment = clamped - index * SHOE_ANGLE_SEGMENT_MS;
-  if (withinSegment < SHOE_ANGLE_HOLD_MS) return { from, to: from, mix: 0 };
-  return { from, to, mix: easeOut(clamp01((withinSegment - SHOE_ANGLE_HOLD_MS) / SHOE_ANGLE_FADE_MS)) };
-}
-
 function parseHex(hex: string): [number, number, number] {
   const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!match) return [47, 111, 237];
@@ -937,69 +943,97 @@ function parseHex(hex: string): [number, number, number] {
 }
 
 /**
- * Same duotone trick ShoeShowcase does in CSS (desaturate, then blend a flat
- * colour in with `mix-blend-mode: color`, masked to the source alpha), just
- * done once per angle+colour with canvas composite operations instead,
- * since a `<canvas>` recording has no DOM layers to stack. Cached because
- * it's identical every frame — recomputing a full-res composite 30+ times a
- * second for a shoe that never changes colour mid-video would be wasted work.
+ * A generic "whitelabel" sneaker silhouette — a simple vector shape, not
+ * photographed collectible art — tinted in the shoe's registered colour.
+ * The real photo art (see ShoeShowcase on /perfil) reads great full-size,
+ * but at the keychain scale this card draws the shoe at, that much
+ * photographic/duotone detail just turns to noise; a flat vector shape
+ * holds up at any size the same way the horse-bust brand mark does.
+ * Authored at a 140×40 reference box — `scale` maps that to `width` device
+ * pixels — facing right, heel on the left. The one cue that keeps this
+ * reading as "shoe" instead of "blob" is the shallow concave scoop into the
+ * ankle opening between the heel counter and the tongue: too deep and it
+ * reads as a bird's head, too shallow (or omitted, like the first attempt
+ * at this) and it reads as a smooth loaf with no read as footwear at all.
  */
-const tintedShoeCache = new Map<string, HTMLCanvasElement>();
+function drawShoeSilhouette(ctx: CanvasRenderingContext2D, colorHex: string, width: number) {
+  const [r, g, b] = parseHex(colorHex);
+  const scale = width / 140;
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(-70, -18);
 
-function getTintedShoeImage(angle: ShoeAngle, colorHex: string): HTMLCanvasElement | null {
-  const source = getShoeImage(angle);
-  if (!source) return null;
-  const key = `${angle}:${colorHex}`;
-  const cached = tintedShoeCache.get(key);
-  if (cached) return cached;
+  // Sole — a thin flat strip, separated from the upper by a visible gap.
+  ctx.beginPath();
+  ctx.moveTo(8, 34);
+  ctx.bezierCurveTo(4, 35, 3, 38, 6, 40);
+  ctx.bezierCurveTo(14, 42.5, 122, 42.5, 132, 40);
+  ctx.bezierCurveTo(137, 38, 136, 35, 131, 33.5);
+  ctx.lineTo(10, 33.2);
+  ctx.closePath();
+  ctx.fillStyle = "#14181d";
+  ctx.fill();
 
-  const canvas = document.createElement("canvas");
-  canvas.width = source.naturalWidth;
-  canvas.height = source.naturalHeight;
-  const tintCtx = canvas.getContext("2d");
-  if (!tintCtx) return null;
+  // Upper.
+  ctx.beginPath();
+  ctx.moveTo(10, 32);
+  ctx.bezierCurveTo(6, 28, 6, 16, 10, 9);
+  ctx.bezierCurveTo(13, 4, 17, 2, 22, 3);
+  ctx.bezierCurveTo(27, 4, 26, 9, 30, 12);
+  ctx.bezierCurveTo(33, 14, 36, 7, 42, 4);
+  ctx.bezierCurveTo(60, -3, 90, 3, 112, 12);
+  ctx.bezierCurveTo(124, 17, 134, 22, 138, 27);
+  ctx.bezierCurveTo(141, 31, 135, 33.5, 126, 34);
+  ctx.bezierCurveTo(90, 36.5, 40, 35.5, 10, 32);
+  ctx.closePath();
 
-  tintCtx.filter = "grayscale(1) brightness(1.08) contrast(1.05)";
-  tintCtx.drawImage(source, 0, 0);
-  tintCtx.filter = "none";
+  const grad = ctx.createLinearGradient(6, 0, 138, 32);
+  grad.addColorStop(0, `rgb(${Math.min(255, r + 75)},${Math.min(255, g + 75)},${Math.min(255, b + 75)})`);
+  grad.addColorStop(0.5, `rgb(${r},${g},${b})`);
+  grad.addColorStop(1, `rgb(${Math.max(0, r - 60)},${Math.max(0, g - 60)},${Math.max(0, b - 60)})`);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.4)";
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
 
-  tintCtx.globalCompositeOperation = "color";
-  tintCtx.fillStyle = colorHex;
-  tintCtx.fillRect(0, 0, canvas.width, canvas.height);
+  // Toe cap — a darker wedge near the tip for definition.
+  ctx.beginPath();
+  ctx.moveTo(108, 13);
+  ctx.bezierCurveTo(119, 17, 130, 22, 136, 27);
+  ctx.bezierCurveTo(139, 30, 134, 32.5, 126, 33.5);
+  ctx.bezierCurveTo(118, 29, 112, 21, 108, 13);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(${Math.max(0, r - 70)},${Math.max(0, g - 70)},${Math.max(0, b - 70)},0.4)`;
+  ctx.fill();
 
-  // Blending with "color" paints every pixel, including the transparent
-  // background — clip back to the shoe's own silhouette by multiplying the
-  // original alpha channel back in.
-  tintCtx.globalCompositeOperation = "destination-in";
-  tintCtx.drawImage(source, 0, 0);
-  tintCtx.globalCompositeOperation = "source-over";
+  // Laces, over the tongue.
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = "round";
+  for (const [x1, y1, x2, y2] of [
+    [36, 14, 44, 6],
+    [41, 19, 50, 11],
+    [46, 24, 56, 16],
+  ]) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
 
-  tintedShoeCache.set(key, canvas);
-  return canvas;
+  // Sole seam highlight.
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(14, 33.5);
+  ctx.lineTo(120, 34);
+  ctx.stroke();
+
+  ctx.restore();
 }
 
-/** One angle, centred at the current origin, scaled to `targetWidth` with its own aspect ratio. */
-function drawShoeAngle(
-  ctx: CanvasRenderingContext2D,
-  angle: ShoeAngle,
-  colorHex: string,
-  targetWidth: number,
-  alpha: number,
-) {
-  if (alpha <= 0) return;
-  const img = getTintedShoeImage(angle, colorHex);
-  if (!img) return;
-  const h = targetWidth * (img.height / img.width);
-  ctx.globalAlpha = alpha;
-  ctx.drawImage(img, -targetWidth / 2, -h / 2, targetWidth, h);
-}
-
-/**
- * The registered shoe — real photographed collectible art, duotoned to the
- * colour it was registered in (see `getTintedShoeImage`) the same way
- * ShoeShowcase tints its own copy of the same photos, so the shoe reads as
- * the same object whether it's sitting on /perfil or turning in this video.
- */
+/** The registered shoe — a whitelabel vector silhouette tinted the colour it was registered in, floating in the card's zero-gravity motion. */
 function drawShoe(
   ctx: CanvasRenderingContext2D,
   shoe: ShareCardShoe,
@@ -1031,16 +1065,7 @@ function drawShoe(
   ctx.rotate(float.rotZ * pop);
   ctx.scale(float.turnScaleX, 1);
 
-  const cardAlpha = pop;
-  const { from, to, mix } = shoeAngleAt(Math.max(0, elapsed - popStart));
-  ctx.save();
-  drawShoeAngle(ctx, from, shoe.color, targetWidth, cardAlpha * (1 - mix));
-  ctx.restore();
-  if (mix > 0) {
-    ctx.save();
-    drawShoeAngle(ctx, to, shoe.color, targetWidth, cardAlpha * mix);
-    ctx.restore();
-  }
+  drawShoeSilhouette(ctx, shoe.color, targetWidth);
 
   ctx.restore();
 }
@@ -1066,7 +1091,7 @@ const NUMBER_UNIT_FONT_PX = 54;
 const NUMBER_BASELINE_Y = 660;
 
 function drawNumberHero(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed: number) {
-  const dart = dartLanding(elapsed, NUMBER_POP_START, NUMBER_POP_MS, 0, -60);
+  const dart = textMotion(scene.textEntrance, elapsed, NUMBER_POP_START, NUMBER_POP_MS, 0, -60);
   if (dart.alpha <= 0) return;
 
   ctx.save();
@@ -1108,7 +1133,7 @@ function drawNumberStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, e
   const startX = (SHARE_CARD_WIDTH - totalWidth) / 2 + NUMBER_STATS_COLUMN_WIDTH / 2;
 
   columns.forEach((column, index) => {
-    const dart = dartLanding(elapsed, NUMBER_STATS_START + index * 110, 400, 0, -30);
+    const dart = textMotion(scene.textEntrance, elapsed, NUMBER_STATS_START + index * 110, 400, 0, -30);
     if (dart.alpha <= 0) return;
     const x = startX + index * NUMBER_STATS_COLUMN_WIDTH;
 

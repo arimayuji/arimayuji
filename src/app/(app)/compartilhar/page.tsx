@@ -37,6 +37,7 @@ import {
 } from "@/lib/tracking/storage";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import { PHOTO_FILTER_IDS, PHOTO_FILTERS, type PhotoFilterId } from "@/lib/shareCard/photoFilters";
+import { TEXT_ENTRANCE_IDS, TEXT_ENTRANCES, type TextEntranceId } from "@/lib/shareCard/textEntrances";
 
 /**
  * Where the shareable card gets set up.
@@ -191,6 +192,7 @@ function CompartilharContent() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const [photoFilter, setPhotoFilter] = useState<PhotoFilterId>("original");
+  const [textEntrance, setTextEntrance] = useState<TextEntranceId>("bumerangue");
   const [albumArt, setAlbumArt] = useState<HTMLImageElement | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [shoes, setShoes] = useState<Shoe[] | null>(null);
@@ -337,6 +339,7 @@ function CompartilharContent() {
           photo,
           video,
           photoFilter,
+          textEntrance,
           shoe: sharedShoe,
           record,
           track: sharedTrack,
@@ -354,6 +357,7 @@ function CompartilharContent() {
     photo,
     video,
     photoFilter,
+    textEntrance,
     shoe,
     track,
     albumArt,
@@ -748,6 +752,30 @@ function CompartilharContent() {
               </div>
             </div>
           )}
+
+          <div className="mt-4 border-t border-border pt-4">
+            <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+              Chegada e saída do texto
+            </span>
+            <div className="flex gap-2">
+              {TEXT_ENTRANCE_IDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTextEntrance(id)}
+                  aria-pressed={textEntrance === id}
+                  className={`flex-1 rounded-xl border-2 px-2 py-2.5 text-center transition-colors ${
+                    textEntrance === id
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-muted hover:border-foreground/30"
+                  }`}
+                >
+                  <span className="block text-xs font-semibold">{TEXT_ENTRANCES[id].label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 px-1 text-xs text-muted">{TEXT_ENTRANCES[textEntrance].description}</p>
+          </div>
         </Card>
 
         {run && (
