@@ -985,6 +985,7 @@ export default function PerfilPage() {
           </div>
         </Card>
 
+        <SectionLabel delayMs={175}>Perfil</SectionLabel>
         <PainCard />
 
         <Card className="pr-enter" style={delay(210)}>
