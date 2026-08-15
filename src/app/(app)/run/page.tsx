@@ -377,6 +377,8 @@ export default function RunPage() {
   const [typingShoe, setTypingShoe] = useState(false);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
   const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
+  /** True once the athlete has tapped a ghost option this idle cycle — gates the auto-pick-most-recent default below so it never fights an explicit "Sem fantasma" choice. */
+  const [ghostTouched, setGhostTouched] = useState(false);
   /** The ghost actually used for the in-progress run, captured at start — kept separate from the
    * picker above so a later change to `selectedGhostId` (e.g. after resetting for a new run)
    * doesn't retroactively change what the finished summary says was raced against. */
@@ -438,11 +440,15 @@ export default function RunPage() {
       const used = summarizeShoes(runs).map((s) => s.name);
       setShoeSuggestions([...new Set([...shoes.map((s) => s.name), ...used])]);
       setRegisteredShoes(shoes);
-      setRecentRuns(
-        [...runs].sort((a, b) => b.startedAt - a.startedAt).slice(0, RECENT_GHOST_CANDIDATES),
-      );
+      const sorted = [...runs].sort((a, b) => b.startedAt - a.startedAt);
+      setRecentRuns(sorted.slice(0, RECENT_GHOST_CANDIDATES));
+      // Defaults to racing the last run — the comparison most people actually
+      // want ("am I faster than last time") — without fighting an explicit
+      // "Sem fantasma" tap, which also sets `selectedGhostId` to null but
+      // marks `ghostTouched` so this default doesn't override it.
+      setSelectedGhostId((current) => (ghostTouched || current !== null ? current : (sorted[0]?.id ?? null)));
     });
-  }, [state.status]);
+  }, [state.status, ghostTouched]);
 
   /** Same re-fetch-on-return-to-idle reasoning as the effect above — a coach accepted mid-session should be pickable for the very next run. */
   useEffect(() => {
@@ -605,8 +611,8 @@ export default function RunPage() {
     setManualTracks([]);
     setMusicQuery("");
     setMusicResults(null);
-    const distanceMeters = goalKm ? Number(goalKm) * 1000 : undefined;
-    const durationSeconds = goalMinutes ? Number(goalMinutes) * 60 : undefined;
+    const distanceMeters = Number(goalKm) > 0 ? Number(goalKm) * 1000 : undefined;
+    const durationSeconds = Number(goalMinutes) > 0 ? Number(goalMinutes) * 60 : undefined;
     setActiveGhost(selectedGhost);
     start({
       announceIntervalMeters: announceMeters,
@@ -651,6 +657,7 @@ export default function RunPage() {
 
   const handleReset = () => {
     setSelectedGhostId(null);
+    setGhostTouched(false);
     setActiveGhost(null);
     setManualTracks([]);
     setMusicQuery("");
@@ -836,32 +843,31 @@ export default function RunPage() {
               </p>
             </div>
 
-            <label className="block space-y-1.5">
+            <div className="space-y-1.5">
               <span className="text-sm font-medium">Meta de distância (km)</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.5"
-                value={goalKm}
-                onChange={(e) => setGoalKm(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 font-mono tabular-nums outline-none focus:border-accent"
-                placeholder="opcional"
+              <PillSlider
+                className="mt-2"
+                min={0}
+                max={42}
+                step={1}
+                value={Number(goalKm) || 0}
+                onChange={(km) => setGoalKm(String(km))}
+                formatValue={(km) => (km === 0 ? "sem meta" : `${km} km`)}
               />
-            </label>
+            </div>
 
-            <label className="block space-y-1.5">
+            <div className="space-y-1.5">
               <span className="text-sm font-medium">Meta de tempo (min)</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min="0"
-                value={goalMinutes}
-                onChange={(e) => setGoalMinutes(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 font-mono tabular-nums outline-none focus:border-accent"
-                placeholder="opcional"
+              <PillSlider
+                className="mt-2"
+                min={0}
+                max={180}
+                step={5}
+                value={Number(goalMinutes) || 0}
+                onChange={(minutes) => setGoalMinutes(String(minutes))}
+                formatValue={(minutes) => (minutes === 0 ? "sem meta" : `${minutes} min`)}
               />
-            </label>
+            </div>
 
             <div className="space-y-1.5">
               <span className="text-sm font-medium">Aviso por voz a cada</span>
@@ -948,14 +954,18 @@ export default function RunPage() {
 
             {recentRuns.length > 0 && (
               <div className="block space-y-1.5">
-                <span className="text-sm font-medium">Corrida fantasma (opcional)</span>
+                <span className="text-sm font-medium">Corrida fantasma</span>
                 <p className="text-xs text-muted">
-                  Compara o tempo até a mesma distância percorrida, não o trajeto.
+                  Por padrão compara com sua última corrida — tempo até a mesma distância
+                  percorrida, não o trajeto. Pode trocar ou desligar abaixo.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setSelectedGhostId(null)}
+                    onClick={() => {
+                      setSelectedGhostId(null);
+                      setGhostTouched(true);
+                    }}
                     className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
                       selectedGhostId === null
                         ? "border-accent bg-accent text-accent-foreground"
@@ -968,7 +978,10 @@ export default function RunPage() {
                     <button
                       key={run.id}
                       type="button"
-                      onClick={() => setSelectedGhostId(run.id)}
+                      onClick={() => {
+                        setSelectedGhostId(run.id);
+                        setGhostTouched(true);
+                      }}
                       className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
                         selectedGhostId === run.id
                           ? "border-accent bg-accent text-accent-foreground"
