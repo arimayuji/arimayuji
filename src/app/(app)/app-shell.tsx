@@ -110,6 +110,9 @@ function isActive(pathname: string, tab: TabDefinition): boolean {
   );
 }
 
+/** Fired when a tab already active gets tapped again — `Link` to the same URL is a router no-op, so a page sitting in some non-idle state (the run summary, mid-scroll) needs its own way to hear "take me back to start" from that tap. See `useTabReclick` in run/page.tsx for the one listener that currently cares. */
+const TAB_RECLICK_EVENT = "xanthus:tab-reclick";
+
 function BottomNav() {
   const pathname = usePathname() ?? "";
 
@@ -126,6 +129,9 @@ function BottomNav() {
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
+                onClick={() => {
+                  if (active) window.dispatchEvent(new CustomEvent(TAB_RECLICK_EVENT, { detail: tab.href }));
+                }}
                 /* 64px+ tall target: this gets tapped mid-exercise. */
                 className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 pt-2 pb-1.5 text-[11px] font-medium transition-colors ${
                   active ? "text-accent" : "text-muted hover:text-foreground"
@@ -146,6 +152,17 @@ function BottomNav() {
       </ul>
     </nav>
   );
+}
+
+/** A tab tapped while already active — see `TAB_RECLICK_EVENT` above. `href` is the tab's own route (e.g. `"/run"`), so a listener only mounted on that page needs no pathname check of its own. */
+export function useTabReclick(href: string, onReclick: () => void): void {
+  useEffect(() => {
+    const handler = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === href) onReclick();
+    };
+    window.addEventListener(TAB_RECLICK_EVENT, handler);
+    return () => window.removeEventListener(TAB_RECLICK_EVENT, handler);
+  }, [href, onReclick]);
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {

@@ -61,7 +61,7 @@ import { useShareSupport } from "@/lib/share";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { buildShareCardScene, scenarioForRun } from "@/lib/shareCard/renderer";
 import { buildShareCardVideoFile, canRecordShareVideo } from "@/lib/shareCard/video";
-import { useImmersiveMode } from "../app-shell";
+import { useImmersiveMode, useTabReclick } from "../app-shell";
 import { NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
 import { StatIconBadge } from "../stat-icon-badge";
@@ -695,6 +695,19 @@ export default function RunPage() {
     setEmblemProgress([]);
     reset();
   };
+
+  /**
+   * Tapping "Corrida" while already on it is a router no-op — `Link` to the
+   * current URL doesn't navigate, so someone parked on the post-run summary
+   * (scrolled down past RPE, PRs, the share card...) who taps the tab
+   * expecting to land back on the start screen would otherwise see nothing
+   * happen at all, which reads as the screen being stuck. Only fires from
+   * `"finished"`: a live run has its own reasons not to be nuked by a tab tap
+   * (see `useImmersiveMode` above — the tab bar isn't even reachable then).
+   */
+  useTabReclick("/run", () => {
+    if (state.status === "finished") handleReset();
+  });
 
   /** See the same handler in historico/detalhe/run-detail.tsx — the persisted flag only decides whether the box animation replays. */
   const handleRecordUnboxed = (runId: string, record: RunRecord) => {
