@@ -236,6 +236,31 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/**
+ * A weightless tumble instead of a single up-down bob — `.pr-drift`'s one
+ * axis reads as "bobbing on water", not "floating with nothing holding it
+ * up". Both X and Y wander independently (different points, no shared
+ * rhythm) plus a couple of degrees of rotation, so the sealed emblem never
+ * settles into a repeating up/down beat.
+ */
+@keyframes pr-float-zerog {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  22% {
+    transform: translate(4px, -9px) rotate(1.4deg);
+  }
+  48% {
+    transform: translate(-3px, -14px) rotate(-1deg);
+  }
+  71% {
+    transform: translate(-5px, -5px) rotate(0.8deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
 /** A light source slowly circling a sealed sphere — see `.pr-orbit` below. */
 @keyframes pr-orbit {
   to {
@@ -409,6 +434,10 @@ input[type="number"]::-webkit-inner-spin-button {
 
   .pr-drift {
     animation: pr-drift 6s ease-in-out infinite;
+  }
+
+  .pr-float-zerog {
+    animation: pr-float-zerog 8s ease-in-out infinite;
   }
 
   .pr-sheen {

@@ -66,7 +66,9 @@ export function EmblemReveal({
             disabled={opened}
             onClick={handleOpen}
             aria-label={opened ? undefined : "Abrir o emblema"}
-            className="relative mx-auto block w-full disabled:cursor-default"
+            className={`relative mx-auto block w-full disabled:cursor-default ${
+              !opened && !reducedMotion ? "pr-float-zerog" : ""
+            }`}
           >
             {!opened && !reducedMotion && (
               <>
