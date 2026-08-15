@@ -64,6 +64,7 @@ import { buildShareCardVideoFile, canRecordShareVideo } from "@/lib/shareCard/vi
 import { useImmersiveMode } from "../app-shell";
 import { NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
+import { StatIconBadge } from "../stat-icon-badge";
 
 const RECENT_GHOST_CANDIDATES = 6;
 
@@ -1129,18 +1130,27 @@ export default function RunPage() {
 
           <div className="grid grid-cols-2 gap-4 py-6">
             <div className="rounded-xl border border-border bg-surface p-4">
-              <span className="text-xs uppercase tracking-wide text-muted">Distância</span>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs uppercase tracking-wide text-muted">Distância</span>
+                <StatIconBadge icon="distancia" />
+              </div>
               <p className="mt-1 font-mono text-2xl tabular-nums">
                 {formatDistanceKm(state.distanceMeters)} <span className="text-base text-muted">km</span>
               </p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4">
-              <span className="text-xs uppercase tracking-wide text-muted">Tempo</span>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs uppercase tracking-wide text-muted">Tempo</span>
+                <StatIconBadge icon="tempo" />
+              </div>
               <p className="mt-1 font-mono text-2xl tabular-nums">{formatElapsed(state.elapsedSeconds)}</p>
             </div>
             {state.goal?.distanceMeters && (
               <div className="rounded-xl border border-border bg-surface p-4">
-                <span className="text-xs uppercase tracking-wide text-muted">Chegada prevista em</span>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs uppercase tracking-wide text-muted">Chegada prevista em</span>
+                  <StatIconBadge icon="eta" />
+                </div>
                 <p className="mt-1 font-mono text-2xl tabular-nums">
                   {formatGoalEta(state.forecastSecondsRemaining)}
                 </p>
