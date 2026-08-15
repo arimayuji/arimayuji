@@ -10,10 +10,9 @@ import {
   type DistanceUnit,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
 import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
-import { GoalDatePicker } from "../date-picker";
 import { ShareCardTeaser } from "../share-card";
 import { ShoeShowcase } from "../shoe-showcase";
 import {
@@ -32,7 +31,6 @@ import {
 } from "@/lib/tracking/storage";
 import { activePainSignal } from "@/lib/plan";
 import { formatDistance, unitLabel } from "@/lib/units";
-import { GOAL_DISTANCE_OPTIONS } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 
 /**
@@ -114,31 +112,6 @@ function SectionLabel({ children, delayMs }: { children: React.ReactNode; delayM
 }
 
 /** Shared look for the segmented selectors — big targets, single accent. */
-function SegmentedButton({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className={`min-h-12 flex-1 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
-        selected
-          ? "border-accent bg-accent text-accent-foreground"
-          : "border-border bg-background text-foreground hover:border-accent"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 const DEFAULT_SHOE_COLOR = "#2f6fed";
 
 /** A hand-picked palette instead of the phone's native color wheel — keeps the picker in the app's own visual language rather than dropping into OS chrome. */
@@ -636,8 +609,6 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
   );
 }
 
-const RUN_DAYS_OPTIONS = [3, 4, 5] as const;
-
 const PAIN_SEVERITY_OPTIONS: { value: PainSeverity; label: string; hint: string }[] = [
   { value: "leve", label: "Leve", hint: "incômodo, dá pra rodar" },
   { value: "moderada", label: "Moderada", hint: "atrapalha o pace" },
@@ -766,18 +737,6 @@ export default function PerfilPage() {
   const [prefs, update] = usePreferences();
   const [profile, updateProfile] = useRunnerProfile();
 
-  const recentMinutes = profile.recentRaceTimeSeconds
-    ? Math.floor(profile.recentRaceTimeSeconds / 60)
-    : "";
-  const recentSeconds = profile.recentRaceTimeSeconds
-    ? profile.recentRaceTimeSeconds % 60
-    : "";
-
-  const setRecentRaceTime = (minutes: number, seconds: number) => {
-    const total = minutes * 60 + seconds;
-    updateProfile({ recentRaceTimeSeconds: total > 0 ? total : undefined });
-  };
-
   return (
     <>
       <ScreenHeader
@@ -878,111 +837,14 @@ export default function PerfilPage() {
               ))}
             </div>
           </fieldset>
-        </Card>
 
-        <Card className="pr-enter" style={delay(150)}>
-          <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
-            Meta de prova
-          </CardTitle>
-          <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-            Isso alimenta o motor de plano de verdade — distância e data viram a rampa de
-            volume e o taper; o tempo recente (opcional) vira suas zonas de pace.
+          <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">
+            Meta de prova e tempo recente ficam na aba{" "}
+            <Link href="/plano" className="text-accent underline underline-offset-2">
+              Plano
+            </Link>
+            , perto de onde eles são usados.
           </p>
-
-          <fieldset>
-            <legend className="text-sm font-medium">Distância da prova</legend>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {GOAL_DISTANCE_OPTIONS.map((option) => (
-                <SegmentedButton
-                  key={option.meters}
-                  selected={profile.goalDistanceMeters === option.meters}
-                  onClick={() => updateProfile({ goalDistanceMeters: option.meters })}
-                >
-                  {option.label}
-                </SegmentedButton>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="mt-4 space-y-1.5">
-            <p className="text-sm font-medium">Data da prova</p>
-            <GoalDatePicker
-              value={profile.goalDate}
-              onChange={(goalDate) => updateProfile({ goalDate })}
-            />
-          </div>
-
-          <fieldset className="mt-6 border-t border-border pt-5">
-            <legend className="text-sm font-medium">Dias de corrida por semana</legend>
-            <div className="mt-2 flex gap-2">
-              {RUN_DAYS_OPTIONS.map((days) => (
-                <SegmentedButton
-                  key={days}
-                  selected={(profile.weeklyRunDays ?? 4) === days}
-                  onClick={() => updateProfile({ weeklyRunDays: days })}
-                >
-                  {days}
-                </SegmentedButton>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset className="mt-6 border-t border-border pt-5">
-            <legend className="text-sm font-medium">Seu tempo recente (opcional)</legend>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              Uma prova ou treino forte recente numa distância conhecida — dá as suas zonas de
-              pace reais. Sem isso o plano ainda calcula volume, só não mostra pace por zona.
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {GOAL_DISTANCE_OPTIONS.map((option) => (
-                <SegmentedButton
-                  key={option.meters}
-                  selected={profile.recentRaceDistanceMeters === option.meters}
-                  onClick={() => updateProfile({ recentRaceDistanceMeters: option.meters })}
-                >
-                  {option.label}
-                </SegmentedButton>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <input
-                type="number"
-                inputMode="numeric"
-                min="0"
-                placeholder="min"
-                value={recentMinutes}
-                onChange={(event) =>
-                  setRecentRaceTime(Number(event.target.value) || 0, Number(recentSeconds) || 0)
-                }
-                className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
-              />
-              <span className="text-muted">:</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min="0"
-                max="59"
-                placeholder="seg"
-                value={recentSeconds}
-                onChange={(event) =>
-                  setRecentRaceTime(Number(recentMinutes) || 0, Number(event.target.value) || 0)
-                }
-                className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
-              />
-            </div>
-            {profile.recentRaceTimeSeconds && !profile.recentRaceDistanceMeters && (
-              <p className="mt-2 text-xs text-warn">Falta escolher a distância desse tempo.</p>
-            )}
-          </fieldset>
-
-          <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2">
-            <Link href="/plano" className="text-sm text-accent underline underline-offset-2">
-              Ver o plano
-            </Link>
-            <Link href="/estudos" className="text-sm text-accent underline underline-offset-2">
-              Ver os estudos por trás dele
-            </Link>
-          </div>
         </Card>
 
         <SectionLabel delayMs={175}>Perfil</SectionLabel>

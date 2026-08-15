@@ -26,6 +26,32 @@ export function ExampleBadge({ children = "exemplo ilustrativo" }: { children?: 
   );
 }
 
+/** One button in a row of mutually-exclusive options — goal distance, run days, distance unit, wherever a screen needs a small fixed choice set instead of a native `<select>`. */
+export function SegmentedButton({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`min-h-12 flex-1 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
+        selected
+          ? "border-accent bg-accent text-accent-foreground"
+          : "border-border bg-background text-foreground hover:border-accent"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 /** Neutral counterpart for things that are real but not yet persisted. */
 export function NoticeBadge({ children }: { children: ReactNode }) {
   return (

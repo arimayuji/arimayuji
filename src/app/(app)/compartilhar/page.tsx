@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
@@ -30,9 +30,12 @@ import {
   listCompletedRuns,
   listShoes,
   runMovingSeconds,
+  updateRunTracks,
   type CompletedRun,
+  type RunTrack,
   type Shoe,
 } from "@/lib/tracking/storage";
+import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 
 /**
  * Where the shareable card gets set up.
@@ -57,6 +60,8 @@ interface TemplateOption {
   musicMode: ShareCardMusicMode;
   label: string;
   hint: string;
+  /** True when this combo needs a logged track and the run doesn't have one yet — still listed, so the option is discoverable, just not drawable. */
+  locked: boolean;
 }
 
 const LAYOUTS: { id: ShareCardLayout; label: string }[] = [
@@ -70,18 +75,24 @@ const MUSIC_MODES: { id: ShareCardMusicMode; label: string; hint: string; requir
   { id: "background", label: "Música", hint: "capa do álbum de fundo", requiresTrack: true },
 ];
 
-/** Every template combo worth swiping through — `trajeto`/`número` crossed with the background source, skipping the music variants when the run has nothing playing to show. */
+/**
+ * Every template combo worth swiping through — `trajeto`/`número` crossed
+ * with the background source. The music variants stay in the list even
+ * without a logged track, marked `locked`, so they're something to discover
+ * and unlock (via the "Trilha sonora" search below) rather than options
+ * that silently don't exist until a track happens to be logged.
+ */
 function buildTemplateOptions(hasTrack: boolean): TemplateOption[] {
   const options: TemplateOption[] = [];
   for (const layout of LAYOUTS) {
     for (const music of MUSIC_MODES) {
-      if (music.requiresTrack && !hasTrack) continue;
       options.push({
         id: `${layout.id}-${music.id}`,
         layout: layout.id,
         musicMode: music.id,
         label: `${layout.label} · ${music.label}`,
         hint: music.hint,
+        locked: music.requiresTrack && !hasTrack,
       });
     }
   }
@@ -126,6 +137,35 @@ function TemplateThumb({
   );
 }
 
+/** The music templates before a track is logged — a real slot in the row rather than a hidden one, so there's something to discover and a clear next step (tap scrolls to the search below). */
+function LockedTemplateThumb({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex shrink-0 snap-center flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed border-border bg-surface px-3 text-center"
+      style={{ width: 128, aspectRatio: `${SHARE_CARD_WIDTH} / ${SHARE_CARD_HEIGHT}` }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-6 w-6 text-muted"
+        aria-hidden="true"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
+      <span className="text-[11px] leading-tight font-medium text-muted">{label}</span>
+      <span className="text-[10px] leading-tight text-accent">Busca uma música</span>
+    </button>
+  );
+}
+
 /**
  * `?run=<id>` — set when opened from a specific run's own detail screen
  * (see historico/detalhe/run-detail.tsx's share button) so that run gets
@@ -160,6 +200,14 @@ function CompartilharContent() {
   const [imageBusy, setImageBusy] = useState(false);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
 
+  /** Tracks added here, kept apart from `run.tracks` and merged only for display — same pattern /run's own finish screen uses, so a search here unlocks the music templates without waiting on a reload. */
+  const [manualTracks, setManualTracks] = useState<RunTrack[]>([]);
+  const [musicQuery, setMusicQuery] = useState("");
+  const [musicResults, setMusicResults] = useState<TrackCandidate[] | null>(null);
+  const [musicSearching, setMusicSearching] = useState(false);
+  const [musicSearchFailed, setMusicSearchFailed] = useState(false);
+  const musicCardRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     listShoes().then(setShoes);
     listCompletedRuns().then(setRuns);
@@ -171,12 +219,57 @@ function CompartilharContent() {
     return requested ?? [...runs].sort((a, b) => b.startedAt - a.startedAt)[0] ?? null;
   }, [runs, requestedRunId]);
 
+  useEffect(() => {
+    // Resets the music search when the target run changes (e.g. arriving
+    // via a different ?run= id) — no cleaner derivation, since this is
+    // genuinely "forget the previous run's in-progress search," not state
+    // computable from props.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setManualTracks([]);
+    setMusicQuery("");
+    setMusicResults(null);
+    setMusicSearchFailed(false);
+  }, [run?.id]);
+
   /** The most recently logged track for this run — a run can have several; the last one is the closest thing to "what was playing when I finished." */
   const track = useMemo(() => {
-    const tracks = run?.tracks;
-    if (!tracks || tracks.length === 0) return null;
+    const tracks = [...(run?.tracks ?? []), ...manualTracks];
+    if (tracks.length === 0) return null;
     return [...tracks].sort((a, b) => b.playedAt - a.playedAt)[0];
-  }, [run]);
+  }, [run, manualTracks]);
+
+  const handleMusicSearch = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!musicQuery.trim()) return;
+    setMusicSearching(true);
+    setMusicSearchFailed(false);
+    try {
+      setMusicResults(await searchTracks(musicQuery));
+    } catch {
+      setMusicResults(null);
+      setMusicSearchFailed(true);
+    } finally {
+      setMusicSearching(false);
+    }
+  };
+
+  const handleAddManualTrack = useCallback(
+    async (candidate: TrackCandidate) => {
+      if (!run) return;
+      const newTrack: RunTrack = {
+        name: candidate.name,
+        artist: candidate.artist,
+        playedAt: Date.now(),
+        artworkUrl: candidate.artworkUrl || undefined,
+      };
+      const nextManualTracks = [...manualTracks, newTrack];
+      setManualTracks(nextManualTracks);
+      setMusicQuery("");
+      setMusicResults(null);
+      await updateRunTracks(run.id, [...(run.tracks ?? []), ...nextManualTracks]);
+    },
+    [run, manualTracks],
+  );
 
   // The canvas needs a decoded bitmap, not a URL — same reasoning as the
   // photo decode below. Cross-origin (the iTunes artwork CDN) needs
@@ -230,6 +323,7 @@ function CompartilharContent() {
     const sharedTrack = track ? { name: track.name, artist: track.artist } : null;
 
     return templates
+      .filter((t) => !t.locked)
       .map((t) => {
         const built = buildShareCardScene({
           run,
@@ -446,14 +540,29 @@ function CompartilharContent() {
               Template
             </p>
             <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1">
-              {scenes.map(({ id, scene: templateScene }) => (
-                <TemplateThumb
-                  key={id}
-                  scene={templateScene}
-                  active={id === activeTemplate?.id}
-                  onClick={() => setTemplateId(id)}
-                />
-              ))}
+              {templates.map((t) => {
+                if (t.locked) {
+                  return (
+                    <LockedTemplateThumb
+                      key={t.id}
+                      label={t.label}
+                      onClick={() =>
+                        musicCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+                      }
+                    />
+                  );
+                }
+                const templateScene = scenes.find((s) => s.id === t.id)?.scene;
+                if (!templateScene) return null;
+                return (
+                  <TemplateThumb
+                    key={t.id}
+                    scene={templateScene}
+                    active={t.id === activeTemplate?.id}
+                    onClick={() => setTemplateId(t.id)}
+                  />
+                );
+              })}
             </div>
             <p className="mt-2 px-1 text-xs text-muted">{activeTemplate?.hint}</p>
           </div>
@@ -493,6 +602,88 @@ function CompartilharContent() {
             )}
           </div>
         </Card>
+
+        {run && (
+          <Card className="pr-enter" style={delay(192)}>
+            <div ref={musicCardRef} />
+            <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
+              Trilha sonora
+            </CardTitle>
+            <p className="text-xs leading-relaxed text-muted text-pretty">
+              Busca a música que tocou nessa corrida pra desbloquear os templates &ldquo;foto +
+              música&rdquo; e &ldquo;música&rdquo; acima.
+            </p>
+
+            {track && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2">
+                {track.artworkUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={track.artworkUrl}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                  />
+                )}
+                <span className="truncate text-sm">
+                  {track.name} <span className="text-muted">— {track.artist}</span>
+                </span>
+              </div>
+            )}
+
+            <form onSubmit={handleMusicSearch} className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={musicQuery}
+                onChange={(event) => setMusicQuery(event.target.value)}
+                placeholder="nome da música ou artista"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+              <button
+                type="submit"
+                disabled={musicSearching || !musicQuery.trim()}
+                className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent disabled:opacity-60"
+              >
+                {musicSearching ? "Buscando…" : "Buscar"}
+              </button>
+            </form>
+
+            {musicSearchFailed && (
+              <p className="mt-2 text-xs text-bad">
+                Não deu pra buscar agora — confere a internet e tenta de novo.
+              </p>
+            )}
+
+            {!musicSearchFailed && musicResults !== null && musicResults.length === 0 && (
+              <p className="mt-2 text-xs text-muted">Nada encontrado.</p>
+            )}
+
+            {musicResults !== null && musicResults.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1">
+                {musicResults.map((candidate, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => void handleAddManualTrack(candidate)}
+                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-sm hover:bg-background"
+                    >
+                      {candidate.artworkUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={candidate.artworkUrl}
+                          alt=""
+                          className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        />
+                      )}
+                      <span className="truncate">
+                        {candidate.name} <span className="text-muted">— {candidate.artist}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
 
         <Card className={`pr-enter ${photoUrl ? "opacity-50" : ""}`} style={delay(200)}>
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>

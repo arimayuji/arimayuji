@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Nunito } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegistration } from "./service-worker-registration";
 import { Splash } from "./splash";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/** Rounder, chubbier than Geist for body text and headings — the numeric readouts (pace, distance, splits) stay on Geist Mono below for tabular alignment. */
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
 });
 
@@ -41,7 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="pt-BR"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${nunito.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Splash />

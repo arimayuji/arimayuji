@@ -40,7 +40,7 @@
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-nunito);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -179,6 +179,13 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/** A light source slowly circling a sealed sphere — see `.pr-orbit` below. */
+@keyframes pr-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /*
  * Showcase tumble, split across two nested elements so the axes can run on
  * different periods: one shared cycle reads as a merry-go-round, while 9s of
@@ -305,6 +312,10 @@ input[type="number"]::-webkit-inner-spin-button {
 
   .pr-sheen {
     animation: pr-sheen 6s linear infinite;
+  }
+
+  .pr-orbit {
+    animation: pr-orbit 9s linear infinite;
   }
 
   /* Reduced motion keeps the angled resting pose set inline on both elements. */

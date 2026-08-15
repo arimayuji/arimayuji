@@ -3,9 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import Link from "next/link";
-import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
+import {
+  Card,
+  CardTitle,
+  delay,
+  ExampleBadge,
+  NoticeBadge,
+  Screen,
+  ScreenHeader,
+  SegmentedButton,
+  Stat,
+} from "../ui";
 import { getEvidenceById, getEvidenceForTopicRanked } from "@/lib/evidence";
 import { EvidenceFactRow } from "../evidence-row";
+import { GoalDatePicker } from "../date-picker";
 import {
   activePainSignal,
   generatePlan,
@@ -15,6 +26,7 @@ import {
   type PaceZoneName,
   type PaceZones,
 } from "@/lib/plan";
+import { GOAL_DISTANCE_OPTIONS, type RunnerProfile } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { estimateWeeklyKm, listCompletedRuns, listPainCheckIns, type PainCheckIn } from "@/lib/tracking/storage";
 import { formatPace } from "@/lib/tracking/geoFilter";
@@ -307,8 +319,135 @@ function PlanBuildSequence({ stages, onDone }: { stages: readonly string[]; onDo
   );
 }
 
+const RUN_DAYS_OPTIONS = [3, 4, 5] as const;
+
+/**
+ * What feeds the plan engine — race distance/date drive the volume ramp and
+ * taper, weekly days shape the week, recent race time (optional) gives real
+ * pace zones instead of just volume. Lives here rather than on /perfil
+ * because this is where it's used: right above the plan it produces, so
+ * changing the goal and seeing the plan react is one screen, not two.
+ */
+function GoalCard({
+  profile,
+  updateProfile,
+}: {
+  profile: RunnerProfile;
+  updateProfile: (patch: Partial<RunnerProfile>) => void;
+}) {
+  const recentMinutes = profile.recentRaceTimeSeconds
+    ? Math.floor(profile.recentRaceTimeSeconds / 60)
+    : "";
+  const recentSeconds = profile.recentRaceTimeSeconds ? profile.recentRaceTimeSeconds % 60 : "";
+
+  const setRecentRaceTime = (minutes: number, seconds: number) => {
+    const total = minutes * 60 + seconds;
+    updateProfile({ recentRaceTimeSeconds: total > 0 ? total : undefined });
+  };
+
+  return (
+    <Card className="pr-enter" style={delay(80)}>
+      <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>Meta de prova</CardTitle>
+      <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+        Distância e data viram a rampa de volume e o taper; o tempo recente (opcional) vira suas
+        zonas de pace.
+      </p>
+
+      <fieldset>
+        <legend className="text-sm font-medium">Distância da prova</legend>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {GOAL_DISTANCE_OPTIONS.map((option) => (
+            <SegmentedButton
+              key={option.meters}
+              selected={profile.goalDistanceMeters === option.meters}
+              onClick={() => updateProfile({ goalDistanceMeters: option.meters })}
+            >
+              {option.label}
+            </SegmentedButton>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="mt-4 space-y-1.5">
+        <p className="text-sm font-medium">Data da prova</p>
+        <GoalDatePicker value={profile.goalDate} onChange={(goalDate) => updateProfile({ goalDate })} />
+      </div>
+
+      <fieldset className="mt-6 border-t border-border pt-5">
+        <legend className="text-sm font-medium">Dias de corrida por semana</legend>
+        <div className="mt-2 flex gap-2">
+          {RUN_DAYS_OPTIONS.map((days) => (
+            <SegmentedButton
+              key={days}
+              selected={(profile.weeklyRunDays ?? 4) === days}
+              onClick={() => updateProfile({ weeklyRunDays: days })}
+            >
+              {days}
+            </SegmentedButton>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="mt-6 border-t border-border pt-5">
+        <legend className="text-sm font-medium">Seu tempo recente (opcional)</legend>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          Uma prova ou treino forte recente numa distância conhecida — dá as suas zonas de pace
+          reais. Sem isso o plano ainda calcula volume, só não mostra pace por zona.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {GOAL_DISTANCE_OPTIONS.map((option) => (
+            <SegmentedButton
+              key={option.meters}
+              selected={profile.recentRaceDistanceMeters === option.meters}
+              onClick={() => updateProfile({ recentRaceDistanceMeters: option.meters })}
+            >
+              {option.label}
+            </SegmentedButton>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            placeholder="min"
+            value={recentMinutes}
+            onChange={(event) =>
+              setRecentRaceTime(Number(event.target.value) || 0, Number(recentSeconds) || 0)
+            }
+            className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
+          />
+          <span className="text-muted">:</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            max="59"
+            placeholder="seg"
+            value={recentSeconds}
+            onChange={(event) =>
+              setRecentRaceTime(Number(recentMinutes) || 0, Number(event.target.value) || 0)
+            }
+            className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
+          />
+        </div>
+        {profile.recentRaceTimeSeconds && !profile.recentRaceDistanceMeters && (
+          <p className="mt-2 text-xs text-warn">Falta escolher a distância desse tempo.</p>
+        )}
+      </fieldset>
+
+      <Link
+        href="/estudos"
+        className="mt-6 inline-block border-t border-border pt-5 text-sm text-accent underline underline-offset-2"
+      >
+        Ver os estudos por trás dele
+      </Link>
+    </Card>
+  );
+}
+
 export default function PlanoPage() {
-  const [profile] = useRunnerProfile();
+  const [profile, updateProfile] = useRunnerProfile();
   const [weeklyKm, setWeeklyKm] = useState<number | null>(null);
   const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [planRevealed, setPlanRevealed] = useState(false);
@@ -470,6 +609,8 @@ export default function PlanoPage() {
               Ver todos os estudos por trás do plano
             </Link>
           </Card>
+
+          <GoalCard profile={profile} updateProfile={updateProfile} />
         </Screen>
       </>
     );
@@ -499,7 +640,7 @@ export default function PlanoPage() {
                 className={`h-2 w-2 shrink-0 rounded-full ${hasGoal ? "bg-good" : "bg-warn"}`}
                 aria-hidden="true"
               />
-              {hasGoal ? "Meta de prova definida" : "Definir distância e data da prova no perfil"}
+              {hasGoal ? "Meta de prova definida" : "Definir distância e data da prova abaixo"}
             </li>
             <li className="flex items-center gap-2">
               <span
@@ -511,13 +652,17 @@ export default function PlanoPage() {
                 : "Gravar algumas corridas pra calibrar seu volume real"}
             </li>
           </ul>
-          <Link
-            href="/perfil"
-            className="mt-4 inline-block rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground"
-          >
-            Ir pro perfil
-          </Link>
+          {!hasHistory && (
+            <Link
+              href="/run"
+              className="mt-4 inline-block rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground"
+            >
+              Gravar uma corrida
+            </Link>
+          )}
         </Card>
+
+        <GoalCard profile={profile} updateProfile={updateProfile} />
 
         {showExample ? (
           <>

@@ -69,11 +69,29 @@ export function EmblemReveal({
             className="relative mx-auto block w-full disabled:cursor-default"
           >
             {!opened && !reducedMotion && (
-              <span
-                className="pr-halo pointer-events-none absolute inset-0 rounded-full blur-2xl"
-                style={{ backgroundColor: accent, opacity: 0.4 }}
-                aria-hidden="true"
-              />
+              <>
+                <span
+                  className="pr-halo pointer-events-none absolute inset-0 rounded-full blur-2xl"
+                  style={{ backgroundColor: accent, opacity: 0.4 }}
+                  aria-hidden="true"
+                />
+                {/* A light source slowly circling the sealed sphere — reads as glass/orb rather than a flat dark disc. */}
+                <span
+                  className="pr-orbit pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+                  aria-hidden="true"
+                >
+                  <span
+                    className="absolute -inset-[15%]"
+                    style={{
+                      background: `conic-gradient(from 0deg, transparent 0%, transparent 62%, ${accent}55 72%, #ffffffb3 78%, ${accent}55 84%, transparent 94%, transparent 100%)`,
+                    }}
+                  />
+                </span>
+                <span
+                  className="pointer-events-none absolute top-[16%] left-[22%] h-[18%] w-[18%] rounded-full bg-white/70 blur-md"
+                  aria-hidden="true"
+                />
+              </>
             )}
             <span
               className={`relative block transition-transform duration-500 ease-out ${
