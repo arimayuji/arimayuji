@@ -569,6 +569,38 @@ export default function RunPage() {
   );
 
   /**
+   * A signal that's merely weak for a few seconds is normal (tree cover, a
+   * tall building) and not worth interrupting anyone about. One that stays
+   * bad for a while means the recorded route is actually degrading, and the
+   * three little dots up top are easy to not notice mid-stride — this
+   * surfaces the same information as a banner you'd actually catch.
+   */
+  const WEAK_SIGNAL_WARNING_MS = 20_000;
+  const [showWeakSignalWarning, setShowWeakSignalWarning] = useState(false);
+  const badSignalSinceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const isLiveRun = state.status === "tracking" || state.status === "paused";
+    if (!isLiveRun || state.gpsQuality === "good") {
+      badSignalSinceRef.current = null;
+      // Clearing an already-shown warning the instant the signal recovers —
+      // there's no external event to hang this off of, `gpsQuality` itself
+      // (a dependency here) is the signal.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowWeakSignalWarning(false);
+      return;
+    }
+    if (badSignalSinceRef.current === null) badSignalSinceRef.current = Date.now();
+
+    const id = setInterval(() => {
+      if (badSignalSinceRef.current !== null) {
+        setShowWeakSignalWarning(Date.now() - badSignalSinceRef.current >= WEAK_SIGNAL_WARNING_MS);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [state.status, state.gpsQuality]);
+
+  /**
    * Tracks added through the manual iTunes-lookup form, kept apart from
    * `state.finishedRun.tracks` (empty until a manual add persists it) and
    * merged with it only for display — this is what lets the "Trilha sonora"
@@ -856,6 +888,13 @@ export default function RunPage() {
         </Link>
         {state.status !== "idle" && <GpsDot quality={state.gpsQuality} />}
       </header>
+
+      {isLiveRun && showWeakSignalWarning && (
+        <div className="relative z-10 mx-5 -mt-1 mb-2 rounded-xl border border-warn/40 bg-warn/10 px-3.5 py-2.5 text-xs leading-relaxed text-warn">
+          Sinal de GPS fraco há mais de {Math.round(WEAK_SIGNAL_WARNING_MS / 1000)}s — o trajeto e a
+          distância podem ficar imprecisos até melhorar.
+        </div>
+      )}
 
       {state.status === "idle" && (
         <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
