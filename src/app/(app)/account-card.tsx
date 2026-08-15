@@ -62,9 +62,24 @@ export function AccountCard() {
           <button
             type="button"
             onClick={() => void signOut().then(refresh)}
-            className="shrink-0 text-xs text-muted underline hover:text-bad"
+            aria-label="Sair"
+            title="Sair"
+            className="shrink-0 rounded-full p-2 text-bad hover:bg-bad/10"
           >
-            Sair
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4.5 w-4.5"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
+              <path d="M16 17l5-5-5-5" />
+              <path d="M21 12H9" />
+            </svg>
           </button>
         </div>
       )}
