@@ -241,25 +241,17 @@ function RpeCard({ value, onSelect }: { value: number | null; onSelect: (rpe: nu
   const shown = value ?? 5;
   return (
     <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
-      <div className="flex items-center justify-between">
-        <span className="text-xs uppercase tracking-wide text-muted">Como foi o esforço?</span>
-        <span
-          className={`font-mono text-sm font-semibold ${value !== null ? "text-accent" : "text-muted"}`}
-        >
-          {shown}/10
-        </span>
-      </div>
-      <input
-        type="range"
+      <span className="text-xs uppercase tracking-wide text-muted">Como foi o esforço?</span>
+      <PillSlider
+        className="mt-3"
         min={1}
         max={10}
         step={1}
         value={shown}
-        onChange={(event) => onSelect(Number(event.target.value))}
-        className="mt-3 w-full accent-accent"
-        aria-label="Esforço percebido, de 1 a 10"
+        onChange={onSelect}
+        formatValue={(n) => `${n}/10`}
       />
-      <div className="mt-1 flex justify-between text-[10px] text-muted">
+      <div className="mt-1.5 flex justify-between text-[10px] text-muted">
         <span>1 — leve</span>
         <span>10 — máximo</span>
       </div>
