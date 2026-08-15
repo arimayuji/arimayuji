@@ -1307,9 +1307,73 @@ interface ShoeSlot {
   width: number;
 }
 
-/** Keychain-sized charm, fully on-canvas — small enough to float in its zero-gravity tumble without dominating the card. */
-const TRAJETO_SHOE_SLOT: ShoeSlot = { x: 560, y: 890, width: 130 };
-const NUMERO_SHOE_SLOT: ShoeSlot = { x: (SHARE_CARD_WIDTH - 110) / 2, y: 980, width: 110 };
+/**
+ * Sized as a compromise between the two things a vector silhouette couldn't
+ * be both at once: small enough not to dominate the card (the original
+ * complaint, at 440px), and big enough that the real photo art still reads
+ * as a real shoe instead of a mush of duotone noise (the keychain size,
+ * 130px, was too far the other way for the photo to survive shrinking).
+ */
+const TRAJETO_SHOE_SLOT: ShoeSlot = { x: 480, y: 900, width: 220 };
+const NUMERO_SHOE_SLOT: ShoeSlot = { x: (SHARE_CARD_WIDTH - 190) / 2, y: 980, width: 190 };
+
+/**
+ * The real generated collectible art (see /public/shoe) instead of a
+ * hand-drawn vector shoe. Only three angles exist — not a full 3D model —
+ * so "turning" is a cross-fade between them rather than a true rotation;
+ * see `shoeAngleAt` below for the sequence and timing that sells it.
+ */
+const SHOE_IMAGE_SRC = {
+  side: "/shoe/shoe-side.png",
+  front: "/shoe/shoe-front.png",
+  rear: "/shoe/shoe-rear.png",
+} as const;
+type ShoeAngle = keyof typeof SHOE_IMAGE_SRC;
+
+const shoeImageCache: Partial<Record<ShoeAngle, HTMLImageElement>> = {};
+
+/**
+ * Kicks off loading on first request and returns the element only once it's
+ * actually decoded — `img.complete`/`naturalWidth` is the standard readiness
+ * check, cheaper than tracking load state separately. `null` before that
+ * just means this frame draws nothing for the shoe; at 720p over localhost
+ * that window is milliseconds, well before the shoe's own pop-in delay ever
+ * makes it visible in the first place.
+ */
+function getShoeImage(angle: ShoeAngle): HTMLImageElement | null {
+  if (typeof window === "undefined") return null;
+  let img = shoeImageCache[angle];
+  if (!img) {
+    img = new Image();
+    img.src = SHOE_IMAGE_SRC[angle];
+    shoeImageCache[angle] = img;
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+/**
+ * Look around, don't spin: side, glance to the front, back to side, glance
+ * to the back — then settle, never looping. Timed to actually finish inside
+ * the real window the shoe is ever on screen for: it pops in at
+ * `ROUTE_DRAW_END + 480` and the whole card ends at `SHARE_CARD_DURATION_MS`,
+ * which leaves under 2.1s total — a slower cycle would just get cut off
+ * mid-fade on every single card, never seen in full.
+ */
+const SHOE_ANGLE_SEQUENCE: readonly ShoeAngle[] = ["side", "front", "side", "rear"];
+const SHOE_ANGLE_HOLD_MS = 380;
+const SHOE_ANGLE_FADE_MS = 280;
+const SHOE_ANGLE_SEGMENT_MS = SHOE_ANGLE_HOLD_MS + SHOE_ANGLE_FADE_MS;
+
+function shoeAngleAt(elapsedSincePop: number): { from: ShoeAngle; to: ShoeAngle; mix: number } {
+  const clamped = Math.max(0, elapsedSincePop);
+  const maxIndex = SHOE_ANGLE_SEQUENCE.length - 2;
+  const index = Math.min(Math.floor(clamped / SHOE_ANGLE_SEGMENT_MS), maxIndex);
+  const from = SHOE_ANGLE_SEQUENCE[index];
+  const to = SHOE_ANGLE_SEQUENCE[index + 1];
+  const withinSegment = clamped - index * SHOE_ANGLE_SEGMENT_MS;
+  if (withinSegment < SHOE_ANGLE_HOLD_MS) return { from, to: from, mix: 0 };
+  return { from, to, mix: easeOut(clamp01((withinSegment - SHOE_ANGLE_HOLD_MS) / SHOE_ANGLE_FADE_MS)) };
+}
 
 function parseHex(hex: string): [number, number, number] {
   const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -1319,97 +1383,69 @@ function parseHex(hex: string): [number, number, number] {
 }
 
 /**
- * A generic "whitelabel" sneaker silhouette — a simple vector shape, not
- * photographed collectible art — tinted in the shoe's registered colour.
- * The real photo art (see ShoeShowcase on /perfil) reads great full-size,
- * but at the keychain scale this card draws the shoe at, that much
- * photographic/duotone detail just turns to noise; a flat vector shape
- * holds up at any size the same way the horse-bust brand mark does.
- * Authored at a 140×40 reference box — `scale` maps that to `width` device
- * pixels — facing right, heel on the left. The one cue that keeps this
- * reading as "shoe" instead of "blob" is the shallow concave scoop into the
- * ankle opening between the heel counter and the tongue: too deep and it
- * reads as a bird's head, too shallow (or omitted, like the first attempt
- * at this) and it reads as a smooth loaf with no read as footwear at all.
+ * Same duotone trick ShoeShowcase does in CSS (desaturate, then blend a flat
+ * colour in with `mix-blend-mode: color`, masked to the source alpha), just
+ * done once per angle+colour with canvas composite operations instead,
+ * since a `<canvas>` recording has no DOM layers to stack. Cached because
+ * it's identical every frame — recomputing a full-res composite 30+ times a
+ * second for a shoe that never changes colour mid-video would be wasted work.
  */
-function drawShoeSilhouette(ctx: CanvasRenderingContext2D, colorHex: string, width: number) {
-  const [r, g, b] = parseHex(colorHex);
-  const scale = width / 140;
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.translate(-70, -18);
+const tintedShoeCache = new Map<string, HTMLCanvasElement>();
 
-  // Sole — a thin flat strip, separated from the upper by a visible gap.
-  ctx.beginPath();
-  ctx.moveTo(8, 34);
-  ctx.bezierCurveTo(4, 35, 3, 38, 6, 40);
-  ctx.bezierCurveTo(14, 42.5, 122, 42.5, 132, 40);
-  ctx.bezierCurveTo(137, 38, 136, 35, 131, 33.5);
-  ctx.lineTo(10, 33.2);
-  ctx.closePath();
-  ctx.fillStyle = "#14181d";
-  ctx.fill();
+function getTintedShoeImage(angle: ShoeAngle, colorHex: string): HTMLCanvasElement | null {
+  const source = getShoeImage(angle);
+  if (!source) return null;
+  const key = `${angle}:${colorHex}`;
+  const cached = tintedShoeCache.get(key);
+  if (cached) return cached;
 
-  // Upper.
-  ctx.beginPath();
-  ctx.moveTo(10, 32);
-  ctx.bezierCurveTo(6, 28, 6, 16, 10, 9);
-  ctx.bezierCurveTo(13, 4, 17, 2, 22, 3);
-  ctx.bezierCurveTo(27, 4, 26, 9, 30, 12);
-  ctx.bezierCurveTo(33, 14, 36, 7, 42, 4);
-  ctx.bezierCurveTo(60, -3, 90, 3, 112, 12);
-  ctx.bezierCurveTo(124, 17, 134, 22, 138, 27);
-  ctx.bezierCurveTo(141, 31, 135, 33.5, 126, 34);
-  ctx.bezierCurveTo(90, 36.5, 40, 35.5, 10, 32);
-  ctx.closePath();
+  const canvas = document.createElement("canvas");
+  canvas.width = source.naturalWidth;
+  canvas.height = source.naturalHeight;
+  const tintCtx = canvas.getContext("2d");
+  if (!tintCtx) return null;
 
-  const grad = ctx.createLinearGradient(6, 0, 138, 32);
-  grad.addColorStop(0, `rgb(${Math.min(255, r + 75)},${Math.min(255, g + 75)},${Math.min(255, b + 75)})`);
-  grad.addColorStop(0.5, `rgb(${r},${g},${b})`);
-  grad.addColorStop(1, `rgb(${Math.max(0, r - 60)},${Math.max(0, g - 60)},${Math.max(0, b - 60)})`);
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.strokeStyle = "rgba(0,0,0,0.4)";
-  ctx.lineWidth = 1.4;
-  ctx.stroke();
+  tintCtx.filter = "grayscale(1) brightness(1.08) contrast(1.05)";
+  tintCtx.drawImage(source, 0, 0);
+  tintCtx.filter = "none";
 
-  // Toe cap — a darker wedge near the tip for definition.
-  ctx.beginPath();
-  ctx.moveTo(108, 13);
-  ctx.bezierCurveTo(119, 17, 130, 22, 136, 27);
-  ctx.bezierCurveTo(139, 30, 134, 32.5, 126, 33.5);
-  ctx.bezierCurveTo(118, 29, 112, 21, 108, 13);
-  ctx.closePath();
-  ctx.fillStyle = `rgba(${Math.max(0, r - 70)},${Math.max(0, g - 70)},${Math.max(0, b - 70)},0.4)`;
-  ctx.fill();
+  tintCtx.globalCompositeOperation = "color";
+  tintCtx.fillStyle = colorHex;
+  tintCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Laces, over the tongue.
-  ctx.strokeStyle = "rgba(255,255,255,0.6)";
-  ctx.lineWidth = 1.6;
-  ctx.lineCap = "round";
-  for (const [x1, y1, x2, y2] of [
-    [36, 14, 44, 6],
-    [41, 19, 50, 11],
-    [46, 24, 56, 16],
-  ]) {
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  }
+  // Blending with "color" paints every pixel, including the transparent
+  // background — clip back to the shoe's own silhouette by multiplying the
+  // original alpha channel back in.
+  tintCtx.globalCompositeOperation = "destination-in";
+  tintCtx.drawImage(source, 0, 0);
+  tintCtx.globalCompositeOperation = "source-over";
 
-  // Sole seam highlight.
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  ctx.moveTo(14, 33.5);
-  ctx.lineTo(120, 34);
-  ctx.stroke();
-
-  ctx.restore();
+  tintedShoeCache.set(key, canvas);
+  return canvas;
 }
 
-/** The registered shoe — a whitelabel vector silhouette tinted the colour it was registered in, floating in the card's zero-gravity motion. */
+/** One angle, centred at the current origin, scaled to `targetWidth` with its own aspect ratio. */
+function drawShoeAngle(
+  ctx: CanvasRenderingContext2D,
+  angle: ShoeAngle,
+  colorHex: string,
+  targetWidth: number,
+  alpha: number,
+) {
+  if (alpha <= 0) return;
+  const img = getTintedShoeImage(angle, colorHex);
+  if (!img) return;
+  const h = targetWidth * (img.height / img.width);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, -targetWidth / 2, -h / 2, targetWidth, h);
+}
+
+/**
+ * The registered shoe — real photographed collectible art, duotoned to the
+ * colour it was registered in (see `getTintedShoeImage`) the same way
+ * ShoeShowcase tints its own copy of the same photos, so the shoe reads as
+ * the same object whether it's sitting on /perfil or turning in this video.
+ */
 function drawShoe(
   ctx: CanvasRenderingContext2D,
   shoe: ShareCardShoe,
@@ -1441,7 +1477,16 @@ function drawShoe(
   ctx.rotate(float.rotZ * pop);
   ctx.scale(float.turnScaleX, 1);
 
-  drawShoeSilhouette(ctx, shoe.color, targetWidth);
+  const cardAlpha = pop;
+  const { from, to, mix } = shoeAngleAt(Math.max(0, elapsed - popStart));
+  ctx.save();
+  drawShoeAngle(ctx, from, shoe.color, targetWidth, cardAlpha * (1 - mix));
+  ctx.restore();
+  if (mix > 0) {
+    ctx.save();
+    drawShoeAngle(ctx, to, shoe.color, targetWidth, cardAlpha * mix);
+    ctx.restore();
+  }
 
   ctx.restore();
 }
