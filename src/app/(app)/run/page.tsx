@@ -1087,7 +1087,7 @@ export default function RunPage() {
         <main className="relative z-10 flex flex-1 flex-col px-6 pb-10">
           <div className="flex flex-1 flex-col items-center justify-center gap-1">
             <div className="flex flex-col items-center gap-1">
-              <span className="font-mono text-8xl font-semibold tabular-nums">
+              <span className="font-mono text-[7.5rem] leading-none font-semibold tabular-nums">
                 {formatPace(state.currentPaceSecPerKm)}
               </span>
               <span className="text-sm text-muted">min/km</span>
