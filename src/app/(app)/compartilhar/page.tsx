@@ -20,6 +20,7 @@ import {
   SHARE_CARD_HEIGHT,
   SHARE_CARD_WIDTH,
   drawShareCardFrame,
+  type PhotoGridLayout,
   type ShareCardLayout,
   type ShareCardMusicMode,
   type ShareCardScene,
@@ -176,6 +177,15 @@ function LockedTemplateThumb({ label, onClick }: { label: string; onClick: () =>
  * uses one: run ids are generated per-device in IndexedDB, so there is no
  * static list to give a static export.
  */
+/** Above 4, `photoGridCells` in the renderer has no more layouts to fit — extra picks beyond this are silently dropped, not queued. */
+const MAX_SHARE_PHOTOS = 4;
+
+const PHOTO_GRID_LAYOUTS: { id: PhotoGridLayout; label: string }[] = [
+  { id: "colunas", label: "Colunas" },
+  { id: "linhas", label: "Linhas" },
+  { id: "grade", label: "Grade" },
+];
+
 export default function CompartilharPage() {
   return (
     <Suspense fallback={null}>
@@ -187,8 +197,9 @@ export default function CompartilharPage() {
 function CompartilharContent() {
   const requestedRunId = useSearchParams().get("run");
   const [scenario, setScenario] = useState<ScenarioId | null>(null);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [photo, setPhoto] = useState<HTMLImageElement | null>(null);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<HTMLImageElement[]>([]);
+  const [photoGridLayout, setPhotoGridLayout] = useState<PhotoGridLayout>("colunas");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const [photoFilter, setPhotoFilter] = useState<PhotoFilterId>("original");
@@ -336,7 +347,8 @@ function CompartilharContent() {
           scenario: activeScenario,
           layout: t.layout,
           unit: preferences.distanceUnit,
-          photo,
+          photos,
+          photoGridLayout,
           video,
           photoFilter,
           textEntrance,
@@ -354,7 +366,8 @@ function CompartilharContent() {
     runs,
     activeScenario,
     preferences.distanceUnit,
-    photo,
+    photos,
+    photoGridLayout,
     video,
     photoFilter,
     textEntrance,
@@ -474,14 +487,14 @@ function CompartilharContent() {
     }
   }
 
-  // Revokes the *previous* object URL whenever it's replaced or the screen
-  // unmounts — the cleanup closes over the value from the render it belongs
-  // to, so this never revokes the URL that's actually in use.
+  // Revokes the *previous* object URLs whenever they're replaced or the
+  // screen unmounts — the cleanup closes over the values from the render it
+  // belongs to, so this never revokes a URL that's actually in use.
   useEffect(() => {
     return () => {
-      if (photoUrl) URL.revokeObjectURL(photoUrl);
+      photoUrls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [photoUrl]);
+  }, [photoUrls]);
 
   useEffect(() => {
     return () => {
@@ -489,23 +502,31 @@ function CompartilharContent() {
     };
   }, [videoUrl]);
 
-  // The canvas needs a decoded bitmap, not a URL, and it needs it before the
-  // first frame is painted — a half-loaded image draws as nothing at all.
+  // The canvas needs decoded bitmaps, not URLs, and it needs all of them
+  // before the first frame is painted — a half-loaded image draws as
+  // nothing at all, and a grid missing one cell reflows every other cell
+  // the instant it does arrive. `photos` only updates once every URL in the
+  // current set has resolved (decoded or failed), never partially.
   useEffect(() => {
-    if (!photoUrl) return;
+    if (photoUrls.length === 0) return;
     let cancelled = false;
-    const image = new Image();
-    image.onload = () => {
-      if (!cancelled) setPhoto(image);
-    };
-    image.onerror = () => {
-      if (!cancelled) setPhoto(null);
-    };
-    image.src = photoUrl;
+    Promise.all(
+      photoUrls.map(
+        (url) =>
+          new Promise<HTMLImageElement | null>((resolve) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => resolve(null);
+            image.src = url;
+          }),
+      ),
+    ).then((images) => {
+      if (!cancelled) setPhotos(images.filter((img): img is HTMLImageElement => img !== null));
+    });
     return () => {
       cancelled = true;
     };
-  }, [photoUrl]);
+  }, [photoUrls]);
 
   // Same idea as the photo effect above, except the canvas doesn't need one
   // decoded frame — `drawImage` on a playing `<video>` samples whatever frame
@@ -536,12 +557,12 @@ function CompartilharContent() {
   }, [videoUrl]);
 
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []).slice(0, MAX_SHARE_PHOTOS);
     event.target.value = "";
-    if (!file) return;
-    setPhoto(null);
+    if (files.length === 0) return;
+    setPhotos([]);
     setPhotoFilter("original");
-    setPhotoUrl(URL.createObjectURL(file));
+    setPhotoUrls(files.map((file) => URL.createObjectURL(file)));
     setVideo(null);
     setVideoUrl(null);
   }
@@ -553,8 +574,8 @@ function CompartilharContent() {
     setVideo(null);
     setPhotoFilter("original");
     setVideoUrl(URL.createObjectURL(file));
-    setPhoto(null);
-    setPhotoUrl(null);
+    setPhotos([]);
+    setPhotoUrls([]);
   }
 
   const showVideoOption =
@@ -594,7 +615,7 @@ function CompartilharContent() {
           {scene ? (
             <ShareCardPreview scene={scene} />
           ) : (
-            <ShareCard scenario={activeScenario} photoUrl={photoUrl ?? undefined} />
+            <ShareCard scenario={activeScenario} photoUrl={photoUrls[0] ?? undefined} />
           )}
         </div>
 
@@ -641,35 +662,42 @@ function CompartilharContent() {
         <Card className="pr-enter" style={delay(185)}>
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Sua foto ou vídeo</CardTitle>
           <p className="text-xs leading-relaxed text-muted text-pretty">
-            Suba uma foto ou um vídeo da sua corrida pra usar como fundo do card, no lugar de um
-            cenário desenhado — o vídeo toca em loop atrás do trajeto e dos números. Um substitui
-            o outro. Vale pros templates de foto — o de música usa a capa do álbum.
+            Suba até {MAX_SHARE_PHOTOS} fotos ou um vídeo da sua corrida pra usar como fundo do
+            card, no lugar de um cenário desenhado — o vídeo toca em loop atrás do trajeto e dos
+            números, e 2+ fotos entram lado a lado numa grade. Um substitui o outro. Vale pros
+            templates de foto — o de música usa a capa do álbum.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <label
               htmlFor="share-photo-input"
               className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:border-accent"
             >
-              {photoUrl ? "Trocar foto" : "Escolher foto"}
+              {photoUrls.length > 0 ? "Trocar fotos" : "Escolher fotos"}
             </label>
             <input
               id="share-photo-input"
               type="file"
               accept="image/*"
+              multiple
               className="sr-only"
               onChange={handlePhotoChange}
             />
-            {photoUrl && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPhoto(null);
-                  setPhotoUrl(null);
-                }}
-                className="inline-flex min-h-11 items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-muted transition-colors hover:border-warn hover:text-warn"
-              >
-                Remover foto
-              </button>
+            {photoUrls.length > 0 && (
+              <>
+                <span className="text-xs text-muted">
+                  {photoUrls.length} {photoUrls.length === 1 ? "foto" : "fotos"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotos([]);
+                    setPhotoUrls([]);
+                  }}
+                  className="inline-flex min-h-11 items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-muted transition-colors hover:border-warn hover:text-warn"
+                >
+                  Remover fotos
+                </button>
+              </>
             )}
           </div>
 
@@ -701,7 +729,7 @@ function CompartilharContent() {
             )}
           </div>
 
-          {(photo || video) && (
+          {(photos.length > 0 || video) && (
             <div className="mt-4 border-t border-border pt-4">
               <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
                 Filtro
@@ -717,10 +745,10 @@ function CompartilharContent() {
                       photoFilter === id ? "border-accent" : "border-transparent"
                     }`}
                   >
-                    {photo ? (
+                    {photos[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element -- object URL preview, not an optimizable static asset.
                       <img
-                        src={photo.src}
+                        src={photos[0].src}
                         alt=""
                         style={{ filter: PHOTO_FILTERS[id].css }}
                         className="h-16 w-full object-cover"
@@ -747,6 +775,31 @@ function CompartilharContent() {
                     >
                       {PHOTO_FILTERS[id].label}
                     </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {photos.length >= 2 && (
+            <div className="mt-4 border-t border-border pt-4">
+              <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                Organização das fotos
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {PHOTO_GRID_LAYOUTS.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setPhotoGridLayout(id)}
+                    aria-pressed={photoGridLayout === id}
+                    className={`rounded-xl border-2 px-2 py-2.5 text-center transition-colors ${
+                      photoGridLayout === id
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-border text-muted hover:border-foreground/30"
+                    }`}
+                  >
+                    <span className="block text-xs font-semibold">{label}</span>
                   </button>
                 ))}
               </div>
@@ -860,13 +913,19 @@ function CompartilharContent() {
           </Card>
         )}
 
-        <Card className={`pr-enter ${photoUrl || videoUrl ? "opacity-50" : ""}`} style={delay(200)}>
+        <Card className={`pr-enter ${photoUrls.length > 0 || videoUrl ? "opacity-50" : ""}`} style={delay(200)}>
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
             Cenário de fundo
           </CardTitle>
-          {(photoUrl || videoUrl) && (
+          {(photoUrls.length > 0 || videoUrl) && (
             <p className="mb-3 text-xs text-muted">
-              Desativado enquanto uma {videoUrl ? "vídeo" : "foto"} está selecionad{videoUrl ? "o" : "a"}.
+              Desativado enquanto{" "}
+              {videoUrl
+                ? " um vídeo está selecionado"
+                : photoUrls.length > 1
+                  ? " fotos estão selecionadas"
+                  : " uma foto está selecionada"}
+              .
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">
@@ -874,7 +933,7 @@ function CompartilharContent() {
               <button
                 key={id}
                 type="button"
-                disabled={!!photoUrl || !!videoUrl}
+                disabled={photoUrls.length > 0 || !!videoUrl}
                 onClick={() => setScenario(id)}
                 aria-pressed={activeScenario === id}
                 className={`min-h-14 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed ${

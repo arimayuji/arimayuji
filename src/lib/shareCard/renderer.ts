@@ -290,6 +290,14 @@ function floatingMotion(elapsed: number) {
  */
 export type ShareCardLayout = "trajeto" | "numero";
 
+/**
+ * How 2-4 photos compose into the card's backdrop instead of one full-bleed
+ * cover shot. "colunas"/"linhas" split evenly; "grade" adapts per count — a
+ * hero + stacked pair at 3 photos, an even quadrant at 4 — rather than
+ * leaving a cell empty.
+ */
+export type PhotoGridLayout = "colunas" | "linhas" | "grade";
+
 export interface ShareCardRecord {
   label: string;
   achievement: Achievement;
@@ -322,17 +330,25 @@ export interface ShareCardInput {
   layout?: ShareCardLayout;
   record?: ShareCardRecord | null;
   shoe?: ShareCardShoe | null;
-  /** A photo the athlete chose, already decoded. Replaces the illustrated sky when present — unless `musicMode` is "background", which takes over the whole backdrop instead. */
-  photo?: HTMLImageElement | null;
+  /**
+   * Photos the athlete chose, already decoded. Replaces the illustrated sky
+   * when present — unless `musicMode` is "background", which takes over the
+   * whole backdrop instead. One photo draws full-bleed same as before;
+   * 2-4 compose into `photoGridLayout` instead (extras beyond 4 are
+   * ignored — pick a layout that fits, not the call site's job to enforce).
+   */
+  photos?: HTMLImageElement[];
+  /** Defaults to "colunas". Ignored when fewer than 2 photos are set. */
+  photoGridLayout?: PhotoGridLayout;
   /**
    * A video the athlete chose, already playing (muted, looping) so every
    * `drawImage` call below simply samples whatever frame is live — no
    * separate timing/seek logic needed here, the browser keeps decoding it
-   * on its own clock. Takes over from `photo` when present; the two are
+   * on its own clock. Takes over from `photos` when present; the two are
    * mutually exclusive at the call site, not merged here.
    */
   video?: HTMLVideoElement | null;
-  /** Defaults to "original" — a no-op filter. Ignored when neither `photo` nor `video` is set. */
+  /** Defaults to "original" — a no-op filter. Ignored when neither `photos` nor `video` is set. */
   photoFilter?: PhotoFilterId;
   /** Defaults to "bumerangue" — how the numbers/labels arrive and leave. */
   textEntrance?: TextEntranceId;
@@ -351,7 +367,9 @@ interface Point {
 export interface ShareCardScene {
   scenario: ScenarioId;
   layout: ShareCardLayout;
-  photo: HTMLImageElement | null;
+  /** 0 = none, 1 = a normal single photo, 2-4 = composed into `photoGridLayout`. */
+  photos: HTMLImageElement[];
+  photoGridLayout: PhotoGridLayout;
   video: HTMLVideoElement | null;
   photoFilter: PhotoFilterId;
   textEntrance: TextEntranceId;
@@ -435,7 +453,8 @@ export function buildShareCardScene({
   layout = "trajeto",
   record = null,
   shoe = null,
-  photo = null,
+  photos = [],
+  photoGridLayout = "colunas",
   video = null,
   photoFilter = "original",
   textEntrance = "bumerangue",
@@ -449,7 +468,8 @@ export function buildShareCardScene({
   return {
     scenario,
     layout,
-    photo,
+    photos,
+    photoGridLayout,
     video,
     photoFilter,
     textEntrance,
@@ -546,26 +566,117 @@ function drawScrim(ctx: CanvasRenderingContext2D) {
   ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
 }
 
-/** `object-fit: cover` for a photo or a live video frame, cropped evenly rather than squeezed into 9:16. */
+/** `object-fit: cover` into an arbitrary rect — crops evenly rather than squeezing, the shared math behind both a full-bleed photo and one cell of a photo grid. */
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement | HTMLVideoElement,
+  rectX: number,
+  rectY: number,
+  rectW: number,
+  rectH: number,
+) {
+  const isVideo = "videoWidth" in img;
+  const width = isVideo ? img.videoWidth : img.naturalWidth || img.width;
+  const height = isVideo ? img.videoHeight : img.naturalHeight || img.height;
+  if (!width || !height) return;
+  const scale = Math.max(rectW / width, rectH / height);
+  const drawW = width * scale;
+  const drawH = height * scale;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(rectX, rectY, rectW, rectH);
+  ctx.clip();
+  ctx.drawImage(img, rectX + (rectW - drawW) / 2, rectY + (rectH - drawH) / 2, drawW, drawH);
+  ctx.restore();
+}
+
+/** A single photo (or a live video frame) filling the whole card, `object-fit: cover`. */
 function drawPhoto(
   ctx: CanvasRenderingContext2D,
   photo: HTMLImageElement | HTMLVideoElement,
   filter: PhotoFilterId,
 ) {
-  const isVideo = "videoWidth" in photo;
-  const width = isVideo ? photo.videoWidth : photo.naturalWidth || photo.width;
-  const height = isVideo ? photo.videoHeight : photo.naturalHeight || photo.height;
-  if (!width || !height) return;
-  const scale = Math.max(SHARE_CARD_WIDTH / width, SHARE_CARD_HEIGHT / height);
   ctx.save();
   ctx.filter = PHOTO_FILTERS[filter].css;
-  ctx.drawImage(
-    photo,
-    (SHARE_CARD_WIDTH - width * scale) / 2,
-    (SHARE_CARD_HEIGHT - height * scale) / 2,
-    width * scale,
-    height * scale,
-  );
+  drawImageCover(ctx, photo, 0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+  ctx.restore();
+  drawScrim(ctx);
+}
+
+interface GridCell {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Cell rects for 2-4 photos. "grade" adapts per count — a hero + stacked pair at 3, an even quadrant at 4 — rather than leaving a cell empty. */
+function photoGridCells(count: number, layout: PhotoGridLayout): GridCell[] {
+  const w = SHARE_CARD_WIDTH;
+  const h = SHARE_CARD_HEIGHT;
+  if (layout === "colunas") {
+    const colWidth = w / count;
+    return Array.from({ length: count }, (_, i) => ({ x: i * colWidth, y: 0, w: colWidth, h }));
+  }
+  if (layout === "linhas") {
+    const rowHeight = h / count;
+    return Array.from({ length: count }, (_, i) => ({ x: 0, y: i * rowHeight, w, h: rowHeight }));
+  }
+  // "grade"
+  if (count === 3) {
+    const heroW = w * 0.6;
+    const sideW = w - heroW;
+    const sideH = h / 2;
+    return [
+      { x: 0, y: 0, w: heroW, h },
+      { x: heroW, y: 0, w: sideW, h: sideH },
+      { x: heroW, y: sideH, w: sideW, h: sideH },
+    ];
+  }
+  if (count >= 4) {
+    const colWidth = w / 2;
+    const rowHeight = h / 2;
+    return [
+      { x: 0, y: 0, w: colWidth, h: rowHeight },
+      { x: colWidth, y: 0, w: colWidth, h: rowHeight },
+      { x: 0, y: rowHeight, w: colWidth, h: rowHeight },
+      { x: colWidth, y: rowHeight, w: colWidth, h: rowHeight },
+    ];
+  }
+  // count === 2, "grade" falls back to an even top/bottom split.
+  const rowHeight = h / 2;
+  return [
+    { x: 0, y: 0, w, h: rowHeight },
+    { x: 0, y: rowHeight, w, h: rowHeight },
+  ];
+}
+
+const PHOTO_GRID_GAP = 4;
+
+/** 2-4 photos composed into one backdrop instead of a single full-bleed cover shot — a thin dark seam between cells, same scrim over the whole composite as a single photo gets. */
+function drawPhotoGrid(
+  ctx: CanvasRenderingContext2D,
+  photos: HTMLImageElement[],
+  layout: PhotoGridLayout,
+  filter: PhotoFilterId,
+) {
+  const cells = photoGridCells(Math.min(photos.length, 4), layout);
+  ctx.save();
+  ctx.fillStyle = "#0b0f13";
+  ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+  ctx.filter = PHOTO_FILTERS[filter].css;
+  cells.forEach((cell, i) => {
+    const photo = photos[i];
+    if (!photo) return;
+    drawImageCover(
+      ctx,
+      photo,
+      cell.x + PHOTO_GRID_GAP / 2,
+      cell.y + PHOTO_GRID_GAP / 2,
+      cell.w - PHOTO_GRID_GAP,
+      cell.h - PHOTO_GRID_GAP,
+    );
+  });
   ctx.restore();
   drawScrim(ctx);
 }
@@ -756,13 +867,60 @@ function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: 
   return `${text.slice(0, lo)}…`;
 }
 
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+const EQ_BAR_COUNT = 4;
+const EQ_BAR_WIDTH = 3;
+const EQ_BAR_GAP = 3;
+const EQ_BARS_TOTAL_WIDTH = EQ_BAR_COUNT * EQ_BAR_WIDTH + (EQ_BAR_COUNT - 1) * EQ_BAR_GAP;
+
+/**
+ * A small "now playing" equalizer — vertical bars pulsing at slightly
+ * different, deterministic-per-track rates (hashed from the track name +
+ * artist, so the same song always animates the same way instead of looking
+ * random from render to render). This is deliberately NOT a real BPM/audio
+ * analysis: the card only ever has the iTunes lookup's metadata, never the
+ * actual audio, so there's nothing to measure — purely a decorative "it's
+ * playing" cue, the same spirit as a loading spinner rather than a chart.
+ */
+function drawEqualizerBars(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  height: number,
+  elapsed: number,
+  seed: string,
+) {
+  const hash = hashString(seed);
+  ctx.save();
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  for (let i = 0; i < EQ_BAR_COUNT; i++) {
+    const phase = (((hash >> (i * 5)) & 0xff) / 255) * Math.PI * 2;
+    const speed = 0.0052 + (((hash >> (i * 3 + 1)) & 0x7) * 0.0006);
+    const wave = (Math.sin(elapsed * speed + phase + i * 1.7) + 1) / 2;
+    const barHeight = Math.max(3, height * (0.22 + 0.78 * wave));
+    const bx = x + i * (EQ_BAR_WIDTH + EQ_BAR_GAP);
+    const by = y + (height - barHeight) / 2;
+    roundedRect(ctx, bx, by, EQ_BAR_WIDTH, barHeight, EQ_BAR_WIDTH / 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 /**
  * The "playing" pill for `musicMode: "chip"` — a small rounded artwork
- * thumbnail (when the lookup returned one) plus a truncated "Track —
- * Artista" line. Each layout hands this its own safe slot: `align` controls
- * whether `x` is the pill's left edge or its centre, so trajeto (left-aligned
- * chrome throughout) and numero (centred throughout) each get a pill that
- * matches the rest of their own text instead of a third alignment style.
+ * thumbnail (when the lookup returned one), a pulsing equalizer, and a
+ * truncated "Track — Artista" line. Each layout hands this its own safe
+ * slot: `align` controls whether `x` is the pill's left edge or its centre,
+ * so trajeto (left-aligned chrome throughout) and numero (centred
+ * throughout) each get a pill that matches the rest of their own text
+ * instead of a third alignment style.
  */
 function drawMusicChip(
   ctx: CanvasRenderingContext2D,
@@ -780,8 +938,9 @@ function drawMusicChip(
   const height = 56;
   const artSize = height - 14;
   const hasArt = !!scene.albumArt;
-  const label = hasArt ? `${scene.track.name} — ${scene.track.artist}` : `♪ ${scene.track.name} — ${scene.track.artist}`;
-  const padLeft = hasArt ? artSize + 26 : 24;
+  const label = `${scene.track.name} — ${scene.track.artist}`;
+  const barsStart = hasArt ? 7 + artSize + 12 : 16;
+  const padLeft = barsStart + EQ_BARS_TOTAL_WIDTH + 12;
   const maxWidth = 560;
 
   ctx.save();
@@ -805,6 +964,8 @@ function drawMusicChip(
     ctx.drawImage(scene.albumArt, left + 7, y + 7, artSize, artSize);
     ctx.restore();
   }
+
+  drawEqualizerBars(ctx, left + barsStart, y + 14, height - 28, elapsed, `${scene.track.name}:${scene.track.artist}`);
 
   ctx.textAlign = "left";
   ctx.fillStyle = "#ffffff";
@@ -1279,7 +1440,8 @@ export function drawShareCardFrame(
   // the usual photo-or-scenario choice if the artwork somehow isn't loaded.
   if (scene.musicMode === "background" && scene.albumArt) drawPhoto(ctx, scene.albumArt, "original");
   else if (scene.video) drawPhoto(ctx, scene.video, scene.photoFilter);
-  else if (scene.photo) drawPhoto(ctx, scene.photo, scene.photoFilter);
+  else if (scene.photos.length >= 2) drawPhotoGrid(ctx, scene.photos, scene.photoGridLayout, scene.photoFilter);
+  else if (scene.photos.length === 1) drawPhoto(ctx, scene.photos[0], scene.photoFilter);
   else drawScenario(ctx, scene.scenario);
 
   if (scene.layout === "numero") drawNumberHero(ctx, scene, elapsed);
@@ -1299,7 +1461,7 @@ export function drawShareCardFrame(
   // The scenario badge names the illustrated sky; over someone's own photo —
   // or the album art in "só música" — it would be naming a background that
   // isn't there.
-  if (!scene.photo && !scene.video && scene.musicMode !== "background") {
+  if (scene.photos.length === 0 && !scene.video && scene.musicMode !== "background") {
     drawPill(
       ctx,
       scene,
