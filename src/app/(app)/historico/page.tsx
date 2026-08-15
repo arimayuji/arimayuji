@@ -70,13 +70,19 @@ function formatRunDate(date: Date): string {
  * not decoration. Longitude is scaled by cos(latitude) so the shape isn't
  * stretched sideways, and the path is fitted to the box with a small margin.
  */
+/**
+ * Fills the full height of its row (a flex item stretched by the parent's
+ * default `align-items: stretch`, not a fixed square icon anymore) — the
+ * card itself clips it to the rounded corner via `overflow-hidden`, so this
+ * stays a plain rectangle rather than rounding its own edges.
+ */
 function RouteThumb({ points }: { points: StoredPoint[] }) {
   const size = 56;
   const pad = 6;
 
   if (points.length < 2) {
     return (
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-border bg-background">
+      <div className="flex h-full w-24 shrink-0 items-center justify-center border-r border-border bg-background">
         <span className="text-[10px] text-muted">sem GPS</span>
       </div>
     );
@@ -106,7 +112,8 @@ function RouteThumb({ points }: { points: StoredPoint[] }) {
   return (
     <svg
       viewBox={`0 0 ${size} ${size}`}
-      className="h-14 w-14 shrink-0 rounded-xl border border-border bg-background text-accent"
+      preserveAspectRatio="xMidYMid slice"
+      className="h-full w-24 shrink-0 border-r border-border bg-background text-accent"
       role="img"
       aria-label="Traçado da corrida"
     >
@@ -426,10 +433,11 @@ function TrashIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-type Period = "all" | "7d" | "30d" | "90d";
+type Period = "recent3" | "all" | "7d" | "30d" | "90d";
 type SortKey = "recent" | "oldest" | "longest" | "shortest" | "fastest";
 
 const PERIOD_OPTIONS: { key: Period; label: string }[] = [
+  { key: "recent3", label: "3 recentes" },
   { key: "all", label: "Tudo" },
   { key: "7d", label: "7 dias" },
   { key: "30d", label: "30 dias" },
@@ -455,8 +463,9 @@ function matchesQuery(run: CompletedRun, query: string): boolean {
   return dateText.includes(q) || shoeText.includes(q);
 }
 
+/** "3 recentes" caps the result count rather than a date boundary — handled separately in `visibleRuns`, so this treats it like "all" here. */
 function withinPeriod(run: CompletedRun, period: Period): boolean {
-  if (period === "all") return true;
+  if (period === "recent3" || period === "all") return true;
   const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
   return run.startedAt >= Date.now() - days * 24 * 60 * 60 * 1000;
 }
@@ -578,10 +587,10 @@ function RunRow({
 
   return (
     <li className="pr-enter" style={delay(90 + index * 45)}>
-      <article className="relative flex items-start gap-4 rounded-2xl border border-border bg-surface p-4">
-        <Link href={`/historico/detalhe?id=${run.id}`} className="flex min-w-0 flex-1 items-start gap-4">
+      <article className="relative flex items-stretch overflow-hidden rounded-2xl border border-border bg-surface">
+        <Link href={`/historico/detalhe?id=${run.id}`} className="flex min-w-0 flex-1 items-stretch gap-4">
           <RouteThumb points={run.points} />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 py-4 pr-2">
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="truncate text-sm font-medium">{formatRunDate(started)}</h3>
               <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
@@ -617,7 +626,7 @@ function RunRow({
           type="button"
           onClick={onRequestDelete}
           aria-label="Excluir corrida"
-          className="shrink-0 rounded-full p-2 text-muted hover:bg-bad/10 hover:text-bad"
+          className="mt-3 mr-3 h-fit shrink-0 self-start rounded-full p-2 text-muted hover:bg-bad/10 hover:text-bad"
         >
           <TrashIcon />
         </button>
@@ -656,7 +665,7 @@ export default function HistoricoPage() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [period, setPeriod] = useState<Period>("all");
+  const [period, setPeriod] = useState<Period>("recent3");
   const [sort, setSort] = useState<SortKey>("recent");
 
   const handleConfirmDelete = async (id: string) => {
@@ -693,12 +702,15 @@ export default function HistoricoPage() {
 
   const runs = load.status === "ready" ? load.runs : [];
   const showSearchTool = runs.length >= SEARCH_TOOL_MIN_RUNS;
-  const visibleRuns = showSearchTool
-    ? sortRuns(
-        runs.filter((run) => matchesQuery(run, query) && withinPeriod(run, period)),
-        sort,
-      )
-    : runs;
+  const matchedRuns = runs.filter((run) => matchesQuery(run, query) && withinPeriod(run, period));
+  // "3 recentes" caps the count by actual recency first, then the chosen
+  // sort re-orders just that capped set — so picking "Pace mais rápido"
+  // still means "fastest of my last 3", not "fastest of everything".
+  const cappedRuns =
+    period === "recent3"
+      ? [...matchedRuns].sort((a, b) => b.startedAt - a.startedAt).slice(0, 3)
+      : matchedRuns;
+  const visibleRuns = showSearchTool ? sortRuns(cappedRuns, sort) : runs;
 
   return (
     <>
