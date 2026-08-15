@@ -739,17 +739,8 @@ export default function RunPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
-      {isLiveRun && (
-        <div className="fixed inset-0">
-          <RouteMap points={state.points} live square={false} rounded={false} className="h-full" />
-        </div>
-      )}
-
       <header className="relative z-10 flex items-center justify-between px-5 py-4">
-        <Link
-          href="/"
-          className={`text-sm text-muted hover:text-foreground ${isLiveRun ? "rounded-full bg-background/70 px-3 py-1.5 backdrop-blur-md" : ""}`}
-        >
+        <Link href="/" className="text-sm text-muted hover:text-foreground">
           &larr; Xanthus
         </Link>
         {state.status !== "idle" && <GpsDot quality={state.gpsQuality} />}
@@ -1030,8 +1021,8 @@ export default function RunPage() {
       {isLiveRun && (
         <main className="relative z-10 flex flex-1 flex-col px-6 pb-10">
           <div className="flex flex-1 flex-col items-center justify-center gap-1">
-            <div className="flex flex-col items-center gap-1 rounded-3xl bg-background/70 px-8 py-5 backdrop-blur-md">
-              <span className="font-mono text-7xl font-semibold tabular-nums">
+            <div className="flex flex-col items-center gap-1">
+              <span className="font-mono text-8xl font-semibold tabular-nums">
                 {formatPace(state.currentPaceSecPerKm)}
               </span>
               <span className="text-sm text-muted">min/km</span>
@@ -1047,7 +1038,7 @@ export default function RunPage() {
             (() => {
               const currentPause = state.pauseEvents[state.pauseEvents.length - 1];
               return (
-                <div className="mt-4 rounded-xl border border-border/60 bg-surface/85 p-4 backdrop-blur-md">
+                <div className="mt-4 rounded-xl border border-border bg-surface p-4">
                   <span className="text-xs uppercase tracking-wide text-muted">
                     Pausado — por quê? (opcional)
                   </span>
@@ -1072,18 +1063,18 @@ export default function RunPage() {
             })()}
 
           <div className="grid grid-cols-2 gap-4 py-6">
-            <div className="rounded-xl border border-border/60 bg-surface/85 p-4 backdrop-blur-md">
+            <div className="rounded-xl border border-border bg-surface p-4">
               <span className="text-xs uppercase tracking-wide text-muted">Distância</span>
               <p className="mt-1 font-mono text-2xl tabular-nums">
                 {formatDistanceKm(state.distanceMeters)} <span className="text-base text-muted">km</span>
               </p>
             </div>
-            <div className="rounded-xl border border-border/60 bg-surface/85 p-4 backdrop-blur-md">
+            <div className="rounded-xl border border-border bg-surface p-4">
               <span className="text-xs uppercase tracking-wide text-muted">Tempo</span>
               <p className="mt-1 font-mono text-2xl tabular-nums">{formatElapsed(state.elapsedSeconds)}</p>
             </div>
             {state.goal?.distanceMeters && (
-              <div className="rounded-xl border border-border/60 bg-surface/85 p-4 backdrop-blur-md">
+              <div className="rounded-xl border border-border bg-surface p-4">
                 <span className="text-xs uppercase tracking-wide text-muted">Chegada prevista em</span>
                 <p className="mt-1 font-mono text-2xl tabular-nums">
                   {formatGoalEta(state.forecastSecondsRemaining)}
@@ -1091,7 +1082,7 @@ export default function RunPage() {
               </div>
             )}
             {state.paceNeededSecPerKm !== null && (
-              <div className="rounded-xl border border-border/60 bg-surface/85 p-4 backdrop-blur-md">
+              <div className="rounded-xl border border-border bg-surface p-4">
                 <span className="text-xs uppercase tracking-wide text-muted">Pace necessário</span>
                 <p className="mt-1 font-mono text-2xl tabular-nums">
                   {formatPace(state.paceNeededSecPerKm)}
@@ -1105,7 +1096,7 @@ export default function RunPage() {
               <button
                 type="button"
                 onClick={pause}
-                className="flex-1 rounded-full border border-border bg-background/70 py-4 text-base font-semibold backdrop-blur-md hover:border-accent"
+                className="flex-1 rounded-full border border-border bg-surface py-4 text-base font-semibold hover:border-accent"
               >
                 Pausar
               </button>
@@ -1119,7 +1110,7 @@ export default function RunPage() {
                     ? "Aguardando o sinal de GPS melhorar antes de retomar"
                     : undefined
                 }
-                className="flex-1 rounded-full border border-accent bg-background/70 py-4 text-base font-semibold text-accent backdrop-blur-md disabled:cursor-not-allowed disabled:border-border disabled:text-muted"
+                className="flex-1 rounded-full border border-accent bg-surface py-4 text-base font-semibold text-accent disabled:cursor-not-allowed disabled:border-border disabled:text-muted"
               >
                 {state.gpsQuality !== "good" ? "Aguardando sinal…" : "Retomar"}
               </button>

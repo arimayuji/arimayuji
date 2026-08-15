@@ -108,6 +108,21 @@ export function useRunTracker() {
   const lastRawRef = useRef<LatLon | null>(null);
   const lastFilteredRef = useRef<LatLon | null>(null);
   const lastFixTimestampRef = useRef<number | null>(null);
+  /**
+   * Wall-clock (`Date.now()`) counterpart to `lastFixTimestampRef`, which
+   * holds the GPS chip's own `position.timestamp` — some Android
+   * WebView/Chrome builds are known to report a `timestamp` that doesn't
+   * reliably advance between consecutive `watchPosition` callbacks (stuck
+   * repeating the same value, or arriving out of order). When that happens,
+   * every fix after the first reads as "duplicate or out-of-order" and gets
+   * silently dropped forever — distance and pace freeze at zero for the rest
+   * of the run despite a perfectly good, moving GPS signal, which is exactly
+   * what "GPS bom mas não captando distância" turned out to be. `Date.now()`
+   * has no equivalent failure mode at the once-a-second-or-slower cadence a
+   * real fix stream runs at, so it's the fallback `dt` source rather than a
+   * second reason to give up on the fix.
+   */
+  const lastFixWallClockRef = useRef<number | null>(null);
   const justResumedRef = useRef(false);
   /**
    * Filtered step distances too small to clear `isLikelyDrift` on their own,
@@ -211,6 +226,7 @@ export function useRunTracker() {
         lastRawRef.current = { lat, lon };
         lastFilteredRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
+        lastFixWallClockRef.current = Date.now();
         startedAtRef.current = Date.now();
         lastAnnounceTimeRef.current = timestamp;
         pendingDriftMetersRef.current = 0;
@@ -236,12 +252,20 @@ export function useRunTracker() {
         lastRawRef.current = { lat, lon };
         lastFilteredRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
+        lastFixWallClockRef.current = Date.now();
         pendingDriftMetersRef.current = 0;
         return;
       }
 
-      const dt = (timestamp - lastFixTimestampRef.current) / 1000;
-      if (dt <= 0) return; // duplicate or out-of-order fix
+      let dt = (timestamp - lastFixTimestampRef.current) / 1000;
+      if (dt <= 0) {
+        // See `lastFixWallClockRef`'s own comment — a chip/browser that
+        // isn't advancing `position.timestamp` shouldn't be able to freeze
+        // the run forever; fall back to wall-clock elapsed time instead of
+        // dropping every fix as a false "duplicate".
+        dt = lastFixWallClockRef.current === null ? 0 : (Date.now() - lastFixWallClockRef.current) / 1000;
+        if (dt <= 0) return; // genuinely nothing to work with
+      }
 
       const rawStep = haversineMeters(lastRawRef.current, { lat, lon });
       if (!isPlausibleStep(rawStep, dt)) return; // impossible jump, drop this fix
@@ -286,6 +310,7 @@ export function useRunTracker() {
       lastRawRef.current = { lat, lon };
       lastFilteredRef.current = filteredPoint;
       lastFixTimestampRef.current = timestamp;
+      lastFixWallClockRef.current = Date.now();
 
       let announced = false;
       if (
@@ -379,6 +404,7 @@ export function useRunTracker() {
       lastRawRef.current = null;
       lastFilteredRef.current = null;
       lastFixTimestampRef.current = null;
+      lastFixWallClockRef.current = null;
       startedAtRef.current = null;
       pausedAccumMsRef.current = 0;
       pauseStartedAtRef.current = null;
