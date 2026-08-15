@@ -15,6 +15,7 @@ import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
+import { ModalPortal } from "../modal-portal";
 
 /**
  * The only screen in the app wired to real data: it reads whatever
@@ -489,6 +490,92 @@ function sortRuns(runs: CompletedRun[], sort: SortKey): CompletedRun[] {
   });
 }
 
+/**
+ * A `<select>` hands the picker to the OS — on the phone this app is
+ * actually tested on, that's the grey-list-with-radio-circles seen in
+ * screenshots, nothing like the rest of the UI. This is the same bottom-sheet
+ * shell `RatePlaceModal` uses (`ModalPortal` + rounded-t-3xl surface),
+ * carrying the sort options as rows instead.
+ */
+function SortSheet({
+  sort,
+  onSortChange,
+  onClose,
+}: {
+  sort: SortKey;
+  onSortChange: (value: SortKey) => void;
+  onClose: () => void;
+}) {
+  return (
+    <ModalPortal>
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
+        <div className="w-full max-w-sm rounded-t-3xl bg-background px-6 pt-6 pb-8 text-foreground sm:rounded-3xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Ordenar por</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-3.5 w-3.5"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <ul className="mt-4 flex flex-col gap-2">
+            {SORT_OPTIONS.map((option) => {
+              const selected = option.key === sort;
+              return (
+                <li key={option.key}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSortChange(option.key);
+                      onClose();
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors ${
+                      selected
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-border text-foreground hover:border-accent"
+                    }`}
+                  >
+                    {option.label}
+                    {selected && (
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4 shrink-0"
+                        aria-hidden="true"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}
+
 function HistorySearchBar({
   query,
   onQueryChange,
@@ -504,6 +591,9 @@ function HistorySearchBar({
   sort: SortKey;
   onSortChange: (value: SortKey) => void;
 }) {
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const sortLabel = SORT_OPTIONS.find((option) => option.key === sort)?.label ?? SORT_OPTIONS[0].label;
+
   return (
     <div className="pr-enter flex flex-col gap-2.5" style={delay(85)}>
       <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5">
@@ -530,7 +620,7 @@ function HistorySearchBar({
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="-mx-1 flex flex-1 gap-1.5 overflow-x-auto px-1">
+        <div className="no-scrollbar -mx-1 flex flex-1 gap-1.5 overflow-x-auto px-1">
           {PERIOD_OPTIONS.map((option) => (
             <button
               key={option.key}
@@ -546,19 +636,31 @@ function HistorySearchBar({
             </button>
           ))}
         </div>
-        <select
-          value={sort}
-          onChange={(event) => onSortChange(event.target.value as SortKey)}
-          aria-label="Ordenar corridas"
-          className="shrink-0 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground outline-none"
+        <button
+          type="button"
+          onClick={() => setSortSheetOpen(true)}
+          aria-haspopup="dialog"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground"
         >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.key} value={option.key}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          {sortLabel}
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3 w-3 shrink-0 text-muted"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
       </div>
+
+      {sortSheetOpen && (
+        <SortSheet sort={sort} onSortChange={onSortChange} onClose={() => setSortSheetOpen(false)} />
+      )}
     </div>
   );
 }

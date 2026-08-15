@@ -115,6 +115,18 @@ body {
   }
 }
 
+/* A horizontally-scrollable chip row (the histórico period filter, ...) still
+   scrolls with this — just without the OS drawing its own scrollbar track
+   underneath, which reads as a stray grey bar on a row that's otherwise all
+   pill buttons. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* The browser's own up/down stepper never matches this app's own styled
    inputs — every numeric field here already has its own touch target
    (a pill slider, a swatch grid, plain digits), so the native spinner is
