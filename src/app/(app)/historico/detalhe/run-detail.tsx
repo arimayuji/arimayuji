@@ -306,7 +306,10 @@ export function RunDetail({ id }: { id: string }) {
           <p className="text-sm leading-relaxed text-muted">
             Esse registro não existe mais neste aparelho — pode já ter sido excluído.
           </p>
-          <Link href="/historico" className="mt-4 inline-block text-sm text-accent underline underline-offset-2">
+          <Link
+            href="/historico"
+            className="mt-4 flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
+          >
             Voltar pro histórico
           </Link>
         </Card>
@@ -521,7 +524,7 @@ export function RunDetail({ id }: { id: string }) {
 
         <Link
           href="/historico"
-          className="pr-enter text-center text-xs text-muted underline underline-offset-2"
+          className="pr-enter flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
           style={delay(210)}
         >
           Voltar pro histórico

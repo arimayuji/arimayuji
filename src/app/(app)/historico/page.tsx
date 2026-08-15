@@ -426,6 +426,134 @@ function TrashIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+type Period = "all" | "7d" | "30d" | "90d";
+type SortKey = "recent" | "oldest" | "longest" | "shortest" | "fastest";
+
+const PERIOD_OPTIONS: { key: Period; label: string }[] = [
+  { key: "all", label: "Tudo" },
+  { key: "7d", label: "7 dias" },
+  { key: "30d", label: "30 dias" },
+  { key: "90d", label: "90 dias" },
+];
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "recent", label: "Mais recentes" },
+  { key: "oldest", label: "Mais antigas" },
+  { key: "longest", label: "Maior distância" },
+  { key: "shortest", label: "Menor distância" },
+  { key: "fastest", label: "Pace mais rápido" },
+];
+
+/** Below this many runs, a search/filter/sort bar is overhead, not help — the whole list already fits at a glance. */
+const SEARCH_TOOL_MIN_RUNS = 4;
+
+function matchesQuery(run: CompletedRun, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.trim().toLowerCase();
+  const dateText = formatRunDate(new Date(run.startedAt)).toLowerCase();
+  const shoeText = (run.shoeName ?? "").toLowerCase();
+  return dateText.includes(q) || shoeText.includes(q);
+}
+
+function withinPeriod(run: CompletedRun, period: Period): boolean {
+  if (period === "all") return true;
+  const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
+  return run.startedAt >= Date.now() - days * 24 * 60 * 60 * 1000;
+}
+
+function sortRuns(runs: CompletedRun[], sort: SortKey): CompletedRun[] {
+  const withPace = (run: CompletedRun) => runMovingSeconds(run) / Math.max(run.distanceMeters, 1);
+  return [...runs].sort((a, b) => {
+    switch (sort) {
+      case "oldest":
+        return a.startedAt - b.startedAt;
+      case "longest":
+        return b.distanceMeters - a.distanceMeters;
+      case "shortest":
+        return a.distanceMeters - b.distanceMeters;
+      case "fastest":
+        return withPace(a) - withPace(b);
+      case "recent":
+      default:
+        return b.startedAt - a.startedAt;
+    }
+  });
+}
+
+function HistorySearchBar({
+  query,
+  onQueryChange,
+  period,
+  onPeriodChange,
+  sort,
+  onSortChange,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  period: Period;
+  onPeriodChange: (value: Period) => void;
+  sort: SortKey;
+  onSortChange: (value: SortKey) => void;
+}) {
+  return (
+    <div className="pr-enter flex flex-col gap-2.5" style={delay(85)}>
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-4 w-4 shrink-0 text-muted"
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Buscar por data ou tênis…"
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
+        />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="-mx-1 flex flex-1 gap-1.5 overflow-x-auto px-1">
+          {PERIOD_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => onPeriodChange(option.key)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
+                period === option.key
+                  ? "border-accent bg-accent text-accent-foreground"
+                  : "border-border text-muted hover:border-accent hover:text-foreground"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <select
+          value={sort}
+          onChange={(event) => onSortChange(event.target.value as SortKey)}
+          aria-label="Ordenar corridas"
+          className="shrink-0 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground outline-none"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.key} value={option.key}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function RunRow({
   run,
   unit,
@@ -527,6 +655,9 @@ export default function HistoricoPage() {
   const [{ distanceUnit: unit }] = usePreferences();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [period, setPeriod] = useState<Period>("all");
+  const [sort, setSort] = useState<SortKey>("recent");
 
   const handleConfirmDelete = async (id: string) => {
     setDeletingId(id);
@@ -561,6 +692,13 @@ export default function HistoricoPage() {
   }, []);
 
   const runs = load.status === "ready" ? load.runs : [];
+  const showSearchTool = runs.length >= SEARCH_TOOL_MIN_RUNS;
+  const visibleRuns = showSearchTool
+    ? sortRuns(
+        runs.filter((run) => matchesQuery(run, query) && withinPeriod(run, period)),
+        sort,
+      )
+    : runs;
 
   return (
     <>
@@ -595,21 +733,49 @@ export default function HistoricoPage() {
             {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
             <PersonalRecords runs={runs} />
             <RunFrequencyHeatmap runs={runs} unit={unit} />
-            <ul className="flex flex-col gap-3">
-              {runs.map((run, index) => (
-                <RunRow
-                  key={run.id}
-                  run={run}
-                  unit={unit}
-                  index={index}
-                  confirmingDelete={confirmingId === run.id}
-                  deleting={deletingId === run.id}
-                  onRequestDelete={() => setConfirmingId(run.id)}
-                  onCancelDelete={() => setConfirmingId(null)}
-                  onConfirmDelete={() => void handleConfirmDelete(run.id)}
-                />
-              ))}
-            </ul>
+
+            {showSearchTool && (
+              <HistorySearchBar
+                query={query}
+                onQueryChange={setQuery}
+                period={period}
+                onPeriodChange={setPeriod}
+                sort={sort}
+                onSortChange={setSort}
+              />
+            )}
+
+            {showSearchTool && visibleRuns.length === 0 ? (
+              <Card className="pr-enter text-center" style={delay(95)}>
+                <p className="text-sm text-muted">Nenhuma corrida bate com esse filtro.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    setPeriod("all");
+                  }}
+                  className="mt-2 text-xs font-semibold text-accent"
+                >
+                  Limpar filtros
+                </button>
+              </Card>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {visibleRuns.map((run, index) => (
+                  <RunRow
+                    key={run.id}
+                    run={run}
+                    unit={unit}
+                    index={index}
+                    confirmingDelete={confirmingId === run.id}
+                    deleting={deletingId === run.id}
+                    onRequestDelete={() => setConfirmingId(run.id)}
+                    onCancelDelete={() => setConfirmingId(null)}
+                    onConfirmDelete={() => void handleConfirmDelete(run.id)}
+                  />
+                ))}
+              </ul>
+            )}
           </>
         )}
       </Screen>
