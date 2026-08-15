@@ -67,7 +67,71 @@ import { PillSlider } from "../pill-slider";
 
 const RECENT_GHOST_CANDIDATES = 6;
 
-const PAUSE_REASONS = ["Água", "Banheiro", "Gel/carboidrato", "Foto", "Alongamento", "Outro"];
+const PAUSE_ICON_STROKE = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+/** Same small-icon convention as the bottom nav (`STROKE` in app-shell.tsx) — a glance at the shape should place the reason before the label finishes registering. */
+const PAUSE_REASONS: { label: string; icon: (props: { className: string }) => ReactNode }[] = [
+  {
+    label: "Água",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...PAUSE_ICON_STROKE}>
+        <path d="M12 3c3.2 4.1 6 7.7 6 11a6 6 0 1 1-12 0c0-3.3 2.8-6.9 6-11Z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Banheiro",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...PAUSE_ICON_STROKE}>
+        <circle cx="12" cy="4.8" r="2.1" />
+        <path d="M8.5 21v-7.5H7l1.6-6.3h6.8L17 13.5h-1.5V21" />
+      </svg>
+    ),
+  },
+  {
+    label: "Gel/carboidrato",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...PAUSE_ICON_STROKE}>
+        <path d="M13 3 5.5 13.5H11l-1 7.5 8.5-11H13l1-7Z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Foto",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...PAUSE_ICON_STROKE}>
+        <path d="M8 7 9.3 4.5h5.4L16 7" />
+        <rect x="3" y="7" width="18" height="13" rx="2.4" />
+        <circle cx="12" cy="13.5" r="3.4" />
+      </svg>
+    ),
+  },
+  {
+    label: "Alongamento",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...PAUSE_ICON_STROKE}>
+        <circle cx="12" cy="4.3" r="2" />
+        <path d="M12 6.3v6.2M12 8.2 6.8 5M12 8.2l5.2-3.2M12 12.5 7.5 19M12 12.5l4.5 6.5" />
+      </svg>
+    ),
+  },
+  {
+    label: "Outro",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor" stroke="none">
+        <circle cx="6" cy="12" r="1.6" />
+        <circle cx="12" cy="12" r="1.6" />
+        <circle cx="18" cy="12" r="1.6" />
+      </svg>
+    ),
+  },
+];
 
 function formatPauseDuration(startedAt: number, endedAt: number | null): string {
   const seconds = ((endedAt ?? Date.now()) - startedAt) / 1000;
@@ -1045,16 +1109,17 @@ export default function RunPage() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     {PAUSE_REASONS.map((reason) => (
                       <button
-                        key={reason}
+                        key={reason.label}
                         type="button"
-                        onClick={() => setPauseReason(reason)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          currentPause?.reason === reason
+                        onClick={() => setPauseReason(reason.label)}
+                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          currentPause?.reason === reason.label
                             ? "border-accent bg-accent text-accent-foreground"
                             : "border-border bg-background text-foreground hover:border-accent"
                         }`}
                       >
-                        {reason}
+                        <reason.icon className="h-3.5 w-3.5" />
+                        {reason.label}
                       </button>
                     ))}
                   </div>
