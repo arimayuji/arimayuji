@@ -1525,7 +1525,7 @@ export default function RunPage() {
               type="button"
               onClick={handleDiscard}
               disabled={discarding}
-              className="text-sm text-muted underline hover:text-bad disabled:opacity-60"
+              className="w-full rounded-full border border-border px-6 py-3 text-sm font-semibold text-bad disabled:opacity-60"
             >
               {discarding ? "Descartando…" : "Descartar corrida"}
             </button>
