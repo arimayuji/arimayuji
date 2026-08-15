@@ -545,17 +545,29 @@ function drawPill(
   ctx.restore();
 }
 
-/** The brand mark, chip-sized, in place of a spelled-out "XANTHUS" pill — same dark chrome chip, the horse bust stamped in it instead of type. */
-function drawBrandPill(ctx: CanvasRenderingContext2D, left: number, top: number, alpha: number) {
-  if (alpha <= 0) return;
+const BRAND_PILL_POP_START = 40;
+
+/**
+ * The brand mark, chip-sized, in place of a spelled-out "XANTHUS" pill — same
+ * dark chrome chip, the horse bust stamped in it instead of type. Lands the
+ * same way the record plate does: drops in from above and stamps down with
+ * `dartLanding`'s overshoot, like a seal pressed into the card, rather than
+ * just fading in.
+ */
+function drawBrandPill(ctx: CanvasRenderingContext2D, left: number, top: number, elapsed: number) {
+  const dart = dartLanding(elapsed, BRAND_PILL_POP_START, 420, 0, -90);
+  if (dart.alpha <= 0) return;
   ctx.save();
-  ctx.globalAlpha = alpha;
-  const size = 66;
+  ctx.globalAlpha = dart.alpha;
+  const size = 76;
+  const cx = left + size / 2;
+  const cy = top + size / 2;
+  ctx.translate(cx, cy + dart.offsetY);
+  ctx.scale(dart.settle, dart.settle);
   ctx.fillStyle = "rgba(0,0,0,0.38)";
   ctx.beginPath();
-  ctx.arc(left + size / 2, top + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
   ctx.fill();
-  ctx.translate(left + size / 2, top + size / 2);
   ctx.scale((size * 0.62) / 100, (size * 0.62) / 100);
   ctx.translate(-50, -50);
   ctx.strokeStyle = "#ffffff";
@@ -1149,7 +1161,7 @@ export function drawShareCardFrame(
   else if (scene.shoe) drawShoe(ctx, scene.shoe, elapsed, shoeSlot, shoeStart);
 
   const chromeAlpha = easeOut(stage(elapsed, 0, 360));
-  drawBrandPill(ctx, STAT_LEFT, CHROME_TOP, chromeAlpha);
+  drawBrandPill(ctx, STAT_LEFT, CHROME_TOP, elapsed);
   // The scenario badge names the illustrated sky; over someone's own photo —
   // or the album art in "só música" — it would be naming a background that
   // isn't there.
