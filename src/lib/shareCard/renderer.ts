@@ -135,6 +135,8 @@ interface TextMotion {
   scaleX: number;
   /** Gaussian blur radius, device px — 0 for every style except "desfoque". */
   blurPx: number;
+  /** How much of each string to actually draw, 0-1 of its character count — 1 (the whole string) for every style except "escrita", which reveals/erases progressively instead of moving or fading the whole run at once. */
+  revealFraction: number;
 }
 
 /**
@@ -176,15 +178,66 @@ function textMotion(
           settle: 1,
           scaleX: 1,
           blurPx: 0,
+          revealFraction: 1,
         };
       case "zoom":
-        return { alpha: 1 - easedIn, offsetX: 0, offsetY: 0, settle: 1 - 0.4 * easedIn, scaleX: 1, blurPx: 0 };
+        return {
+          alpha: 1 - easedIn,
+          offsetX: 0,
+          offsetY: 0,
+          settle: 1 - 0.4 * easedIn,
+          scaleX: 1,
+          blurPx: 0,
+          revealFraction: 1,
+        };
       case "desfoque":
         // Blurs back out in place, the mirror of how it arrived.
-        return { alpha: 1 - easedIn, offsetX: 0, offsetY: 0, settle: 1, scaleX: 1, blurPx: 14 * easedIn };
+        return {
+          alpha: 1 - easedIn,
+          offsetX: 0,
+          offsetY: 0,
+          settle: 1,
+          scaleX: 1,
+          blurPx: 14 * easedIn,
+          revealFraction: 1,
+        };
       case "virar":
         // Flips shut — the same card-flip squash run in reverse.
-        return { alpha: 1 - easedIn * 0.7, offsetX: 0, offsetY: 0, settle: 1, scaleX: 1 - easedIn, blurPx: 0 };
+        return {
+          alpha: 1 - easedIn * 0.7,
+          offsetX: 0,
+          offsetY: 0,
+          settle: 1,
+          scaleX: 1 - easedIn,
+          blurPx: 0,
+          revealFraction: 1,
+        };
+      case "tremer": {
+        // Keeps trembling right up until it's gone, rather than freezing
+        // still and only then fading — the shake is what's leaving, too.
+        const { jitterX, jitterY } = trembleJitter(elapsed, start);
+        return {
+          alpha: 1 - easedIn,
+          offsetX: jitterX,
+          offsetY: jitterY,
+          settle: 1,
+          scaleX: 1,
+          blurPx: 0,
+          revealFraction: 1,
+        };
+      }
+      case "escrita":
+        // Erases backward — the mirror of typing forward — rather than
+        // fading the whole string at once.
+        return {
+          alpha: 1,
+          offsetX: 0,
+          offsetY: 0,
+          settle: 1,
+          scaleX: 1,
+          blurPx: 0,
+          revealFraction: 1 - easedIn,
+        };
       case "bumerangue":
       default:
         // True to the name: leaves exactly the way it arrived.
@@ -195,6 +248,7 @@ function textMotion(
           settle: 1 - 0.12 * easedIn,
           scaleX: 1,
           blurPx: 0,
+          revealFraction: 1,
         };
     }
   }
@@ -210,12 +264,13 @@ function textMotion(
         settle: eased,
         scaleX: 1,
         blurPx: 0,
+        revealFraction: 1,
       };
     }
     case "zoom": {
       const t = stage(elapsed, start, duration);
       const settle = easeOutBack(t, 1.6);
-      return { alpha: Math.min(1, t / 0.3), offsetX: 0, offsetY: 0, settle, scaleX: 1, blurPx: 0 };
+      return { alpha: Math.min(1, t / 0.3), offsetX: 0, offsetY: 0, settle, scaleX: 1, blurPx: 0, revealFraction: 1 };
     }
     case "queda": {
       // Falls from `(fromX, fromY)` with real gravity — a bounce-out curve
@@ -230,6 +285,7 @@ function textMotion(
         settle,
         scaleX: 1,
         blurPx: 0,
+        revealFraction: 1,
       };
     }
     case "desfoque": {
@@ -244,6 +300,7 @@ function textMotion(
         settle: eased,
         scaleX: 1,
         blurPx: 14 * (1 - eased),
+        revealFraction: 1,
       };
     }
     case "virar": {
@@ -253,14 +310,64 @@ function textMotion(
       // the width animates — the height never changes.
       const t = stage(elapsed, start, duration);
       const scaleX = easeOutBack(t, 1.2);
-      return { alpha: Math.min(1, t / 0.25), offsetX: 0, offsetY: 0, settle: 1, scaleX, blurPx: 0 };
+      return { alpha: Math.min(1, t / 0.25), offsetX: 0, offsetY: 0, settle: 1, scaleX, blurPx: 0, revealFraction: 1 };
+    }
+    case "tremer": {
+      // A quick, small pop-in (not the full dart travel — the tremble
+      // itself is the point, not a big arrival) followed by a continuous
+      // small-amplitude shake for as long as the text stays on screen.
+      const t = stage(elapsed, start, duration);
+      if (t < 1) {
+        const eased = easeOut(t);
+        return {
+          alpha: Math.min(1, t / 0.3),
+          offsetX: fromX * 0.3 * (1 - eased),
+          offsetY: fromY * 0.3 * (1 - eased),
+          settle: eased,
+          scaleX: 1,
+          blurPx: 0,
+          revealFraction: 1,
+        };
+      }
+      const { jitterX, jitterY } = trembleJitter(elapsed, start);
+      return { alpha: 1, offsetX: jitterX, offsetY: jitterY, settle: 1, scaleX: 1, blurPx: 0, revealFraction: 1 };
+    }
+    case "escrita": {
+      // Types forward instead of moving or fading — position/scale/blur all
+      // stay neutral, only how much of the string gets drawn changes.
+      const t = stage(elapsed, start, duration);
+      return { alpha: 1, offsetX: 0, offsetY: 0, settle: 1, scaleX: 1, blurPx: 0, revealFraction: t };
     }
     case "bumerangue":
     default: {
       const dart = dartLanding(elapsed, start, duration, fromX, fromY);
-      return { ...dart, scaleX: 1, blurPx: 0 };
+      return { ...dart, scaleX: 1, blurPx: 0, revealFraction: 1 };
     }
   }
+}
+
+/**
+ * Deterministic, continuous small-amplitude jitter for the "tremer" style —
+ * two summed sine waves per axis (not a single one, which would read as a
+ * too-mechanical metronome-wobble instead of a hand-shake) and pure
+ * functions of `elapsed`/`start`, never `Math.random()`: the recorder steps
+ * through the same `elapsed` values a live preview does, and a random
+ * source would make the exported video's shake diverge from what was
+ * previewed. `start` (each call site's own pop time, already distinct per
+ * element) doubles as a phase seed so different stats don't shake in
+ * lockstep.
+ */
+function trembleJitter(elapsed: number, start: number): { jitterX: number; jitterY: number } {
+  const jitterX = Math.sin(elapsed * 0.055 + start) * 3 + Math.sin(elapsed * 0.13 + start * 2.3) * 1.5;
+  const jitterY =
+    Math.sin(elapsed * 0.061 + start * 1.4 + 47) * 2.4 + Math.sin(elapsed * 0.11 + start * 0.7) * 1.2;
+  return { jitterX, jitterY };
+}
+
+/** The "escrita" style's typewriter reveal — the prefix of `text` that should actually be drawn this frame. `fraction` is of character count, not measured width; simple, and CapCut's own typewriter presets work the same way. */
+function revealText(text: string, fraction: number): string {
+  if (fraction >= 1) return text;
+  return text.slice(0, Math.max(0, Math.round(text.length * fraction)));
 }
 
 /**
@@ -1010,11 +1117,13 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
     if (distanceDart.blurPx > 0) ctx.filter = `blur(${distanceDart.blurPx.toFixed(1)}px)`;
     ctx.fillStyle = "#ffffff";
     ctx.font = `600 108px ${scene.fontFamily}`;
-    ctx.fillText(scene.distance, 0, 0);
+    ctx.fillText(revealText(scene.distance, distanceDart.revealFraction), 0, 0);
+    // Measures the *full* string, not the revealed prefix, so the unit's
+    // position stays put instead of creeping left-to-right while it types.
     const numberWidth = ctx.measureText(scene.distance).width;
     ctx.font = `400 44px ${scene.fontFamily}`;
     ctx.fillStyle = "rgba(255,255,255,0.82)";
-    ctx.fillText(scene.distanceUnit, numberWidth + 14, 0);
+    ctx.fillText(revealText(scene.distanceUnit, distanceDart.revealFraction), numberWidth + 14, 0);
     ctx.restore();
   }
 
@@ -1034,15 +1143,16 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
     if (dart.blurPx > 0) ctx.filter = `blur(${dart.blurPx.toFixed(1)}px)`;
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     ctx.font = `400 22px ${scene.fontFamily}`;
-    trackedText(ctx, column.label, 0, STAT_LABEL_BASELINE + dart.offsetY, 2.4);
+    trackedText(ctx, revealText(column.label, dart.revealFraction), 0, STAT_LABEL_BASELINE + dart.offsetY, 2.4);
     ctx.fillStyle = "#ffffff";
     ctx.font = `400 42px ${scene.fontFamily}`;
-    ctx.fillText(column.value, 0, STAT_VALUE_BASELINE + dart.offsetY);
+    ctx.fillText(revealText(column.value, dart.revealFraction), 0, STAT_VALUE_BASELINE + dart.offsetY);
     if (column.suffix) {
+      // Full-string width again, for the same reason as the distance number above.
       const valueWidth = ctx.measureText(column.value).width;
       ctx.font = `400 24px ${scene.fontFamily}`;
       ctx.fillStyle = "rgba(255,255,255,0.72)";
-      ctx.fillText(column.suffix, valueWidth + 8, STAT_VALUE_BASELINE + dart.offsetY);
+      ctx.fillText(revealText(column.suffix, dart.revealFraction), valueWidth + 8, STAT_VALUE_BASELINE + dart.offsetY);
     }
     ctx.restore();
   });
@@ -1379,10 +1489,10 @@ function drawNumberHero(ctx: CanvasRenderingContext2D, scene: ShareCardScene, el
 
   ctx.fillStyle = "#ffffff";
   ctx.font = `600 ${NUMBER_FONT_PX}px ${scene.fontFamily}`;
-  ctx.fillText(scene.distance, startX, NUMBER_BASELINE_Y);
+  ctx.fillText(revealText(scene.distance, dart.revealFraction), startX, NUMBER_BASELINE_Y);
   ctx.fillStyle = "rgba(255,255,255,0.82)";
   ctx.font = `400 ${NUMBER_UNIT_FONT_PX}px ${scene.fontFamily}`;
-  ctx.fillText(scene.distanceUnit, startX + numberWidth + gap, NUMBER_BASELINE_Y);
+  ctx.fillText(revealText(scene.distanceUnit, dart.revealFraction), startX + numberWidth + gap, NUMBER_BASELINE_Y);
   ctx.restore();
 }
 
@@ -1413,13 +1523,15 @@ function drawNumberStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, e
     ctx.textBaseline = "alphabetic";
     ctx.font = `400 22px ${scene.fontFamily}`;
     ctx.fillStyle = "rgba(255,255,255,0.72)";
+    // Widths from the *full* label/value, not the revealed prefix, so
+    // typing in doesn't re-centre the text as characters appear.
     const labelWidth = trackedWidth(ctx, column.label, 2.4);
-    trackedText(ctx, column.label, -labelWidth / 2, NUMBER_STATS_LABEL_Y + dart.offsetY, 2.4);
+    trackedText(ctx, revealText(column.label, dart.revealFraction), -labelWidth / 2, NUMBER_STATS_LABEL_Y + dart.offsetY, 2.4);
 
-    ctx.textAlign = "center";
     ctx.font = `400 40px ${scene.fontFamily}`;
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(column.value, 0, NUMBER_STATS_VALUE_Y + dart.offsetY);
+    const valueWidth = ctx.measureText(column.value).width;
+    ctx.fillText(revealText(column.value, dart.revealFraction), -valueWidth / 2, NUMBER_STATS_VALUE_Y + dart.offsetY);
     ctx.restore();
   });
   ctx.textAlign = "left";
