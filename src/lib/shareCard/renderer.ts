@@ -697,9 +697,9 @@ interface PlateSlot {
 }
 
 /** To the right of the numbers, not over the route: the medal and the stats read as one block that way. */
-const TRAJETO_PLATE_SLOT: PlateSlot = { x: 582, y: 1020, size: 200 };
+const TRAJETO_PLATE_SLOT: PlateSlot = { x: 570, y: 1032, size: 260 };
 /** Centred below the stats row — the "numero" layout has nothing off to one side for it to sit next to. */
-const NUMERO_PLATE_SLOT: PlateSlot = { x: SHARE_CARD_WIDTH / 2, y: 970, size: 170 };
+const NUMERO_PLATE_SLOT: PlateSlot = { x: SHARE_CARD_WIDTH / 2, y: 990, size: 220 };
 /** The route-draw phase runs first on "trajeto"; "numero" has no equivalent runway, so its accessory pops in much sooner, right after the stats settle. */
 const TRAJETO_PLATE_POP_START = ROUTE_DRAW_END + 480;
 const NUMERO_PLATE_POP_START = 1450;
