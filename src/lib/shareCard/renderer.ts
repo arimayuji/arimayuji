@@ -108,15 +108,47 @@ function dartLanding(elapsed: number, start: number, duration: number, fromX: nu
 const TEXT_EXIT_LEAD_MS = 480;
 const TEXT_EXIT_MS = 360;
 
+/** Standard "bounce" easing (Penner-style) — used by the "queda" style for a physical drop-and-settle instead of a single overshoot. */
+function easeOutBounce(t: number): number {
+  const n1 = 7.5625;
+  const d1 = 2.75;
+  const clamped = clamp01(t);
+  if (clamped < 1 / d1) return n1 * clamped * clamped;
+  if (clamped < 2 / d1) {
+    const x = clamped - 1.5 / d1;
+    return n1 * x * x + 0.75;
+  }
+  if (clamped < 2.5 / d1) {
+    const x = clamped - 2.25 / d1;
+    return n1 * x * x + 0.9375;
+  }
+  const x = clamped - 2.625 / d1;
+  return n1 * x * x + 0.984375;
+}
+
+interface TextMotion {
+  alpha: number;
+  offsetX: number;
+  offsetY: number;
+  settle: number;
+  /** Horizontal-only scale multiplier, layered on top of `settle` — 1 for every style except "virar", which uses it for the card-flip squash. */
+  scaleX: number;
+  /** Gaussian blur radius, device px — 0 for every style except "desfoque". */
+  blurPx: number;
+}
+
 /**
  * Generalizes `dartLanding` into a family of entrance *and* exit motions for
  * on-card text/numbers, selectable per share the same way the photo filters
- * are — "efeito do texto" instead of a colour preset. Every style returns
- * this same shape (`alpha`/`offsetX`/`offsetY`/`settle`), so call sites don't
- * branch on style themselves: they just plug the fields into the same
- * position/scale math they already had for `dartLanding`. The exit half
- * mirrors the entrance, timed to land `TEXT_EXIT_LEAD_MS` before the card's
- * own `SHARE_CARD_DURATION_MS` ends — never shown as text just vanishing.
+ * are — "efeito do texto" instead of a colour preset, CapCut-style. Every
+ * style returns this same shape, so call sites don't branch on style
+ * themselves: they just plug the fields into the same position/scale math
+ * they already had for `dartLanding`, plus one `ctx.scale(scaleX, 1)` and an
+ * optional blur filter that are no-ops for styles that don't use them. The
+ * exit half mirrors (or knowingly diverges from, e.g. "queda" falling on
+ * through rather than bouncing back up) the entrance, timed to land
+ * `TEXT_EXIT_LEAD_MS` before the card's own `SHARE_CARD_DURATION_MS` ends —
+ * never shown as text just vanishing.
  */
 function textMotion(
   style: TextEntranceId,
@@ -125,23 +157,45 @@ function textMotion(
   duration: number,
   fromX: number,
   fromY: number,
-) {
+): TextMotion {
   const exitStart = Math.max(start + duration, SHARE_CARD_DURATION_MS - TEXT_EXIT_LEAD_MS);
   if (elapsed >= exitStart) {
     const t = clamp01(stage(elapsed, exitStart, TEXT_EXIT_MS));
-    const easedIn = t * t; // ease-in — accelerates away, the mirror of the entrance's ease-out
+    const easedIn = t * t; // ease-in — accelerates away, the mirror of most entrances' ease-out
     switch (style) {
       case "deslizar":
-        // Keeps travelling the same direction it slid in from, off the
+      case "queda":
+        // Keeps travelling the same direction it arrived from, off the
         // opposite side — a continuous pass-through rather than a retreat.
-        return { alpha: 1 - easedIn, offsetX: -fromX * easedIn, offsetY: -fromY * easedIn, settle: 1 };
+        // "Queda" falling on through (rather than bouncing back up) reads
+        // as more natural than reversing gravity on the way out.
+        return {
+          alpha: 1 - easedIn,
+          offsetX: -fromX * easedIn,
+          offsetY: -fromY * easedIn,
+          settle: 1,
+          scaleX: 1,
+          blurPx: 0,
+        };
       case "zoom":
-        // No positional offset either way — shrinks back down in place.
-        return { alpha: 1 - easedIn, offsetX: 0, offsetY: 0, settle: 1 - 0.4 * easedIn };
+        return { alpha: 1 - easedIn, offsetX: 0, offsetY: 0, settle: 1 - 0.4 * easedIn, scaleX: 1, blurPx: 0 };
+      case "desfoque":
+        // Blurs back out in place, the mirror of how it arrived.
+        return { alpha: 1 - easedIn, offsetX: 0, offsetY: 0, settle: 1, scaleX: 1, blurPx: 14 * easedIn };
+      case "virar":
+        // Flips shut — the same card-flip squash run in reverse.
+        return { alpha: 1 - easedIn * 0.7, offsetX: 0, offsetY: 0, settle: 1, scaleX: 1 - easedIn, blurPx: 0 };
       case "bumerangue":
       default:
         // True to the name: leaves exactly the way it arrived.
-        return { alpha: 1 - easedIn, offsetX: fromX * easedIn, offsetY: fromY * easedIn, settle: 1 - 0.12 * easedIn };
+        return {
+          alpha: 1 - easedIn,
+          offsetX: fromX * easedIn,
+          offsetY: fromY * easedIn,
+          settle: 1 - 0.12 * easedIn,
+          scaleX: 1,
+          blurPx: 0,
+        };
     }
   }
 
@@ -149,16 +203,63 @@ function textMotion(
     case "deslizar": {
       const t = stage(elapsed, start, duration);
       const eased = easeOut(t);
-      return { alpha: Math.min(1, t / 0.4), offsetX: fromX * (1 - eased), offsetY: fromY * (1 - eased), settle: eased };
+      return {
+        alpha: Math.min(1, t / 0.4),
+        offsetX: fromX * (1 - eased),
+        offsetY: fromY * (1 - eased),
+        settle: eased,
+        scaleX: 1,
+        blurPx: 0,
+      };
     }
     case "zoom": {
       const t = stage(elapsed, start, duration);
       const settle = easeOutBack(t, 1.6);
-      return { alpha: Math.min(1, t / 0.3), offsetX: 0, offsetY: 0, settle };
+      return { alpha: Math.min(1, t / 0.3), offsetX: 0, offsetY: 0, settle, scaleX: 1, blurPx: 0 };
+    }
+    case "queda": {
+      // Falls from `(fromX, fromY)` with real gravity — a bounce-out curve
+      // instead of a single overshoot-and-snap, so it visibly settles after
+      // one or two little hops rather than one smooth impact.
+      const t = stage(elapsed, start, duration);
+      const settle = easeOutBounce(t);
+      return {
+        alpha: Math.min(1, t / 0.2),
+        offsetX: fromX * (1 - settle),
+        offsetY: fromY * (1 - settle),
+        settle,
+        scaleX: 1,
+        blurPx: 0,
+      };
+    }
+    case "desfoque": {
+      // Stays put — no positional travel at all — and simply resolves from
+      // a soft blur into focus as it fades in.
+      const t = stage(elapsed, start, duration);
+      const eased = easeOut(t);
+      return {
+        alpha: Math.min(1, t / 0.35),
+        offsetX: 0,
+        offsetY: 0,
+        settle: eased,
+        scaleX: 1,
+        blurPx: 14 * (1 - eased),
+      };
+    }
+    case "virar": {
+      // A fake 3D card-flip: squashes horizontally from edge-on (scaleX 0)
+      // to facing (scaleX 1, with a slight overshoot snap), while the
+      // regular vertical-driving `settle` stays at 1 the whole time so only
+      // the width animates — the height never changes.
+      const t = stage(elapsed, start, duration);
+      const scaleX = easeOutBack(t, 1.2);
+      return { alpha: Math.min(1, t / 0.25), offsetX: 0, offsetY: 0, settle: 1, scaleX, blurPx: 0 };
     }
     case "bumerangue":
-    default:
-      return dartLanding(elapsed, start, duration, fromX, fromY);
+    default: {
+      const dart = dartLanding(elapsed, start, duration, fromX, fromY);
+      return { ...dart, scaleX: 1, blurPx: 0 };
+    }
   }
 }
 
@@ -744,7 +845,8 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
     ctx.save();
     ctx.globalAlpha = distanceDart.alpha;
     ctx.translate(left + distanceDart.offsetX, STAT_DISTANCE_BASELINE + distanceDart.offsetY);
-    ctx.scale(0.82 + 0.18 * distanceDart.settle, 0.82 + 0.18 * distanceDart.settle);
+    ctx.scale((0.82 + 0.18 * distanceDart.settle) * distanceDart.scaleX, 0.82 + 0.18 * distanceDart.settle);
+    if (distanceDart.blurPx > 0) ctx.filter = `blur(${distanceDart.blurPx.toFixed(1)}px)`;
     ctx.fillStyle = "#ffffff";
     ctx.font = `600 108px ${scene.fontFamily}`;
     ctx.fillText(scene.distance, 0, 0);
@@ -766,17 +868,20 @@ function drawStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, elapsed
     const x = left + index * 250;
     ctx.save();
     ctx.globalAlpha = dart.alpha;
+    ctx.translate(x, 0);
+    ctx.scale(dart.scaleX, 1);
+    if (dart.blurPx > 0) ctx.filter = `blur(${dart.blurPx.toFixed(1)}px)`;
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     ctx.font = `400 22px ${scene.fontFamily}`;
-    trackedText(ctx, column.label, x, STAT_LABEL_BASELINE + dart.offsetY, 2.4);
+    trackedText(ctx, column.label, 0, STAT_LABEL_BASELINE + dart.offsetY, 2.4);
     ctx.fillStyle = "#ffffff";
     ctx.font = `400 42px ${scene.fontFamily}`;
-    ctx.fillText(column.value, x, STAT_VALUE_BASELINE + dart.offsetY);
+    ctx.fillText(column.value, 0, STAT_VALUE_BASELINE + dart.offsetY);
     if (column.suffix) {
       const valueWidth = ctx.measureText(column.value).width;
       ctx.font = `400 24px ${scene.fontFamily}`;
       ctx.fillStyle = "rgba(255,255,255,0.72)";
-      ctx.fillText(column.suffix, x + valueWidth + 8, STAT_VALUE_BASELINE + dart.offsetY);
+      ctx.fillText(column.suffix, valueWidth + 8, STAT_VALUE_BASELINE + dart.offsetY);
     }
     ctx.restore();
   });
@@ -1107,8 +1212,9 @@ function drawNumberHero(ctx: CanvasRenderingContext2D, scene: ShareCardScene, el
   ctx.globalAlpha = dart.alpha;
   const scale = 0.8 + 0.2 * dart.settle;
   ctx.translate(SHARE_CARD_WIDTH / 2, NUMBER_BASELINE_Y + dart.offsetY);
-  ctx.scale(scale, scale);
+  ctx.scale(scale * dart.scaleX, scale);
   ctx.translate(-SHARE_CARD_WIDTH / 2, -NUMBER_BASELINE_Y);
+  if (dart.blurPx > 0) ctx.filter = `blur(${dart.blurPx.toFixed(1)}px)`;
 
   ctx.fillStyle = "#ffffff";
   ctx.font = `600 ${NUMBER_FONT_PX}px ${scene.fontFamily}`;
@@ -1139,17 +1245,20 @@ function drawNumberStats(ctx: CanvasRenderingContext2D, scene: ShareCardScene, e
 
     ctx.save();
     ctx.globalAlpha = dart.alpha;
+    ctx.translate(x, 0);
+    ctx.scale(dart.scaleX, 1);
+    if (dart.blurPx > 0) ctx.filter = `blur(${dart.blurPx.toFixed(1)}px)`;
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.font = `400 22px ${scene.fontFamily}`;
     ctx.fillStyle = "rgba(255,255,255,0.72)";
     const labelWidth = trackedWidth(ctx, column.label, 2.4);
-    trackedText(ctx, column.label, x - labelWidth / 2, NUMBER_STATS_LABEL_Y + dart.offsetY, 2.4);
+    trackedText(ctx, column.label, -labelWidth / 2, NUMBER_STATS_LABEL_Y + dart.offsetY, 2.4);
 
     ctx.textAlign = "center";
     ctx.font = `400 40px ${scene.fontFamily}`;
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(column.value, x, NUMBER_STATS_VALUE_Y + dart.offsetY);
+    ctx.fillText(column.value, 0, NUMBER_STATS_VALUE_Y + dart.offsetY);
     ctx.restore();
   });
   ctx.textAlign = "left";

@@ -757,14 +757,14 @@ function CompartilharContent() {
             <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
               Chegada e saída do texto
             </span>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {TEXT_ENTRANCE_IDS.map((id) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => setTextEntrance(id)}
                   aria-pressed={textEntrance === id}
-                  className={`flex-1 rounded-xl border-2 px-2 py-2.5 text-center transition-colors ${
+                  className={`rounded-xl border-2 px-2 py-2.5 text-center transition-colors ${
                     textEntrance === id
                       ? "border-accent bg-accent/10 text-accent"
                       : "border-border text-muted hover:border-foreground/30"

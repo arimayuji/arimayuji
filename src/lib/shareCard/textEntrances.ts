@@ -4,9 +4,16 @@
  * in `renderer.ts` (they're canvas animation math, not UI concerns); this
  * file is just the picker's menu.
  */
-export type TextEntranceId = "bumerangue" | "deslizar" | "zoom";
+export type TextEntranceId = "bumerangue" | "deslizar" | "zoom" | "queda" | "desfoque" | "virar";
 
-export const TEXT_ENTRANCE_IDS: TextEntranceId[] = ["bumerangue", "deslizar", "zoom"];
+export const TEXT_ENTRANCE_IDS: TextEntranceId[] = [
+  "bumerangue",
+  "deslizar",
+  "zoom",
+  "queda",
+  "desfoque",
+  "virar",
+];
 
 export const TEXT_ENTRANCES: Record<TextEntranceId, { label: string; description: string }> = {
   bumerangue: {
@@ -20,5 +27,17 @@ export const TEXT_ENTRANCES: Record<TextEntranceId, { label: string; description
   zoom: {
     label: "Zoom",
     description: "Cresce no lugar com um leve baque, sem se deslocar — encolhe do mesmo jeito ao sair.",
+  },
+  queda: {
+    label: "Queda",
+    description: "Cai de cima e quica antes de assentar — na saída, continua caindo pra baixo da tela.",
+  },
+  desfoque: {
+    label: "Desfoque",
+    description: "Aparece desfocado e vai ficando nítido no lugar — desfoca de novo ao sumir.",
+  },
+  virar: {
+    label: "Virar",
+    description: "Vira como uma cartinha, de lado pra de frente — fecha do mesmo jeito na saída.",
   },
 };
