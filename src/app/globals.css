@@ -243,6 +243,37 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/**
+ * Inchworm crawl: a segment stretches its leading edge forward, then its
+ * trailing edge catches up — the same motion a measuring worm makes,
+ * instead of a spinner or a bar filling. Paired with `animation-direction:
+ * alternate` on `.pr-worm` so it crawls forward then back with no jump cut
+ * at the loop point, since the reverse keyframes are just this run in
+ * reverse.
+ */
+@keyframes pr-worm {
+  0% {
+    left: 0%;
+    width: 24%;
+  }
+  25% {
+    left: 0%;
+    width: 60%;
+  }
+  50% {
+    left: 38%;
+    width: 24%;
+  }
+  75% {
+    left: 38%;
+    width: 60%;
+  }
+  100% {
+    left: 76%;
+    width: 24%;
+  }
+}
+
 /*
  * Showcase tumble, split across two nested elements so the axes can run on
  * different periods: one shared cycle reads as a merry-go-round, while 9s of
@@ -373,6 +404,10 @@ input[type="number"]::-webkit-inner-spin-button {
 
   .pr-orbit {
     animation: pr-orbit 9s linear infinite;
+  }
+
+  .pr-worm {
+    animation: pr-worm 1.1s ease-in-out infinite alternate;
   }
 
   /* Reduced motion keeps the angled resting pose set inline on both elements. */

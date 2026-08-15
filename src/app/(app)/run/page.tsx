@@ -271,6 +271,25 @@ const GPS_LABEL: Record<string, { label: string; bars: 1 | 2 | 3; className: str
 /** Three ascending dots, wifi-bar style: how many are lit says the strength, the colour says whether that's good enough. Replaces a single dot + text label, which said the same thing twice. */
 function GpsDot({ quality }: { quality: string }) {
   const info = GPS_LABEL[quality] ?? GPS_LABEL.searching;
+
+  // No fix yet: nothing to rate on a 3-bar scale, so this shows the search
+  // itself happening — a segment inching back and forth — rather than a
+  // dot sitting at "1 bar" as if that were a real (bad) reading.
+  if (quality === "searching") {
+    return (
+      <span
+        role="img"
+        aria-label={info.label}
+        title={info.label}
+        className="inline-flex items-center rounded-full bg-background/70 px-3 py-2.5 backdrop-blur-md"
+      >
+        <span className="relative h-1.5 w-7 overflow-hidden rounded-full bg-border/60">
+          <span aria-hidden="true" className="pr-worm absolute inset-y-0 left-0 w-[24%] rounded-full bg-bad" />
+        </span>
+      </span>
+    );
+  }
+
   return (
     <span
       role="img"

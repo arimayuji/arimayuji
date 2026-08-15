@@ -434,6 +434,68 @@ function TrashIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+/**
+ * Compact line-glyphs for the row's `tempo` / pace / tênis readouts — plain
+ * `currentColor` strokes sized to sit inline with mono text, unlike
+ * `StatIconBadge`'s illustrated chrome medallions (built for hero-sized
+ * stat cards, not a dense list row). The word labels they replace were
+ * redundant anyway: "00:39" only ever means tempo, "12:28" only ever means
+ * pace.
+ */
+function ClockIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+function PaceIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 15.5a8 8 0 1 1 16 0" />
+      <path d="M12 15.5 15.5 10" />
+    </svg>
+  );
+}
+
+function ShoeIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 16.5c0-2 1.2-3 2.3-3.9 1-.8 1.7-1.6 1.9-2.9.1-.7.7-1.2 1.4-1l1.9.5c.5.1.8.6.7 1.1-.2 1 .1 1.6.9 2.1.9.6 2.2.9 3.6.9H21v3.2c0 .9-.7 1.6-1.6 1.6H4.4A1.4 1.4 0 0 1 3 16.6v-.1Z" />
+      <path d="M8 12.2c1 .6 2.3 1 3.9 1.1" />
+    </svg>
+  );
+}
+
 type Period = "recent3" | "all" | "7d" | "30d" | "90d";
 type SortKey = "recent" | "oldest" | "longest" | "shortest" | "fastest";
 
@@ -704,20 +766,26 @@ function RunRow({
               <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
             </p>
             <dl className="mt-1.5 flex gap-4 font-mono text-xs tabular-nums text-muted">
-              <div className="flex gap-1.5">
-                <dt className="not-italic">tempo</dt>
+              <div className="flex items-center gap-1.5">
+                <dt aria-label="tempo">
+                  <ClockIcon />
+                </dt>
                 <dd className="text-foreground">{formatElapsed(seconds)}</dd>
               </div>
-              <div className="flex gap-1.5">
-                <dt>{paceLabel(unit)}</dt>
+              <div className="flex items-center gap-1.5">
+                <dt aria-label={paceLabel(unit)}>
+                  <PaceIcon />
+                </dt>
                 <dd className="text-foreground">
                   {formatAveragePace(run.distanceMeters, seconds, unit)}
                 </dd>
               </div>
             </dl>
             {run.shoeName && (
-              <p className="mt-1.5 truncate font-mono text-xs text-muted">
-                <span className="text-[10px] uppercase tracking-wide">tênis</span>{" "}
+              <p className="mt-1.5 flex items-center gap-1.5 truncate font-mono text-xs text-muted">
+                <span aria-label="tênis" className="shrink-0">
+                  <ShoeIcon />
+                </span>
                 <span className="text-foreground">{run.shoeName}</span>
               </p>
             )}
