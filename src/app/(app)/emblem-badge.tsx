@@ -115,10 +115,16 @@ function GeneratedBadgeArt({
 /**
  * A sealed emblem used to show a padlock over the blurred art — read as
  * "an icon sitting on a circle" rather than an actual object. This paints
- * the sphere's own volume instead: a glossy highlight where the light
- * would hit, a soft shadow opposite it, so the shape itself reads as a 3D
- * orb (the same read `.pr-orbit`'s ring and `.pr-glint`'s facets go for in
- * the full-screen reveal) rather than needing an icon to explain "closed".
+ * the sphere's own volume instead — three stacked layers, the trick that
+ * actually sells "ball" over "shiny disc":
+ *   1. a highlight where the light hits, offset off-centre;
+ *   2. a shadow on the opposite side, for the light's direction to read;
+ *   3. limb darkening — every edge of the circle going dark, not just one
+ *      side — since a flat disc only darkens toward whichever edge has a
+ *      shadow gradient, while an actual sphere curves away from the light
+ *      all the way around its silhouette.
+ * The same read `.pr-orbit`'s ring and `.pr-glint`'s facets go for in the
+ * full-screen reveal, just without needing motion to sell it.
  */
 function SealedSphereShading() {
   return (
@@ -127,8 +133,9 @@ function SealedSphereShading() {
       className="pointer-events-none absolute inset-0 rounded-full"
       style={{
         background:
-          "radial-gradient(circle at 32% 26%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.16) 16%, transparent 40%), " +
-          "radial-gradient(circle at 70% 80%, rgba(0,0,0,0.55) 0%, transparent 58%)",
+          "radial-gradient(circle at 30% 24%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.22) 14%, transparent 34%), " +
+          "radial-gradient(circle at 72% 78%, rgba(0,0,0,0.7) 0%, transparent 52%), " +
+          "radial-gradient(circle at 50% 50%, transparent 48%, rgba(0,0,0,0.68) 100%)",
       }}
     />
   );
