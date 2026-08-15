@@ -543,7 +543,7 @@ function CompartilharContent() {
             <p className="mb-2 px-1 text-xs font-semibold tracking-[0.14em] text-muted uppercase">
               Template
             </p>
-            <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1">
+            <div className="no-scrollbar -mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1">
               {templates.map((t) => {
                 if (t.locked) {
                   return (

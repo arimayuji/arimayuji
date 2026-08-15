@@ -268,7 +268,20 @@ export function useRunTracker() {
       }
 
       const rawStep = haversineMeters(lastRawRef.current, { lat, lon });
-      if (!isPlausibleStep(rawStep, dt)) return; // impossible jump, drop this fix
+      if (!isPlausibleStep(rawStep, dt)) {
+        // Drop the jump itself (don't credit distance for it), but still
+        // slide the anchor up to this fix — otherwise one noisy raw point
+        // right after warmup permanently jams `lastRawRef` at a stale
+        // position, and every fix afterward computes its step from that
+        // same stale point forever, each one just as "implausible" as the
+        // last. That reads as "good signal, distance frozen at 0" from the
+        // outside, since `gpsQuality` above updates on every fix regardless
+        // of what happens here.
+        lastRawRef.current = { lat, lon };
+        lastFixTimestampRef.current = timestamp;
+        lastFixWallClockRef.current = Date.now();
+        return;
+      }
 
       const filteredLat = kalmanLatRef.current.update(lat, accuracy, dt);
       const filteredLon = kalmanLonRef.current.update(lon, accuracy, dt);
