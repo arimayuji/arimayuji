@@ -4,12 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Ewma,
   FILTER_CONFIG,
-  ScalarKalman,
+  Kalman2D,
+  accuracyToPositionVarianceM2,
   findGpsGaps,
   haversineMeters,
   isFixUsable,
   isLikelyDrift,
   isPlausibleStep,
+  latLonToLocalMeters,
+  localMetersToLatLon,
+  speedHeadingToVelocity,
   totalGapSeconds,
   type GpsGap,
   type LatLon,
@@ -100,9 +104,12 @@ export function useRunTracker() {
 
   const watchIdRef = useRef<number | null>(null);
   const wakeLockRef = useRef(new WakeLockController());
-  const kalmanLatRef = useRef<ScalarKalman | null>(null);
-  const kalmanLonRef = useRef<ScalarKalman | null>(null);
+  const kalmanRef = useRef<Kalman2D | null>(null);
+  /** Fixed the moment the filter is (re-)seeded — every fix afterward projects into East/North metres relative to this point. */
+  const originRef = useRef<LatLon | null>(null);
   const speedEwmaRef = useRef<Ewma | null>(null);
+  /** Consecutive fixes the adaptive plausibility gate has rejected — see its use in `handleFix` for why this resets the filter instead of rejecting forever. */
+  const consecutiveGateRejectionsRef = useRef(0);
 
   const warmupCountRef = useRef(0);
   const lastRawRef = useRef<LatLon | null>(null);
@@ -205,7 +212,7 @@ export function useRunTracker() {
 
   const handleFix = useCallback(
     (position: GeolocationPosition) => {
-      const { latitude: lat, longitude: lon, accuracy, speed } = position.coords;
+      const { latitude: lat, longitude: lon, accuracy, speed, heading } = position.coords;
       const timestamp = position.timestamp;
 
       const quality: GpsQuality = accuracy <= 10 ? "good" : accuracy <= 25 ? "weak" : "searching";
@@ -220,9 +227,10 @@ export function useRunTracker() {
         if (warmupCountRef.current < FILTER_CONFIG.warmupFixesRequired) return s;
 
         // Warmup complete: the run clock starts now.
-        kalmanLatRef.current = new ScalarKalman(FILTER_CONFIG.positionProcessNoise);
-        kalmanLonRef.current = new ScalarKalman(FILTER_CONFIG.positionProcessNoise);
+        originRef.current = { lat, lon };
+        kalmanRef.current = new Kalman2D({ e: 0, n: 0, ve: 0, vn: 0 });
         speedEwmaRef.current = new Ewma(FILTER_CONFIG.speedSmoothingTauSeconds);
+        consecutiveGateRejectionsRef.current = 0;
         lastRawRef.current = { lat, lon };
         lastFilteredRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
@@ -238,8 +246,8 @@ export function useRunTracker() {
         lastRawRef.current === null ||
         lastFilteredRef.current === null ||
         lastFixTimestampRef.current === null ||
-        kalmanLatRef.current === null ||
-        kalmanLonRef.current === null ||
+        kalmanRef.current === null ||
+        originRef.current === null ||
         speedEwmaRef.current === null
       ) {
         return; // still warming
@@ -247,8 +255,9 @@ export function useRunTracker() {
 
       if (justResumedRef.current) {
         justResumedRef.current = false;
-        kalmanLatRef.current = new ScalarKalman(FILTER_CONFIG.positionProcessNoise);
-        kalmanLonRef.current = new ScalarKalman(FILTER_CONFIG.positionProcessNoise);
+        originRef.current = { lat, lon };
+        kalmanRef.current = new Kalman2D({ e: 0, n: 0, ve: 0, vn: 0 });
+        consecutiveGateRejectionsRef.current = 0;
         lastRawRef.current = { lat, lon };
         lastFilteredRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
@@ -267,6 +276,9 @@ export function useRunTracker() {
         if (dt <= 0) return; // genuinely nothing to work with
       }
 
+      // Cheap hard ceiling, independent of the Kalman filter's own state —
+      // see `maxPlausibleSpeedMps`'s own comment for why this stays even
+      // with the adaptive gate below.
       const rawStep = haversineMeters(lastRawRef.current, { lat, lon });
       if (!isPlausibleStep(rawStep, dt)) {
         // Drop the jump itself (don't credit distance for it), but still
@@ -283,26 +295,92 @@ export function useRunTracker() {
         return;
       }
 
-      const filteredLat = kalmanLatRef.current.update(lat, accuracy, dt);
-      const filteredLon = kalmanLonRef.current.update(lon, accuracy, dt);
-      const filteredPoint: LatLon = { lat: filteredLat, lon: filteredLon };
+      const kalman = kalmanRef.current;
+      const origin = originRef.current;
+      kalman.predict(dt, FILTER_CONFIG.accelProcessNoiseMps2);
+
+      const measured = latLonToLocalMeters(origin, { lat, lon });
+      const positionVarianceM2 = accuracyToPositionVarianceM2(accuracy);
+      const mahalanobisSq = kalman.positionMahalanobisSquared(measured.e, measured.n, positionVarianceM2);
+
+      if (mahalanobisSq > FILTER_CONFIG.positionGateChiSquareThreshold) {
+        // The adaptive gate rejected this fix as an outlier relative to how
+        // confident the filter currently is. Rejecting is right most of the
+        // time — but a filter that's drifted (long gap, bad stretch of
+        // fixes) can end up confidently wrong, and confidently-wrong is
+        // exactly the state that reproduces the old "GPS looks fine, distance
+        // is frozen" bug if every subsequent fix keeps getting rejected by a
+        // filter that never gets to correct itself. After a few consecutive
+        // rejections, trust the raw fix instead and re-seed fresh there.
+        consecutiveGateRejectionsRef.current += 1;
+        if (consecutiveGateRejectionsRef.current >= FILTER_CONFIG.maxConsecutiveGateRejections) {
+          originRef.current = { lat, lon };
+          kalmanRef.current = new Kalman2D({ e: 0, n: 0, ve: 0, vn: 0 });
+          lastFilteredRef.current = { lat, lon };
+          consecutiveGateRejectionsRef.current = 0;
+        }
+        lastRawRef.current = { lat, lon };
+        lastFixTimestampRef.current = timestamp;
+        lastFixWallClockRef.current = Date.now();
+        return;
+      }
+      consecutiveGateRejectionsRef.current = 0;
+
+      kalman.updatePosition(measured.e, measured.n, positionVarianceM2);
+
+      // The GNSS chip's own Doppler-derived speed+heading is a second,
+      // independent measurement of velocity — far less noisy than anything
+      // derived from position deltas — fed in whenever it's actually usable
+      // (heading is undefined/garbage below `minSpeedForHeadingMps`).
+      if (
+        speed !== null &&
+        !Number.isNaN(speed) &&
+        speed >= FILTER_CONFIG.minSpeedForHeadingMps &&
+        heading !== null &&
+        !Number.isNaN(heading)
+      ) {
+        const velocity = speedHeadingToVelocity(speed, heading);
+        kalman.updateVelocity(velocity.ve, velocity.vn, FILTER_CONFIG.velocityMeasurementVarianceM2S2);
+      }
+
+      const fused = kalman.state;
+      const filteredPoint = localMetersToLatLon(origin, { e: fused.e, n: fused.n });
+      const kalmanSpeed = Math.hypot(fused.ve, fused.vn);
       const filteredStep = haversineMeters(lastFilteredRef.current, filteredPoint);
 
-      // Position-delta drift detection alone punishes slow movement: a
-      // walker at ~1.2m/s can cover under 5m between two fixes even while
-      // genuinely moving the whole time, and deciding "is this drift"
-      // per fix has no way to tell that apart from standing still with the
-      // same few metres of GPS jitter. Two independent signals correct for
-      // it: the chip's own Doppler-derived speed doesn't share that
-      // ambiguity (this file's header already names it as preferred over a
-      // derived distance/time speed, for exactly this reason), and holding
-      // each too-small step in `pendingDriftMetersRef` instead of discarding
-      // it outright means real movement that's slow rather than absent still
-      // clears the bar a fix or two later — credited in full, not lost.
-      pendingDriftMetersRef.current += filteredStep;
-      const stationary =
-        isLikelyDrift(pendingDriftMetersRef.current, accuracy) &&
-        (speed === null || speed < FILTER_CONFIG.stoppedSpeedMps);
+      // Position-delta summation alone has a structural positive bias — GPS
+      // jitter always adds distance, never subtracts, since a step length is
+      // never negative. Blending toward speed-integrated distance
+      // (`kalmanSpeed·dt`, unbiased) as accuracy worsens corrects for that;
+      // at good accuracy (<=8m) position deltas are trusted outright, at the
+      // usable-fix floor (25m) speed integration is trusted outright.
+      const positionTrust = Math.min(1, Math.max(0, (accuracy - 8) / (25 - 8)));
+      const speedIntegratedStep = kalmanSpeed * dt;
+      const distanceStep = (1 - positionTrust) * filteredStep + positionTrust * speedIntegratedStep;
+
+      // The chip's raw Doppler `coords.speed` (noise ~0.02m/s) is the
+      // PRIMARY authority on whether the athlete is actually moving —
+      // deciding on its own, no position-based check involved, whenever
+      // it's available. It has to be: a CV Kalman filter driven by position
+      // alone (no velocity measurement — `heading` is only ever reported
+      // while actually moving) can and does read a few metres of pure GPS
+      // jitter as a plausible-looking spurious velocity, and if that fused
+      // velocity were allowed to gate crediting, sustained jitter while
+      // genuinely standing still eventually pushes `pendingDriftMetersRef`
+      // past the drift floor and dumps the whole accumulated buffer into
+      // distance as a false "movement" burst. The position-drift check below
+      // only steps in as a fallback for the moments `speed` isn't reported —
+      // exactly the case `pendingDriftMetersRef` accumulating (instead of
+      // discarding) small steps was built for: a walker's real per-fix
+      // movement can sit under the drift floor for a fix or two even while
+      // genuinely moving, and accumulating lets it clear the floor and get
+      // credited in full a fix or two later instead of being lost.
+      pendingDriftMetersRef.current += distanceStep;
+      const speedAvailable = speed !== null && !Number.isNaN(speed);
+      const kalmanLooksStationary = kalmanSpeed < FILTER_CONFIG.stoppedSpeedMps;
+      const stationary = speedAvailable
+        ? speed < FILTER_CONFIG.stoppedSpeedMps
+        : kalmanLooksStationary && isLikelyDrift(pendingDriftMetersRef.current, accuracy);
       if (!stationary) {
         distanceRef.current += pendingDriftMetersRef.current;
         pendingDriftMetersRef.current = 0;
@@ -311,12 +389,21 @@ export function useRunTracker() {
         // (`useMemo(..., [points])`) to know a new fix arrived — mutating in
         // place would leave that memo (and the live marker riding on it)
         // frozen at wherever the run happened to be on the first render.
-        pointsRef.current = [...pointsRef.current, { lat: filteredLat, lon: filteredLon, timestamp }];
+        pointsRef.current = [...pointsRef.current, { lat: filteredPoint.lat, lon: filteredPoint.lon, timestamp }];
+      } else if (speedAvailable) {
+        // Doppler itself said "not moving" — an authoritative call, not an
+        // ambiguous one. Whatever position jitter built up in the buffer is
+        // noise, not movement waiting to clear the drift floor; drop it so
+        // it can't survive to cause a delayed false credit once `speed`
+        // becomes unavailable or crosses back above the threshold.
+        pendingDriftMetersRef.current = 0;
+      } else if (kalmanLooksStationary) {
+        // No Doppler at all this fix, but the filter's own fused speed still
+        // reads stationary — see `fallbackStationaryDecay`'s own comment.
+        pendingDriftMetersRef.current *= FILTER_CONFIG.fallbackStationaryDecay;
       }
 
-      const rawSpeed =
-        speed !== null && !Number.isNaN(speed) && speed >= 0 ? speed : filteredStep / dt;
-      const v = stationary || rawSpeed < FILTER_CONFIG.stoppedSpeedMps ? 0 : rawSpeed;
+      const v = stationary ? 0 : speedAvailable ? speed : kalmanSpeed;
       const vSmooth = speedEwmaRef.current.update(v, dt);
       const currentPaceSecPerKm = vSmooth > 0.3 ? 1000 / vSmooth : null;
 

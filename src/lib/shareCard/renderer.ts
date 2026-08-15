@@ -867,10 +867,9 @@ interface ShoeSlot {
   width: number;
 }
 
-/** Bleeds off the right edge, the way the preview card floats it. */
-const TRAJETO_SHOE_SLOT: ShoeSlot = { x: 300, y: 806, width: 440 };
-/** Centred and smaller — "numero" has no route box for it to bleed past. */
-const NUMERO_SHOE_SLOT: ShoeSlot = { x: (SHARE_CARD_WIDTH - 320) / 2, y: 980, width: 320 };
+/** Keychain-sized charm, fully on-canvas — small enough to float in its zero-gravity tumble without dominating the card. */
+const TRAJETO_SHOE_SLOT: ShoeSlot = { x: 560, y: 890, width: 130 };
+const NUMERO_SHOE_SLOT: ShoeSlot = { x: (SHARE_CARD_WIDTH - 110) / 2, y: 980, width: 110 };
 
 /**
  * The real generated collectible art (see /public/shoe) instead of a
@@ -1030,6 +1029,7 @@ function drawShoe(
   const float = floatingMotion(elapsed);
   ctx.translate(0, float.bobY * pop);
   ctx.rotate(float.rotZ * pop);
+  ctx.scale(float.turnScaleX, 1);
 
   const cardAlpha = pop;
   const { from, to, mix } = shoeAngleAt(Math.max(0, elapsed - popStart));
