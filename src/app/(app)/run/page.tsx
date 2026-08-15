@@ -193,13 +193,13 @@ function HoldToFinishButton({
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 bg-white/25"
+        className="absolute inset-x-0 bottom-0 bg-white/25"
         style={{
-          width: holding ? "100%" : "0%",
-          transition: holding ? `width ${HOLD_TO_FINISH_MS}ms linear` : "width 150ms ease-out",
+          height: holding ? "100%" : "0%",
+          transition: holding ? `height ${HOLD_TO_FINISH_MS}ms linear` : "height 150ms ease-out",
         }}
       />
-      <span className="relative">{holding ? "Segura pra finalizar…" : "Finalizar"}</span>
+      <span className="relative">Finalizar</span>
     </button>
   );
 }
@@ -262,18 +262,29 @@ function RpeCard({ value, onSelect }: { value: number | null; onSelect: (rpe: nu
   );
 }
 
-const GPS_LABEL: Record<string, { label: string; className: string }> = {
-  searching: { label: "Procurando sinal", className: "bg-bad" },
-  weak: { label: "Sinal fraco", className: "bg-warn" },
-  good: { label: "Sinal bom", className: "bg-good" },
+const GPS_LABEL: Record<string, { label: string; bars: 1 | 2 | 3; className: string }> = {
+  searching: { label: "Procurando sinal", bars: 1, className: "bg-bad" },
+  weak: { label: "Sinal fraco", bars: 2, className: "bg-warn" },
+  good: { label: "Sinal bom", bars: 3, className: "bg-good" },
 };
 
+/** Three ascending dots, wifi-bar style: how many are lit says the strength, the colour says whether that's good enough. Replaces a single dot + text label, which said the same thing twice. */
 function GpsDot({ quality }: { quality: string }) {
   const info = GPS_LABEL[quality] ?? GPS_LABEL.searching;
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-background/70 px-3 py-1.5 text-sm text-muted backdrop-blur-md">
-      <span className={`h-2.5 w-2.5 rounded-full ${info.className}`} />
-      {info.label}
+    <span
+      role="img"
+      aria-label={info.label}
+      title={info.label}
+      className="inline-flex items-end gap-1 rounded-full bg-background/70 px-3 py-2 backdrop-blur-md"
+    >
+      {([1, 2, 3] as const).map((step) => (
+        <span
+          key={step}
+          className={`block rounded-full ${step <= info.bars ? info.className : "bg-border"}`}
+          style={{ width: 5 + step * 1.5, height: 5 + step * 1.5 }}
+        />
+      ))}
     </span>
   );
 }
