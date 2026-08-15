@@ -11,6 +11,8 @@ import {
   type ShareCardScene,
 } from "@/lib/shareCard/renderer";
 
+const PREVIEW_FRAME_INTERVAL_MS = 1000 / 30;
+
 /**
  * The real card, on screen, drawn by the same routine that gets recorded — so
  * what a runner watches here is frame-for-frame what lands in the file, not a
@@ -49,10 +51,21 @@ export function ShareCardPreview({
     }
 
     const startedAt = performance.now();
+    let lastDrawnAt = -Infinity;
     const step = (now: number) => {
       const elapsed = Math.min(now - startedAt, SHARE_CARD_DURATION_MS);
-      drawShareCardFrame(context, scene, elapsed);
-      if (elapsed < SHARE_CARD_DURATION_MS) {
+      const done = elapsed >= SHARE_CARD_DURATION_MS;
+      // The full frame — scenario art, route trace, plate facets, gradients —
+      // is too much canvas work to redraw at 60fps on a real phone (the
+      // route-drawing reveal visibly stutters). This is a preview, not the
+      // recorded video, so capping it to ~30fps halves the cost with no
+      // perceptible smoothness loss; the recording path still samples the
+      // real elapsed time every rAF tick, so it isn't affected.
+      if (done || now - lastDrawnAt >= PREVIEW_FRAME_INTERVAL_MS) {
+        lastDrawnAt = now;
+        drawShareCardFrame(context, scene, elapsed);
+      }
+      if (!done) {
         setPlaying(true);
         frameRef.current = requestAnimationFrame(step);
         return;

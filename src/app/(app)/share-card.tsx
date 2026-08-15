@@ -7,6 +7,7 @@ import {
 } from "@/lib/shareCard/scenarios";
 import { ExampleBadge, delay } from "./ui";
 import { ShoeShowcase } from "./shoe-showcase";
+import { HORSE_BUST_PATHS } from "../horse-mark";
 
 export { SCENARIOS, type ScenarioId };
 
@@ -230,8 +231,17 @@ export function ShareCard({
       )}
 
       <div className="absolute inset-0 flex items-start justify-between gap-2 p-4 text-white">
-        <span className="rounded-full bg-black/35 px-2.5 py-1 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.14em] backdrop-blur-sm">
-          Xanthus
+        <span
+          className="flex h-[27px] w-[27px] items-center justify-center rounded-full bg-black/35 backdrop-blur-sm"
+          aria-label="Xanthus"
+        >
+          <svg viewBox="0 0 100 100" className="h-[62%] w-[62%]" aria-hidden="true" fill="none">
+            <g stroke="#ffffff" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+              {HORSE_BUST_PATHS.map((d) => (
+                <path key={d} d={d} />
+              ))}
+            </g>
+          </svg>
         </span>
         <span className="rounded-full bg-black/35 px-2.5 py-1 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.14em] backdrop-blur-sm">
           {SCENARIOS[scenario].short.toLowerCase()}

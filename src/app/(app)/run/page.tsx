@@ -238,29 +238,33 @@ const RPE_LABEL: Record<number, string> = {
  * would forget by tomorrow, not something worth a settings-page form later.
  */
 function RpeCard({ value, onSelect }: { value: number | null; onSelect: (rpe: number) => void }) {
+  const shown = value ?? 5;
   return (
     <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
-      <span className="text-xs uppercase tracking-wide text-muted">Como foi o esforço?</span>
-      <div className="mt-3 grid grid-cols-5 gap-2">
-        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onSelect(n)}
-            className={`flex h-9 items-center justify-center rounded-lg border font-mono text-sm font-semibold transition-colors ${
-              value === n
-                ? "border-accent bg-accent text-accent-foreground"
-                : "border-border bg-background text-foreground hover:border-accent"
-            }`}
-          >
-            {n}
-          </button>
-        ))}
+      <div className="flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wide text-muted">Como foi o esforço?</span>
+        <span
+          className={`font-mono text-sm font-semibold ${value !== null ? "text-accent" : "text-muted"}`}
+        >
+          {shown}/10
+        </span>
+      </div>
+      <input
+        type="range"
+        min={1}
+        max={10}
+        step={1}
+        value={shown}
+        onChange={(event) => onSelect(Number(event.target.value))}
+        className="mt-3 w-full accent-accent"
+        aria-label="Esforço percebido, de 1 a 10"
+      />
+      <div className="mt-1 flex justify-between text-[10px] text-muted">
+        <span>1 — leve</span>
+        <span>10 — máximo</span>
       </div>
       <p className="mt-2 text-xs text-muted">
-        {value !== null
-          ? `${value} — ${RPE_LABEL[value]}`
-          : "1 é bem leve, 10 é o máximo que você conseguiria dar."}
+        {value !== null ? `${value} — ${RPE_LABEL[value]}` : "Arraste pra marcar como foi o esforço."}
       </p>
     </div>
   );

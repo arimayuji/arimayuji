@@ -19,7 +19,7 @@
  * never recorded.
  */
 
-import { HORSE_FULL_BODY_PATHS } from "@/app/horse-mark";
+import { HORSE_BUST_PATHS, HORSE_FULL_BODY_PATHS } from "@/app/horse-mark";
 import type { DistanceUnit } from "../preferences";
 import {
   TIER_PAINT,
@@ -490,6 +490,27 @@ function drawPill(
   ctx.fill();
   ctx.fillStyle = "#ffffff";
   trackedText(ctx, text, x + 20, top + height / 2 + 1, spacing);
+  ctx.restore();
+}
+
+/** The brand mark, chip-sized, in place of a spelled-out "XANTHUS" pill — same dark chrome chip, the horse bust stamped in it instead of type. */
+function drawBrandPill(ctx: CanvasRenderingContext2D, left: number, top: number, alpha: number) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const size = 46;
+  ctx.fillStyle = "rgba(0,0,0,0.38)";
+  ctx.beginPath();
+  ctx.arc(left + size / 2, top + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.translate(left + size / 2, top + size / 2);
+  ctx.scale((size * 0.62) / 100, (size * 0.62) / 100);
+  ctx.translate(-50, -50);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 6;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  strokePathData(ctx, HORSE_BUST_PATHS);
   ctx.restore();
 }
 
@@ -1070,7 +1091,7 @@ export function drawShareCardFrame(
   else if (scene.shoe) drawShoe(ctx, scene.shoe, elapsed, shoeSlot, shoeStart);
 
   const chromeAlpha = easeOut(stage(elapsed, 0, 360));
-  drawPill(ctx, scene, "XANTHUS", null, STAT_LEFT, CHROME_TOP, chromeAlpha);
+  drawBrandPill(ctx, STAT_LEFT, CHROME_TOP, chromeAlpha);
   // The scenario badge names the illustrated sky; over someone's own photo —
   // or the album art in "só música" — it would be naming a background that
   // isn't there.
