@@ -84,10 +84,18 @@ export function AccountCard() {
         </div>
       )}
 
+      <Link
+        href="/perfil/dados"
+        className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm"
+      >
+        <span className="text-muted">Dados pessoais — peso, dores</span>
+        <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
+      </Link>
+
       {status === "signed-in" && profile && (
         <Link
           href="/amigos"
-          className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm"
+          className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm"
         >
           <span className="text-muted">Amigos e convites</span>
           <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
