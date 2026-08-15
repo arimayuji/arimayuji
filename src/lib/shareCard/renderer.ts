@@ -20,6 +20,7 @@
  */
 
 import { HORSE_BUST_PATHS, HORSE_FULL_BODY_PATHS } from "@/app/horse-mark";
+import { PHOTO_FILTERS, type PhotoFilterId } from "./photoFilters";
 import type { DistanceUnit } from "../preferences";
 import {
   TIER_PAINT,
@@ -136,6 +137,8 @@ export interface ShareCardInput {
   shoe?: ShareCardShoe | null;
   /** A photo the athlete chose, already decoded. Replaces the illustrated sky when present — unless `musicMode` is "background", which takes over the whole backdrop instead. */
   photo?: HTMLImageElement | null;
+  /** Defaults to "original" — a no-op filter. Ignored when `photo` is null. */
+  photoFilter?: PhotoFilterId;
   track?: ShareCardTrack | null;
   /** Defaults to "none". Ignored (treated as "none") when `track` is null. */
   musicMode?: ShareCardMusicMode;
@@ -152,6 +155,7 @@ export interface ShareCardScene {
   scenario: ScenarioId;
   layout: ShareCardLayout;
   photo: HTMLImageElement | null;
+  photoFilter: PhotoFilterId;
   track: ShareCardTrack | null;
   musicMode: ShareCardMusicMode;
   albumArt: HTMLImageElement | null;
@@ -233,6 +237,7 @@ export function buildShareCardScene({
   record = null,
   shoe = null,
   photo = null,
+  photoFilter = "original",
   track = null,
   musicMode = "none",
   albumArt = null,
@@ -244,6 +249,7 @@ export function buildShareCardScene({
     scenario,
     layout,
     photo,
+    photoFilter,
     track,
     musicMode: track ? musicMode : "none",
     albumArt,
@@ -338,11 +344,13 @@ function drawScrim(ctx: CanvasRenderingContext2D) {
 }
 
 /** `object-fit: cover` for a photo of any shape, cropped evenly rather than squeezed into 9:16. */
-function drawPhoto(ctx: CanvasRenderingContext2D, photo: HTMLImageElement) {
+function drawPhoto(ctx: CanvasRenderingContext2D, photo: HTMLImageElement, filter: PhotoFilterId) {
   const width = photo.naturalWidth || photo.width;
   const height = photo.naturalHeight || photo.height;
   if (!width || !height) return;
   const scale = Math.max(SHARE_CARD_WIDTH / width, SHARE_CARD_HEIGHT / height);
+  ctx.save();
+  ctx.filter = PHOTO_FILTERS[filter].css;
   ctx.drawImage(
     photo,
     (SHARE_CARD_WIDTH - width * scale) / 2,
@@ -350,6 +358,7 @@ function drawPhoto(ctx: CanvasRenderingContext2D, photo: HTMLImageElement) {
     width * scale,
     height * scale,
   );
+  ctx.restore();
   drawScrim(ctx);
 }
 
@@ -498,7 +507,7 @@ function drawBrandPill(ctx: CanvasRenderingContext2D, left: number, top: number,
   if (alpha <= 0) return;
   ctx.save();
   ctx.globalAlpha = alpha;
-  const size = 46;
+  const size = 66;
   ctx.fillStyle = "rgba(0,0,0,0.38)";
   ctx.beginPath();
   ctx.arc(left + size / 2, top + size / 2, size / 2, 0, Math.PI * 2);
@@ -1074,8 +1083,8 @@ export function drawShareCardFrame(
   // "Só música" replaces the photo/scenario backdrop outright with the
   // track's own artwork — the whole point of that template. Falls through to
   // the usual photo-or-scenario choice if the artwork somehow isn't loaded.
-  if (scene.musicMode === "background" && scene.albumArt) drawPhoto(ctx, scene.albumArt);
-  else if (scene.photo) drawPhoto(ctx, scene.photo);
+  if (scene.musicMode === "background" && scene.albumArt) drawPhoto(ctx, scene.albumArt, "original");
+  else if (scene.photo) drawPhoto(ctx, scene.photo, scene.photoFilter);
   else drawScenario(ctx, scene.scenario);
 
   if (scene.layout === "numero") drawNumberHero(ctx, scene, elapsed);

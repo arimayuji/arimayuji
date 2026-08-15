@@ -36,6 +36,7 @@ import {
   type Shoe,
 } from "@/lib/tracking/storage";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
+import { PHOTO_FILTER_IDS, PHOTO_FILTERS, type PhotoFilterId } from "@/lib/shareCard/photoFilters";
 
 /**
  * Where the shareable card gets set up.
@@ -187,6 +188,7 @@ function CompartilharContent() {
   const [scenario, setScenario] = useState<ScenarioId | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photo, setPhoto] = useState<HTMLImageElement | null>(null);
+  const [photoFilter, setPhotoFilter] = useState<PhotoFilterId>("original");
   const [albumArt, setAlbumArt] = useState<HTMLImageElement | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [shoes, setShoes] = useState<Shoe[] | null>(null);
@@ -331,6 +333,7 @@ function CompartilharContent() {
           layout: t.layout,
           unit: preferences.distanceUnit,
           photo,
+          photoFilter,
           shoe: sharedShoe,
           record,
           track: sharedTrack,
@@ -340,7 +343,7 @@ function CompartilharContent() {
         return { id: t.id, scene: built.projected.length >= 2 ? built : null };
       })
       .filter((entry): entry is { id: string; scene: ShareCardScene } => entry.scene !== null);
-  }, [run, runs, activeScenario, preferences.distanceUnit, photo, shoe, track, albumArt, templates]);
+  }, [run, runs, activeScenario, preferences.distanceUnit, photo, photoFilter, shoe, track, albumArt, templates]);
 
   const scene = scenes.find((s) => s.id === activeTemplate?.id)?.scene ?? scenes[0]?.scene ?? null;
 
@@ -484,6 +487,7 @@ function CompartilharContent() {
     event.target.value = "";
     if (!file) return;
     setPhoto(null);
+    setPhotoFilter("original");
     setPhotoUrl(URL.createObjectURL(file));
   }
 
@@ -601,6 +605,42 @@ function CompartilharContent() {
               </button>
             )}
           </div>
+
+          {photo && (
+            <div className="mt-4 border-t border-border pt-4">
+              <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                Filtro
+              </span>
+              <div className="flex gap-2">
+                {PHOTO_FILTER_IDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setPhotoFilter(id)}
+                    aria-pressed={photoFilter === id}
+                    className={`flex-1 overflow-hidden rounded-xl border-2 transition-colors ${
+                      photoFilter === id ? "border-accent" : "border-transparent"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- object URL preview, not an optimizable static asset. */}
+                    <img
+                      src={photo.src}
+                      alt=""
+                      style={{ filter: PHOTO_FILTERS[id].css }}
+                      className="h-16 w-full object-cover"
+                    />
+                    <span
+                      className={`block py-1.5 text-center text-xs font-medium ${
+                        photoFilter === id ? "text-accent" : "text-muted"
+                      }`}
+                    >
+                      {PHOTO_FILTERS[id].label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
 
         {run && (

@@ -232,7 +232,7 @@ export function ShareCard({
 
       <div className="absolute inset-0 flex items-start justify-between gap-2 p-4 text-white">
         <span
-          className="flex h-[27px] w-[27px] items-center justify-center rounded-full bg-black/35 backdrop-blur-sm"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-black/35 backdrop-blur-sm"
           aria-label="Xanthus"
         >
           <svg viewBox="0 0 100 100" className="h-[62%] w-[62%]" aria-hidden="true" fill="none">

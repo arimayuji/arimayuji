@@ -112,21 +112,25 @@ function GeneratedBadgeArt({
   );
 }
 
-function LockIcon() {
+/**
+ * A sealed emblem used to show a padlock over the blurred art — read as
+ * "an icon sitting on a circle" rather than an actual object. This paints
+ * the sphere's own volume instead: a glossy highlight where the light
+ * would hit, a soft shadow opposite it, so the shape itself reads as a 3D
+ * orb (the same read `.pr-orbit`'s ring and `.pr-glint`'s facets go for in
+ * the full-screen reveal) rather than needing an icon to explain "closed".
+ */
+function SealedSphereShading() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-1/3 w-1/3"
+    <span
       aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="4.5" y="10.5" width="15" height="10" rx="2.2" />
-      <path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5" />
-    </svg>
+      className="pointer-events-none absolute inset-0 rounded-full"
+      style={{
+        background:
+          "radial-gradient(circle at 32% 26%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.16) 16%, transparent 40%), " +
+          "radial-gradient(circle at 70% 80%, rgba(0,0,0,0.55) 0%, transparent 58%)",
+      }}
+    />
   );
 }
 
@@ -178,11 +182,7 @@ export function EmblemBadge({
     return (
       <div className={`${className} relative aspect-square overflow-hidden rounded-full`}>
         <GeneratedBadgeArt category={category} accent={accent} sealed={state === "sealed"} />
-        {state === "sealed" && (
-          <span className="absolute inset-0 flex items-center justify-center text-white/85">
-            <LockIcon />
-          </span>
-        )}
+        {state === "sealed" && <SealedSphereShading />}
         {state === "opened" && <HorseGlowMark />}
       </div>
     );
@@ -205,11 +205,7 @@ export function EmblemBadge({
         alt=""
         className={`h-full w-full object-cover ${state === "sealed" ? "scale-[1.65] blur-md brightness-[0.45] saturate-150" : "scale-[1.4]"}`}
       />
-      {state === "sealed" && (
-        <span className="absolute inset-0 flex items-center justify-center text-white/85">
-          <LockIcon />
-        </span>
-      )}
+      {state === "sealed" && <SealedSphereShading />}
       {state === "opened" && <HorseGlowMark />}
     </div>
   );
