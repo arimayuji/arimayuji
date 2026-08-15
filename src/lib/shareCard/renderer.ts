@@ -164,7 +164,15 @@ export interface ShareCardInput {
   shoe?: ShareCardShoe | null;
   /** A photo the athlete chose, already decoded. Replaces the illustrated sky when present — unless `musicMode` is "background", which takes over the whole backdrop instead. */
   photo?: HTMLImageElement | null;
-  /** Defaults to "original" — a no-op filter. Ignored when `photo` is null. */
+  /**
+   * A video the athlete chose, already playing (muted, looping) so every
+   * `drawImage` call below simply samples whatever frame is live — no
+   * separate timing/seek logic needed here, the browser keeps decoding it
+   * on its own clock. Takes over from `photo` when present; the two are
+   * mutually exclusive at the call site, not merged here.
+   */
+  video?: HTMLVideoElement | null;
+  /** Defaults to "original" — a no-op filter. Ignored when neither `photo` nor `video` is set. */
   photoFilter?: PhotoFilterId;
   track?: ShareCardTrack | null;
   /** Defaults to "none". Ignored (treated as "none") when `track` is null. */
@@ -182,6 +190,7 @@ export interface ShareCardScene {
   scenario: ScenarioId;
   layout: ShareCardLayout;
   photo: HTMLImageElement | null;
+  video: HTMLVideoElement | null;
   photoFilter: PhotoFilterId;
   track: ShareCardTrack | null;
   musicMode: ShareCardMusicMode;
@@ -264,6 +273,7 @@ export function buildShareCardScene({
   record = null,
   shoe = null,
   photo = null,
+  video = null,
   photoFilter = "original",
   track = null,
   musicMode = "none",
@@ -276,6 +286,7 @@ export function buildShareCardScene({
     scenario,
     layout,
     photo,
+    video,
     photoFilter,
     track,
     musicMode: track ? musicMode : "none",
@@ -370,10 +381,15 @@ function drawScrim(ctx: CanvasRenderingContext2D) {
   ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
 }
 
-/** `object-fit: cover` for a photo of any shape, cropped evenly rather than squeezed into 9:16. */
-function drawPhoto(ctx: CanvasRenderingContext2D, photo: HTMLImageElement, filter: PhotoFilterId) {
-  const width = photo.naturalWidth || photo.width;
-  const height = photo.naturalHeight || photo.height;
+/** `object-fit: cover` for a photo or a live video frame, cropped evenly rather than squeezed into 9:16. */
+function drawPhoto(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement | HTMLVideoElement,
+  filter: PhotoFilterId,
+) {
+  const isVideo = "videoWidth" in photo;
+  const width = isVideo ? photo.videoWidth : photo.naturalWidth || photo.width;
+  const height = isVideo ? photo.videoHeight : photo.naturalHeight || photo.height;
   if (!width || !height) return;
   const scale = Math.max(SHARE_CARD_WIDTH / width, SHARE_CARD_HEIGHT / height);
   ctx.save();
@@ -1116,6 +1132,7 @@ export function drawShareCardFrame(
   // track's own artwork — the whole point of that template. Falls through to
   // the usual photo-or-scenario choice if the artwork somehow isn't loaded.
   if (scene.musicMode === "background" && scene.albumArt) drawPhoto(ctx, scene.albumArt, "original");
+  else if (scene.video) drawPhoto(ctx, scene.video, scene.photoFilter);
   else if (scene.photo) drawPhoto(ctx, scene.photo, scene.photoFilter);
   else drawScenario(ctx, scene.scenario);
 
@@ -1136,7 +1153,7 @@ export function drawShareCardFrame(
   // The scenario badge names the illustrated sky; over someone's own photo —
   // or the album art in "só música" — it would be naming a background that
   // isn't there.
-  if (!scene.photo && scene.musicMode !== "background") {
+  if (!scene.photo && !scene.video && scene.musicMode !== "background") {
     drawPill(
       ctx,
       scene,

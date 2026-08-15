@@ -188,6 +188,8 @@ function CompartilharContent() {
   const [scenario, setScenario] = useState<ScenarioId | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photo, setPhoto] = useState<HTMLImageElement | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const [photoFilter, setPhotoFilter] = useState<PhotoFilterId>("original");
   const [albumArt, setAlbumArt] = useState<HTMLImageElement | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -333,6 +335,7 @@ function CompartilharContent() {
           layout: t.layout,
           unit: preferences.distanceUnit,
           photo,
+          video,
           photoFilter,
           shoe: sharedShoe,
           record,
@@ -343,7 +346,19 @@ function CompartilharContent() {
         return { id: t.id, scene: built.projected.length >= 2 ? built : null };
       })
       .filter((entry): entry is { id: string; scene: ShareCardScene } => entry.scene !== null);
-  }, [run, runs, activeScenario, preferences.distanceUnit, photo, photoFilter, shoe, track, albumArt, templates]);
+  }, [
+    run,
+    runs,
+    activeScenario,
+    preferences.distanceUnit,
+    photo,
+    video,
+    photoFilter,
+    shoe,
+    track,
+    albumArt,
+    templates,
+  ]);
 
   const scene = scenes.find((s) => s.id === activeTemplate?.id)?.scene ?? scenes[0]?.scene ?? null;
 
@@ -464,6 +479,12 @@ function CompartilharContent() {
     };
   }, [photoUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (videoUrl) URL.revokeObjectURL(videoUrl);
+    };
+  }, [videoUrl]);
+
   // The canvas needs a decoded bitmap, not a URL, and it needs it before the
   // first frame is painted — a half-loaded image draws as nothing at all.
   useEffect(() => {
@@ -482,6 +503,34 @@ function CompartilharContent() {
     };
   }, [photoUrl]);
 
+  // Same idea as the photo effect above, except the canvas doesn't need one
+  // decoded frame — `drawImage` on a playing `<video>` samples whatever frame
+  // is live at the moment it's called, so this just has to keep the element
+  // playing (muted + playsInline for autoplay on iOS Safari) and hand the
+  // element itself to the scene. No manual seeking or frame-timing here.
+  useEffect(() => {
+    if (!videoUrl) return;
+    let cancelled = false;
+    const el = document.createElement("video");
+    el.muted = true;
+    el.loop = true;
+    el.playsInline = true;
+    el.preload = "auto";
+    el.onloadeddata = () => {
+      if (cancelled) return;
+      void el.play().catch(() => {});
+      setVideo(el);
+    };
+    el.onerror = () => {
+      if (!cancelled) setVideo(null);
+    };
+    el.src = videoUrl;
+    return () => {
+      cancelled = true;
+      el.pause();
+    };
+  }, [videoUrl]);
+
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -489,6 +538,19 @@ function CompartilharContent() {
     setPhoto(null);
     setPhotoFilter("original");
     setPhotoUrl(URL.createObjectURL(file));
+    setVideo(null);
+    setVideoUrl(null);
+  }
+
+  function handleVideoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setVideo(null);
+    setPhotoFilter("original");
+    setVideoUrl(URL.createObjectURL(file));
+    setPhoto(null);
+    setPhotoUrl(null);
   }
 
   const showVideoOption =
@@ -573,10 +635,11 @@ function CompartilharContent() {
         )}
 
         <Card className="pr-enter" style={delay(185)}>
-          <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Sua foto</CardTitle>
+          <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Sua foto ou vídeo</CardTitle>
           <p className="text-xs leading-relaxed text-muted text-pretty">
-            Suba uma foto da sua corrida pra usar como fundo do card, no lugar de um cenário
-            desenhado. Vale pros templates de foto — o de música usa a capa do álbum.
+            Suba uma foto ou um vídeo da sua corrida pra usar como fundo do card, no lugar de um
+            cenário desenhado — o vídeo toca em loop atrás do trajeto e dos números. Um substitui
+            o outro. Vale pros templates de foto — o de música usa a capa do álbum.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <label
@@ -606,7 +669,35 @@ function CompartilharContent() {
             )}
           </div>
 
-          {photo && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <label
+              htmlFor="share-video-input"
+              className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:border-accent"
+            >
+              {videoUrl ? "Trocar vídeo" : "Escolher vídeo"}
+            </label>
+            <input
+              id="share-video-input"
+              type="file"
+              accept="video/*"
+              className="sr-only"
+              onChange={handleVideoChange}
+            />
+            {videoUrl && (
+              <button
+                type="button"
+                onClick={() => {
+                  setVideo(null);
+                  setVideoUrl(null);
+                }}
+                className="inline-flex min-h-11 items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-muted transition-colors hover:border-warn hover:text-warn"
+              >
+                Remover vídeo
+              </button>
+            )}
+          </div>
+
+          {(photo || video) && (
             <div className="mt-4 border-t border-border pt-4">
               <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
                 Filtro
@@ -622,13 +713,29 @@ function CompartilharContent() {
                       photoFilter === id ? "border-accent" : "border-transparent"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- object URL preview, not an optimizable static asset. */}
-                    <img
-                      src={photo.src}
-                      alt=""
-                      style={{ filter: PHOTO_FILTERS[id].css }}
-                      className="h-16 w-full object-cover"
-                    />
+                    {photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- object URL preview, not an optimizable static asset.
+                      <img
+                        src={photo.src}
+                        alt=""
+                        style={{ filter: PHOTO_FILTERS[id].css }}
+                        className="h-16 w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        style={{ filter: PHOTO_FILTERS[id].css }}
+                        className="flex h-16 w-full items-center justify-center bg-gradient-to-br from-accent/60 to-accent/20"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-5 w-5 text-white"
+                          aria-hidden="true"
+                          fill="currentColor"
+                        >
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                    )}
                     <span
                       className={`block py-1.5 text-center text-xs font-medium ${
                         photoFilter === id ? "text-accent" : "text-muted"
@@ -725,13 +832,13 @@ function CompartilharContent() {
           </Card>
         )}
 
-        <Card className={`pr-enter ${photoUrl ? "opacity-50" : ""}`} style={delay(200)}>
+        <Card className={`pr-enter ${photoUrl || videoUrl ? "opacity-50" : ""}`} style={delay(200)}>
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
             Cenário de fundo
           </CardTitle>
-          {photoUrl && (
+          {(photoUrl || videoUrl) && (
             <p className="mb-3 text-xs text-muted">
-              Desativado enquanto uma foto está selecionada.
+              Desativado enquanto uma {videoUrl ? "vídeo" : "foto"} está selecionad{videoUrl ? "o" : "a"}.
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">
@@ -739,7 +846,7 @@ function CompartilharContent() {
               <button
                 key={id}
                 type="button"
-                disabled={!!photoUrl}
+                disabled={!!photoUrl || !!videoUrl}
                 onClick={() => setScenario(id)}
                 aria-pressed={activeScenario === id}
                 className={`min-h-14 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed ${
