@@ -597,7 +597,7 @@ function RunRow({
                 {timeFormatter.format(started)}
               </span>
             </div>
-            <p className="mt-1 font-mono text-2xl tabular-nums">
+            <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
               {formatDistance(run.distanceMeters, unit)}
               <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
             </p>

@@ -113,7 +113,7 @@ function StatQuadrant({
         <span className="text-[10px] uppercase tracking-wide text-muted">{label}</span>
         <StatIconBadge icon={icon} className="block h-7 w-7" />
       </div>
-      <p className="mt-1.5 truncate font-mono text-lg tabular-nums">
+      <p className="text-metal mt-1.5 truncate font-mono text-lg tabular-nums">
         {value}
         {unit && <span className="ml-1 text-xs text-muted">{unit}</span>}
       </p>
@@ -405,18 +405,18 @@ export function RunDetail({ id }: { id: string }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <span className="text-[11px] uppercase tracking-wide text-muted">Distância</span>
-              <p className="mt-0.5 font-mono text-2xl tabular-nums">
+              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums">
                 {formatDistance(run.distanceMeters, unit)}
                 <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
               </p>
             </div>
             <div>
               <span className="text-[11px] uppercase tracking-wide text-muted">Tempo</span>
-              <p className="mt-0.5 font-mono text-2xl tabular-nums">{formatElapsed(seconds)}</p>
+              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums">{formatElapsed(seconds)}</p>
             </div>
             <div>
               <span className="text-[11px] uppercase tracking-wide text-muted">{paceLabel(unit)}</span>
-              <p className="mt-0.5 font-mono text-2xl tabular-nums">
+              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums">
                 {formatAveragePace(run.distanceMeters, seconds, unit)}
               </p>
             </div>

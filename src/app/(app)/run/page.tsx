@@ -1096,7 +1096,7 @@ export default function RunPage() {
         <main className="relative z-10 flex flex-1 flex-col px-6 pb-10">
           <div className="flex flex-1 flex-col items-center justify-center gap-1">
             <div className="flex flex-col items-center gap-1">
-              <span className="font-mono text-[7.5rem] leading-none font-semibold tabular-nums">
+              <span className="text-metal font-mono text-[7rem] leading-none font-semibold tabular-nums whitespace-nowrap">
                 {formatPace(state.currentPaceSecPerKm)}
               </span>
               <span className="text-sm text-muted">min/km</span>
@@ -1143,7 +1143,7 @@ export default function RunPage() {
                 <span className="text-xs uppercase tracking-wide text-muted">Distância</span>
                 <StatIconBadge icon="distancia" />
               </div>
-              <p className="mt-1 font-mono text-2xl tabular-nums">
+              <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
                 {formatDistanceKm(state.distanceMeters)} <span className="text-base text-muted">km</span>
               </p>
             </div>
@@ -1152,7 +1152,7 @@ export default function RunPage() {
                 <span className="text-xs uppercase tracking-wide text-muted">Tempo</span>
                 <StatIconBadge icon="tempo" />
               </div>
-              <p className="mt-1 font-mono text-2xl tabular-nums">{formatElapsed(state.elapsedSeconds)}</p>
+              <p className="text-metal mt-1 font-mono text-2xl tabular-nums">{formatElapsed(state.elapsedSeconds)}</p>
             </div>
             {state.goal?.distanceMeters && (
               <div className="rounded-xl border border-border bg-surface p-4">
@@ -1160,7 +1160,7 @@ export default function RunPage() {
                   <span className="text-xs uppercase tracking-wide text-muted">Chegada prevista em</span>
                   <StatIconBadge icon="eta" />
                 </div>
-                <p className="mt-1 font-mono text-2xl tabular-nums">
+                <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
                   {formatGoalEta(state.forecastSecondsRemaining)}
                 </p>
               </div>
@@ -1168,7 +1168,7 @@ export default function RunPage() {
             {state.paceNeededSecPerKm !== null && (
               <div className="rounded-xl border border-border bg-surface p-4">
                 <span className="text-xs uppercase tracking-wide text-muted">Pace necessário</span>
-                <p className="mt-1 font-mono text-2xl tabular-nums">
+                <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
                   {formatPace(state.paceNeededSecPerKm)}
                 </p>
               </div>
@@ -1208,7 +1208,7 @@ export default function RunPage() {
         <main className="flex flex-1 flex-col items-center justify-center gap-8 px-6 text-center">
           <div>
             <p className="text-sm text-muted">Corrida concluída</p>
-            <p className="mt-2 font-mono text-5xl font-semibold tabular-nums">
+            <p className="text-metal mt-2 font-mono text-5xl font-semibold tabular-nums">
               {formatDistanceKm(state.finishedRun.distanceMeters)} km
             </p>
           </div>
@@ -1218,13 +1218,13 @@ export default function RunPage() {
           <div className="grid w-full max-w-xs grid-cols-2 gap-4">
             <div className="rounded-xl border border-border bg-surface p-4">
               <span className="text-xs uppercase tracking-wide text-muted">Tempo</span>
-              <p className="mt-1 font-mono text-xl tabular-nums">
+              <p className="text-metal mt-1 font-mono text-xl tabular-nums">
                 {formatElapsed(runMovingSeconds(state.finishedRun))}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4">
               <span className="text-xs uppercase tracking-wide text-muted">Pace médio</span>
-              <p className="mt-1 font-mono text-xl tabular-nums">
+              <p className="text-metal mt-1 font-mono text-xl tabular-nums">
                 {formatPace(
                   state.finishedRun.distanceMeters > 0
                     ? (runMovingSeconds(state.finishedRun) / state.finishedRun.distanceMeters) * 1000

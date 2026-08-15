@@ -135,7 +135,7 @@ export function Stat({
   return (
     <div>
       <span className="text-[11px] uppercase tracking-wide text-muted">{label}</span>
-      <p className="mt-0.5 font-mono text-2xl tabular-nums">
+      <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums">
         {value}
         {unit && <span className="ml-1 text-sm text-muted">{unit}</span>}
       </p>

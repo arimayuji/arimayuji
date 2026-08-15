@@ -16,7 +16,7 @@
   --accent-foreground: #ffffff;
   --good: #2e9e5b;
   --warn: #d98e2b;
-  --bad: #d9482b;
+  --bad: #dc2626;
 
   /*
    * Sequential ramp (low → high volume) for the history heat calendar. Each
@@ -55,7 +55,7 @@
     --accent-foreground: #04070c;
     --good: #4cc788;
     --warn: #e6a13f;
-    --bad: #ea6448;
+    --bad: #f04a4a;
 
     --pr-heat-1: #184f95;
     --pr-heat-2: #2a78d6;
@@ -68,6 +68,51 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Gunmetal numbers: the same brushed-chrome banding technique the horse
+ * mark and the achievement plates use (alternating specular/shadow bands
+ * along one diagonal), clipped to text instead of stroked on an SVG path —
+ * graphite/black tones instead of the mark's blue so it reads as "metal",
+ * not "brand colour". The app runs dark-first (most people see this on a
+ * near-black ground, not a light card), so every stop stays a few shades
+ * lighter than --surface in dark mode — pure black bands would just merge
+ * into the background instead of reading as shadow.
+ */
+.text-metal {
+  background-image: linear-gradient(
+    135deg,
+    #9aa0a6 0%,
+    #4a4f56 14%,
+    #cfd3d7 26%,
+    #5a6067 40%,
+    #eef0f2 50%,
+    #4a4f56 60%,
+    #b4b9bf 74%,
+    #3a3f45 88%,
+    #8a9096 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-metal {
+    background-image: linear-gradient(
+      135deg,
+      #6b7178 0%,
+      #2a2e33 14%,
+      #9aa0a6 26%,
+      #383c42 40%,
+      #d4d7da 50%,
+      #2a2e33 60%,
+      #7e8489 74%,
+      #1e2226 88%,
+      #5a6067 100%
+    );
+  }
 }
 
 /* The browser's own up/down stepper never matches this app's own styled
