@@ -10,9 +10,11 @@ const nunito = Nunito({
   subsets: ["latin"],
 });
 
+/** Fixed at Bold rather than the variable range — every number on screen (pace, distance, splits) reads thicker now, not just the ones with an explicit font-bold class. */
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  weight: "700",
 });
 
 export const metadata: Metadata = {
