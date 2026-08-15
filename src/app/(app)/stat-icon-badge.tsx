@@ -3,8 +3,9 @@
 import { HORSE_BUST_PATHS } from "../horse-mark";
 
 /**
- * Small illustrated badges for the live-run stat cards (Distância, Tempo,
- * Chegada prevista) — chrome-and-glow generated art, same technique as the
+ * Small illustrated badges for stat cards (live-run Distância/Tempo/Chegada
+ * prevista, and the run-detail quadrants: elevação, calorias, tênis,
+ * esforço, carga) — chrome-and-glow generated art, same technique as the
  * distância emblem medallions (see emblem-badge.tsx): a real, once-generated
  * image per stat hosted statically on R2, with the *real* vector brand mark
  * (`HORSE_BUST_PATHS` — the compact bust variant, designed for exactly this
@@ -17,7 +18,15 @@ import { HORSE_BUST_PATHS } from "../horse-mark";
 const STAT_ICON_BASE_URL =
   process.env.NEXT_PUBLIC_TILES_BASE_URL ?? "https://pub-72a6391a200c440a9466c2e0d774e84f.r2.dev";
 
-export type StatIconKey = "distancia" | "tempo" | "eta";
+export type StatIconKey =
+  | "distancia"
+  | "tempo"
+  | "eta"
+  | "elevacao"
+  | "calorias"
+  | "tenis"
+  | "esforco"
+  | "carga";
 
 function statIconUrl(key: StatIconKey): string {
   return `${STAT_ICON_BASE_URL}/stat-icons/${key}.webp`;

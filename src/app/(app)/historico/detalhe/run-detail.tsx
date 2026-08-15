@@ -36,6 +36,7 @@ import { formatAveragePace, formatDistance, metersPerUnit, paceLabel, unitLabel 
 import { AchievementReveal } from "../../achievement-reveal";
 import { PrBadge } from "../../pr-badge";
 import { RouteReplay } from "../../route-replay";
+import { StatIconBadge, type StatIconKey } from "../../stat-icon-badge";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../../ui";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -91,6 +92,32 @@ function TrashIcon() {
     >
       <path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7m2 0-.7 12.4A2 2 0 0 1 14.31 21H9.69a2 2 0 0 1-1.99-1.6L7 7" />
     </svg>
+  );
+}
+
+/** One tile in the secondary-stats grid below the headline distance/tempo/pace row — same horse-badge language as the live-run cards, segmented into quadrants instead of a wrapped label:value line. */
+function StatQuadrant({
+  icon,
+  label,
+  value,
+  unit,
+}: {
+  icon: StatIconKey;
+  label: string;
+  value: string | number;
+  unit?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-background p-3">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-wide text-muted">{label}</span>
+        <StatIconBadge icon={icon} className="block h-7 w-7" />
+      </div>
+      <p className="mt-1.5 truncate font-mono text-lg tabular-nums">
+        {value}
+        {unit && <span className="ml-1 text-xs text-muted">{unit}</span>}
+      </p>
+    </div>
   );
 }
 
@@ -395,37 +422,26 @@ export function RunDetail({ id }: { id: string }) {
             </div>
           </div>
           {(run.shoeName || elevationGain !== null || calories !== null || run.rpe !== undefined) && (
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-border pt-3 text-xs text-muted">
+            <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4">
               {elevationGain !== null && (
-                <p>
-                  <span className="uppercase tracking-wide">Ganho de elevação</span>{" "}
-                  <span className="text-foreground">{elevationGain}m</span>
-                </p>
+                <StatQuadrant icon="elevacao" label="Ganho de elevação" value={elevationGain} unit="m" />
               )}
               {calories !== null && (
-                <p>
-                  <span className="uppercase tracking-wide">Calorias</span>{" "}
-                  <span className="text-foreground">{calories} kcal</span>
-                </p>
+                <StatQuadrant icon="calorias" label="Calorias" value={calories} unit="kcal" />
               )}
               {run.shoeName && (
-                <p>
-                  <span className="uppercase tracking-wide">Tênis</span>{" "}
-                  <span className="text-foreground">{run.shoeName}</span>
-                </p>
+                <StatQuadrant icon="tenis" label="Tênis" value={run.shoeName} />
               )}
               {run.rpe !== undefined && (
-                <p>
-                  <span className="uppercase tracking-wide">Esforço percebido</span>{" "}
-                  <span className="text-foreground">{run.rpe}/10</span>
-                </p>
+                <StatQuadrant icon="esforco" label="Esforço percebido" value={run.rpe} unit="/10" />
               )}
               {run.rpe !== undefined && (
-                <p>
-                  {/* Foster's session-RPE: load = RPE × minutes moved — the same hardware-free training-load formula Strava falls back to without a heart-rate sensor. */}
-                  <span className="uppercase tracking-wide">Carga do treino</span>{" "}
-                  <span className="text-foreground">{Math.round(run.rpe * (seconds / 60))}</span>
-                </p>
+                // Foster's session-RPE: load = RPE × minutes moved — the same hardware-free training-load formula Strava falls back to without a heart-rate sensor.
+                <StatQuadrant
+                  icon="carga"
+                  label="Carga do treino"
+                  value={Math.round(run.rpe * (seconds / 60))}
+                />
               )}
             </div>
           )}
