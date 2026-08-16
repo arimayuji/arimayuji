@@ -420,7 +420,19 @@ export function useRunTracker() {
         pendingDriftMetersRef.current *= FILTER_CONFIG.fallbackStationaryDecay;
       }
 
-      const v = stationary ? 0 : speedAvailable ? speed : kalmanSpeed;
+      // The live pace readout used to trust the chip's raw Doppler `speed`
+      // outright whenever present, bypassing the Kalman fusion that
+      // `distanceStep` above already relies on. On devices/conditions where
+      // raw Doppler speed reads persistently low while position fixes stay
+      // accurate, that shows up exactly as reported: live pace stuck ~30%
+      // slow for the whole run, only correcting in the finish-time summary
+      // — which is derived from total distance, never from this raw speed
+      // field. `kalmanSpeed` already folds the same raw Doppler reading in
+      // as one measurement (see `kalman.updateVelocity` above) but keeps it
+      // continuously corrected against position, so using it here too keeps
+      // the live number honest against the same signal the rest of the run
+      // relies on instead of an unfiltered sensor field with no fallback.
+      const v = stationary ? 0 : kalmanSpeed;
       const vSmooth = speedEwmaRef.current.update(v, dt);
       const currentPaceSecPerKm = vSmooth > 0.3 ? 1000 / vSmooth : null;
 
