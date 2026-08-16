@@ -34,6 +34,18 @@ jobs:
       - name: Sync Capacitor iOS project
         run: npx cap sync ios
 
+      # Resolving Capacitor's Swift packages from scratch is most of this
+      # job's time — caches the resolved packages and derived data keyed off
+      # Package.swift, so an unchanged dependency graph skips re-fetching.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ios/App/build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/App/CapApp-SPM/Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
       - name: Build for iOS Simulator
         working-directory: ios/App
         run: |

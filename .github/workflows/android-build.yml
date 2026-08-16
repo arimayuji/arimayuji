@@ -22,6 +22,14 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      # Caches ~/.gradle (dependencies + wrapper + build cache) keyed off the
+      # wrapper/lockfiles, shared across runs — without this every run
+      # re-downloads the whole Android/Gradle dependency graph from scratch,
+      # which was most of this workflow's wall-clock time.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: android
+
       - name: Install dependencies
         run: npm ci
 
