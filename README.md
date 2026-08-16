@@ -33,12 +33,30 @@ num Mac e uma conta Apple Developer paga.
 **Baixar o APK**: <https://xanthus.yujiarima.workers.dev/download/xanthus.apk>
 — link fixo, sem expirar, sem precisar de login (ao contrário do artefato
 do próprio GitHub Actions, que expira em 30 dias e exige conta com acesso
-ao repo). Pra esse link se manter atualizado sozinho a cada push, falta um
-único passo manual, já que não há como configurar segredos de repositório
-por aqui: em Settings → Secrets and variables → Actions do repo no GitHub,
-criar um secret `CLOUDFLARE_API_TOKEN` com um token de deploy do Cloudflare
-Workers. Sem esse secret, o step de publicação do `android-build.yml` só
-avisa e pula — o resto do build continua normal.
+ao repo). Publicado automaticamente a cada push em `main` via o secret
+`CLOUDFLARE_API_TOKEN` (Settings → Secrets and variables → Actions do repo
+no GitHub) — sem ele, o step de publicação do `android-build.yml` só avisa
+e pula, o resto do build continua normal.
+
+**Assinatura de release**: por padrão o link acima serve um APK
+*debug*-assinado (funciona pra sideload, mas não é a identidade certa pra
+publicar/atualizar de verdade). Pra virar release assinado, gere uma
+keystore local —
+
+```bash
+keytool -genkeypair -v -keystore xanthus-release.keystore -alias xanthus \
+  -keyalg RSA -keysize 2048 -validity 10000
+```
+
+— e configure dois secrets no repo: `ANDROID_RELEASE_KEYSTORE_BASE64` (a
+keystore inteira, `base64 -w0 xanthus-release.keystore`) e
+`ANDROID_RELEASE_KEYSTORE_PASSWORD`. **Guarde a keystore em algum lugar
+seguro fora do git — se ela se perder, não tem como publicar uma
+atualização do app com a mesma identidade nunca mais.** Ela nunca é
+commitada (`android/.gitignore` bloqueia `*.keystore`/`*.jks`); o CI decodifica
+o secret num arquivo temporário a cada build. Com os dois secrets presentes,
+`android-build.yml` builda `assembleRelease` de verdade e passa a publicar
+esse build (em vez do debug) no link público.
 
 ## Rodando localmente
 

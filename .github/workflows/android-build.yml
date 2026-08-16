@@ -51,13 +51,45 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
+      - name: Build signed release APK
+        # Skips gracefully (no failure) until ANDROID_RELEASE_KEYSTORE_BASE64
+        # is configured — see README. PKCS12 keystores (what `keytool`
+        # generates by default today) force the key password to equal the
+        # store password, so only one password secret is needed.
+        id: release_signing
+        working-directory: android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$ANDROID_RELEASE_KEYSTORE_PASSWORD" ]; then
+            echo "::warning::ANDROID_RELEASE_KEYSTORE_BASE64/ANDROID_RELEASE_KEYSTORE_PASSWORD não configurados — publicando o build debug em vez do release. Veja o README para o passo manual."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > /tmp/xanthus-release.keystore
+          export ANDROID_RELEASE_KEYSTORE_PATH=/tmp/xanthus-release.keystore
+          export ANDROID_RELEASE_KEY_ALIAS=xanthus
+          export ANDROID_RELEASE_KEY_PASSWORD="$ANDROID_RELEASE_KEYSTORE_PASSWORD"
+          ./gradlew assembleRelease --no-daemon
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.release_signing.outputs.signed == 'true'
+        with:
+          name: xanthus-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+
       - name: Publish APK to a stable public link
         # Only on real pushes to main (not PRs from forks, which shouldn't
         # get Cloudflare deploy credentials). Drops the freshly built APK
         # into the already-built `out/` — no rebuild needed — so the next
         # `wrangler deploy` serves it alongside the site at a fixed path
-        # that never expires or needs a GitHub login, unlike this run's
-        # own artifact above (30-day retention, requires auth to fetch).
+        # that never expires or needs a GitHub login, unlike this run's own
+        # artifacts above (30-day retention, requires auth to fetch). Prefers
+        # the signed release build when available, falls back to the debug
+        # one otherwise so the link stays live either way.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -67,5 +99,9 @@ jobs:
             exit 0
           fi
           mkdir -p out/download
-          cp android/app/build/outputs/apk/debug/app-debug.apk out/download/xanthus.apk
+          if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk out/download/xanthus.apk
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk out/download/xanthus.apk
+          fi
           npx wrangler deploy
