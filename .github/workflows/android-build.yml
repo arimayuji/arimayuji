@@ -170,6 +170,53 @@ jobs:
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
+      # Google Play only accepts .aab (App Bundle), never .apk — a second
+      # build from the same signed sources, reusing the exact same
+      # signingConfig (android/app/build.gradle applies it to every release
+      # variant, not just assembleRelease). Skipped when signing itself is
+      # unconfigured — an unsigned bundle can't be uploaded to Play anyway.
+      - name: Build signed release AAB
+        if: steps.release_signing.outputs.signed == 'true'
+        working-directory: android
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Check Google Play service account secret
+        # Same secrets-can't-appear-in-`if`-expressions workaround used
+        # elsewhere in this file: compute the yes/no in a run: step's own
+        # output instead.
+        id: play_secret_check
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$SERVICE_ACCOUNT_JSON" ]; then
+            echo "::warning::GOOGLE_PLAY_SERVICE_ACCOUNT_JSON não configurado — pulando o upload pro Google Play. Veja o README."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Sobe pro track "internal" — o único que já existe por padrão em
+      # qualquer app novo no Play Console, sem precisar criar nada na mão
+      # antes (ao contrário de tracks de teste fechado/aberto, que exigem
+      # nome e configuração prévia). Promover pra teste fechado (os 20
+      # testadores) ou produção continua sendo um passo manual no Play
+      # Console — mesmo modelo do TestFlight, onde o upload é automático
+      # mas o "enviar pra revisão externa" é feito à mão.
+      #
+      # A PRIMEIRA versão do app precisa ser enviada manualmente pelo Play
+      # Console de qualquer forma — a API do Google não cria a ficha do
+      # app do zero, só publica novas versões de um app que já existe por
+      # lá. Este step só funciona depois desse primeiro upload manual.
+      - name: Publish AAB to Google Play (teste interno)
+        uses: r0adkll/upload-google-play@v1
+        if: steps.release_signing.outputs.signed == 'true' && steps.play_secret_check.outputs.configured == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.xanthus.app
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+
       # No debug APK to fall back to in this job anymore (that's the other
       # job now) — if signing isn't configured, this step builds an
       # unsigned-but-otherwise-identical debug APK just so the public link

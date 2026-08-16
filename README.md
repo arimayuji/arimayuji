@@ -58,6 +58,40 @@ o secret num arquivo temporário a cada build. Com os dois secrets presentes,
 `android-build.yml` builda `assembleRelease` de verdade e passa a publicar
 esse build (em vez do debug) no link público.
 
+**Upload pro Google Play**: exige uma conta de desenvolvedor Google Play
+(taxa única de US$25, não anual) e, **antes de qualquer automação por CI, a
+primeira versão do app precisa ser enviada manualmente** pelo Play Console —
+a API do Google não cria a ficha do app do zero, só publica versões novas de
+um app que já existe lá. Depois desse primeiro upload manual:
+
+1. No [Google Cloud Console](https://console.cloud.google.com), no mesmo
+   projeto (ou um novo) ligado à sua conta do Play Console: **IAM e admin →
+   Contas de serviço → Criar conta de serviço** (não precisa conceder nenhum
+   papel do IAM na criação — o acesso é concedido depois, do lado do Play
+   Console). Gera uma chave JSON pra essa conta de serviço (**Chaves →
+   Adicionar chave → JSON**) e guarda o arquivo baixado.
+2. No **Play Console** → sua conta de desenvolvedor → **Usuários e
+   permissões → Convidar novos usuários** → cola o e-mail da conta de
+   serviço (formato `nome@projeto.iam.gserviceaccount.com`, tá no JSON
+   baixado) → concede acesso ao app Xanthus com permissão de **"Editar e
+   publicar versões"** (Release Manager) no mínimo.
+3. Configura o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no repo com o
+   **conteúdo inteiro do arquivo JSON** (sem base64 — cola o JSON puro).
+
+Com o secret presente, `android-build.yml` builda o `.aab` assinado (formato
+que o Play exige, diferente do `.apk` usado no link público de sideload) e
+sobe pro track **"internal"** — o único que já existe por padrão em todo app
+novo, sem precisar criar nada antes. Promover a versão pra teste fechado ou
+pra produção continua sendo manual no Play Console, mesmo modelo do
+TestFlight (upload automático, "enviar pra revisão" na mão).
+
+**Contas novas de desenvolvedor pessoa física** têm uma exigência extra do
+Google antes de liberar produção: rodar uma trilha de teste fechado com pelo
+menos 20 usuários que aceitaram o convite e instalaram de fato (não basta
+convidar), por 14 dias corridos seguidos. O upload em si (via CI, na trilha
+"internal") não é afetado por essa regra — ela só bloqueia a promoção pra
+produção.
+
 **Upload pro TestFlight (iOS)**: exige uma conta Apple Developer Program
 paga (US$99/ano) — sem ela `ios-build.yml` só builda pro Simulator e pula o
 resto, sem falhar. Com a conta ativa:
