@@ -217,7 +217,7 @@ function CompartilharContent() {
   const [imageBusy, setImageBusy] = useState(false);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
 
-  /** Tracks added here, kept apart from `run.tracks` and merged only for display — same pattern /run's own finish screen uses, so a search here unlocks the music templates without waiting on a reload. */
+  /** Seeded from `run.tracks` when the target run loads, then the sole source of truth from there on — additions/removals here update this directly and persist via `updateRunTracks`, the same pattern /run's own finish screen uses. */
   const [manualTracks, setManualTracks] = useState<RunTrack[]>([]);
   const [musicQuery, setMusicQuery] = useState("");
   const [musicResults, setMusicResults] = useState<TrackCandidate[] | null>(null);
@@ -237,23 +237,22 @@ function CompartilharContent() {
   }, [runs, requestedRunId]);
 
   useEffect(() => {
-    // Resets the music search when the target run changes (e.g. arriving
-    // via a different ?run= id) — no cleaner derivation, since this is
-    // genuinely "forget the previous run's in-progress search," not state
-    // computable from props.
+    // Reseeds from this run's own saved tracks (and resets the in-progress
+    // search) whenever the target run changes — e.g. arriving via a
+    // different ?run= id. No cleaner derivation, since this is genuinely
+    // "start fresh from what this run has," not state computable from props.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setManualTracks([]);
+    setManualTracks(run?.tracks ?? []);
     setMusicQuery("");
     setMusicResults(null);
     setMusicSearchFailed(false);
-  }, [run?.id]);
+  }, [run?.id, run?.tracks]);
 
   /** The most recently logged track for this run — a run can have several; the last one is the closest thing to "what was playing when I finished." */
   const track = useMemo(() => {
-    const tracks = [...(run?.tracks ?? []), ...manualTracks];
-    if (tracks.length === 0) return null;
-    return [...tracks].sort((a, b) => b.playedAt - a.playedAt)[0];
-  }, [run, manualTracks]);
+    if (manualTracks.length === 0) return null;
+    return [...manualTracks].sort((a, b) => b.playedAt - a.playedAt)[0];
+  }, [manualTracks]);
 
   const handleMusicSearch = async (event: FormEvent) => {
     event.preventDefault();
@@ -279,11 +278,21 @@ function CompartilharContent() {
         playedAt: Date.now(),
         artworkUrl: candidate.artworkUrl || undefined,
       };
-      const nextManualTracks = [...manualTracks, newTrack];
-      setManualTracks(nextManualTracks);
+      const next = [...manualTracks, newTrack];
+      setManualTracks(next);
       setMusicQuery("");
       setMusicResults(null);
-      await updateRunTracks(run.id, [...(run.tracks ?? []), ...nextManualTracks]);
+      await updateRunTracks(run.id, next);
+    },
+    [run, manualTracks],
+  );
+
+  const handleRemoveTrack = useCallback(
+    async (removed: RunTrack) => {
+      if (!run) return;
+      const next = manualTracks.filter((t) => t !== removed);
+      setManualTracks(next);
+      await updateRunTracks(run.id, next);
     },
     [run, manualTracks],
   );
@@ -852,9 +861,19 @@ function CompartilharContent() {
                     className="h-10 w-10 shrink-0 rounded-lg object-cover"
                   />
                 )}
-                <span className="truncate text-sm">
+                <span className="min-w-0 flex-1 truncate text-sm">
                   {track.name} <span className="text-muted">— {track.artist}</span>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveTrack(track)}
+                  aria-label={`Remover ${track.name}`}
+                  className="shrink-0 rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
               </div>
             )}
 
