@@ -5,28 +5,26 @@
  *   itself falls back to `navigator.geolocation` — no native shell, so
  *   there's no such thing as "the screen locked and JS kept running"
  *   here anyway.
- * - Native (Android/iOS): `@capacitor-community/background-geolocation`
- *   instead. `@capacitor/geolocation`'s `watchPosition` only ever
- *   delivers fixes while the WebView is actually visible — screen lock or
- *   backgrounding the app pauses it, same as any other JS timer, which is
- *   the whole reason the app went native in the first place (see the
- *   plan/README). This plugin runs a real Android foreground service
- *   (`backgroundMessage` below is what makes that persistent notification
- *   required by Android to keep it alive) and requests iOS "Always"
- *   authorization, so fixes keep arriving with the screen off. It has no
- *   web implementation at all — calling it outside a native shell throws
- *   — hence the branch.
+ * - Native (Android/iOS): `@capgo/background-geolocation` instead.
+ *   `@capacitor/geolocation`'s `watchPosition` only ever delivers fixes
+ *   while the WebView is actually visible — screen lock or backgrounding
+ *   the app pauses it, same as any other JS timer, which is the whole
+ *   reason the app went native in the first place (see the plan/README).
+ *   This plugin runs a real Android foreground service (`backgroundMessage`
+ *   below is what makes that persistent notification required by Android
+ *   to keep it alive) and requests iOS "Always" authorization, so fixes
+ *   keep arriving with the screen off. It does ship its own web fallback,
+ *   but we still route web through `@capacitor/geolocation` above — no
+ *   reason to depend on a plugin's incidental web shim when the
+ *   already-validated DOM path already covers that case.
  *
  * Both backends normalize into the same `GeoFix`/`GeoError` shape below,
  * so `useRunTracker.ts`'s fix-processing pipeline (Kalman filter, gates,
  * distance accumulation) never needs to know which one is live.
  */
-import { registerPlugin } from "@capacitor/core";
 import { Geolocation, type CallbackID } from "@capacitor/geolocation";
-import type { BackgroundGeolocationPlugin, CallbackError, Location } from "@capacitor-community/background-geolocation";
+import { BackgroundGeolocation, type CallbackError, type Location } from "@capgo/background-geolocation";
 import { isNativePlatform } from "../platform";
-
-const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
 
 export interface GeoFix {
   coords: {
@@ -71,7 +69,7 @@ function mapForegroundError(err: unknown): GeoError {
   return { kind: "unavailable", message };
 }
 
-/** `@capacitor-community/background-geolocation` only ever reports `"NOT_AUTHORIZED"` by name — everything else maps to `unavailable`, there's no separate timeout concept in this plugin. */
+/** `@capgo/background-geolocation` only ever reports `"NOT_AUTHORIZED"` by name — everything else maps to `unavailable`, there's no separate timeout concept in this plugin. */
 function mapBackgroundError(err: CallbackError): GeoError {
   return {
     kind: err.code === "NOT_AUTHORIZED" ? "permission-denied" : "unavailable",
@@ -95,22 +93,25 @@ function fixFromBackgroundLocation(location: Location): GeoFix {
 }
 
 /**
- * Holds whichever backend's watch id is currently pending, plus which
- * backend it belongs to — `endGeoWatch` needs both to tear down the right
- * one. `watchIdPromise` (not just the resolved id) exists so a fast
- * pause-right-after-start can't leak an orphaned watch: `watchPosition`
- * only resolves a watch id asynchronously (a native bridge round-trip),
- * while `pause()`/`finish()` can call `endGeoWatch()` synchronously right
- * after `start()`/`resume()` calls `beginGeoWatch()`.
+ * Holds a promise for whichever backend's `start()`/`watchPosition()` call
+ * is currently pending, plus which backend it belongs to — `endGeoWatch`
+ * needs both to tear down the right one. The promise itself (not just its
+ * resolution) exists so a fast pause-right-after-start can't leak an
+ * orphaned watch: starting only resolves asynchronously (a native bridge
+ * round-trip), while `pause()`/`finish()` can call `endGeoWatch()`
+ * synchronously right after `start()`/`resume()` calls `beginGeoWatch()`.
+ * The background backend's `start()` resolves `void` (it has no watch id —
+ * `stop()` always tears down whatever's running), so this only needs to
+ * carry a real id on the foreground branch.
  */
-let watchIdPromise: Promise<CallbackID | string> | null = null;
+let watchStartPromise: Promise<CallbackID | void> | null = null;
 let activeBackend: "background" | "foreground" | null = null;
 
 /** Starts a watch. Any previous watch is left alone — callers already only ever call this once at a time. */
 export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoError) => void): void {
   if (isNativePlatform()) {
     activeBackend = "background";
-    watchIdPromise = BackgroundGeolocation.addWatcher(
+    watchStartPromise = BackgroundGeolocation.start(
       {
         backgroundTitle: "Xanthus",
         backgroundMessage: "Gravando sua corrida em segundo plano.",
@@ -127,15 +128,15 @@ export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoEr
         onFix(fixFromBackgroundLocation(location));
       },
     );
-    watchIdPromise.catch(() => {
+    watchStartPromise.catch(() => {
       // Failing to even start the watch surfaces to the caller through the
-      // addWatcher callback path; nothing else to do here.
+      // start() callback path; nothing else to do here.
     });
     return;
   }
 
   activeBackend = "foreground";
-  watchIdPromise = Geolocation.watchPosition(
+  watchStartPromise = Geolocation.watchPosition(
     {
       enableHighAccuracy: true,
       timeout: 30_000,
@@ -158,20 +159,20 @@ export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoEr
     if (!position) return;
     onFix(position);
   });
-  watchIdPromise.catch(() => {
+  watchStartPromise.catch(() => {
     // Failing to even start the watch is surfaced to the caller via onError
     // through the watchPosition callback path on native; nothing else to do here.
   });
 }
 
 export function endGeoWatch(): void {
-  if (watchIdPromise === null) return;
-  const pending = watchIdPromise;
+  if (watchStartPromise === null) return;
+  const pending = watchStartPromise;
   const backend = activeBackend;
-  watchIdPromise = null;
+  watchStartPromise = null;
   activeBackend = null;
   if (backend === "background") {
-    void pending.then((id) => BackgroundGeolocation.removeWatcher({ id: id as string })).catch(() => {});
+    void pending.then(() => BackgroundGeolocation.stop()).catch(() => {});
   } else {
     void pending.then((id) => Geolocation.clearWatch({ id: id as CallbackID })).catch(() => {});
   }
