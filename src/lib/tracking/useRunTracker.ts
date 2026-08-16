@@ -26,6 +26,7 @@ import {
   clearActiveRun,
   saveActiveRun,
   saveCompletedRun,
+  type ActiveRunSnapshot,
   type CompletedRun,
   type PauseEvent,
   type RunTrack,
@@ -133,6 +134,14 @@ export function useRunTracker() {
   const lastFixWallClockRef = useRef<number | null>(null);
   const justResumedRef = useRef(false);
   /**
+   * Set by `recover()`, read once by the warmup-completion branch below: a
+   * recovered run must reseed the Kalman filter exactly like any other
+   * warmup (its refs are `null` after a fresh app start — nothing persists
+   * them), but must NOT stomp `startedAtRef`/`distanceRef`/`pointsRef` back
+   * to "run just started now" the way a brand new run's warmup does.
+   */
+  const recoveringRef = useRef(false);
+  /**
    * Filtered step distances too small to clear `isLikelyDrift` on their own,
    * held here instead of thrown away. A walker's real per-fix movement can
    * sit under that floor for several fixes in a row even while genuinely
@@ -202,6 +211,7 @@ export function useRunTracker() {
     if (!force && now - lastPersistRef.current < PERSIST_INTERVAL_MS) return;
     lastPersistRef.current = now;
     void saveActiveRun({
+      id: runIdRef.current,
       startedAt: startedAtRef.current ?? now,
       distanceMeters: distanceRef.current,
       points: pointsRef.current,
@@ -233,7 +243,16 @@ export function useRunTracker() {
         lastFilteredRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
         lastFixWallClockRef.current = Date.now();
-        startedAtRef.current = Date.now();
+        if (recoveringRef.current) {
+          // Keep the original run's start time and already-accumulated
+          // distance/points (set by `recover()`) — only the filter itself
+          // needed reseeding. The dead stretch between the last point before
+          // the app died and this first fresh fix becomes a GPS gap at
+          // `finish()`, same as a screen lock ever was.
+          recoveringRef.current = false;
+        } else {
+          startedAtRef.current = Date.now();
+        }
         lastAnnounceTimeRef.current = timestamp;
         pendingDriftMetersRef.current = 0;
         startTicking();
@@ -535,6 +554,69 @@ export function useRunTracker() {
     [beginWatch],
   );
 
+  /**
+   * Resumes a run whose process died mid-recording — screen locked with no
+   * foreground service to keep it alive, Android reclaimed the memory, and
+   * the app cold-started back into `status: "idle"` despite the run never
+   * having reached `finish()`. `persistIfDue` already buffers distance/points
+   * to IndexedDB every 10s during `start()`-ed runs specifically so this
+   * snapshot exists to come back to; before this function read it back,
+   * that buffer was write-only and the recorded run was simply gone.
+   */
+  const recover = useCallback(
+    (snapshot: ActiveRunSnapshot) => {
+      if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
+        setState((s) => ({ ...s, error: "Geolocalização não é suportada neste navegador." }));
+        return;
+      }
+
+      unlockSpeech();
+
+      runIdRef.current = snapshot.id;
+      warmupCountRef.current = 0;
+      lastRawRef.current = null;
+      lastFilteredRef.current = null;
+      lastFixTimestampRef.current = null;
+      lastFixWallClockRef.current = null;
+      startedAtRef.current = snapshot.startedAt;
+      pausedAccumMsRef.current = 0;
+      pauseStartedAtRef.current = null;
+      distanceRef.current = snapshot.distanceMeters;
+      pointsRef.current = snapshot.points;
+      pendingDriftMetersRef.current = 0;
+      pauseEventsRef.current = [];
+      // Ground already covered before the process died shouldn't replay a
+      // voice announcement the instant fixes start flowing again.
+      lastAnnounceDistanceRef.current = snapshot.distanceMeters;
+      lastAnnounceTimeRef.current = null;
+      announceIntervalRef.current = 1000;
+      ghostSeriesRef.current = null;
+      recoveringRef.current = true;
+
+      void wakeLockRef.current.acquire();
+      beginWatch();
+
+      setState({
+        status: "warming",
+        runId: runIdRef.current,
+        gpsQuality: "searching",
+        distanceMeters: snapshot.distanceMeters,
+        elapsedSeconds: 0,
+        currentPaceSecPerKm: null,
+        goal: null,
+        forecastSecondsRemaining: null,
+        paceNeededSecPerKm: null,
+        error: null,
+        finishedRun: null,
+        ghostDeltaSeconds: null,
+        finishedGhostDeltaSeconds: null,
+        points: snapshot.points,
+        pauseEvents: [],
+      });
+    },
+    [beginWatch],
+  );
+
   const pause = useCallback(() => {
     clearWatch();
     stopTicking();
@@ -672,5 +754,5 @@ export function useRunTracker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { state, start, pause, resume, finish, reset, setPauseReason };
+  return { state, start, pause, resume, finish, reset, setPauseReason, recover };
 }

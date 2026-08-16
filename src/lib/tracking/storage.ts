@@ -204,6 +204,7 @@ async function withStore<T>(
 }
 
 export interface ActiveRunSnapshot {
+  id: string;
   startedAt: number;
   distanceMeters: number;
   points: StoredPoint[];

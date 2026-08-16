@@ -12,15 +12,18 @@ import {
   formatPace,
 } from "@/lib/tracking/geoFilter";
 import {
+  clearActiveRun,
   deleteCompletedRun,
   listCompletedRuns,
   listShoes,
+  loadActiveRun,
   markEmblemOpened,
   markRecordOpened,
   runMovingSeconds,
   summarizeShoes,
   updateRunRpe,
   updateRunTracks,
+  type ActiveRunSnapshot,
   type CompletedRun,
   type RunTrack,
   type Shoe,
@@ -382,8 +385,17 @@ function computeEmblemProgress(run: CompletedRun, allRuns: CompletedRun[]): Embl
 }
 
 export default function RunPage() {
-  const { state, start, pause, resume, finish, reset, setPauseReason } = useRunTracker();
+  const { state, start, pause, resume, finish, reset, setPauseReason, recover } = useRunTracker();
   const [discarding, setDiscarding] = useState(false);
+  /**
+   * A run whose process died mid-recording (screen locked, Android reclaimed
+   * the memory, no foreground service keeping it alive) — checked once on
+   * mount against the buffer `persistIfDue` writes every 10s during an
+   * active run. Non-null blocks the normal idle form: starting a fresh run
+   * before this is resolved would silently overwrite the recoverable
+   * snapshot the moment the new run's own persistence kicks in.
+   */
+  const [recoverableRun, setRecoverableRun] = useState<ActiveRunSnapshot | null>(null);
   const [goalKm, setGoalKm] = useState("5");
   const [goalMinutes, setGoalMinutes] = useState("");
   const [shoeName, setShoeName] = useState("");
@@ -413,6 +425,15 @@ export default function RunPage() {
   const [coaches, setCoaches] = useState<CoachConnection[]>([]);
   /** Which coach (if any) this run is being shared live with — chosen before starting, null means "not live". */
   const [liveCoachId, setLiveCoachId] = useState<string | null>(null);
+
+  /** See `recoverableRun`'s own comment — checked once, not on every re-render, since `start()`/`recover()` are the only things that should ever change what's buffered. */
+  useEffect(() => {
+    loadActiveRun().then((snapshot) => {
+      if (snapshot && (snapshot.points.length > 0 || snapshot.distanceMeters > 0)) {
+        setRecoverableRun(snapshot);
+      }
+    });
+  }, []);
 
   /**
    * Personal-record check: best split for each standard distance this run
@@ -761,6 +782,17 @@ export default function RunPage() {
     handleReset();
   };
 
+  const handleRecoverContinue = () => {
+    if (!recoverableRun) return;
+    recover(recoverableRun);
+    setRecoverableRun(null);
+  };
+
+  const handleRecoverDiscard = () => {
+    void clearActiveRun();
+    setRecoverableRun(null);
+  };
+
   const isLiveRun = state.status === "tracking" || state.status === "paused";
 
   return (
@@ -779,7 +811,40 @@ export default function RunPage() {
         </div>
       )}
 
-      {state.status === "idle" && (
+      {state.status === "idle" && recoverableRun && (
+        <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
+          <div className="mx-auto w-full max-w-sm space-y-6 text-center">
+            <div>
+              <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
+                Corrida recuperada
+              </h1>
+              <p className="mt-1 text-sm text-muted">
+                O app foi encerrado no meio dessa corrida (tela apagada por tempo demais, provavelmente)
+                antes de salvar. Encontramos {formatDistanceKm(recoverableRun.distanceMeters)} km já
+                gravados — continuar de onde parou ou descartar?
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handleRecoverContinue}
+                className="w-full rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground"
+              >
+                Continuar corrida
+              </button>
+              <button
+                type="button"
+                onClick={handleRecoverDiscard}
+                className="w-full rounded-full border border-border px-6 py-3 text-sm font-semibold text-bad"
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        </main>
+      )}
+
+      {state.status === "idle" && !recoverableRun && (
         <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
           <div className="mx-auto w-full max-w-sm space-y-6">
             <div>
