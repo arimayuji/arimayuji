@@ -73,7 +73,10 @@ export function ScreenHeader({
   return (
     <header
       className="pr-enter px-5 pb-5"
-      style={delay(0, { paddingTop: "calc(2rem + env(safe-area-inset-top))" })}
+      // The top safe-area inset is handled once, by AppShell's own wrapper
+      // — every screen that uses ScreenHeader renders inside it, so adding
+      // it again here would double the gap under the iOS status bar.
+      style={delay(0, { paddingTop: "2rem" })}
     >
       <div className="mx-auto w-full max-w-md">
         <div className="flex flex-wrap items-center justify-between gap-3">

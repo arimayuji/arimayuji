@@ -803,23 +803,26 @@ export default function RunPage() {
 
   const isLiveRun = state.status === "tracking" || state.status === "paused";
   const standalone = useIsStandalone();
+  // Same condition passed to useImmersiveMode() above — while it's true,
+  // AppShell skips its own top safe-area inset to keep the map full-bleed,
+  // so this header has to carry that inset itself instead. The rest of the
+  // time (idle/finished) AppShell already accounts for it, and adding it
+  // here too would double the gap under the status bar.
+  const immersive = state.status === "warming" || state.status === "tracking" || state.status === "paused";
 
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       {/*
-        Extra top padding via env(safe-area-inset-top) resolves to 0 in a
-        regular browser tab, so this is safe unconditionally — it only does
-        anything where it's actually needed (native app, installed PWA). The
-        "← Xanthus" link itself is skipped in that same standalone context:
-        it targets "/", the marketing landing page, but StandaloneGate
-        redirects any standalone launch straight back to /run before the
-        landing page ever paints — so the link would just bounce right back
-        here, while still costing space right where the OS draws its own
-        status bar (clock, battery, signal).
+        The "← Xanthus" link is skipped in standalone context (native app,
+        installed PWA): it targets "/", the marketing landing page, but
+        StandaloneGate redirects any standalone launch straight back to
+        /run before the landing page ever paints — so the link would just
+        bounce right back here, while still costing space right where the
+        OS draws its own status bar (clock, battery, signal).
       */}
       <header
         className="relative z-10 flex items-center justify-between px-5 py-4"
-        style={{ paddingTop: "calc(1rem + env(safe-area-inset-top))" }}
+        style={immersive ? { paddingTop: "calc(1rem + env(safe-area-inset-top))" } : undefined}
       >
         {!standalone && (
           <Link href="/" className="text-sm text-muted hover:text-foreground">

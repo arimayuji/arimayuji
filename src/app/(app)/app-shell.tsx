@@ -173,9 +173,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ImmersiveContext.Provider value={value}>
+      {/*
+        Safe-area insets live here, once, instead of on every screen's own
+        header — `ScreenHeader` (ui.tsx) used to add its own top inset, and
+        every screen paid for it individually; a screen that renders
+        something ABOVE its own header (InstallPrompt, UpdateBanner) still
+        needed the same inset applied even earlier than that, which is
+        exactly the gap that let UpdateBanner render flush against the iOS
+        status bar. `/run` is the one screen that opts out (`immersive`) —
+        it wants an edge-to-edge map background during a live recording, and
+        handles the top inset on its own single header instead (see
+        run/page.tsx), since the shell skipping it here is what makes the
+        map full-bleed in the first place.
+      */}
       <div
         className={`flex flex-1 flex-col ${
-          immersive ? "" : "pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
+          immersive
+            ? ""
+            : "pt-[env(safe-area-inset-top)] pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
         }`}
       >
         {!immersive && <InstallPrompt />}
