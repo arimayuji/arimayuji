@@ -385,7 +385,11 @@ function floatingMotion(elapsed: number) {
   const rotZ = (0.5 + 4.5 * Math.sin((t / 6.5) * Math.PI * 2)) * (Math.PI / 180);
   const turnDeg = 30 * Math.sin((t / 9) * Math.PI * 2);
   const turnScaleX = Math.cos((turnDeg * Math.PI) / 180);
-  return { bobY, rotZ, turnScaleX };
+  // sin of the same turn angle — 0 face-on, ±1 near edge-on — the extra
+  // signal `drawShoe` uses to fake perspective shear and directional
+  // shading, the two cues `turnScaleX`'s squash alone doesn't sell on its own.
+  const turnSin = Math.sin((turnDeg * Math.PI) / 180);
+  return { bobY, rotZ, turnScaleX, turnSin };
 }
 
 /**
@@ -1424,13 +1428,23 @@ function getTintedShoeImage(angle: ShoeAngle, colorHex: string): HTMLCanvasEleme
   return canvas;
 }
 
-/** One angle, centred at the current origin, scaled to `targetWidth` with its own aspect ratio. */
+/**
+ * One angle, centred at the current origin, scaled to `targetWidth` with its
+ * own aspect ratio — plus a fake-3D directional shade, the same idea as the
+ * sealed emblem's limb-darkening sphere: a real photo turning in place has
+ * no actual depth for a light to fall across, so `turnSin` (0 face-on, ±1
+ * near edge-on — see `floatingMotion`) drives a gradient standing in for
+ * that shading. `"source-atop"` composites it only where the shoe photo
+ * already has opaque pixels, so it silhouettes to the photo's own alpha
+ * automatically instead of needing a separate mask.
+ */
 function drawShoeAngle(
   ctx: CanvasRenderingContext2D,
   angle: ShoeAngle,
   colorHex: string,
   targetWidth: number,
   alpha: number,
+  turnSin: number,
 ) {
   if (alpha <= 0) return;
   const img = getTintedShoeImage(angle, colorHex);
@@ -1438,6 +1452,24 @@ function drawShoeAngle(
   const h = targetWidth * (img.height / img.width);
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, -targetWidth / 2, -h / 2, targetWidth, h);
+
+  const shade = Math.abs(turnSin);
+  if (shade > 0.02) {
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";
+    // The far side (turning away from camera) darkens, the near side gets a
+    // faint highlight — which side is which flips with the turn's direction.
+    const grad =
+      turnSin < 0
+        ? ctx.createLinearGradient(-targetWidth / 2, 0, targetWidth / 2, 0)
+        : ctx.createLinearGradient(targetWidth / 2, 0, -targetWidth / 2, 0);
+    grad.addColorStop(0, `rgba(0,0,0,${(shade * 0.55).toFixed(2)})`);
+    grad.addColorStop(0.55, "rgba(0,0,0,0)");
+    grad.addColorStop(1, `rgba(255,255,255,${(shade * 0.18).toFixed(2)})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(-targetWidth / 2, -h / 2, targetWidth, h);
+    ctx.restore();
+  }
 }
 
 /**
@@ -1476,15 +1508,18 @@ function drawShoe(
   ctx.translate(0, float.bobY * pop);
   ctx.rotate(float.rotZ * pop);
   ctx.scale(float.turnScaleX, 1);
+  // Perspective shear: leans into the turn instead of just squashing flat,
+  // the cheap fake for the parallax a real 3D turn would show.
+  ctx.transform(1, 0, float.turnSin * 0.16, 1, 0, 0);
 
   const cardAlpha = pop;
   const { from, to, mix } = shoeAngleAt(Math.max(0, elapsed - popStart));
   ctx.save();
-  drawShoeAngle(ctx, from, shoe.color, targetWidth, cardAlpha * (1 - mix));
+  drawShoeAngle(ctx, from, shoe.color, targetWidth, cardAlpha * (1 - mix), float.turnSin);
   ctx.restore();
   if (mix > 0) {
     ctx.save();
-    drawShoeAngle(ctx, to, shoe.color, targetWidth, cardAlpha * mix);
+    drawShoeAngle(ctx, to, shoe.color, targetWidth, cardAlpha * mix, float.turnSin);
     ctx.restore();
   }
 
