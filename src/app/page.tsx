@@ -838,18 +838,29 @@ const COMMUNITY_ITEMS = [
   },
 ];
 
-function AndroidIcon() {
+function AndroidIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="currentColor">
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
       <path d="M17.6 9.48l1.84-3.18a.5.5 0 0 0-.87-.5l-1.86 3.22a11.4 11.4 0 0 0-9.42 0L5.43 5.8a.5.5 0 1 0-.87.5L6.4 9.48A9.9 9.9 0 0 0 2 17h20a9.9 9.9 0 0 0-4.4-7.52zM7 14.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
     </svg>
   );
 }
 
-function AppleGlyphIcon() {
+function AppleGlyphIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="currentColor">
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
       <path d="M16.365 1.43c0 1.14-.417 2.196-1.244 3.06-.9.94-2.276 1.657-3.436 1.564-.144-1.096.437-2.24 1.216-3.024.87-.887 2.34-1.545 3.464-1.6zM20.5 17.313c-.505 1.157-.747 1.674-1.396 2.703-.907 1.44-2.187 3.234-3.774 3.246-1.412.012-1.775-.917-3.69-.906-1.916.012-2.317.923-3.73.911-1.586-.012-2.798-1.633-3.706-3.073-2.54-4.01-2.808-8.716-1.24-11.222 1.113-1.78 2.874-2.821 4.531-2.821 1.686 0 2.747.938 4.142.938 1.353 0 2.178-.94 4.132-.94 1.478 0 3.042.804 4.157 2.194-3.653 2.002-3.06 7.216.574 8.97z" />
+    </svg>
+  );
+}
+
+function BrowserIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M3 9h18" />
+      <circle cx="6.2" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="8.4" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -1388,7 +1399,7 @@ export default function Home() {
             aria-hidden="true"
             className="pointer-events-none absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/10 blur-3xl"
           />
-          <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center gap-7 px-5 py-24 text-center sm:px-8 sm:py-32">
+          <div className="relative mx-auto flex w-full max-w-4xl flex-col items-center gap-3 px-5 py-24 text-center sm:px-8 sm:py-32">
             <h2
               data-reveal=""
               className="text-balance font-mono text-3xl font-semibold leading-tight tracking-tight sm:text-5xl"
@@ -1400,50 +1411,87 @@ export default function Home() {
               style={delay(80)}
               className="max-w-md text-pretty leading-relaxed text-muted"
             >
-              Abra, toque em começar e corra. Sem cadastro, sem cartão, sem tour de
-              onboarding antes de você sair de casa.
-            </p>
-            <Link
-              href="/run"
-              data-reveal=""
-              style={delay(160)}
-              className="inline-flex items-center justify-center rounded-full bg-accent px-10 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
-            >
-              Começar a correr
-            </Link>
-            <p
-              data-reveal=""
-              style={delay(220)}
-              className="font-mono text-xs text-muted"
-            >
-              depois da primeira visita, funciona sem internet
+              Três jeitos de correr com o Xanthus — a diferença real entre eles é só
+              uma: o que acontece com o GPS se a tela travar no meio do treino.
             </p>
 
             {/*
-              Web (o CTA acima) já cobre qualquer aparelho — os dois links
-              abaixo são só pra quem quer o app nativo (GPS em segundo plano
-              com a tela bloqueada, que nenhuma PWA consegue). Sem link de
-              iOS ainda: TestFlight External Testing exige convite +
-              revisão da Apple, não existe um link público até isso ser
-              configurado — ver README.
+              Três opções de peso igual, não uma dominante com duas
+              secundárias penduradas embaixo — clicar direto pro navegador
+              sem mostrar as alternativas nativas foi o problema que motivou
+              este bloco existir. iOS não tem botão (só o badge de estado):
+              hoje só quem já foi convidado pro TestFlight Internal Testing
+              consegue instalar, um link "baixar" aqui enganaria quem clicasse.
             */}
-            <div
-              data-reveal=""
-              style={delay(260)}
-              className="flex flex-wrap items-center justify-center gap-3 border-t border-border pt-7"
-            >
-              <a
-                href="https://xanthus.yujiarima.workers.dev/download/xanthus.apk"
-                className="inline-flex items-center gap-2.5 rounded-full border border-border px-5 py-3 text-sm font-medium transition-colors hover:border-accent hover:text-accent"
+            <div className="mt-6 grid w-full gap-4 sm:grid-cols-3">
+              <article
+                data-reveal=""
+                style={delay(160)}
+                className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-background p-6 text-center"
               >
-                <AndroidIcon />
-                Baixar APK · Android
-              </a>
-              <span className="inline-flex items-center gap-2.5 rounded-full border border-border px-5 py-3 text-sm font-medium text-muted opacity-60">
-                <AppleGlyphIcon />
-                iOS · em breve na App Store
-              </span>
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/12 text-accent">
+                  <BrowserIcon />
+                </span>
+                <h3 className="font-mono text-base font-semibold">No navegador</h3>
+                <p className="flex-1 text-sm leading-relaxed text-muted">
+                  Abre na hora, sem instalar nada. Se a tela travar durante a
+                  corrida, o GPS pausa até você desbloquear de novo.
+                </p>
+                <Link
+                  href="/run"
+                  className="mt-1 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+                >
+                  Abrir agora
+                </Link>
+              </article>
+
+              <article
+                data-reveal=""
+                style={delay(220)}
+                className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-background p-6 text-center"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/12 text-accent">
+                  <AndroidIcon className="h-5 w-5" />
+                </span>
+                <h3 className="font-mono text-base font-semibold">Android</h3>
+                <p className="flex-1 text-sm leading-relaxed text-muted">
+                  App instalado de verdade. GPS continua registrando rota e pace
+                  mesmo com a tela travada.
+                </p>
+                <a
+                  href="https://xanthus.yujiarima.workers.dev/download/xanthus.apk"
+                  className="mt-1 inline-flex w-full items-center justify-center rounded-full border border-border px-5 py-3 text-sm font-semibold transition-colors hover:border-accent hover:text-accent"
+                >
+                  Baixar APK
+                </a>
+              </article>
+
+              <article
+                data-reveal=""
+                style={delay(280)}
+                className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-background p-6 text-center"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/12 text-accent">
+                  <AppleGlyphIcon className="h-5 w-5" />
+                </span>
+                <h3 className="font-mono text-base font-semibold">iPhone</h3>
+                <p className="flex-1 text-sm leading-relaxed text-muted">
+                  Mesma vantagem do Android pro GPS. Ainda em teste fechado —
+                  só quem já tem convite consegue instalar por enquanto.
+                </p>
+                <span className="mt-1 inline-flex w-full items-center justify-center rounded-full border border-dashed border-border px-5 py-3 text-sm font-medium text-muted">
+                  Em teste fechado
+                </span>
+              </article>
             </div>
+
+            <p
+              data-reveal=""
+              style={delay(340)}
+              className="mt-4 font-mono text-xs text-muted"
+            >
+              no navegador, depois da primeira visita, funciona sem internet
+            </p>
           </div>
         </section>
       </main>
