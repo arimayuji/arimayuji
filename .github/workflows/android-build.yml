@@ -18,15 +18,17 @@ concurrency:
   cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 jobs:
-  build-debug-apk:
+  # Split from a single sequential job into two independent ones: the debug
+  # APK (needed on every push/PR for validation) and the release APK
+  # (needed only for what actually ships) no longer wait on each other —
+  # each redoes its own cheap setup (npm ci, web build, fail-fast checks)
+  # in exchange for running its expensive Gradle work in parallel with the
+  # other job instead of after it. Job names ("debug"/"release") double as
+  # the Gradle cache key's scope (see setup-gradle below), so the two never
+  # fight over the same cache entry.
+  debug:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # Feeds android/app/build.gradle's versionCode/versionName — the run
-    # number only ever increases, so it doubles as the source of truth the
-    # in-app update banner compares against (see version.json below).
-    env:
-      ANDROID_VERSION_CODE: ${{ github.run_number }}
-      ANDROID_VERSION_NAME: "1.0.${{ github.run_number }}"
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -73,7 +75,9 @@ jobs:
       # Fails in seconds instead of after minutes of Gradle work — a typo
       # shouldn't cost a full native build to surface. `next build` above
       # already type-checks internally, but this also runs lint and keeps
-      # the two checks in one obvious place.
+      # the two checks in one obvious place. Duplicated in the `release`
+      # job too (cheap, ~15s) rather than shared, so a real type error
+      # fails both jobs independently instead of one job blocking the other.
       - name: Type-check and lint
         run: |
           npx tsc --noEmit
@@ -91,6 +95,50 @@ jobs:
           name: xanthus-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Feeds android/app/build.gradle's versionCode/versionName — the run
+    # number only ever increases, so it doubles as the source of truth the
+    # in-app update banner compares against (see version.json below).
+    env:
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+      ANDROID_VERSION_NAME: "1.0.${{ github.run_number }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: android
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web export
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
+          NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
+
+      - name: Type-check and lint
+        run: |
+          npx tsc --noEmit
+          npm run lint
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
 
       - name: Build signed release APK
         # Skips gracefully (no failure) until ANDROID_RELEASE_KEYSTORE_BASE64
@@ -121,6 +169,15 @@ jobs:
           name: xanthus-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
+
+      # No debug APK to fall back to in this job anymore (that's the other
+      # job now) — if signing isn't configured, this step builds an
+      # unsigned-but-otherwise-identical debug APK just so the public link
+      # always has something recent to serve.
+      - name: Build fallback debug APK
+        if: steps.release_signing.outputs.signed != 'true'
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Publish APK to a stable public link
         # Only on main itself — pushes to it or manual re-runs against it —

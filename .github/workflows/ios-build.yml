@@ -4,7 +4,8 @@ name: iOS build
 # CODE_SIGNING_ALLOWED=NO) so the whole Capacitor/Xcode pipeline is
 # validated on every push regardless of secrets. On pushes to main, if the
 # three APP_STORE_CONNECT_* secrets are configured, a second, signed
-# archive is built and uploaded straight to TestFlight.
+# archive is built and uploaded straight to TestFlight — as its own
+# parallel job (see below), not a follow-on step of the simulator build.
 on:
   push:
     branches: [main]
@@ -20,9 +21,19 @@ concurrency:
   cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 jobs:
-  build-simulator:
+  # Split from a single sequential job into two independent ones: the
+  # unsigned Simulator build (validates on every push/PR, no secrets
+  # needed) and the signed TestFlight archive (only pushes to main, needs
+  # secrets) no longer wait on each other — each redoes its own cheap setup
+  # (npm ci, web build, fail-fast checks, cap sync) in exchange for running
+  # its expensive Xcode work in parallel with the other job. Each job also
+  # gets its own SPM/DerivedData cache scope (see the cache steps below) —
+  # they build genuinely different configurations (Debug-simulator vs.
+  # Release-archive) into different DerivedData locations, so a shared
+  # cache key would only ever help one of them anyway.
+  simulator:
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -46,7 +57,10 @@ jobs:
           NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
 
-      # Fails in seconds instead of after minutes of Xcode work.
+      # Fails in seconds instead of after minutes of Xcode work. Duplicated
+      # in the `testflight` job too (cheap, ~10-15s) rather than shared, so
+      # a real type error fails both jobs independently instead of one
+      # blocking the other.
       - name: Type-check and lint
         run: |
           npx tsc --noEmit
@@ -56,16 +70,17 @@ jobs:
         run: npx cap sync ios
 
       # Resolving Capacitor's Swift packages from scratch is most of this
-      # job's time — caches the resolved packages and derived data keyed off
-      # Package.swift, so an unchanged dependency graph skips re-fetching.
+      # job's time — caches the resolved packages and this job's own
+      # DerivedData (`-derivedDataPath build` below) keyed off Package.swift,
+      # so an unchanged dependency graph skips re-fetching.
       - uses: actions/cache@v4
         with:
           path: |
             ios/App/build
             ~/Library/Caches/org.swift.swiftpm
-          key: ${{ runner.os }}-spm-${{ hashFiles('ios/App/CapApp-SPM/Package.swift') }}
+          key: ${{ runner.os }}-simulator-spm-${{ hashFiles('ios/App/CapApp-SPM/Package.swift') }}
           restore-keys: |
-            ${{ runner.os }}-spm-
+            ${{ runner.os }}-simulator-spm-
 
       - name: Build for iOS Simulator
         working-directory: ios/App
@@ -81,9 +96,55 @@ jobs:
           path: ios/App/build/Build/Products/Debug-iphonesimulator/App.app
           retention-days: 30
 
+  testflight:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    # Only on main itself, same reasoning as the Android publish job —
+    # never on PRs (including from forks), which shouldn't get App Store
+    # Connect credentials. Gating the whole job (not just its last step)
+    # means a PR run skips straight past the macOS minutes this job would
+    # otherwise cost.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web export
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
+          NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
+
+      - name: Type-check and lint
+        run: |
+          npx tsc --noEmit
+          npm run lint
+
+      - name: Sync Capacitor iOS project
+        run: npx cap sync ios
+
+      # Own cache scope from the `simulator` job's — `xcodebuild archive`
+      # below doesn't pass `-derivedDataPath`, so it writes to Xcode's
+      # default location instead of `ios/App/build`; caching the wrong path
+      # here would silently cache nothing useful for an archive build.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Developer/Xcode/DerivedData
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-testflight-spm-${{ hashFiles('ios/App/CapApp-SPM/Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-testflight-spm-
+
       - name: Build & upload signed archive to TestFlight
-        # Only on main itself, same reasoning as the Android publish step —
-        # never on PRs, which shouldn't get App Store Connect credentials.
         # Skips gracefully (no failure) until the three secrets below are
         # configured — see README.
         #
@@ -119,7 +180,6 @@ jobs:
         # and a monotonic GitHub Actions run number guarantees that for
         # free, same trick as ANDROID_VERSION_CODE in the Android workflow.
         id: testflight
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         working-directory: ios/App
         env:
           KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
