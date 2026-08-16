@@ -15,7 +15,7 @@
  * in each collection's permissions (see scripts/appwrite-setup.ts), not
  * in hiding these two values.
  */
-import { Account, Client, TablesDB, Teams } from "appwrite";
+import { Account, Client, Functions, TablesDB, Teams } from "appwrite";
 
 const ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
@@ -36,11 +36,18 @@ export const TABLES = {
   runComments: "run_comments",
 } as const;
 
+// Matches appwrite-functions/delete-account's Function ID — set this exact
+// ID when creating the function in the Appwrite console (see README), same
+// convention as TABLES above (a fixed, human-readable ID chosen at
+// creation, not one Appwrite generates).
+export const DELETE_ACCOUNT_FUNCTION_ID = "delete-account";
+
 interface AppwriteServices {
   client: Client;
   account: Account;
   tablesDB: TablesDB;
   teams: Teams;
+  functions: Functions;
 }
 
 let services: AppwriteServices | null = null;
@@ -60,6 +67,7 @@ export function getAppwrite(): AppwriteServices | null {
       account: new Account(client),
       tablesDB: new TablesDB(client),
       teams: new Teams(client),
+      functions: new Functions(client),
     };
   }
   return services;

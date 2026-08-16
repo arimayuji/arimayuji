@@ -116,6 +116,60 @@ cada upload novo da mesma versão. O Team ID (`6YJ97VWT8V`) tá fixo direto
 no workflow — não é secreto, é o mesmo prefixo que já aparece em qualquer
 provisioning profile da conta.
 
+## Prontidão pra revisão das lojas
+
+**Sign in with Apple** (`src/lib/auth.ts`): obrigatório pela guideline 4.8
+da App Store sempre que o app oferece login social de terceiro (aqui,
+Google) — sem ele a submissão é rejeitada. Configuração no lado da Apple
+(exige a mesma conta Apple Developer Program do TestFlight):
+
+1. [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list) →
+   Identifiers → **+** → **Services IDs** → cria um identificador **diferente**
+   do bundle ID do app (ex: `com.xanthus.app.signin`), habilita **Sign in
+   with Apple**, e configura o domínio (`xanthus.yujiarima.workers.dev`) e a
+   Return URL — o valor exato da Return URL está na tela do provedor "Apple"
+   dentro do Appwrite Console (Auth → Settings → OAuth2 Providers).
+2. **Keys** → **+** → habilita **Sign in with Apple**, associa ao App ID
+   principal (`com.xanthus.app`) → baixa o `.p8` (só uma vez).
+3. No **Appwrite Console** → Auth → Settings → OAuth2 Providers → **Apple**:
+   habilita e preenche Client ID (o Services ID do passo 1), Team ID, Key ID
+   e o conteúdo do `.p8` do passo 2 — confira os nomes exatos dos campos na
+   tela, podem variar entre versões do Appwrite.
+
+Não precisa de nenhuma mudança no projeto Xcode/`ios/App` — o fluxo passa
+pelo endpoint OAuth2 padrão da Apple (`appleid.apple.com`) do mesmo jeito
+que Google e Microsoft já funcionam aqui, sem SDK nativo nem entitlement.
+
+**Exclusão de conta** (`appwrite-functions/delete-account`): obrigatória
+pela guideline 5.1.1(v) da App Store sempre que o app permite criar conta.
+O SDK cliente do Appwrite não tem um jeito de auto-excluir a conta (só
+`deleteSession`/`deleteIdentity`) — apagar de verdade exige a API
+privilegiada de Users, então isso roda como uma **Appwrite Function**
+separada, nunca no cliente. Deploy (via [Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+
+```bash
+cd appwrite-functions/delete-account
+appwrite functions create \
+  --function-id delete-account --name "Excluir conta" \
+  --runtime node-22 --entrypoint src/main.js \
+  --execute users
+appwrite push functions
+```
+
+Depois, no Appwrite Console → Functions → delete-account → **Settings →
+API key scopes**, marca `users.write` e `databases.write` — é isso que dá
+à function a chave dinâmica (por execução, sem secret fixo guardado)
+necessária pra apagar a conta e as linhas do usuário nas tabelas
+`friendships`, `coach_relationships`, `place_ratings`, `runs`, `live_runs`
+e `run_comments`. O `--execute users` restringe quem pode chamar a
+function a usuários autenticados — Appwrite identifica automaticamente
+quem está chamando pela própria sessão, sem o cliente precisar informar
+nada.
+
+**Política de Privacidade** (`/privacidade`): já publicada junto com o
+resto do app — a URL a colar nas duas lojas é
+`https://xanthus.yujiarima.workers.dev/privacidade`.
+
 ## Rodando localmente
 
 ```bash

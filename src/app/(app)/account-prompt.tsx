@@ -1,6 +1,6 @@
 "use client";
 
-import { signInWithGoogle, signInWithMicrosoft } from "@/lib/auth";
+import { signInWithApple, signInWithGoogle, signInWithMicrosoft } from "@/lib/auth";
 import { ModalPortal } from "./modal-portal";
 
 const STROKE = {
@@ -85,6 +85,18 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
             </ul>
 
             <div className="mt-6 flex flex-col gap-2.5">
+              {/* Listed first — not just alphabetical: App Store guideline
+                  4.8 expects Sign in with Apple at least as prominent as
+                  any other third-party login offered alongside it. */}
+              <button
+                type="button"
+                onClick={() => signInWithApple(returnTo)}
+                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold"
+              >
+                <AppleIcon />
+                Continuar com Apple
+              </button>
+
               <button
                 type="button"
                 onClick={() => signInWithGoogle(returnTo)}
@@ -112,6 +124,14 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
         </div>
       </div>
     </ModalPortal>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" aria-hidden="true" fill="currentColor">
+      <path d="M16.365 1.43c0 1.14-.417 2.196-1.244 3.06-.9.94-2.276 1.657-3.436 1.564-.144-1.096.437-2.24 1.216-3.024.87-.887 2.34-1.545 3.464-1.6zM20.5 17.313c-.505 1.157-.747 1.674-1.396 2.703-.907 1.44-2.187 3.234-3.774 3.246-1.412.012-1.775-.917-3.69-.906-1.916.012-2.317.923-3.73.911-1.586-.012-2.798-1.633-3.706-3.073-2.54-4.01-2.808-8.716-1.24-11.222 1.113-1.78 2.874-2.821 4.531-2.821 1.686 0 2.747.938 4.142.938 1.353 0 2.178-.94 4.132-.94 1.478 0 3.042.804 4.157 2.194-3.653 2.002-3.06 7.216.574 8.97z" />
+    </svg>
   );
 }
 

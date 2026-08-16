@@ -6,6 +6,7 @@ import { signOut } from "@/lib/auth";
 import { useAuth } from "@/lib/useAuth";
 import { Card, CardTitle, NoticeBadge } from "./ui";
 import { AccountPrompt } from "./account-prompt";
+import { DeleteAccountConfirm } from "./delete-account-confirm";
 import { HandlePicker } from "./handle-picker";
 
 const RETURN_TO = "/perfil";
@@ -20,6 +21,7 @@ const RETURN_TO = "/perfil";
 export function AccountCard() {
   const { status, account, profile, refresh } = useAuth();
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
     <Card className="pr-enter">
@@ -92,6 +94,14 @@ export function AccountCard() {
         <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
       </Link>
 
+      <Link
+        href="/privacidade"
+        className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm"
+      >
+        <span className="text-muted">Privacidade</span>
+        <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
+      </Link>
+
       {status === "signed-in" && profile && (
         <Link
           href="/amigos"
@@ -102,8 +112,31 @@ export function AccountCard() {
         </Link>
       )}
 
+      {status === "signed-in" && profile && (
+        <button
+          type="button"
+          onClick={() => setShowDeleteConfirm(true)}
+          className="mt-3 flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm"
+        >
+          <span className="text-bad">Excluir conta</span>
+          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold text-bad">
+            Abrir
+          </span>
+        </button>
+      )}
+
       {showPrompt && status === "signed-out" && (
         <AccountPrompt onClose={() => setShowPrompt(false)} returnTo={RETURN_TO} />
+      )}
+
+      {showDeleteConfirm && (
+        <DeleteAccountConfirm
+          onClose={() => setShowDeleteConfirm(false)}
+          onDeleted={() => {
+            setShowDeleteConfirm(false);
+            void refresh();
+          }}
+        />
       )}
 
       {status === "needs-handle" && account && (

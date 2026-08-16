@@ -5,8 +5,8 @@
  * backend layer, since recording a run and viewing history never depend
  * on any of this.
  */
-import { ID, type Models, OAuthProvider, Permission, Query, Role } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
+import { ExecutionMethod, ID, type Models, OAuthProvider, Permission, Query, Role } from "appwrite";
+import { APPWRITE_DATABASE_ID, DELETE_ACCOUNT_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 
 export interface Profile extends Models.Row {
   handle: string;
@@ -60,10 +60,55 @@ export function signInWithMicrosoft(returnTo: string): void {
   appwrite.account.createOAuth2Session({ provider: OAuthProvider.Microsoft, success: url, failure: url });
 }
 
+/**
+ * Required alongside Google (App Store guideline 4.8: any third-party
+ * login needs an equivalent Sign in with Apple option). Same OAuth2
+ * redirect flow as the other two providers — Appwrite's "Apple" provider
+ * talks to Apple's own `appleid.apple.com` authorize endpoint over the
+ * web, the same mechanism a browser-based Sign in with Apple integration
+ * uses, so this needs no native iOS entitlement or SDK on top of what
+ * Google/Microsoft already use here.
+ */
+export function signInWithApple(returnTo: string): void {
+  const appwrite = getAppwrite();
+  if (!appwrite) return;
+  const url = `${window.location.origin}${returnTo}`;
+  appwrite.account.createOAuth2Session({ provider: OAuthProvider.Apple, success: url, failure: url });
+}
+
 export async function signOut(): Promise<void> {
   const appwrite = getAppwrite();
   if (!appwrite) return;
   await appwrite.account.deleteSession({ sessionId: "current" });
+}
+
+/**
+ * Deletes the account, profile and every row this user owns elsewhere
+ * (friendships, coach relationships, ratings, shared runs, live runs,
+ * comments) — see appwrite-functions/delete-account. The Appwrite client
+ * SDK has no self-delete on Account (only deleteIdentity/deleteSession),
+ * since removing a user record needs the privileged Users API; the
+ * Function runs that with Appwrite's own dynamic per-execution key,
+ * scoped to this one call, identifying the caller from their own active
+ * session — nothing about who's deleting is passed in by the client.
+ * Throws on failure so the caller can show an error instead of silently
+ * leaving the account intact; on success there's no session left to sign
+ * out of; the caller should just redirect away from any account-only screen.
+ */
+export async function deleteAccount(): Promise<void> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return;
+  const execution = await appwrite.functions.createExecution({
+    functionId: DELETE_ACCOUNT_FUNCTION_ID,
+    method: ExecutionMethod.POST,
+  });
+  // A synchronous execution "succeeds" (no thrown exception) even when the
+  // function's own handler returned an error response — the invocation
+  // itself still completed. Check the function's actual response status,
+  // not just that Appwrite managed to run it.
+  if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300) {
+    throw new Error(`Falha ao excluir conta (status ${execution.responseStatusCode})`);
+  }
 }
 
 export interface Account {
