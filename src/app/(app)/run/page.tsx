@@ -72,6 +72,28 @@ function useIsStandalone(): boolean {
   return useSyncExternalStore(noopSubscribe, isStandaloneDisplay, () => false);
 }
 
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+function subscribeColorScheme(onChange: () => void): () => void {
+  const query = window.matchMedia(DARK_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+/**
+ * Same pattern as `route-map.tsx`'s `useColorScheme` — needed here because
+ * the "Procurando GPS" clip picks its theme from an actual dark-mode check
+ * in JS now, not a CSS `dark:invert dark:mix-blend-screen` trick. That
+ * trick relied on `mix-blend-mode` applying to a `<video>` element, which
+ * doesn't reliably happen inside a native WebView (confirmed: it left a
+ * visible mismatched box behind the runners on a real Android build even
+ * though it looked fine in every desktop browser tested). Baking the
+ * inversion into a second video file instead needs no CSS support at all.
+ */
+function useIsDarkMode(): boolean {
+  return useSyncExternalStore(subscribeColorScheme, () => window.matchMedia(DARK_QUERY).matches, () => false);
+}
+
 const PAUSE_ICON_STROKE = {
   fill: "none",
   stroke: "currentColor",
@@ -272,12 +294,31 @@ const GPS_LABEL: Record<string, { label: string; bars: 1 | 2 | 3; className: str
   good: { label: "Sinal bom", bars: 3, className: "bg-good" },
 };
 
-/** Rotated while `status === "warming"` — one fixed line reads as the app being stuck, not just the GPS chip taking its usual few seconds. */
-const WARMING_MESSAGES = [
-  "Fique a céu aberto. O cronômetro começa assim que o sinal ficar estável.",
-  "Perto de prédios altos ou árvores densas, o GPS demora um pouco mais.",
-  "Isso costuma levar só alguns segundos.",
-  "Assim que o sinal firmar, a corrida começa sozinha — não precisa tocar em nada.",
+/**
+ * Rotated while `status === "warming"` — one fixed pair (title stuck on
+ * "Procurando GPS…" forever included) reads as the app being stuck, not
+ * just the GPS chip taking its usual stretch. The third message used to
+ * promise "só alguns segundos" — real devices indoors have taken up to
+ * ~20s to lock a first fix, so it now sets a real range instead of a
+ * false one.
+ */
+const WARMING_MESSAGES: { title: string; body: string }[] = [
+  {
+    title: "Procurando GPS…",
+    body: "Fique a céu aberto. O cronômetro começa assim que o sinal ficar estável.",
+  },
+  {
+    title: "Ajustando o sinal…",
+    body: "Perto de prédios altos ou árvores densas, o GPS demora um pouco mais.",
+  },
+  {
+    title: "Quase lá…",
+    body: "Costuma levar de 10 a 30 segundos pra travar a primeira vez, principalmente em ambiente fechado.",
+  },
+  {
+    title: "Só mais um instante…",
+    body: "Assim que o sinal firmar, a corrida começa sozinha — não precisa tocar em nada.",
+  },
 ];
 const WARMING_MESSAGE_INTERVAL_MS = 3500;
 
@@ -636,10 +677,11 @@ export default function RunPage() {
   }, [state.status, state.gpsQuality]);
 
   /**
-   * Tracks added through the manual iTunes-lookup form, kept apart from
-   * `state.finishedRun.tracks` (empty until a manual add persists it) and
-   * merged with it only for display — this is what lets the "Trilha sonora"
-   * list update immediately without waiting on a reload.
+   * The single source of truth for "Trilha sonora" once a run is finished —
+   * seeded from `state.finishedRun.tracks` below, then added to/removed from
+   * locally so the list updates immediately without waiting on a reload.
+   * Kept apart from `state.finishedRun` itself since that's owned by
+   * `useRunTracker` and has no setter this screen can reach.
    */
   const [manualTracks, setManualTracks] = useState<RunTrack[]>([]);
   const [musicQuery, setMusicQuery] = useState("");
@@ -647,7 +689,7 @@ export default function RunPage() {
   const [musicSearching, setMusicSearching] = useState(false);
   const [musicSearchFailed, setMusicSearchFailed] = useState(false);
 
-  const displayedTracks = [...(state.finishedRun?.tracks ?? []), ...manualTracks];
+  const displayedTracks = manualTracks;
 
   /** Narrowing on `state.finishedRun` doesn't survive into the record callbacks below. */
   const finishedRun = state.finishedRun;
@@ -677,14 +719,21 @@ export default function RunPage() {
         playedAt: Date.now(),
         artworkUrl: candidate.artworkUrl || undefined,
       };
-      const nextManualTracks = [...manualTracks, newTrack];
-      setManualTracks(nextManualTracks);
+      const next = [...manualTracks, newTrack];
+      setManualTracks(next);
       setMusicQuery("");
       setMusicResults(null);
-      await updateRunTracks(state.finishedRun.id, [
-        ...(state.finishedRun.tracks ?? []),
-        ...nextManualTracks,
-      ]);
+      await updateRunTracks(state.finishedRun.id, next);
+    },
+    [state.finishedRun, manualTracks],
+  );
+
+  const handleRemoveTrack = useCallback(
+    async (index: number) => {
+      if (!state.finishedRun) return;
+      const next = manualTracks.filter((_, i) => i !== index);
+      setManualTracks(next);
+      await updateRunTracks(state.finishedRun.id, next);
     },
     [state.finishedRun, manualTracks],
   );
@@ -820,6 +869,7 @@ export default function RunPage() {
 
   const isLiveRun = state.status === "tracking" || state.status === "paused";
   const standalone = useIsStandalone();
+  const isDarkMode = useIsDarkMode();
   // Same condition passed to useImmersiveMode() above — while it's true,
   // AppShell skips its own top safe-area inset to keep the map full-bleed,
   // so this header has to carry that inset itself instead. The rest of the
@@ -1126,27 +1176,30 @@ export default function RunPage() {
       {state.status === "warming" && (
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
           {/*
-           * Same treatment as the splash clip (see splash.tsx): the source is
-           * baked black-line-art-on-white with no alpha channel. A CSS mask
-           * can only crop that white square into a softer-edged white square
-           * — it never actually removes the background, which is what showed
-           * up as a stark light box on a dark screen. In light mode the
-           * clip's own white background already matches the app's, so it
-           * plays untouched; in dark mode `invert` flips it to white-on-black
-           * and `mix-blend-screen` drops the now-black ground out entirely,
-           * leaving just the runners floating on the real theme background.
+           * Two separate clips, not one clip plus a CSS invert/blend-mode
+           * trick — that trick relied on `mix-blend-mode` applying to a
+           * `<video>` element, which doesn't reliably happen inside a native
+           * WebView (confirmed on a real Android build: it left a visible
+           * mismatched box behind the runners, even though it looked right
+           * in every desktop browser). `running-loop-dark.mp4` is the same
+           * clip pre-inverted (white line art, solid near-black background)
+           * so dark mode needs no runtime CSS support at all — just picking
+           * the right file.
            */}
           <video
+            key={isDarkMode ? "dark" : "light"}
             autoPlay
             loop
             muted
             playsInline
-            className="block h-56 w-56 sm:h-64 sm:w-64 dark:invert dark:mix-blend-screen"
-            src="/running-loop.mp4"
+            className="block h-56 w-56 sm:h-64 sm:w-64"
+            src={isDarkMode ? "/running-loop-dark.mp4" : "/running-loop.mp4"}
           />
-          <p className="text-lg font-medium">Procurando GPS&hellip;</p>
-          <p key={warmingMessageIndex} className="pr-enter max-w-xs text-sm text-muted">
-            {WARMING_MESSAGES[warmingMessageIndex]}
+          <p key={`title-${warmingMessageIndex}`} className="pr-enter text-lg font-medium">
+            {WARMING_MESSAGES[warmingMessageIndex].title}
+          </p>
+          <p key={`body-${warmingMessageIndex}`} className="pr-enter max-w-xs text-sm text-muted">
+            {WARMING_MESSAGES[warmingMessageIndex].body}
           </p>
           <button type="button" onClick={handleReset} className="mt-4 text-sm text-muted underline">
             Cancelar
@@ -1261,7 +1314,12 @@ export default function RunPage() {
                 {state.gpsQuality !== "good" ? "Aguardando sinal…" : "Retomar"}
               </button>
             )}
-            <HoldToFinishButton onConfirm={() => finish({ shoeName })} />
+            <HoldToFinishButton
+              onConfirm={() => {
+                const run = finish({ shoeName });
+                setManualTracks(run.tracks ?? []);
+              }}
+            />
           </div>
         </main>
       )}
@@ -1480,9 +1538,19 @@ export default function RunPage() {
                         className="h-10 w-10 shrink-0 rounded-lg object-cover"
                       />
                     )}
-                    <span className="truncate">
+                    <span className="min-w-0 flex-1 truncate">
                       {track.name} <span className="text-muted">— {track.artist}</span>
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveTrack(i)}
+                      aria-label={`Remover ${track.name}`}
+                      className="shrink-0 rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
                   </li>
                 ))}
               </ul>
