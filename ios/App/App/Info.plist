@@ -26,6 +26,12 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>O Xanthus usa sua localização para registrar a rota e o pace da sua corrida.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>O Xanthus continua registrando sua rota e seu pace mesmo com a tela bloqueada durante a corrida.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

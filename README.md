@@ -185,6 +185,25 @@ produção isso é automático.
 
 O núcleo fica em `src/lib/tracking/`:
 
+- **`geolocation.ts`** — dois backends de GPS por trás da mesma interface
+  (`beginGeoWatch`/`endGeoWatch`), escolhidos por plataforma. Na web,
+  `@capacitor/geolocation` (que cai pro `navigator.geolocation` sozinho).
+  No nativo, `@capacitor-community/background-geolocation` — o
+  `watchPosition` do primeiro só entrega fix com a WebView visível; tela
+  bloqueada ou app em segundo plano pausa, que é exatamente o problema que
+  motivou ir pra nativo. O plugin de background roda um foreground service
+  de verdade no Android (a notificação persistente é obrigatória pelo
+  próprio Android pra manter isso vivo) e pede autorização "Always" no
+  iOS. **Só testado contra Capacitor 7** (`npx cap sync` avisa isso) —
+  precisa validar em aparelho real antes de confiar. No iOS, mesmo com
+  "Always", a entrega de fix pra dentro da WKWebView suspensa tende a vir
+  em lote só quando o app volta ao primeiro plano, não como fluxo
+  contínuo — limite estrutural do modelo de WebView, não bug do plugin.
+  `capacitor.config.ts` liga `android.useLegacyBridge` (sem isso, os fixes
+  param de chegar ~5min depois da tela travar) e `ios/App/App/Info.plist`
+  declara `NSLocationAlwaysAndWhenInUseUsageDescription` +
+  `UIBackgroundModes: [location]` — a Apple revisa essa justificativa até
+  pra TestFlight (Internal Testing não, só External).
 - **`geoFilter.ts`** — filtro Kalman escalar para posição, EWMA para
   velocidade, e os três gates que descartam GPS ruim: acurácia, salto
   implausível de velocidade e drift parado. Prefere `coords.speed`
