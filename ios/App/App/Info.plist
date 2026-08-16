@@ -24,6 +24,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!--
+	  Declara de antemão que o app não implementa criptografia própria (só
+	  HTTPS padrão via Appwrite/MapTiler/Cloudflare) — sem isso, cada build
+	  novo fica parado em "Missing Compliance" no App Store Connect até
+	  alguém responder manualmente a pergunta de Export Compliance na UI.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>O Xanthus usa sua localização para registrar a rota e o pace da sua corrida.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
