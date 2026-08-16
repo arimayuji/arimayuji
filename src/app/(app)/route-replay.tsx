@@ -191,7 +191,10 @@ export function RouteReplay({
       square={!fullscreen}
     >
       {frame && (
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-4 bg-gradient-to-b from-black/75 via-black/45 to-transparent pl-14 pr-4 pt-3 pb-8">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-4 bg-gradient-to-b from-black/75 via-black/45 to-transparent pl-14 pr-4 pb-8"
+            style={{ paddingTop: fullscreen ? "calc(0.75rem + env(safe-area-inset-top))" : "0.75rem" }}
+          >
             <Readout label="Distância" value={formatDistance(frame.meters, unit)} unit={unitLabel(unit)} />
             <Readout label="Tempo" value={formatElapsed(Math.round(frame.seconds))} />
             {/* "agora", not the run's average: this is the rolling pace at the head, which is what makes a surge visible as it happens. */}
@@ -203,6 +206,13 @@ export function RouteReplay({
           </div>
         )}
 
+        {/*
+          `top`/`bottom` set via style, not Tailwind's `top-3`/`bottom-3`:
+          only in `fullscreen` (portalled `fixed inset-0`, real screen edges)
+          does this need to clear the OS status/gesture bars — the embedded
+          card view sits mid-page, where `env(safe-area-inset-*)` would still
+          report the same device-wide inset and wrongly pad it too.
+        */}
         <button
           type="button"
           onClick={(event) => {
@@ -210,7 +220,8 @@ export function RouteReplay({
             setFullscreen((value) => !value);
           }}
           aria-label={fullscreen ? "Sair da tela cheia" : "Tela cheia"}
-          className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm active:scale-95"
+          className="absolute left-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm active:scale-95"
+          style={{ top: fullscreen ? "calc(0.75rem + env(safe-area-inset-top))" : "0.75rem" }}
         >
           {fullscreen ? <CollapseIcon /> : <ExpandIcon />}
         </button>
@@ -224,7 +235,8 @@ export function RouteReplay({
                 if (playing) pause();
                 else play();
               }}
-              className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white backdrop-blur-sm active:scale-95"
+              className="absolute right-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white backdrop-blur-sm active:scale-95"
+              style={{ top: fullscreen ? "calc(0.75rem + env(safe-area-inset-top))" : "0.75rem" }}
             >
               {playing ? <PauseIcon /> : <PlayIcon />}
               {playing ? "Pausar" : started ? "Continuar" : "Replay"}
@@ -243,7 +255,8 @@ export function RouteReplay({
               onClick={(event) => event.stopPropagation()}
               onPointerDown={handleTrackPointerDown}
               onPointerMove={handleTrackPointerMove}
-              className="absolute right-3 bottom-3 left-16 flex h-8 cursor-pointer touch-none items-center"
+              className="absolute right-3 left-16 flex h-8 cursor-pointer touch-none items-center"
+              style={{ bottom: fullscreen ? "calc(0.75rem + env(safe-area-inset-bottom))" : "0.75rem" }}
             >
               <div className="relative h-1 w-full rounded-full bg-white/20">
                 <div
