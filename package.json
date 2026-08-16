@@ -10,6 +10,8 @@
     "setup:appwrite": "tsx scripts/appwrite-setup.ts"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/geolocation": "^8.2.2",
     "@protomaps/basemaps": "^5.7.2",
     "appwrite": "^26.2.0",
     "maplibre-gl": "^5.24.0",

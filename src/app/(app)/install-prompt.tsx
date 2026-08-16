@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { isStandaloneDisplay } from "@/lib/platform";
 
 const DISMISSED_KEY = "xanthus:install-prompt-dismissed";
 
@@ -10,20 +11,13 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-function isStandalone(): boolean {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    // iOS Safari's own flag — it never sets display-mode via matchMedia.
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
 function isIos(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
+/** Also covers the native app: `isStandaloneDisplay()` is true inside a Capacitor build, where an "install" banner makes no sense. */
 function eligibleForBanner(): boolean {
-  if (isStandalone()) return false;
+  if (isStandaloneDisplay()) return false;
   try {
     return localStorage.getItem(DISMISSED_KEY) !== "1";
   } catch {

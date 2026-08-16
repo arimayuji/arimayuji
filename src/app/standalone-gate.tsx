@@ -2,15 +2,7 @@
 
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-
-/** Same check install-prompt.tsx uses to hide its own banner once installed. */
-function isStandalone(): boolean {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    // iOS Safari's own flag — it never sets display-mode via matchMedia.
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
+import { isStandaloneDisplay } from "@/lib/platform";
 
 const noopSubscribe = () => () => {};
 
@@ -32,7 +24,7 @@ const noopSubscribe = () => () => {};
  * before redirecting away from it.
  */
 export function StandaloneGate({ children }: { children: ReactNode }) {
-  const standalone = useSyncExternalStore(noopSubscribe, isStandalone, () => false);
+  const standalone = useSyncExternalStore(noopSubscribe, isStandaloneDisplay, () => false);
   const router = useRouter();
 
   useEffect(() => {

@@ -18,6 +18,8 @@ import {
   type GpsGap,
   type LatLon,
 } from "./geoFilter";
+import { beginGeoWatch, endGeoWatch, type GeoError, type GeoFix } from "./geolocation";
+import { isNativePlatform } from "../platform";
 import { speak, unlockSpeech } from "./speech";
 import { WakeLockController } from "./wakeLock";
 import {
@@ -102,7 +104,6 @@ export function useRunTracker() {
     pauseEvents: [],
   });
 
-  const watchIdRef = useRef<number | null>(null);
   const wakeLockRef = useRef(new WakeLockController());
   const kalmanRef = useRef<Kalman2D | null>(null);
   /** Fixed the moment the filter is (re-)seeded — every fix afterward projects into East/North metres relative to this point. */
@@ -160,10 +161,7 @@ export function useRunTracker() {
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearWatch = useCallback(() => {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
+    endGeoWatch();
   }, []);
 
   const stopTicking = useCallback(() => {
@@ -211,9 +209,9 @@ export function useRunTracker() {
   }, []);
 
   const handleFix = useCallback(
-    (position: GeolocationPosition) => {
-      const { latitude: lat, longitude: lon, accuracy, speed, heading } = position.coords;
-      const timestamp = position.timestamp;
+    (fix: GeoFix) => {
+      const { latitude: lat, longitude: lon, accuracy, speed, heading } = fix.coords;
+      const timestamp = fix.timestamp;
 
       const quality: GpsQuality = accuracy <= 10 ? "good" : accuracy <= 25 ? "weak" : "searching";
       setState((s) => (s.gpsQuality === quality ? s : { ...s, gpsQuality: quality }));
@@ -466,33 +464,29 @@ export function useRunTracker() {
     [computeElapsedSeconds, persistIfDue, startTicking],
   );
 
-  const handleError = useCallback((err: GeolocationPositionError) => {
-    if (err.code === err.TIMEOUT) {
+  const handleError = useCallback((err: GeoError) => {
+    if (err.kind === "timeout") {
       setState((s) => ({ ...s, gpsQuality: "searching" }));
       return; // keep the watch alive, GPS may recover (tunnel, tree cover, ...)
     }
-    // Once denied, the browser won't prompt again on its own — the raw
-    // GeolocationPositionError message ("User denied Geolocation") doesn't
-    // tell anyone that, or where to go fix it, so this is the one error
-    // code worth a message written for a person instead of passed through.
+    // Once denied, the OS won't prompt again on its own — the raw error
+    // message doesn't tell anyone that, or where to go fix it, so this is
+    // the one error kind worth a message written for a person instead of
+    // passed through.
     const message =
-      err.code === err.PERMISSION_DENIED
+      err.kind === "permission-denied"
         ? "Localização bloqueada pro Xanthus. Ativa em Ajustes do aparelho → Apps → Xanthus → Permissões → Localização, aí volta aqui."
         : err.message;
     setState((s) => ({ ...s, error: message }));
   }, []);
 
   const beginWatch = useCallback(() => {
-    watchIdRef.current = navigator.geolocation.watchPosition(handleFix, handleError, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 30_000,
-    });
+    beginGeoWatch(handleFix, handleError);
   }, [handleError, handleFix]);
 
   const start = useCallback(
     (options?: StartOptions) => {
-      if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
         setState((s) => ({ ...s, error: "Geolocalização não é suportada neste navegador." }));
         return;
       }
