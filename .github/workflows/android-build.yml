@@ -45,25 +45,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Fails in seconds instead of after minutes of Gradle work — a typo
-      # shouldn't cost a full native build to surface.
-      - name: Type-check and lint
-        run: |
-          npx tsc --noEmit
-          npm run lint
-
       - name: Build web export
-        # NEXT_PUBLIC_* vars are optional here: Appwrite-backed features
-        # (login, amigos, treinador) degrade gracefully to "unconfigured"
-        # without them (see src/lib/appwrite.ts) — this build still produces
-        # a working core app (corrida, histórico, GPS). To ship a fully
-        # working APK, add these as repo secrets (Settings → Secrets and
-        # variables → Actions).
+        # Runs before the type-check step below: Next.js's typed-routes
+        # feature generates globals like `LayoutProps<"/">` into
+        # `.next/types` only as a side effect of `next build` (or `next
+        # dev`) — on a fresh checkout `tsc --noEmit` fails with "Cannot
+        # find name 'LayoutProps'" if it runs first, since that type
+        # simply doesn't exist yet. NEXT_PUBLIC_* vars are optional here:
+        # Appwrite-backed features (login, amigos, treinador) degrade
+        # gracefully to "unconfigured" without them (see
+        # src/lib/appwrite.ts) — this build still produces a working core
+        # app (corrida, histórico, GPS). To ship a fully working APK, add
+        # these as repo secrets (Settings → Secrets and variables →
+        # Actions).
         run: npm run build
         env:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
           NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
+
+      # Fails in seconds instead of after minutes of Gradle work — a typo
+      # shouldn't cost a full native build to surface. `next build` above
+      # already type-checks internally, but this also runs lint and keeps
+      # the two checks in one obvious place.
+      - name: Type-check and lint
+        run: |
+          npx tsc --noEmit
+          npm run lint
 
       - name: Sync Capacitor Android project
         run: npx cap sync android

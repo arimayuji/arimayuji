@@ -33,18 +33,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Fails in seconds instead of after minutes of Xcode work.
-      - name: Type-check and lint
-        run: |
-          npx tsc --noEmit
-          npm run lint
-
       - name: Build web export
+        # Runs before the type-check step below: Next.js's typed-routes
+        # feature generates globals like `LayoutProps<"/">` into
+        # `.next/types` only as a side effect of `next build` — on a fresh
+        # checkout `tsc --noEmit` fails with "Cannot find name
+        # 'LayoutProps'" if it runs first, since that type doesn't exist yet.
         run: npm run build
         env:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
           NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
+
+      # Fails in seconds instead of after minutes of Xcode work.
+      - name: Type-check and lint
+        run: |
+          npx tsc --noEmit
+          npm run lint
 
       - name: Sync Capacitor iOS project
         run: npx cap sync ios
