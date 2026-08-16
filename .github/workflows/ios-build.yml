@@ -97,18 +97,20 @@ jobs:
         # is passed on the command line since committing it to the project
         # isn't necessary for this to work.
         #
-        # CODE_SIGN_IDENTITY is also forced to "Apple Distribution" on the
-        # command line — Capacitor's template bakes a stale project-level
-        # `CODE_SIGN_IDENTITY = "iPhone Developer"` into App.xcodeproj
-        # (harmless for local `assembleDebug`-equivalent runs, since Xcode
-        # ignores it there) that Automatic signing otherwise inherits during
-        # an archive, making Apple try to hand out a Development profile —
-        # which needs a physical device registered on the account — instead
-        # of the Distribution one an App Store upload actually needs. First
-        # attempt at this failed with exactly that: "No profiles for
-        # 'com.xanthus.app' were found... couldn't find any iOS App
-        # Development provisioning profiles" on a fresh account with zero
-        # registered devices.
+        # No CODE_SIGN_IDENTITY override here — Automatic signing and a
+        # manually-specified identity are mutually exclusive (Xcode refuses
+        # outright: "conflicting provisioning settings... Set the code
+        # signing identity value to 'Apple Development'... or switch to
+        # manual signing"), so a command-line override (highest precedence)
+        # can never coexist with CODE_SIGN_STYLE=Automatic. The actual root
+        # cause of this needing anything special at all — Capacitor's
+        # template baked a stale project-level (not target-level)
+        # `CODE_SIGN_IDENTITY = "iPhone Developer"` into App.xcodeproj, which
+        # Automatic signing at the target level still inherited during an
+        # archive, making Apple try to hand out a Development profile
+        # (needs a registered physical device) instead of the Distribution
+        # one an App Store upload needs — is fixed by removing that stale
+        # setting directly from the project file instead.
         #
         # CURRENT_PROJECT_VERSION (the build number, distinct from
         # MARKETING_VERSION="1.0") is set to this workflow's own run number —
@@ -141,7 +143,6 @@ jobs:
             -archivePath build/App.xcarchive -destination "generic/platform=iOS" \
             "${AUTH_FLAGS[@]}" \
             DEVELOPMENT_TEAM=6YJ97VWT8V CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
 
           cat > ExportOptions.plist <<EOF
