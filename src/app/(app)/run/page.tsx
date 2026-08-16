@@ -21,7 +21,6 @@ import {
   markEmblemOpened,
   markRecordOpened,
   runMovingSeconds,
-  summarizeShoes,
   updateRunRpe,
   updateRunTracks,
   type ActiveRunSnapshot,
@@ -273,6 +272,15 @@ const GPS_LABEL: Record<string, { label: string; bars: 1 | 2 | 3; className: str
   good: { label: "Sinal bom", bars: 3, className: "bg-good" },
 };
 
+/** Rotated while `status === "warming"` — one fixed line reads as the app being stuck, not just the GPS chip taking its usual few seconds. */
+const WARMING_MESSAGES = [
+  "Fique a céu aberto. O cronômetro começa assim que o sinal ficar estável.",
+  "Perto de prédios altos ou árvores densas, o GPS demora um pouco mais.",
+  "Isso costuma levar só alguns segundos.",
+  "Assim que o sinal firmar, a corrida começa sozinha — não precisa tocar em nada.",
+];
+const WARMING_MESSAGE_INTERVAL_MS = 3500;
+
 /** Three ascending dots, wifi-bar style: how many are lit says the strength, the colour says whether that's good enough. Replaces a single dot + text label, which said the same thing twice. */
 function GpsDot({ quality }: { quality: string }) {
   const info = GPS_LABEL[quality] ?? GPS_LABEL.searching;
@@ -395,6 +403,8 @@ function computeEmblemProgress(run: CompletedRun, allRuns: CompletedRun[]): Embl
 export default function RunPage() {
   const { state, start, pause, resume, finish, reset, setPauseReason, recover } = useRunTracker();
   const [discarding, setDiscarding] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const [warmingMessageIndex, setWarmingMessageIndex] = useState(0);
   /**
    * A run whose process died mid-recording (screen locked, Android reclaimed
    * the memory, no foreground service keeping it alive) — checked once on
@@ -407,10 +417,7 @@ export default function RunPage() {
   const [goalKm, setGoalKm] = useState("5");
   const [goalMinutes, setGoalMinutes] = useState("");
   const [shoeName, setShoeName] = useState("");
-  const [shoeSuggestions, setShoeSuggestions] = useState<string[]>([]);
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
-  /** True once the athlete has typed into the manual field, or picked a shoe not in `registeredShoes` (e.g. from a previous run) — keeps the free-text field visible instead of it disappearing the moment a card is selectable. */
-  const [typingShoe, setTypingShoe] = useState(false);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
   const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
   /** True once the athlete has tapped a ghost option this idle cycle — gates the auto-pick-most-recent default below so it never fights an explicit "Sem fantasma" choice. */
@@ -442,6 +449,18 @@ export default function RunPage() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    // No reset-to-0 on leaving "warming" — the only other setState here
+    // would run synchronously in the effect body, which cascades renders.
+    // Starting the next warmup mid-cycle instead of at message 1 is a cost
+    // worth paying to avoid that.
+    if (state.status !== "warming") return;
+    const id = setInterval(() => {
+      setWarmingMessageIndex((i) => (i + 1) % WARMING_MESSAGES.length);
+    }, WARMING_MESSAGE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [state.status]);
 
   /**
    * Personal-record check: best split for each standard distance this run
@@ -477,8 +496,6 @@ export default function RunPage() {
   useEffect(() => {
     if (state.status !== "idle") return;
     Promise.all([listShoes(), listCompletedRuns()]).then(([shoes, runs]) => {
-      const used = summarizeShoes(runs).map((s) => s.name);
-      setShoeSuggestions([...new Set([...shoes.map((s) => s.name), ...used])]);
       setRegisteredShoes(shoes);
       const sorted = [...runs].sort((a, b) => b.startedAt - a.startedAt);
       setRecentRuns(sorted.slice(0, RECENT_GHOST_CANDIDATES));
@@ -934,7 +951,7 @@ export default function RunPage() {
 
             <div className="block space-y-1.5">
               <span className="text-sm font-medium">Tênis (opcional)</span>
-              {registeredShoes.length > 0 && !typingShoe ? (
+              {registeredShoes.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -966,39 +983,20 @@ export default function RunPage() {
                       {shoe.name}
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => setTypingShoe(true)}
-                    className="rounded-full border border-dashed border-border px-3 py-2 text-xs font-medium text-muted hover:border-accent"
-                  >
-                    Outro
-                  </button>
                 </div>
               ) : (
-                <>
-                  <input
-                    type="text"
-                    list="shoe-suggestions"
-                    value={shoeName}
-                    onChange={(e) => setShoeName(e.target.value)}
-                    placeholder="Ex.: Meu xodó"
-                    className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-accent"
-                  />
-                  <datalist id="shoe-suggestions">
-                    {shoeSuggestions.map((name) => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
-                  {registeredShoes.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setTypingShoe(false)}
-                      className="text-xs text-accent underline underline-offset-2"
-                    >
-                      Ver meu kit
-                    </button>
-                  )}
-                </>
+                // No free-text fallback here on purpose — a made-up name
+                // typed once and never again isn't worth what it costs later
+                // (histórico/progresso can't tell "Nike Pegasus" from a typo
+                // of the same shoe). Registering once in Perfil is what
+                // makes the mileage-per-shoe tracking there mean anything.
+                <p className="text-xs leading-relaxed text-muted">
+                  Nenhum tênis cadastrado ainda —{" "}
+                  <Link href="/perfil" className="text-accent underline underline-offset-2">
+                    cadastre um no seu perfil
+                  </Link>{" "}
+                  pra escolher aqui.
+                </p>
               )}
             </div>
 
@@ -1147,8 +1145,8 @@ export default function RunPage() {
             src="/running-loop.mp4"
           />
           <p className="text-lg font-medium">Procurando GPS&hellip;</p>
-          <p className="max-w-xs text-sm text-muted">
-            Fique a céu aberto. O cronômetro começa assim que o sinal ficar estável.
+          <p key={warmingMessageIndex} className="pr-enter max-w-xs text-sm text-muted">
+            {WARMING_MESSAGES[warmingMessageIndex]}
           </p>
           <button type="button" onClick={handleReset} className="mt-4 text-sm text-muted underline">
             Cancelar
@@ -1573,14 +1571,39 @@ export default function RunPage() {
             >
               Nova corrida
             </button>
-            <button
-              type="button"
-              onClick={handleDiscard}
-              disabled={discarding}
-              className="w-full rounded-full border border-border px-6 py-3 text-sm font-semibold text-bad disabled:opacity-60"
-            >
-              {discarding ? "Descartando…" : "Descartar corrida"}
-            </button>
+            {confirmingDiscard ? (
+              <div className="flex w-full flex-col gap-2">
+                <p className="text-center text-xs leading-snug text-pretty text-muted">
+                  Descartar essa corrida? Não dá pra desfazer.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDiscard(false)}
+                    disabled={discarding}
+                    className="flex-1 rounded-full border border-border px-6 py-3 text-sm font-semibold disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDiscard}
+                    disabled={discarding}
+                    className="flex-1 rounded-full bg-bad px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {discarding ? "Descartando…" : "Descartar"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDiscard(true)}
+                className="w-full rounded-full border border-border px-6 py-3 text-sm font-semibold text-bad"
+              >
+                Descartar corrida
+              </button>
+            )}
           </div>
         </main>
       )}

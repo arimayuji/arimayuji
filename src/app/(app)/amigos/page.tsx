@@ -256,19 +256,12 @@ export default function AmigosPage() {
                 <CardTitle>Convites enviados</CardTitle>
                 <ul className="flex flex-col gap-3">
                   {outgoing.map((connection) => (
-                    <PersonRow key={connection.friendship.$id} connection={connection}>
-                      <span className="self-center font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                        aguardando
-                      </span>
-                      <button
-                        type="button"
-                        disabled={busyId === connection.friendship.$id}
-                        onClick={() => act(connection.friendship.$id, () => removeFriendship(connection.friendship.$id))}
-                        className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
-                      >
-                        Cancelar
-                      </button>
-                    </PersonRow>
+                    <OutgoingRequestRow
+                      key={connection.friendship.$id}
+                      connection={connection}
+                      busy={busyId === connection.friendship.$id}
+                      onCancel={() => act(connection.friendship.$id, () => removeFriendship(connection.friendship.$id))}
+                    />
                   ))}
                 </ul>
               </Card>
@@ -308,6 +301,54 @@ export default function AmigosPage() {
 
       {showAccountPrompt && <AccountPrompt onClose={() => setShowAccountPrompt(false)} returnTo={RETURN_TO} />}
     </>
+  );
+}
+
+/** Cancelling a sent invite asks twice too — same rule as any other delete in this app, even for a request nobody accepted yet. */
+function OutgoingRequestRow({
+  connection,
+  busy,
+  onCancel,
+}: {
+  connection: FriendConnection;
+  busy: boolean;
+  onCancel: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <PersonRow connection={connection}>
+      <span className="self-center font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+        aguardando
+      </span>
+      {confirming ? (
+        <>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
+          >
+            Confirmar
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground"
+          >
+            Voltar
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad"
+        >
+          Cancelar
+        </button>
+      )}
+    </PersonRow>
   );
 }
 
