@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { isNativePlatform } from "@/lib/platform";
 
 const SESSION_KEY = "xanthus:splash-shown";
 const MAX_MS = 4500;
@@ -9,9 +10,15 @@ const MAX_MS = 4500;
  * Shown once per browser session, before the app: the brand mark rearing up
  * and settling into a run. Skipped outright — not just muted, not shown as a
  * static frame — under reduced-motion, since forcing autoplaying media on
- * someone who opted out isn't "respecting" the preference.
+ * someone who opted out isn't "respecting" the preference. Also skipped
+ * entirely inside the native app: this is a first-impression moment for
+ * someone landing on the marketing site, not a loading screen — replaying it
+ * on every cold start of an app someone already deliberately installed just
+ * reads as an unnecessary delay, the same reasoning `install-prompt.tsx`
+ * already applies to hiding its own banner once installed.
  */
 function shouldShow(): boolean {
+  if (isNativePlatform()) return false;
   try {
     if (sessionStorage.getItem(SESSION_KEY) === "1") return false;
   } catch {

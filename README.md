@@ -30,6 +30,16 @@ conta Apple) só pra validar que o projeto compila — build assinado pra
 TestFlight/dispositivo físico é um passo manual à parte, que exige Xcode
 num Mac e uma conta Apple Developer paga.
 
+**Baixar o APK**: <https://xanthus.yujiarima.workers.dev/download/xanthus.apk>
+— link fixo, sem expirar, sem precisar de login (ao contrário do artefato
+do próprio GitHub Actions, que expira em 30 dias e exige conta com acesso
+ao repo). Pra esse link se manter atualizado sozinho a cada push, falta um
+único passo manual, já que não há como configurar segredos de repositório
+por aqui: em Settings → Secrets and variables → Actions do repo no GitHub,
+criar um secret `CLOUDFLARE_API_TOKEN` com um token de deploy do Cloudflare
+Workers. Sem esse secret, o step de publicação do `android-build.yml` só
+avisa e pula — o resto do build continua normal.
+
 ## Rodando localmente
 
 ```bash
