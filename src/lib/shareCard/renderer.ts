@@ -22,6 +22,7 @@
 import { HORSE_BUST_PATHS, HORSE_FULL_BODY_PATHS } from "@/app/horse-mark";
 import { PHOTO_FILTERS, type PhotoFilterId } from "./photoFilters";
 import type { TextEntranceId } from "./textEntrances";
+import { renderShoe3DFrame } from "./shoe3d";
 import type { DistanceUnit } from "../preferences";
 import {
   TIER_PAINT,
@@ -384,12 +385,14 @@ function floatingMotion(elapsed: number) {
   const bobY = Math.sin((t / 6) * Math.PI * 2) * 11;
   const rotZ = (0.5 + 4.5 * Math.sin((t / 6.5) * Math.PI * 2)) * (Math.PI / 180);
   const turnDeg = 30 * Math.sin((t / 9) * Math.PI * 2);
-  const turnScaleX = Math.cos((turnDeg * Math.PI) / 180);
-  // sin of the same turn angle — 0 face-on, ±1 near edge-on — the extra
-  // signal `drawShoe` uses to fake perspective shear and directional
-  // shading, the two cues `turnScaleX`'s squash alone doesn't sell on its own.
-  const turnSin = Math.sin((turnDeg * Math.PI) / 180);
-  return { bobY, rotZ, turnScaleX, turnSin };
+  const turnRad = (turnDeg * Math.PI) / 180;
+  const turnScaleX = Math.cos(turnRad);
+  // sin of the same turn angle — 0 face-on, ±1 near edge-on — a 2D fake for
+  // depth (perspective shear, directional shading) that things without a
+  // real 3D scene to rotate in fall back on; `drawShoe`'s real WebGL turn
+  // uses `turnRad` directly instead and doesn't need this.
+  const turnSin = Math.sin(turnRad);
+  return { bobY, rotZ, turnScaleX, turnSin, turnRad };
 }
 
 /**
@@ -1321,20 +1324,10 @@ interface ShoeSlot {
 const TRAJETO_SHOE_SLOT: ShoeSlot = { x: 480, y: 900, width: 220 };
 const NUMERO_SHOE_SLOT: ShoeSlot = { x: (SHARE_CARD_WIDTH - 190) / 2, y: 980, width: 190 };
 
-/**
- * The real generated collectible art (see /public/shoe) instead of a
- * hand-drawn vector shoe. Only three angles exist — not a full 3D model —
- * so "turning" is a cross-fade between them rather than a true rotation;
- * see `shoeAngleAt` below for the sequence and timing that sells it.
- */
-const SHOE_IMAGE_SRC = {
-  side: "/shoe/shoe-side.png",
-  front: "/shoe/shoe-front.png",
-  rear: "/shoe/shoe-rear.png",
-} as const;
-type ShoeAngle = keyof typeof SHOE_IMAGE_SRC;
+/** The real generated collectible art (see /public/shoe) — a photo, tinted to the registered colour below, applied as a texture on a real rotating WebGL plane (see `shoe3d.ts`) instead of a hand-drawn 3D model. */
+const SHOE_IMAGE_SRC = "/shoe/shoe-side.png";
 
-const shoeImageCache: Partial<Record<ShoeAngle, HTMLImageElement>> = {};
+let shoeImage: HTMLImageElement | null = null;
 
 /**
  * Kicks off loading on first request and returns the element only once it's
@@ -1344,39 +1337,13 @@ const shoeImageCache: Partial<Record<ShoeAngle, HTMLImageElement>> = {};
  * that window is milliseconds, well before the shoe's own pop-in delay ever
  * makes it visible in the first place.
  */
-function getShoeImage(angle: ShoeAngle): HTMLImageElement | null {
+function getShoeImage(): HTMLImageElement | null {
   if (typeof window === "undefined") return null;
-  let img = shoeImageCache[angle];
-  if (!img) {
-    img = new Image();
-    img.src = SHOE_IMAGE_SRC[angle];
-    shoeImageCache[angle] = img;
+  if (!shoeImage) {
+    shoeImage = new Image();
+    shoeImage.src = SHOE_IMAGE_SRC;
   }
-  return img.complete && img.naturalWidth > 0 ? img : null;
-}
-
-/**
- * Look around, don't spin: side, glance to the front, back to side, glance
- * to the back — then settle, never looping. Timed to actually finish inside
- * the real window the shoe is ever on screen for: it pops in at
- * `ROUTE_DRAW_END + 480` and the whole card ends at `SHARE_CARD_DURATION_MS`,
- * which leaves under 2.1s total — a slower cycle would just get cut off
- * mid-fade on every single card, never seen in full.
- */
-const SHOE_ANGLE_SEQUENCE: readonly ShoeAngle[] = ["side", "front", "side", "rear"];
-const SHOE_ANGLE_HOLD_MS = 380;
-const SHOE_ANGLE_FADE_MS = 280;
-const SHOE_ANGLE_SEGMENT_MS = SHOE_ANGLE_HOLD_MS + SHOE_ANGLE_FADE_MS;
-
-function shoeAngleAt(elapsedSincePop: number): { from: ShoeAngle; to: ShoeAngle; mix: number } {
-  const clamped = Math.max(0, elapsedSincePop);
-  const maxIndex = SHOE_ANGLE_SEQUENCE.length - 2;
-  const index = Math.min(Math.floor(clamped / SHOE_ANGLE_SEGMENT_MS), maxIndex);
-  const from = SHOE_ANGLE_SEQUENCE[index];
-  const to = SHOE_ANGLE_SEQUENCE[index + 1];
-  const withinSegment = clamped - index * SHOE_ANGLE_SEGMENT_MS;
-  if (withinSegment < SHOE_ANGLE_HOLD_MS) return { from, to: from, mix: 0 };
-  return { from, to, mix: easeOut(clamp01((withinSegment - SHOE_ANGLE_HOLD_MS) / SHOE_ANGLE_FADE_MS)) };
+  return shoeImage.complete && shoeImage.naturalWidth > 0 ? shoeImage : null;
 }
 
 function parseHex(hex: string): [number, number, number] {
@@ -1389,18 +1356,19 @@ function parseHex(hex: string): [number, number, number] {
 /**
  * Same duotone trick ShoeShowcase does in CSS (desaturate, then blend a flat
  * colour in with `mix-blend-mode: color`, masked to the source alpha), just
- * done once per angle+colour with canvas composite operations instead,
- * since a `<canvas>` recording has no DOM layers to stack. Cached because
- * it's identical every frame — recomputing a full-res composite 30+ times a
- * second for a shoe that never changes colour mid-video would be wasted work.
+ * done once per colour with canvas composite operations instead, since a
+ * `<canvas>` recording has no DOM layers to stack. Cached because it's
+ * identical every frame — recomputing a full-res composite 30+ times a
+ * second for a shoe that never changes colour mid-video would be wasted
+ * work. The result feeds `shoe3d.ts` as a WebGL texture, same as an
+ * `<img>` would — a canvas is just as valid a texture source.
  */
 const tintedShoeCache = new Map<string, HTMLCanvasElement>();
 
-function getTintedShoeImage(angle: ShoeAngle, colorHex: string): HTMLCanvasElement | null {
-  const source = getShoeImage(angle);
+function getTintedShoeImage(colorHex: string): HTMLCanvasElement | null {
+  const source = getShoeImage();
   if (!source) return null;
-  const key = `${angle}:${colorHex}`;
-  const cached = tintedShoeCache.get(key);
+  const cached = tintedShoeCache.get(colorHex);
   if (cached) return cached;
 
   const canvas = document.createElement("canvas");
@@ -1424,59 +1392,16 @@ function getTintedShoeImage(angle: ShoeAngle, colorHex: string): HTMLCanvasEleme
   tintCtx.drawImage(source, 0, 0);
   tintCtx.globalCompositeOperation = "source-over";
 
-  tintedShoeCache.set(key, canvas);
+  tintedShoeCache.set(colorHex, canvas);
   return canvas;
 }
 
 /**
- * One angle, centred at the current origin, scaled to `targetWidth` with its
- * own aspect ratio — plus a fake-3D directional shade, the same idea as the
- * sealed emblem's limb-darkening sphere: a real photo turning in place has
- * no actual depth for a light to fall across, so `turnSin` (0 face-on, ±1
- * near edge-on — see `floatingMotion`) drives a gradient standing in for
- * that shading. `"source-atop"` composites it only where the shoe photo
- * already has opaque pixels, so it silhouettes to the photo's own alpha
- * automatically instead of needing a separate mask.
- */
-function drawShoeAngle(
-  ctx: CanvasRenderingContext2D,
-  angle: ShoeAngle,
-  colorHex: string,
-  targetWidth: number,
-  alpha: number,
-  turnSin: number,
-) {
-  if (alpha <= 0) return;
-  const img = getTintedShoeImage(angle, colorHex);
-  if (!img) return;
-  const h = targetWidth * (img.height / img.width);
-  ctx.globalAlpha = alpha;
-  ctx.drawImage(img, -targetWidth / 2, -h / 2, targetWidth, h);
-
-  const shade = Math.abs(turnSin);
-  if (shade > 0.02) {
-    ctx.save();
-    ctx.globalCompositeOperation = "source-atop";
-    // The far side (turning away from camera) darkens, the near side gets a
-    // faint highlight — which side is which flips with the turn's direction.
-    const grad =
-      turnSin < 0
-        ? ctx.createLinearGradient(-targetWidth / 2, 0, targetWidth / 2, 0)
-        : ctx.createLinearGradient(targetWidth / 2, 0, -targetWidth / 2, 0);
-    grad.addColorStop(0, `rgba(0,0,0,${(shade * 0.55).toFixed(2)})`);
-    grad.addColorStop(0.55, "rgba(0,0,0,0)");
-    grad.addColorStop(1, `rgba(255,255,255,${(shade * 0.18).toFixed(2)})`);
-    ctx.fillStyle = grad;
-    ctx.fillRect(-targetWidth / 2, -h / 2, targetWidth, h);
-    ctx.restore();
-  }
-}
-
-/**
- * The registered shoe — real photographed collectible art, duotoned to the
- * colour it was registered in (see `getTintedShoeImage`) the same way
- * ShoeShowcase tints its own copy of the same photos, so the shoe reads as
- * the same object whether it's sitting on /perfil or turning in this video.
+ * The registered shoe — real photographed collectible art, tinted to the
+ * colour it was registered in, wrapped on a real lit, rotating WebGL plane
+ * (`renderShoe3DFrame` in `shoe3d.ts`) and composited onto this 2D canvas
+ * like the photo/video background already is. Genuine perspective and
+ * lighting response as it turns, not a 2D approximation of either.
  */
 function drawShoe(
   ctx: CanvasRenderingContext2D,
@@ -1487,6 +1412,9 @@ function drawShoe(
 ) {
   const pop = easeOut(stage(elapsed, popStart, 520));
   if (pop <= 0) return;
+
+  const tinted = getTintedShoeImage(shoe.color);
+  if (!tinted) return;
 
   const [r, g, b] = parseHex(shoe.color);
   const targetWidth = slot.width * (0.9 + 0.1 * pop);
@@ -1507,20 +1435,15 @@ function drawShoe(
   const float = floatingMotion(elapsed);
   ctx.translate(0, float.bobY * pop);
   ctx.rotate(float.rotZ * pop);
-  ctx.scale(float.turnScaleX, 1);
-  // Perspective shear: leans into the turn instead of just squashing flat,
-  // the cheap fake for the parallax a real 3D turn would show.
-  ctx.transform(1, 0, float.turnSin * 0.16, 1, 0, 0);
 
-  const cardAlpha = pop;
-  const { from, to, mix } = shoeAngleAt(Math.max(0, elapsed - popStart));
-  ctx.save();
-  drawShoeAngle(ctx, from, shoe.color, targetWidth, cardAlpha * (1 - mix), float.turnSin);
-  ctx.restore();
-  if (mix > 0) {
-    ctx.save();
-    drawShoeAngle(ctx, to, shoe.color, targetWidth, cardAlpha * mix, float.turnSin);
-    ctx.restore();
+  // A slower, independent nod on the tilt axis — the turn (`turnRad`) and
+  // the tilt don't share a period, so the object never settles into a
+  // back-and-forth-on-one-axis loop that reads as flat/mechanical.
+  const tiltRad = Math.sin((elapsed / 1000 / 7) * Math.PI * 2) * 0.09;
+  const frame = renderShoe3DFrame(tinted, shoe.color, float.turnRad * pop, tiltRad * pop);
+  if (frame) {
+    const h = targetWidth * (frame.height / frame.width);
+    ctx.drawImage(frame, -targetWidth / 2, -h / 2, targetWidth, h);
   }
 
   ctx.restore();
