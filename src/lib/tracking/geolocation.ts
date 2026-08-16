@@ -69,7 +69,22 @@ let watchIdPromise: Promise<CallbackID> | null = null;
 
 /** Starts a watch. Any previous watch is left alone — callers already only ever call this once at a time. */
 export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoError) => void): void {
-  watchIdPromise = Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 30_000 }, (position, err) => {
+  watchIdPromise = Geolocation.watchPosition(
+    {
+      enableHighAccuracy: true,
+      timeout: 30_000,
+      // Android-only; no effect on iOS/web. Without an explicit `interval`,
+      // the plugin defaults it to `timeout` (30s) for backwards
+      // compatibility with its own 7.1.x behavior — meaning Android would
+      // only request a new fix once every 30 seconds, not continuously.
+      // That's both why warmup (needs 3 good fixes in a row) took minutes
+      // on a real device instead of seconds, and why live tracking would
+      // have stayed this coarse for the whole run. 1s matches the
+      // once-a-second UI tick this hook already runs on.
+      interval: 1_000,
+      minimumUpdateInterval: 1_000,
+    },
+    (position, err) => {
     if (err) {
       onError(mapError(err));
       return;
