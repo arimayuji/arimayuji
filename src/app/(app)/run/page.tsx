@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
+import { isStandaloneDisplay } from "@/lib/platform";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { startLiveSession, updateLiveSession, endLiveSession } from "@/lib/liveRuns";
 import {
@@ -64,6 +65,13 @@ import { PillSlider } from "../pill-slider";
 import { StatIconBadge } from "../stat-icon-badge";
 
 const RECENT_GHOST_CANDIDATES = 6;
+
+const noopSubscribe = () => () => {};
+
+/** Same `useSyncExternalStore` shape as `usePrefersReducedMotion` elsewhere — a browser-only read decided once, with no hydration mismatch. */
+function useIsStandalone(): boolean {
+  return useSyncExternalStore(noopSubscribe, isStandaloneDisplay, () => false);
+}
 
 const PAUSE_ICON_STROKE = {
   fill: "none",
@@ -794,13 +802,30 @@ export default function RunPage() {
   };
 
   const isLiveRun = state.status === "tracking" || state.status === "paused";
+  const standalone = useIsStandalone();
 
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
-      <header className="relative z-10 flex items-center justify-between px-5 py-4">
-        <Link href="/" className="text-sm text-muted hover:text-foreground">
-          &larr; Xanthus
-        </Link>
+      {/*
+        Extra top padding via env(safe-area-inset-top) resolves to 0 in a
+        regular browser tab, so this is safe unconditionally — it only does
+        anything where it's actually needed (native app, installed PWA). The
+        "← Xanthus" link itself is skipped in that same standalone context:
+        it targets "/", the marketing landing page, but StandaloneGate
+        redirects any standalone launch straight back to /run before the
+        landing page ever paints — so the link would just bounce right back
+        here, while still costing space right where the OS draws its own
+        status bar (clock, battery, signal).
+      */}
+      <header
+        className="relative z-10 flex items-center justify-between px-5 py-4"
+        style={{ paddingTop: "calc(1rem + env(safe-area-inset-top))" }}
+      >
+        {!standalone && (
+          <Link href="/" className="text-sm text-muted hover:text-foreground">
+            &larr; Xanthus
+          </Link>
+        )}
         {state.status !== "idle" && <GpsDot quality={state.gpsQuality} />}
       </header>
 
