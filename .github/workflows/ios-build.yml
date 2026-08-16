@@ -10,9 +10,18 @@ on:
   pull_request:
   workflow_dispatch:
 
+# One run at a time per ref — mainly to avoid burning duplicate macOS
+# minutes (10x the cost of Linux minutes) on superseded pushes; this
+# workflow doesn't deploy anywhere, so there's no ordering hazard like
+# the Android one has, just cost.
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
 jobs:
   build-simulator:
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +32,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Fails in seconds instead of after minutes of Xcode work.
+      - name: Type-check and lint
+        run: |
+          npx tsc --noEmit
+          npm run lint
 
       - name: Build web export
         run: npm run build

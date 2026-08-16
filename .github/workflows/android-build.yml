@@ -6,9 +6,21 @@ on:
   pull_request:
   workflow_dispatch:
 
+# One run at a time per ref — two overlapping runs both deploying to
+# Cloudflare could interleave (an older, slower run's `wrangler deploy`
+# landing after a newer run's, silently reverting the public APK to a
+# stale build). `cancel-in-progress` only for pushes/dispatch to main:
+# an in-flight deploy is safe to supersede with a newer one, but a PR
+# run shouldn't cancel a sibling PR's run just because they share a
+# branch name coincidentally.
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
 jobs:
   build-debug-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +44,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Fails in seconds instead of after minutes of Gradle work — a typo
+      # shouldn't cost a full native build to surface.
+      - name: Type-check and lint
+        run: |
+          npx tsc --noEmit
+          npm run lint
 
       - name: Build web export
         # NEXT_PUBLIC_* vars are optional here: Appwrite-backed features
@@ -113,4 +132,22 @@ jobs:
           else
             cp android/app/build/outputs/apk/debug/app-debug.apk out/download/xanthus.apk
           fi
+          echo "EXPECTED_SIZE=$(stat -c%s out/download/xanthus.apk)" >> "$GITHUB_ENV"
           npx wrangler deploy
+
+      - name: Verify the public download link actually serves the new APK
+        # Catches exactly the failure mode a manual out-of-band deploy hit
+        # once already: a deploy that quietly ships without out/download/
+        # (or ships an empty/truncated file) leaves the site itself fine
+        # but breaks the one thing this whole step exists for. Checked
+        # against this run's own build, not hardcoded, so it still catches
+        # a stale CDN cache serving yesterday's APK.
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          sleep 5
+          ACTUAL_SIZE=$(curl -s -o /dev/null -w "%{size_download}" https://xanthus.yujiarima.workers.dev/download/xanthus.apk)
+          if [ "$ACTUAL_SIZE" != "$EXPECTED_SIZE" ]; then
+            echo "::error::Link público serve $ACTUAL_SIZE bytes, esperado $EXPECTED_SIZE — deploy pode ter quebrado o download."
+            exit 1
+          fi
+          echo "OK — link público confirmado com $ACTUAL_SIZE bytes."
