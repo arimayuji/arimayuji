@@ -158,20 +158,25 @@ jobs:
         # is passed on the command line since committing it to the project
         # isn't necessary for this to work.
         #
-        # No CODE_SIGN_IDENTITY override here — Automatic signing and a
-        # manually-specified identity are mutually exclusive (Xcode refuses
-        # outright: "conflicting provisioning settings... Set the code
-        # signing identity value to 'Apple Development'... or switch to
-        # manual signing"), so a command-line override (highest precedence)
-        # can never coexist with CODE_SIGN_STYLE=Automatic. The actual root
-        # cause of this needing anything special at all — Capacitor's
-        # template baked a stale project-level (not target-level)
-        # `CODE_SIGN_IDENTITY = "iPhone Developer"` into App.xcodeproj, which
-        # Automatic signing at the target level still inherited during an
-        # archive, making Apple try to hand out a Development profile
-        # (needs a registered physical device) instead of the Distribution
-        # one an App Store upload needs — is fixed by removing that stale
-        # setting directly from the project file instead.
+        # Any *literal* CODE_SIGN_IDENTITY (e.g. "Apple Distribution"), from
+        # the CLI or from the project file itself, made Xcode 26 treat it as
+        # a manual override and refuse it outright ("conflicting
+        # provisioning settings... automatically signed for development, but
+        # a conflicting code signing identity Apple Distribution has been
+        # manually specified") — confirmed by trying both and hitting the
+        # identical error either way. With no identity at all, automatic
+        # signing instead defaulted to resolving a *Development* profile for
+        # this Release archive (needs a registered physical device, which
+        # this team has none of) instead of Distribution — ruled out an App
+        # Store Connect API key permission issue too (the key is Admin).
+        #
+        # The actual fix, found by checking how Xcode Cloud itself invokes
+        # xcodebuild for automatic-signing CI archives (Apple dev forums,
+        # thread 756119): CODE_SIGN_IDENTITY=- is a sentinel ("let automatic
+        # signing decide"), not a literal identity string, so it doesn't
+        # trip the same manual-override conflict; AD_HOC_CODE_SIGNING_ALLOWED=YES
+        # is needed alongside it so the build doesn't hard-fail before
+        # automatic signing has resolved the real (Distribution) identity.
         #
         # CURRENT_PROJECT_VERSION (the build number, distinct from
         # MARKETING_VERSION="1.0") is set to this workflow's own run number —
@@ -203,6 +208,7 @@ jobs:
             -archivePath build/App.xcarchive -destination "generic/platform=iOS" \
             "${AUTH_FLAGS[@]}" \
             DEVELOPMENT_TEAM=6YJ97VWT8V CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY=- AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
 
           cat > ExportOptions.plist <<EOF
