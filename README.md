@@ -1,18 +1,34 @@
 # Xanthus
 
-Um app de corrida PWA construído em cima das dores mais reclamadas do
+Um app de corrida construído em cima das dores mais reclamadas do
 segmento (Strava, Nike Run Club, Runkeeper, Adidas Running, Komoot,
 MapMyRun, Garmin Connect): preço que muda o combinado depois, GPS em que
 ninguém confia, dados presos, suporte ausente.
 
-## Por que PWA
+## PWA + app nativo (Capacitor)
 
-Web app puro cobre o produto inteiro exceto tracking em segundo plano
-(tela apagada) e Bluetooth no iOS — nenhuma das duas coisas trava o núcleo
-do produto: gravação em primeiro plano (tela ligada), pace por voz e
-previsão de chegada funcionam hoje em qualquer navegador. Se o tracking
-em background virar bloqueante, o caminho é envolver a tela de gravação
-num shell Capacitor sem reescrever o resto do app.
+O produto nasceu como PWA pura e continua sendo servido assim
+(`npm run build` → Cloudflare Workers). Quando o tracking em segundo plano
+(tela apagada) virou um problema real — GPS que para ou perde precisão com
+a tela bloqueada, que nenhuma PWA resolve — o app ganhou também um shell
+nativo via [Capacitor](https://capacitorjs.com/) nas pastas `android/` e
+`ios/`.
+
+Importante: **não dá pra "envolver só a tela de corrida"** como a ideia
+original imaginava — o Capacitor carrega o app inteiro numa WebView nativa
+e o roteamento continua sendo feito pelo próprio Next.js, então o caminho
+real foi embarcar o app inteiro no shell nativo (todas as telas, histórico
+incluso) e trocar só o código de GPS: `src/lib/tracking/geolocation.ts`
+chama `@capacitor/geolocation`, que cai pro `navigator.geolocation` do
+navegador sozinho quando não tá rodando nativo — o mesmo código atende os
+dois mundos.
+
+Workflows em `.github/workflows/android-build.yml` e `ios-build.yml`
+buildam automaticamente em toda push: o Android gera um APK debug pronto
+pra sideload; o iOS builda pro Simulator (sem assinatura, então roda sem
+conta Apple) só pra validar que o projeto compila — build assinado pra
+TestFlight/dispositivo físico é um passo manual à parte, que exige Xcode
+num Mac e uma conta Apple Developer paga.
 
 ## Rodando localmente
 
