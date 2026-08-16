@@ -838,6 +838,22 @@ const COMMUNITY_ITEMS = [
   },
 ];
 
+function AndroidIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="currentColor">
+      <path d="M17.6 9.48l1.84-3.18a.5.5 0 0 0-.87-.5l-1.86 3.22a11.4 11.4 0 0 0-9.42 0L5.43 5.8a.5.5 0 1 0-.87.5L6.4 9.48A9.9 9.9 0 0 0 2 17h20a9.9 9.9 0 0 0-4.4-7.52zM7 14.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+    </svg>
+  );
+}
+
+function AppleGlyphIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="currentColor">
+      <path d="M16.365 1.43c0 1.14-.417 2.196-1.244 3.06-.9.94-2.276 1.657-3.436 1.564-.144-1.096.437-2.24 1.216-3.024.87-.887 2.34-1.545 3.464-1.6zM20.5 17.313c-.505 1.157-.747 1.674-1.396 2.703-.907 1.44-2.187 3.234-3.774 3.246-1.412.012-1.775-.917-3.69-.906-1.916.012-2.317.923-3.73.911-1.586-.012-2.798-1.633-3.706-3.073-2.54-4.01-2.808-8.716-1.24-11.222 1.113-1.78 2.874-2.821 4.531-2.821 1.686 0 2.747.938 4.142.938 1.353 0 2.178-.94 4.132-.94 1.478 0 3.042.804 4.157 2.194-3.653 2.002-3.06 7.216.574 8.97z" />
+    </svg>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 
 export default function Home() {
@@ -1402,6 +1418,32 @@ export default function Home() {
             >
               depois da primeira visita, funciona sem internet
             </p>
+
+            {/*
+              Web (o CTA acima) já cobre qualquer aparelho — os dois links
+              abaixo são só pra quem quer o app nativo (GPS em segundo plano
+              com a tela bloqueada, que nenhuma PWA consegue). Sem link de
+              iOS ainda: TestFlight External Testing exige convite +
+              revisão da Apple, não existe um link público até isso ser
+              configurado — ver README.
+            */}
+            <div
+              data-reveal=""
+              style={delay(260)}
+              className="flex flex-wrap items-center justify-center gap-3 border-t border-border pt-7"
+            >
+              <a
+                href="https://xanthus.yujiarima.workers.dev/download/xanthus.apk"
+                className="inline-flex items-center gap-2.5 rounded-full border border-border px-5 py-3 text-sm font-medium transition-colors hover:border-accent hover:text-accent"
+              >
+                <AndroidIcon />
+                Baixar APK · Android
+              </a>
+              <span className="inline-flex items-center gap-2.5 rounded-full border border-border px-5 py-3 text-sm font-medium text-muted opacity-60">
+                <AppleGlyphIcon />
+                iOS · em breve na App Store
+              </span>
+            </div>
           </div>
         </section>
       </main>
