@@ -25,10 +25,10 @@ dois mundos.
 
 Workflows em `.github/workflows/android-build.yml` e `ios-build.yml`
 buildam automaticamente em toda push: o Android gera um APK debug pronto
-pra sideload; o iOS builda pro Simulator (sem assinatura, então roda sem
-conta Apple) só pra validar que o projeto compila — build assinado pra
-TestFlight/dispositivo físico é um passo manual à parte, que exige Xcode
-num Mac e uma conta Apple Developer paga.
+pra sideload; o iOS sempre builda pro Simulator (sem assinatura, então roda
+sem conta Apple) só pra validar que o projeto compila — e, se os secrets do
+App Store Connect abaixo estiverem configurados, builda também um archive
+assinado de verdade e sobe direto pro TestFlight.
 
 **Baixar o APK**: <https://xanthus.yujiarima.workers.dev/download/xanthus.apk>
 — link fixo, sem expirar, sem precisar de login (ao contrário do artefato
@@ -57,6 +57,30 @@ commitada (`android/.gitignore` bloqueia `*.keystore`/`*.jks`); o CI decodifica
 o secret num arquivo temporário a cada build. Com os dois secrets presentes,
 `android-build.yml` builda `assembleRelease` de verdade e passa a publicar
 esse build (em vez do debug) no link público.
+
+**Upload pro TestFlight (iOS)**: exige uma conta Apple Developer Program
+paga (US$99/ano) — sem ela `ios-build.yml` só builda pro Simulator e pula o
+resto, sem falhar. Com a conta ativa:
+
+1. App Store Connect → Users and Access → Integrations → App Store Connect
+   API → gera uma chave com acesso **Admin** (evita erro de permissão na
+   hora do CI criar certificado/perfil de distribuição sozinho).
+2. Baixa o arquivo `.p8` na hora (só dá pra baixar uma vez).
+3. Configura três secrets no repo: `APP_STORE_CONNECT_KEY_ID` (tipo
+   `B4RVV43UMG`, vem no nome do arquivo — `AuthKey_<KEY_ID>.p8`),
+   `APP_STORE_CONNECT_ISSUER_ID` (UUID mostrado na mesma tela) e
+   `APP_STORE_CONNECT_API_KEY_P8` (o `.p8` inteiro em base64:
+   `base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy` num Mac).
+
+Assinatura usa a API key em vez de login com Apple ID
+(`-authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID
+-allowProvisioningUpdates` do `xcodebuild`) — nada interativo, o próprio CI
+cria/renova o certificado de distribuição e o perfil de provisionamento
+conforme precisar. `CURRENT_PROJECT_VERSION` (build number) é o número do
+run do workflow, que só sobe — a App Store Connect exige isso pra aceitar
+cada upload novo da mesma versão. O Team ID (`6YJ97VWT8V`) tá fixo direto
+no workflow — não é secreto, é o mesmo prefixo que já aparece em qualquer
+provisioning profile da conta.
 
 ## Rodando localmente
 

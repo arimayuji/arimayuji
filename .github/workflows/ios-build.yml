@@ -1,9 +1,10 @@
 name: iOS build
 
-# Builds for the iOS Simulator only — no signing certificate needed
-# (CODE_SIGNING_ALLOWED=NO), so this validates the whole Capacitor/Xcode
-# pipeline without an Apple Developer account. A real device/TestFlight
-# build needs signing set up separately once that account exists.
+# Builds for the iOS Simulator (no signing certificate needed,
+# CODE_SIGNING_ALLOWED=NO) so the whole Capacitor/Xcode pipeline is
+# validated on every push regardless of secrets. On pushes to main, if the
+# three APP_STORE_CONNECT_* secrets are configured, a second, signed
+# archive is built and uploaded straight to TestFlight.
 on:
   push:
     branches: [main]
@@ -79,3 +80,78 @@ jobs:
           name: xanthus-ios-simulator-app
           path: ios/App/build/Build/Products/Debug-iphonesimulator/App.app
           retention-days: 30
+
+      - name: Build & upload signed archive to TestFlight
+        # Only on main itself, same reasoning as the Android publish step —
+        # never on PRs, which shouldn't get App Store Connect credentials.
+        # Skips gracefully (no failure) until the three secrets below are
+        # configured — see README.
+        #
+        # Signing uses an App Store Connect API key instead of an Apple ID
+        # login (`-authenticationKeyPath/-authenticationKeyID/
+        # -authenticationKeyIssuerID -allowProvisioningUpdates`) — the
+        # documented way to let `xcodebuild` create/renew the distribution
+        # certificate and provisioning profile itself in CI, with nothing
+        # interactive to click through. The project's target already has
+        # CODE_SIGN_STYLE=Automatic (Capacitor's own default); DEVELOPMENT_TEAM
+        # is passed on the command line since committing it to the project
+        # isn't necessary for this to work.
+        #
+        # CURRENT_PROJECT_VERSION (the build number, distinct from
+        # MARKETING_VERSION="1.0") is set to this workflow's own run number —
+        # App Store Connect rejects an upload whose build number isn't
+        # strictly higher than the last one uploaded for the same version,
+        # and a monotonic GitHub Actions run number guarantees that for
+        # free, same trick as ANDROID_VERSION_CODE in the Android workflow.
+        id: testflight
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        working-directory: ios/App
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          if [ -z "$KEY_ID" ] || [ -z "$ISSUER_ID" ] || [ -z "$KEY_P8_BASE64" ]; then
+            echo "::warning::APP_STORE_CONNECT_KEY_ID/ISSUER_ID/API_KEY_P8 não configurados — pulando o upload pro TestFlight. Veja o README."
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+          echo "$KEY_P8_BASE64" | base64 -d > "$KEY_PATH"
+
+          AUTH_FLAGS=(-authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER_ID" -allowProvisioningUpdates)
+
+          xcodebuild archive \
+            -project App.xcodeproj -scheme App -configuration Release \
+            -archivePath build/App.xcarchive -destination "generic/platform=iOS" \
+            "${AUTH_FLAGS[@]}" \
+            DEVELOPMENT_TEAM=6YJ97VWT8V CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
+
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>6YJ97VWT8V</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive -exportPath build/ipa \
+            -exportOptionsPlist ExportOptions.plist \
+            "${AUTH_FLAGS[@]}"
+
+          xcrun altool --upload-app \
+            -f build/ipa/App.ipa -t ios \
+            --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
+
+          echo "uploaded=true" >> "$GITHUB_OUTPUT"
