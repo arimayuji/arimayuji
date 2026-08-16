@@ -21,6 +21,12 @@ jobs:
   build-debug-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Feeds android/app/build.gradle's versionCode/versionName — the run
+    # number only ever increases, so it doubles as the source of truth the
+    # in-app update banner compares against (see version.json below).
+    env:
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+      ANDROID_VERSION_NAME: "1.0.${{ github.run_number }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -143,6 +149,13 @@ jobs:
             cp android/app/build/outputs/apk/debug/app-debug.apk out/download/xanthus.apk
           fi
           echo "EXPECTED_SIZE=$(stat -c%s out/download/xanthus.apk)" >> "$GITHUB_ENV"
+          # Read back alongside the APK by src/lib/updateCheck.ts — a native
+          # install compares its own build number (@capacitor/app's
+          # AppInfo.build, which is versionCode on Android) against this
+          # file's versionCode to decide whether to show the update banner.
+          cat > out/download/version.json <<EOF
+          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.yujiarima.workers.dev/download/xanthus.apk"}
+          EOF
           npx wrangler deploy
           echo "published=true" >> "$GITHUB_OUTPUT"
 

@@ -15,6 +15,16 @@ def releaseKeyAlias = System.getenv("ANDROID_RELEASE_KEY_ALIAS")
 def releaseKeyPassword = System.getenv("ANDROID_RELEASE_KEY_PASSWORD")
 def hasReleaseSigning = releaseStorePath && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
 
+/**
+ * CI sets these from the GitHub Actions run number, so every build
+ * published to the public download link carries a versionCode that only
+ * ever goes up — the in-app update banner (src/lib/updateCheck.ts) compares
+ * against this same number via version.json, published alongside the APK.
+ * Unset locally, same as any fresh Capacitor project.
+ */
+def envVersionCode = System.getenv("ANDROID_VERSION_CODE")
+def envVersionName = System.getenv("ANDROID_VERSION_NAME")
+
 android {
     namespace = "com.xanthus.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -22,8 +32,8 @@ android {
         applicationId "com.xanthus.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode envVersionCode ? envVersionCode.toInteger() : 1
+        versionName envVersionName ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

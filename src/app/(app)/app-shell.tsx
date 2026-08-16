@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { InstallPrompt } from "./install-prompt";
+import { UpdateBanner } from "./update-banner";
 
 /**
  * App shell: the logged-in surface of Xanthus.
@@ -178,6 +179,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }`}
       >
         {!immersive && <InstallPrompt />}
+        {!immersive && <UpdateBanner />}
         {children}
       </div>
       {!immersive && <BottomNav />}
