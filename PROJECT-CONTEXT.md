@@ -99,8 +99,10 @@ chamada "Xanthus" — resumo por área:
   desenhada ao vivo no mapa (MapLibre + Protomaps/PMTiles + MapTiler).
 - **Histórico**: por corrida, com mapa, splits, PRs, conquistas com
   "unboxing" de emblema por tier.
-- **Compartilhamento**: card de corrida (`/compartilhar`), link direto
-  por corrida (`?run=id`).
+- **Compartilhamento**: card de corrida (`/compartilhar`) — o parâmetro
+  `?run=id` só resolve contra o IndexedDB local do próprio aparelho, não é
+  um link público hospedado no servidor (corrigido em 2026-08-17, ver
+  achado C6 da auditoria LGPD).
 - **Corrida compartilhada / modo treinador** — já construído e wired:
   - `live_runs` (tabela Appwrite) + `src/lib/liveRuns.ts` (sync)
   - Aluno compartilha corrida ao vivo a partir de `/run`
