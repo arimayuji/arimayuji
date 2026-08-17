@@ -126,28 +126,74 @@ function StatQuadrant({
   );
 }
 
+/**
+ * How pace actually rose and fell across one split, not just its single
+ * average — `curve` is already local pace (see `paceCurveSecPerKm` in
+ * splits.ts), sampled evenly across the split's own distance. `min`/`max`
+ * come from the *whole run*, not this row alone, so a uniformly fast km
+ * sits visibly higher than a uniformly slow one instead of every row
+ * re-normalizing to its own range and looking equally "full". Faster reads
+ * higher, matching the flat bar this replaced (longer bar = faster pace).
+ */
+function PaceSparkline({ curve, min, max }: { curve: number[]; min: number; max: number }) {
+  if (curve.length === 0) return <div className="h-6 flex-1 rounded-full bg-background" />;
+
+  const span = max - min;
+  const points = curve.map((pace, i) => {
+    const x = curve.length > 1 ? (i / (curve.length - 1)) * 100 : 50;
+    const y = span > 0 ? 22 - ((max - pace) / span) * 20 : 12;
+    return [x, y] as const;
+  });
+  const line = points.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const area = `${line} L${points[points.length - 1][0].toFixed(1)},24 L${points[0][0].toFixed(1)},24 Z`;
+
+  return (
+    <svg viewBox="0 0 100 24" preserveAspectRatio="none" className="h-6 flex-1" aria-hidden="true">
+      <path d={area} fill="currentColor" opacity="0.16" />
+      <path
+        d={line}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
 function SplitsTable({ splits, unit }: { splits: Split[]; unit: "km" | "mi" }) {
   if (splits.length === 0) return null;
+  // paceCurveSecPerKm is always metric (seconds per km) regardless of display
+  // unit — scale it the same way the split's own average pace already is.
+  const toDisplayPace = (secPerKm: number) => secPerKm * (metersPerUnit(unit) / 1000);
+
   const paces = splits.map((s) => s.durationSeconds / (s.distanceMeters / metersPerUnit(unit)));
+  const curves = splits.map((s) =>
+    s.paceCurveSecPerKm.map(toDisplayPace).filter((v) => Number.isFinite(v)),
+  );
   const fastest = Math.min(...paces);
   const slowest = Math.max(...paces);
+  const allCurveValues = curves.flat();
+  const curveMin = allCurveValues.length > 0 ? Math.min(...allCurveValues, fastest) : fastest;
+  const curveMax = allCurveValues.length > 0 ? Math.max(...allCurveValues, slowest) : slowest;
 
   return (
     <Card className="pr-enter" style={delay(140)}>
       <CardTitle>Parciais por {unitLabel(unit)}</CardTitle>
-      <ul className="flex flex-col gap-2">
+      <p className="mb-2.5 -mt-1 text-[11px] leading-relaxed text-muted">
+        Evolução do pace dentro de cada {unitLabel(unit)}, não só a média.
+      </p>
+      <ul className="flex flex-col gap-3">
         {splits.map((split, i) => {
           const pace = paces[i];
           const isFastest = pace === fastest && fastest !== slowest;
-          const barPercent = slowest > fastest ? ((pace - fastest) / (slowest - fastest)) * 100 : 0;
           return (
             <li key={split.index} className="flex items-center gap-3 text-sm">
               <span className="w-5 shrink-0 font-mono text-xs text-muted">{split.index}</span>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-background">
-                <div
-                  className={`h-full rounded-full ${isFastest ? "bg-good" : "bg-accent"}`}
-                  style={{ width: `${100 - barPercent * 0.7}%` }}
-                />
+              <div className={isFastest ? "flex flex-1 items-center text-good" : "flex flex-1 items-center text-accent"}>
+                <PaceSparkline curve={curves[i]} min={curveMin} max={curveMax} />
               </div>
               <span
                 className={`w-14 shrink-0 text-right font-mono text-xs tabular-nums ${isFastest ? "font-semibold text-good" : "text-foreground"}`}
