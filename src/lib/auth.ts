@@ -52,22 +52,14 @@ export function signInWithGoogle(returnTo: string): void {
   appwrite.account.createOAuth2Session({ provider: OAuthProvider.Google, success: url, failure: url });
 }
 
-/** Covers Hotmail, Outlook and Live accounts — they're all the same Microsoft identity underneath. */
-export function signInWithMicrosoft(returnTo: string): void {
-  const appwrite = getAppwrite();
-  if (!appwrite) return;
-  const url = `${window.location.origin}${returnTo}`;
-  appwrite.account.createOAuth2Session({ provider: OAuthProvider.Microsoft, success: url, failure: url });
-}
-
 /**
  * Required alongside Google (App Store guideline 4.8: any third-party
  * login needs an equivalent Sign in with Apple option). Same OAuth2
- * redirect flow as the other two providers — Appwrite's "Apple" provider
- * talks to Apple's own `appleid.apple.com` authorize endpoint over the
- * web, the same mechanism a browser-based Sign in with Apple integration
- * uses, so this needs no native iOS entitlement or SDK on top of what
- * Google/Microsoft already use here.
+ * redirect flow as Google — Appwrite's "Apple" provider talks to Apple's
+ * own `appleid.apple.com` authorize endpoint over the web, the same
+ * mechanism a browser-based Sign in with Apple integration uses, so this
+ * needs no native iOS entitlement or SDK on top of what Google already
+ * uses here.
  */
 export function signInWithApple(returnTo: string): void {
   const appwrite = getAppwrite();

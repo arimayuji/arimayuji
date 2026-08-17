@@ -29,12 +29,12 @@ export default function PrivacidadePage() {
         <Card className="pr-enter" style={delay(80)}>
           <CardTitle>Dados enviados aos nossos servidores</CardTitle>
           <p className="mb-3 text-sm leading-relaxed text-muted">
-            Só quando você cria conta (login com Google ou Microsoft) — usada em recursos
+            Só quando você cria conta (login com Google ou Apple) — usada em recursos
             opcionais como avaliar lugares, adicionar amigos ou compartilhar com um(a)
             treinador(a). Nesse caso guardamos, na nossa infraestrutura Appwrite:
           </p>
           <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted">
-            <li>— Nome, e-mail e foto vindos da sua conta Google/Microsoft</li>
+            <li>— Nome, e-mail e foto vindos da sua conta Google/Apple</li>
             <li>— Nome de usuário (handle) e nome de exibição que você escolher</li>
             <li>— Amizades e vínculos de treinador(a)/aluno(a) que você criar</li>
             <li>— Avaliações de lugares pra correr que você publicar</li>
@@ -68,7 +68,7 @@ export default function PrivacidadePage() {
               (tiles); vê seu IP como qualquer acesso a um site.
             </li>
             <li>
-              <strong className="text-foreground">Google / Microsoft</strong> — provedores de
+              <strong className="text-foreground">Google / Apple</strong> — provedores de
               login, caso você escolha entrar com uma dessas contas.
             </li>
           </ul>
