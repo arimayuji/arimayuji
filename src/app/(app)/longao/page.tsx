@@ -269,6 +269,16 @@ function LongaoContent() {
                 <p className="mt-2 text-xs leading-relaxed text-muted">
                   Manda esse código pra quem já é seu amigo aqui no app. Vence em algumas horas.
                 </p>
+                <Link
+                  href={`/longao/mapa?c=${activeSession.$id}`}
+                  className="mt-3 inline-block text-xs text-accent underline underline-offset-2"
+                >
+                  Ver mapa do grupo
+                </Link>
+                <p className="text-xs text-muted">
+                  Quem está correndo abre o mapa de dentro da própria tela de corrida — esse link aqui é
+                  pra acompanhar sem estar correndo.
+                </p>
 
                 <div className="mt-5 border-t border-border pt-4">
                   <span className="mb-2 block text-xs font-semibold tracking-[0.14em] text-muted uppercase">

@@ -7,7 +7,10 @@ import { isStandaloneDisplay } from "@/lib/platform";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
 import { getActiveGroupRunCode, getGroupRun, listParticipants, type GroupRun } from "@/lib/groupRuns";
+import { useGroupLiveRuns, buildGroupMarkers } from "@/lib/useGroupLiveRuns";
 import { useAuth } from "@/lib/useAuth";
+import { GroupLiveMap } from "../group-live-map";
+import { ModalPortal } from "../modal-portal";
 import {
   formatDeltaDuration,
   formatDistanceKm,
@@ -615,6 +618,19 @@ export default function RunPage() {
   const activeSessionCode = shareLongao ? (longaoSession?.$id ?? null) : null;
 
   /**
+   * The "Grupo" sheet — its own map instead of navigating to `/longao/mapa`,
+   * since leaving this page mid-run would end the run (see the plan's own
+   * note on why `useRunTracker` being page-local state rules that out).
+   * `useGroupLiveRuns` only polls while `groupSheetOpen` is true — no
+   * background cost for a button that isn't currently showing anything.
+   */
+  const [groupSheetOpen, setGroupSheetOpen] = useState(false);
+  const groupLiveActive =
+    activeSessionCode !== null && (state.status === "tracking" || state.status === "paused");
+  const groupData = useGroupLiveRuns(groupLiveActive ? activeSessionCode : null, groupSheetOpen);
+  const groupMarkers = buildGroupMarkers(groupData, account?.id ?? null);
+
+  /**
    * Re-reads who's actually in the longão every 20s while live, and pushes
    * the updated viewer list onto the already-running row (see
    * `refreshLiveSessionAudience`'s own comment for why permissions set at
@@ -958,7 +974,18 @@ export default function RunPage() {
             &larr; Xanthus
           </Link>
         )}
-        {state.status !== "idle" && <GpsDot quality={state.gpsQuality} />}
+        <div className="ml-auto flex items-center gap-2">
+          {groupLiveActive && (
+            <button
+              type="button"
+              onClick={() => setGroupSheetOpen(true)}
+              className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold hover:border-accent"
+            >
+              Grupo
+            </button>
+          )}
+          {state.status !== "idle" && <GpsDot quality={state.gpsQuality} />}
+        </div>
       </header>
 
       {isLiveRun && showWeakSignalWarning && (
@@ -1783,6 +1810,65 @@ export default function RunPage() {
       )}
 
       {showRunTips && <RunOnboarding onDone={handleRunTipsDone} onSkip={handleRunTipsSkip} />}
+
+      {groupSheetOpen && (
+        <ModalPortal>
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+            onClick={() => setGroupSheetOpen(false)}
+          >
+            <div
+              className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-t-3xl bg-background text-foreground sm:rounded-3xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 pt-4">
+                <p className="text-sm font-semibold">
+                  {longaoSession?.name ?? "Longão"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setGroupSheetOpen(false)}
+                  aria-label="Fechar"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+              <div className="mt-3 h-64 shrink-0 px-4">
+                <GroupLiveMap markers={groupMarkers} className="h-full w-full overflow-hidden rounded-2xl" />
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+                {groupData.participants.length === 0 ? (
+                  <p className="mt-4 text-center text-xs text-muted">Carregando o grupo…</p>
+                ) : (
+                  <ul className="mt-3 flex flex-col gap-3">
+                    {groupData.participants.map((connection) => {
+                      const run = groupData.liveRuns.find((r) => r.userId === connection.participant.userId);
+                      return (
+                        <li
+                          key={connection.participant.$id}
+                          className="flex items-center justify-between gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0"
+                        >
+                          <p className="truncate text-sm font-semibold">
+                            {connection.profile?.displayName ?? "Corredor(a)"}
+                          </p>
+                          <p className="shrink-0 font-mono text-xs text-muted">
+                            {run
+                              ? `${formatDistanceKm(run.distanceMeters)} km · ${formatPace(run.currentPaceSecPerKm ?? null)}`
+                              : "sem sinal"}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
     </div>
   );
 }
