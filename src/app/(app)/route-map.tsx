@@ -514,12 +514,30 @@ function RouteTiles({
   // once `load` fires — by then a live run may already have moved on.
   const latest = useRef(geometry);
 
-  const active = replay !== null;
   const coordinates = useMemo(() => points.map(lngLat), [points]);
-  const projected = useMemo(
-    () => (toPixels && active ? coordinates.map(toPixels) : null),
-    [coordinates, toPixels, active],
-  );
+  /**
+   * Only the trail window behind the head gets projected here, not the whole
+   * route. The chase camera moves on *every* replay frame (`jumpTo`/`easeTo`
+   * below), which fires MapLibre's own "move" event and republishes
+   * `toPixels` as a fresh function identity — so this recomputes on every
+   * single frame of playback. Mapping the full `coordinates` array through
+   * `map.project()` there (a real WebGL matrix transform per call, not a
+   * cheap loop) is the same squared-cost trap `LIVE_REFIT_INTERVAL_MS` above
+   * exists to avoid for live tracking, just unfixed here: imperceptible on a
+   * short run, and exactly what "a animação tá muito lagging" turned out to
+   * mean on a longer one. `ReplayOverlay` only ever reads indices between the
+   * trail's start and the head (see `chaseTrailFrame`), so projecting outside
+   * that window is pure waste — this fills only that slice, indices left
+   * `undefined` are never touched by `replayStretches`/`replayHead`.
+   */
+  const projected = useMemo(() => {
+    if (!toPixels || !replay) return null;
+    const trailStart = chaseTrailFrame(points, replay.head.index);
+    const aheadIndex = Math.min(replay.head.index + 1, coordinates.length - 1);
+    const windowed: Pixel[] = new Array(coordinates.length);
+    for (let i = trailStart.index; i <= aheadIndex; i++) windowed[i] = toPixels(coordinates[i]);
+    return windowed;
+  }, [coordinates, toPixels, replay, points]);
 
   useEffect(() => {
     // A dead connection (or a genuinely down R2 bucket) doesn't always
