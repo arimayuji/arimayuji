@@ -13,6 +13,7 @@ dependencies {
     implementation project(':capacitor-browser')
     implementation project(':capacitor-geolocation')
     implementation project(':capgo-background-geolocation')
+    implementation project(':capacitor-health')
 
 }
 

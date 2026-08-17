@@ -15,7 +15,8 @@ let package = Package(
         .package(name: "CapacitorApp", path: "../../../node_modules/@capacitor/app"),
         .package(name: "CapacitorBrowser", path: "../../../node_modules/@capacitor/browser"),
         .package(name: "CapacitorGeolocation", path: "../../../node_modules/@capacitor/geolocation"),
-        .package(name: "CapgoBackgroundGeolocation", path: "../../../node_modules/@capgo/background-geolocation")
+        .package(name: "CapgoBackgroundGeolocation", path: "../../../node_modules/@capgo/background-geolocation"),
+        .package(name: "CapacitorHealth", path: "../../../node_modules/capacitor-health")
     ],
     targets: [
         .target(
@@ -26,7 +27,8 @@ let package = Package(
                 .product(name: "CapacitorApp", package: "CapacitorApp"),
                 .product(name: "CapacitorBrowser", package: "CapacitorBrowser"),
                 .product(name: "CapacitorGeolocation", package: "CapacitorGeolocation"),
-                .product(name: "CapgoBackgroundGeolocation", package: "CapgoBackgroundGeolocation")
+                .product(name: "CapgoBackgroundGeolocation", package: "CapgoBackgroundGeolocation"),
+                .product(name: "CapacitorHealth", package: "CapacitorHealth")
             ]
         )
     ]

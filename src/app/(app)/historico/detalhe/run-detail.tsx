@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { computeElevationProfile, elevationGainFromProfile, type ElevationSample } from "@/lib/elevation";
+import { fetchRunHealthData, HEALTH_DATA_ENABLED, type RunHealthData } from "@/lib/health";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { getSyncedRun, shareRunWithCoaches } from "@/lib/runsSync";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
@@ -95,7 +96,33 @@ function TrashIcon() {
   );
 }
 
-/** One tile in the secondary-stats grid below the headline distance/tempo/pace row — same horse-badge language as the live-run cards, segmented into quadrants instead of a wrapped label:value line. */
+function HeartbeatIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12h3.5l1.8-4.5L11 17l2.5-9 1.8 4.5H21" />
+    </svg>
+  );
+}
+
+/**
+ * One tile in the secondary-stats grid below the headline distance/tempo/pace
+ * row — same horse-badge language as the live-run cards, segmented into
+ * quadrants instead of a wrapped label:value line. `icon` takes either a
+ * real commissioned badge key (the common case) or a plain node for a stat
+ * that doesn't have art commissioned yet (frequência cardíaca, still behind
+ * `HEALTH_DATA_ENABLED` in health.ts — no R2 asset exists for it, so this
+ * draws a plain stroked icon in the same accent-tinted circle instead of a
+ * broken image once that flag eventually flips on).
+ */
 function StatQuadrant({
   icon,
   label,
@@ -103,7 +130,7 @@ function StatQuadrant({
   unit,
   flame = false,
 }: {
-  icon: StatIconKey;
+  icon: StatIconKey | ReactElement;
   label: string;
   value: string | number;
   unit?: string;
@@ -114,7 +141,13 @@ function StatQuadrant({
     <div className="rounded-xl border border-border bg-background p-3">
       <div className="flex items-start justify-between gap-2">
         <span className="text-[10px] uppercase tracking-wide text-muted">{label}</span>
-        <StatIconBadge icon={icon} className="block h-7 w-7" />
+        {typeof icon === "string" ? (
+          <StatIconBadge icon={icon} className="block h-7 w-7" />
+        ) : (
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+            {icon}
+          </span>
+        )}
       </div>
       <p
         className={`${flame ? "text-flame" : "text-metal"} mt-1.5 truncate font-mono text-lg tabular-nums`}
@@ -450,6 +483,7 @@ export function RunDetail({ id }: { id: string }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [computedElevationGain, setComputedElevationGain] = useState<number | null>(null);
+  const [healthData, setHealthData] = useState<RunHealthData | null>(null);
   const [openedMeters, setOpenedMeters] = useState<number[]>([]);
   const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
   const [coaches, setCoaches] = useState<CoachConnection[] | null>(null);
@@ -484,6 +518,21 @@ export function RunDetail({ id }: { id: string }) {
       const gain = elevationGainFromProfile(profile);
       setComputedElevationGain(gain);
       void updateRunElevationGain(load.run.id, gain);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
+
+  useEffect(() => {
+    // `fetchRunHealthData` itself already no-ops on `HEALTH_DATA_ENABLED`
+    // and non-native — the flag check here just skips the effect (and the
+    // permission-check round trip inside it) entirely rather than firing it
+    // every time this screen mounts for no reason.
+    if (!HEALTH_DATA_ENABLED || load.status !== "ready") return;
+    let cancelled = false;
+    fetchRunHealthData(load.run).then((data) => {
+      if (!cancelled) setHealthData(data);
     });
     return () => {
       cancelled = true;
@@ -525,9 +574,11 @@ export function RunDetail({ id }: { id: string }) {
   const newRecords = records.filter((r) => r.isNewRecord);
   const splits = computeSplits(run.points, metersPerUnit(unit));
   const elevationGain = run.elevationGainMeters ?? computedElevationGain;
-  const calories = runnerProfile.weightKg
+  const estimatedCalories = runnerProfile.weightKg
     ? estimateCalories(run.distanceMeters, elevationGain, runnerProfile.weightKg)
     : null;
+  /** The watch's own measured figure outranks the weight/distance estimate whenever it's actually available — see health.ts. */
+  const calories = healthData?.caloriesKcal ?? estimatedCalories;
 
   /**
    * The flag is written optimistically and its failure swallowed: it only
@@ -596,13 +647,31 @@ export function RunDetail({ id }: { id: string }) {
               </p>
             </div>
           </div>
-          {(run.shoeName || elevationGain !== null || calories !== null || run.rpe !== undefined) && (
+          {(run.shoeName ||
+            elevationGain !== null ||
+            calories !== null ||
+            run.rpe !== undefined ||
+            healthData?.avgHeartRateBpm != null) && (
             <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4">
+              {healthData?.avgHeartRateBpm != null && (
+                <StatQuadrant
+                  icon={<HeartbeatIcon className="h-4 w-4" />}
+                  label="FC média"
+                  value={healthData.avgHeartRateBpm}
+                  unit="bpm"
+                />
+              )}
               {elevationGain !== null && (
                 <StatQuadrant icon="elevacao" label="Ganho de elevação" value={elevationGain} unit="m" />
               )}
               {calories !== null && (
-                <StatQuadrant icon="calorias" label="Calorias" value={calories} unit="kcal" flame />
+                <StatQuadrant
+                  icon="calorias"
+                  label={healthData?.caloriesKcal != null ? "Calorias (relógio)" : "Calorias"}
+                  value={calories}
+                  unit="kcal"
+                  flame
+                />
               )}
               {run.shoeName && (
                 <StatQuadrant icon="tenis" label="Tênis" value={run.shoeName} />

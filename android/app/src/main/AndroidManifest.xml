@@ -43,11 +43,51 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- capacitor-health (src/lib/health.ts) — required by Health Connect
+             so a user who taps the permissions-rationale link from its own
+             settings screen lands somewhere; nothing in this app links here
+             directly. Declaring this is harmless on its own: the READ_*
+             permissions below only get requested once HEALTH_DATA_ENABLED
+             in health.ts actually flips to true, which it doesn't yet. -->
+        <activity
+            android:name="com.fit_up.health.capacitor.PermissionsRationaleActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity="com.fit_up.health.capacitor.PermissionsRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
     </application>
+
+    <!-- capacitor-health: lets the app detect whether Health Connect itself
+         is installed (Health.isHealthAvailable() in health.ts). -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- capacitor-health — read-only, matching REQUIRED_PERMISSIONS in
+         health.ts exactly. Declaring these doesn't grant them: Health
+         Connect still shows its own consent screen the first time
+         requestHealthPermissions() actually runs, which only happens once
+         HEALTH_DATA_ENABLED is true. -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
 </manifest>

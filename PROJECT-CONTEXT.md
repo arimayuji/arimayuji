@@ -164,19 +164,40 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
     separada do consentimento geral já existente, explicando exatamente o
     que é lido e de onde, com toggle que só ativa depois do aceite
     explícito.
-  - **Maquete pedida, nunca chegou a ser criada**: o plano era reaproveitar
-    o padrão `ExampleBadge` (tag amarela "exemplo ilustrativo", já existe
-    em `src/app/(app)/ui.tsx`) pra montar uma tela/card de frequência
-    cardíaca com dado fictício e claramente rotulado, **antes** de mexer em
-    plugin/permissão nativa de verdade. Isso nunca foi construído — a sessão
-    anterior só chegou a grepar por `ExampleBadge` e foi puxada pra outros
-    itens pendentes (login nativo quebrado). Nenhum arquivo, tela ou mockup
-    desse recurso existe no repo hoje.
-  - **Próximos passos combinados, em ordem**: 1) tela/toggle de
-    consentimento em `/perfil` (não feito) → 2) card maquete com dado falso
-    rotulado via `ExampleBadge` (não feito) → 3) só depois de aprovar a
-    maquete, integração real com `capacitor-health` + permissões nativas
-    nos dois projetos (não iniciado).
+  - **Status em 2026-08-17: fases 1, 2 e 3 todas com código pronto**, atrás
+    de uma flag desligada (nada disso está ativo pra usuário nenhum ainda):
+    - **Fase 1+2 (consentimento + maquete)**: card "Dados de saúde do
+      smartwatch" em `/perfil`, explica o que seria lido e o motivo LGPD,
+      toggle "Ver como ficaria" (estado local, não persistido) revela um
+      card com FC/calorias/passos fictícios via `ExampleBadge`.
+    - **Fase 3 (integração real)**: `capacitor-health@8.1.2` instalado
+      (`npm install` + `npx cap sync` já rodados). `src/lib/health.ts`
+      implementa `isHealthAvailable`/`requestHealthPermissions`/
+      `fetchRunHealthData` de verdade, contra a API real do plugin
+      (verificado lendo o Kotlin/Swift do pacote em `node_modules`, não só
+      o README). `fetchRunHealthData` casa um treino do relógio com a
+      janela de tempo da corrida (±10 min de tolerância) e devolve FC
+      média/calorias/passos. Ligado em `historico/detalhe` (`run-detail.tsx`):
+      um novo `StatQuadrant` de "FC média" e a calorias passam a preferir o
+      valor medido do relógio (rotulado "Calorias (relógio)") quando
+      disponível. Manifests nativos já configurados: `AndroidManifest.xml`
+      (activity/activity-alias de `PermissionsRationaleActivity`, `queries`
+      pro Health Connect, `uses-permission android.permission.health.*`) e
+      `Info.plist` (`NSHealthShareUsageDescription`/
+      `NSHealthUpdateUsageDescription`).
+    - **`HEALTH_DATA_ENABLED = false`** em `src/lib/health.ts` — chave
+      única que liga tudo isso de uma vez, mesmo padrão do
+      `PHONE_AUTH_ENABLED`. Só virar `true` depois de:
+      1. Habilitar a **capability HealthKit** no App ID no Apple Developer
+         Portal (passo manual, developer.apple.com — não dá pra fazer por
+         código, só depois disso o entitlement funciona de verdade).
+      2. Testar em aparelho real com um relógio de verdade sincronizado —
+         nada disso foi validado em dispositivo, só `tsc`/`eslint`/`next
+         build` (o plugin é nativo puro, não roda no sandbox nem no
+         navegador).
+      3. Confirmar que o Android realmente lê certo quando o Health Connect
+         não está instalado (`isHealthAvailable()` deveria devolver
+         `false` nesse caso — código escrito pra isso, não testado).
 
 ## Ferramentas externas usadas no projeto
 
