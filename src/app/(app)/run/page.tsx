@@ -26,6 +26,7 @@ import {
   markEmblemOpened,
   markRecordOpened,
   runMovingSeconds,
+  updateRunElevationGain,
   updateRunRpe,
   updateRunTracks,
   type ActiveRunSnapshot,
@@ -33,6 +34,7 @@ import {
   type RunTrack,
   type Shoe,
 } from "@/lib/tracking/storage";
+import { computeElevationGain } from "@/lib/elevation";
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
@@ -480,6 +482,10 @@ export default function RunPage() {
   /** "XP gained" bars toward whichever ladder rung this run moved the needle on without finishing it — see emblem-progress-bar.tsx for why a crossed milestone excludes that ladder from this list instead of also appearing here. */
   const [emblemProgress, setEmblemProgress] = useState<EmblemProgressEntry[]>([]);
   const [revealingEmblemKm, setRevealingEmblemKm] = useState<number | null>(null);
+  /** Persisted via `updateRunElevationGain` so `/historico/detalhe` opens with it already known instead of recomputing. */
+  const [elevationGain, setElevationGain] = useState<number | null>(null);
+  /** Distinguishes "still waiting on the lookup" (show "calculando…") from "lookup came back null" (show nothing, same as `/historico/detalhe` does) — see the `elevationPending` derivation below. */
+  const [elevationFailed, setElevationFailed] = useState(false);
   /** Accepted coaches this athlete could go live with — empty for almost everyone, which is why the picker below only renders when it isn't. */
   const [coaches, setCoaches] = useState<CoachConnection[]>([]);
   /** Which coach (if any) this run is being shared live with — chosen before starting, null means "not live". */
@@ -532,6 +538,32 @@ export default function RunPage() {
       setCrossedEmblemsKm(milestonesJustCrossed(newTotal - run.distanceMeters, newTotal));
       setEmblemProgress(computeEmblemProgress(run, allRuns));
     });
+  }, [state.status, state.finishedRun]);
+
+  /**
+   * Elevation gain for the finish screen — same lookup `/historico/detalhe`
+   * does lazily, just kicked off immediately instead of waiting for that
+   * screen to ever be opened. Genuinely can't be known any earlier than
+   * this (see the comment on `computeEmblemProgress` above), so the finish
+   * screen shows "calculando…" for the moment this takes.
+   */
+  useEffect(() => {
+    if (state.status !== "finished" || !state.finishedRun) return;
+    const run = state.finishedRun;
+    if (run.elevationGainMeters !== undefined) return;
+    let cancelled = false;
+    computeElevationGain(run.points).then((gain) => {
+      if (cancelled) return;
+      if (gain === null) {
+        setElevationFailed(true);
+        return;
+      }
+      setElevationGain(gain);
+      void updateRunElevationGain(run.id, gain);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [state.status, state.finishedRun]);
 
   /**
@@ -887,6 +919,8 @@ export default function RunPage() {
     setOpenedEmblemsKm([]);
     setRevealingEmblemKm(null);
     setEmblemProgress([]);
+    setElevationGain(null);
+    setElevationFailed(false);
     reset();
   };
 
@@ -1485,6 +1519,18 @@ export default function RunPage() {
                 )}
               </p>
             </div>
+            {(() => {
+              const gain = state.finishedRun.elevationGainMeters ?? elevationGain;
+              if (gain === null && elevationFailed) return null;
+              return (
+                <div className="col-span-2 rounded-xl border border-border bg-surface p-4">
+                  <span className="text-xs uppercase tracking-wide text-muted">Ganho de elevação</span>
+                  <p className="text-metal mt-1 font-mono text-xl tabular-nums">
+                    {gain !== null ? `${Math.round(gain)} m` : "calculando…"}
+                  </p>
+                </div>
+              );
+            })()}
           </div>
 
           {finishedRun && (
