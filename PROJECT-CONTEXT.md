@@ -141,6 +141,43 @@ chamada "Xanthus" — resumo por área:
 O que ainda é maquete (não persiste de verdade): meta de prova em
 `/perfil` — está marcado como tal no próprio código, não finge ser real.
 
+## Funcionalidades planejadas, ainda não implementadas
+
+- **Dados de saúde do smartwatch** (escopado em 2026-08 numa sessão anterior,
+  contexto recuperado do transcript bruto porque nunca foi salvo aqui —
+  registrando agora pra não se perder de novo):
+  - **Abordagem técnica**: nenhum relógio conversa direto com o app — todos
+    (Apple Watch, Garmin, Fitbit, Samsung, Coros) sincronizam primeiro pro
+    repositório de saúde do próprio celular. No iOS isso é o **Apple
+    HealthKit**, no Android é o **Health Connect**. O plano é ler dos dois
+    via um único plugin Capacitor, achado por pesquisa:
+    **`capacitor-health`** (`Cap-go/capacitor-health`, mantido, cobre os
+    dois com uma API só). **Só funciona no app nativo** — HealthKit/Health
+    Connect são APIs do sistema operacional, inexistentes no navegador/PWA;
+    exige permissão nova (capability HealthKit no iOS, permissão Health
+    Connect no Android) e rebuild dos dois projetos nativos.
+  - **Dados considerados**: frequência cardíaca (inclusive em tempo real
+    durante a corrida), calorias medidas de verdade (hoje é só estimativa),
+    contagem de passos, treinos já registrados no relógio.
+  - **LGPD**: dado de saúde é categoria sensível (Art. 5º, II) — decidido
+    que precisa de **tela de consentimento própria em `/perfil`**,
+    separada do consentimento geral já existente, explicando exatamente o
+    que é lido e de onde, com toggle que só ativa depois do aceite
+    explícito.
+  - **Maquete pedida, nunca chegou a ser criada**: o plano era reaproveitar
+    o padrão `ExampleBadge` (tag amarela "exemplo ilustrativo", já existe
+    em `src/app/(app)/ui.tsx`) pra montar uma tela/card de frequência
+    cardíaca com dado fictício e claramente rotulado, **antes** de mexer em
+    plugin/permissão nativa de verdade. Isso nunca foi construído — a sessão
+    anterior só chegou a grepar por `ExampleBadge` e foi puxada pra outros
+    itens pendentes (login nativo quebrado). Nenhum arquivo, tela ou mockup
+    desse recurso existe no repo hoje.
+  - **Próximos passos combinados, em ordem**: 1) tela/toggle de
+    consentimento em `/perfil` (não feito) → 2) card maquete com dado falso
+    rotulado via `ExampleBadge` (não feito) → 3) só depois de aprovar a
+    maquete, integração real com `capacitor-health` + permissões nativas
+    nos dois projetos (não iniciado).
+
 ## Ferramentas externas usadas no projeto
 
 - Design/animações/logo: **[Recraft AI](https://www.recraft.ai/)**.
