@@ -31,7 +31,8 @@ export function EmblemReveal({
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const [opened, setOpened] = useState(alreadyOpened || reducedMotion);
-  const { accent, metalName, rank, title, subtitle } = collectibleDisplay(category, value);
+  const { metal, rank, title, subtitle } = collectibleDisplay(category, value);
+  const accent = metal.accent;
 
   const handleOpen = () => {
     setOpened(true);
@@ -183,7 +184,7 @@ export function EmblemReveal({
                 <EmblemBadge
                   category={category}
                   value={value}
-                  accent={accent}
+                  metal={metal}
                   state={opened ? "opened" : "sealed"}
                 />
               </span>
@@ -196,7 +197,7 @@ export function EmblemReveal({
                 className="font-mono text-xs font-semibold uppercase tracking-[0.3em]"
                 style={{ color: accent }}
               >
-                Emblema Nº {rank} · {metalName}
+                Emblema Nº {rank} · {metal.name}
               </p>
               <h2 className="mt-2 text-lg font-semibold text-balance text-white">{title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-pretty text-white/70">{subtitle}</p>

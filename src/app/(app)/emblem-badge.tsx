@@ -1,67 +1,62 @@
 "use client";
 
-import { emblemImageUrl } from "@/lib/tracking/emblems";
+import { useId } from "react";
+import { tintedStops } from "@/lib/plateMetal";
+import { RANK_METAL, type RankMetal } from "@/lib/rankMetal";
 import type { EmblemCategory } from "@/lib/tracking/storage";
 import { HORSE_FULL_BODY_PATHS } from "../horse-mark";
 
 /**
- * The lifetime collectible itself. The distância ladder uses a real,
- * once-commissioned piece of art per milestone (see emblems.ts) — elevação
- * and tempo don't have commissioned art of their own yet, so they render a
- * generated chrome-and-glow badge instead (`GeneratedBadgeArt`), keeping the
- * same three-state ritual rather than looking unfinished. Three states share
- * this one component so the collection grid and the reveal modal never risk
- * drifting apart: `locked` (not reached yet — a dim outline, no artwork
- * fetched at all), `sealed` (reached but not yet opened — heavily blurred
- * and darkened, so its colour mood shows through without giving away the
- * actual design) and the fully `opened` artwork, crisp.
- *
- * The brand mark on top of the opened artwork is the *real* vector logo
- * (`HORSE_FULL_BODY_PATHS`, the same path data the PR plate stamps), not
- * something described in the image-generation prompt — an image model asked
- * for "a horse logo" only ever draws *a* horse, never *this* one. Same
- * `translate(39.8 30) scale(0.44)` placement `achievement-plate.tsx` uses
- * for its own compact/circular badge slot, glowing rather than engraved
- * since it sits on a luminous piece rather than the plate's own lit chrome
- * face — shared across all three ladders, so every collectible still reads
- * as unmistakably Xanthus regardless of which one has real commissioned art.
+ * The lifetime collectible itself. All three ladders (distância, elevação,
+ * tempo) now share one material — the same faceted chrome/gem face
+ * `achievement-plate.tsx` renders for a PR trophy, just painted onto a
+ * circle and re-hued per rarity tier (see rankMetal.ts) instead of the PR
+ * plate's own five tiers. An earlier version kept the once-commissioned
+ * per-milestone photo (see emblems.ts's `emblemImageUrl`) as the coin's
+ * face, first plain and later with a flat `mix-blend-mode` tint over it —
+ * both read as a flat coloured circle, not a precious object, since a solid
+ * tint (or a single photo) has none of the abrupt light/dark banding that
+ * actually sells "polished metal" or "cut stone". Three states share this
+ * one component so the collection grid and the reveal modal never risk
+ * drifting apart: `locked` (not reached yet — a dim outline), `sealed`
+ * (reached but not yet opened — heavily blurred and darkened, so its colour
+ * mood shows through without giving away the actual design) and the fully
+ * `opened` face, crisp and slowly catching the light.
  */
 
-function HorseGlowMark() {
+/** Two-pass stroke — a light copy offset under a dark one — so the horse survives both the blown-out and the ink bands of the chrome ramp underneath it. Exactly `achievement-plate.tsx`'s own `Engraved` technique, for the same reason: a flat single-colour stroke disappears the instant it crosses a band close to its own value. */
+function EngravedHorse({ ink }: { ink: string }) {
+  const horse = HORSE_FULL_BODY_PATHS.map((d) => <path key={d} d={d} />);
   return (
-    <svg
-      viewBox="0 0 120 120"
-      className="pointer-events-none absolute inset-0 h-full w-full"
-      aria-hidden="true"
+    <g
+      transform="translate(39.8 30) scale(0.44)"
+      fill="none"
+      strokeWidth="5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
-      <g transform="translate(39.8 30) scale(0.44)" fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-        <g stroke="#ffffff" opacity="0.55" style={{ filter: "blur(2.5px)" }}>
-          {HORSE_FULL_BODY_PATHS.map((d) => (
-            <path key={d} d={d} />
-          ))}
-        </g>
-        <g stroke="#ffffff" opacity="0.92">
-          {HORSE_FULL_BODY_PATHS.map((d) => (
-            <path key={d} d={d} />
-          ))}
-        </g>
+      <g transform="translate(2.4 2.4)" stroke="#ffffff" opacity="0.55">
+        {horse}
       </g>
-    </svg>
-  );
-}
-
-function ElevationGlyph({ accent }: { accent: string }) {
-  return (
-    <g stroke={accent} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none">
-      <path d="M22 82 46 40 60 62 76 34 98 82Z" />
-      <path d="M69 46 76 34 83 46" opacity="0.85" />
+      <g stroke={ink} opacity="0.92">
+        {horse}
+      </g>
     </g>
   );
 }
 
-function TimeGlyph({ accent }: { accent: string }) {
+function ElevationGlyph({ ink }: { ink: string }) {
   return (
-    <g stroke={accent} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none">
+    <g stroke={ink} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.82">
+      <path d="M22 82 46 40 60 62 76 34 98 82Z" />
+      <path d="M69 46 76 34 83 46" />
+    </g>
+  );
+}
+
+function TimeGlyph({ ink }: { ink: string }) {
+  return (
+    <g stroke={ink} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.82">
       <path d="M42 30h36M42 90h36" />
       <path d="M42 30c0 15 14 19 18 30-4 11-18 15-18 30M78 30c0 15-14 19-18 30 4 11 18 15 18 30" />
     </g>
@@ -69,46 +64,57 @@ function TimeGlyph({ accent }: { accent: string }) {
 }
 
 /**
- * The generated stand-in for elevação/tempo, which have no commissioned art
- * yet: a dark radial glow in the milestone's own accent colour, styled like
- * the app's own icon set (`STROKE` in app-shell.tsx) rather than trying to
- * imitate the distância ladder's photographic medallions. The category glyph
- * sits small in a bottom-right corner rather than centred — `HorseGlowMark`
- * (added by the caller on top of this) is centred the same way it is on the
- * distância artwork, and the two competed for the same middle of the badge
- * before this was shrunk out of the way.
+ * The faceted chrome/gem face every emblem shares — the exact 19-stop
+ * hard-edged ramp `achievement-plate.tsx` uses for the PR trophy (see
+ * `tintedStops`/`CHROME_STOPS` in plateMetal.ts), re-hued per rank tier and
+ * painted onto a circle instead of a cut polygon. Two diagonal specular
+ * streaks, clipped to that same circle, are what turn "circle filled with a
+ * gradient" into "something with a curved, reflective surface" — a flat
+ * radial glow (the badge's previous background) never earns that read no
+ * matter how nice the underlying hue is.
  */
-function GeneratedBadgeArt({
-  category,
-  accent,
-  sealed,
-}: {
-  category: Exclude<EmblemCategory, "distancia">;
-  accent: string;
-  sealed: boolean;
-}) {
+function GemFace({ metal, uid }: { metal: RankMetal; uid: string }) {
+  const stops = tintedStops(metal, 0, 1);
   return (
-    <div
-      className={`absolute inset-0 ${sealed ? "blur-md brightness-[0.55] saturate-150" : ""}`}
-      style={{ background: `radial-gradient(circle at 32% 28%, ${accent}4d, #10141a 72%)` }}
-    >
-      <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full" aria-hidden="true">
-        <defs>
-          <filter id="collectible-badge-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2.2" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <circle cx="60" cy="60" r="56" fill="none" stroke={accent} strokeOpacity="0.35" strokeWidth="2" />
-        {/* Shrunk into the bottom-right corner, out of HorseGlowMark's centred spot — see the component comment above. */}
-        <g filter="url(#collectible-badge-glow)" transform="translate(57 57) scale(0.42)">
-          {category === "elevacao" ? <ElevationGlyph accent={accent} /> : <TimeGlyph accent={accent} />}
-        </g>
-      </svg>
-    </div>
+    <>
+      <defs>
+        <linearGradient id={`${uid}-face`} x1="0" y1="4" x2="0" y2="116" gradientUnits="userSpaceOnUse">
+          {stops.map(([offset, color]) => (
+            <stop key={offset} offset={`${offset}%`} stopColor={color} />
+          ))}
+        </linearGradient>
+        <clipPath id={`${uid}-clip`}>
+          <circle cx="60" cy="60" r="60" />
+        </clipPath>
+      </defs>
+      <circle cx="60" cy="60" r="60" fill={`url(#${uid}-face)`} />
+      <g clipPath={`url(#${uid}-clip)`}>
+        <path d="M -10 30 L 130 6 L 130 22 L -10 46 Z" fill="#ffffff" opacity="0.38" />
+        <path d="M -10 78 L 130 56 L 130 63 L -10 85 Z" fill="#ffffff" opacity="0.22" />
+      </g>
+    </>
+  );
+}
+
+/**
+ * A slow highlight sweeping around the opened face, like a cut stone
+ * catching light as it slowly turns — the animation the flat tint had none
+ * of, which is exactly what read as inert plastic rather than "a precious
+ * thing you just earned". Reuses `.pr-orbit` verbatim (see globals.css and
+ * emblem-reveal.tsx's own sealed-state ring): same 9s linear sweep, same
+ * reduced-motion gate, so this never needs its own copy of that keyframe or
+ * its own accessibility guard.
+ */
+function GemShimmer({ accent }: { accent: string }) {
+  return (
+    <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-full" aria-hidden="true">
+      <span
+        className="pr-orbit absolute -inset-[15%]"
+        style={{
+          background: `conic-gradient(from 0deg, transparent 0%, transparent 62%, ${accent}44 72%, #ffffff99 78%, ${accent}44 84%, transparent 94%, transparent 100%)`,
+        }}
+      />
+    </span>
   );
 }
 
@@ -143,19 +149,20 @@ function SealedSphereShading() {
 
 export function EmblemBadge({
   category = "distancia",
-  value,
-  accent = "#5b8dff",
+  metal = RANK_METAL[0],
   state,
   className = "block w-full",
 }: {
   category?: EmblemCategory;
-  /** The milestone's raw value — km for distância, metres for elevação, hours for tempo. */
+  /** The milestone's raw value — km for distância, metres for elevação, hours for tempo. Currently unused now that every category renders the same generated chrome face rather than a per-milestone image, kept so callers don't need a special case per category. */
   value: number;
-  /** Colour for the generated elevação/tempo art — see `collectibleDisplay` in collectibles.ts. Unused for distância, whose colour comes from its own artwork. */
-  accent?: string;
+  /** The rank-metal paint driving the chrome/gem face — see rankMetal.ts and `collectibleDisplay` in collectibles.ts. */
+  metal?: RankMetal;
   state: "locked" | "sealed" | "opened";
   className?: string;
 }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+
   if (state === "locked") {
     return (
       <svg viewBox="0 0 120 120" className={`${className} aspect-square`} fill="none" aria-hidden="true">
@@ -185,48 +192,26 @@ export function EmblemBadge({
     );
   }
 
-  if (category !== "distancia") {
-    return (
-      <div className={`${className} relative aspect-square overflow-hidden rounded-full`}>
-        <GeneratedBadgeArt category={category} accent={accent} sealed={state === "sealed"} />
-        {state === "sealed" && <SealedSphereShading />}
-        {state === "opened" && <HorseGlowMark />}
-      </div>
-    );
-  }
+  const sealed = state === "sealed";
+  const opened = state === "opened";
 
   return (
     <div className={`${className} relative aspect-square overflow-hidden rounded-full`}>
-      {/*
-        The commissioned art sits on its own dark backdrop inside a square
-        frame — the coin itself only fills about 72-75% of that square's
-        width, so a plain circular crop left a visible dark ring around the
-        actual medallion (read as "an old CD" rather than a coin with no
-        edge at all). scale-[1.4] zooms in past that backdrop so the coin's
-        own rim reaches the container's edge; sealed stacks the blur's own
-        softening on top of that same base zoom.
-      */}
-      {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed R2 asset doesn't need next/image anyway. */}
-      <img
-        src={emblemImageUrl(value)}
-        alt=""
-        className={`h-full w-full object-cover ${state === "sealed" ? "scale-[1.65] blur-md brightness-[0.45] saturate-150" : "scale-[1.4]"}`}
-      />
-      {/*
-        Retints the commissioned art toward its rank's own metal/gem tone —
-        same `mix-blend-mode: color` trick shoe-showcase.tsx uses to recolour
-        a photo: it keeps the backdrop's own luminance (so the coin's
-        engraving and shading still read) and swaps in this layer's hue and
-        saturation instead. Eleven pieces of art, one shared rarity ramp,
-        without needing eleven separate re-renders from the image model.
-      */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ backgroundColor: accent, mixBlendMode: "color" }}
+      <svg
+        viewBox="0 0 120 120"
+        className={`absolute inset-0 h-full w-full ${sealed ? "blur-md brightness-[0.62] saturate-150" : ""}`}
         aria-hidden="true"
-      />
-      {state === "sealed" && <SealedSphereShading />}
-      {state === "opened" && <HorseGlowMark />}
+      >
+        <GemFace metal={metal} uid={uid} />
+        {category !== "distancia" && (
+          <g transform="translate(57 57) scale(0.42)">
+            {category === "elevacao" ? <ElevationGlyph ink={metal.ink} /> : <TimeGlyph ink={metal.ink} />}
+          </g>
+        )}
+        {opened && <EngravedHorse ink={metal.ink} />}
+      </svg>
+      {sealed && <SealedSphereShading />}
+      {opened && <GemShimmer accent={metal.accent} />}
     </div>
   );
 }

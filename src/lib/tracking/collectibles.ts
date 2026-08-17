@@ -1,4 +1,4 @@
-import { metalForRank } from "@/lib/rankMetal";
+import { metalForRank, type RankMetal } from "@/lib/rankMetal";
 import { EMBLEM_LADDER_KM, formatEmblemKm } from "./emblems";
 import { runMovingSeconds, type CompletedRun, type EmblemCategory } from "./storage";
 
@@ -82,9 +82,8 @@ export function formatTimeHours(value: number): string {
 }
 
 export interface CollectibleDisplay {
-  accent: string;
-  /** The rank-metal's own name (Cobre, Bronze, ... Prisma) — see rankMetal.ts. */
-  metalName: string;
+  /** The full rank-metal paint (Cobre, Bronze, ... Prisma) — see rankMetal.ts. Carries both the flat `accent`/`name` and the chrome-ramp fields the badge's face gradient needs. */
+  metal: RankMetal;
   rank: number;
   /** Reveal-modal heading. */
   title: string;
@@ -98,10 +97,8 @@ export interface CollectibleDisplay {
 export function collectibleDisplay(category: EmblemCategory, value: number): CollectibleDisplay {
   if (category === "elevacao") {
     const nickname = ELEVATION_NICKNAME[value];
-    const metal = metalForRank(ELEVATION_LADDER_M.indexOf(value) + 1);
     return {
-      accent: metal.accent,
-      metalName: metal.name,
+      metal: metalForRank(ELEVATION_LADDER_M.indexOf(value) + 1),
       rank: ELEVATION_LADDER_M.indexOf(value) + 1,
       title: nickname ? `${formatElevationM(value)} · ${nickname}` : `${formatElevationM(value)} de subida`,
       subtitle: "Ganho de elevação somado de todo o relevo que você já subiu correndo.",
@@ -109,20 +106,16 @@ export function collectibleDisplay(category: EmblemCategory, value: number): Col
     };
   }
   if (category === "tempo") {
-    const metal = metalForRank(TIME_LADDER_HOURS.indexOf(value) + 1);
     return {
-      accent: metal.accent,
-      metalName: metal.name,
+      metal: metalForRank(TIME_LADDER_HOURS.indexOf(value) + 1),
       rank: TIME_LADDER_HOURS.indexOf(value) + 1,
       title: `${formatTimeHours(value)} de corrida`,
       subtitle: "Tempo em movimento somado — cada minuto correndo, contado.",
       gridLabel: formatTimeHours(value),
     };
   }
-  const metal = metalForRank(EMBLEM_LADDER_KM.indexOf(value) + 1);
   return {
-    accent: metal.accent,
-    metalName: metal.name,
+    metal: metalForRank(EMBLEM_LADDER_KM.indexOf(value) + 1),
     rank: EMBLEM_LADDER_KM.indexOf(value) + 1,
     title: `${formatEmblemKm(value)} km na vida`,
     subtitle: "Soma de tudo que você já rodou dentro do Xanthus, corrida após corrida.",

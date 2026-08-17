@@ -60,7 +60,7 @@ function CollectionGrid({
         const isCrossed = crossedValues.includes(value);
         const isOpened = isCrossed && openedValues.includes(value);
         const state = !isCrossed ? "locked" : isOpened ? "opened" : "sealed";
-        const { accent, gridLabel } = collectibleDisplay(category, value);
+        const { metal, gridLabel } = collectibleDisplay(category, value);
         return (
           <button
             key={value}
@@ -72,7 +72,7 @@ function CollectionGrid({
             <EmblemBadge
               category={category}
               value={value}
-              accent={accent}
+              metal={metal}
               state={state}
               className="block h-16 w-16"
             />
