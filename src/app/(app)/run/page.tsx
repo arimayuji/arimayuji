@@ -461,8 +461,6 @@ export default function RunPage() {
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
   const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
-  /** True once the athlete has tapped a ghost option this idle cycle — gates the auto-pick-most-recent default below so it never fights an explicit "Sem fantasma" choice. */
-  const [ghostTouched, setGhostTouched] = useState(false);
   /** The ghost actually used for the in-progress run, captured at start — kept separate from the
    * picker above so a later change to `selectedGhostId` (e.g. after resetting for a new run)
    * doesn't retroactively change what the finished summary says was raced against. */
@@ -540,13 +538,8 @@ export default function RunPage() {
       setRegisteredShoes(shoes);
       const sorted = [...runs].sort((a, b) => b.startedAt - a.startedAt);
       setRecentRuns(sorted.slice(0, RECENT_GHOST_CANDIDATES));
-      // Defaults to racing the last run — the comparison most people actually
-      // want ("am I faster than last time") — without fighting an explicit
-      // "Sem fantasma" tap, which also sets `selectedGhostId` to null but
-      // marks `ghostTouched` so this default doesn't override it.
-      setSelectedGhostId((current) => (ghostTouched || current !== null ? current : (sorted[0]?.id ?? null)));
     });
-  }, [state.status, ghostTouched]);
+  }, [state.status]);
 
   /** Same re-fetch-on-return-to-idle reasoning as the effect above — a coach accepted mid-session should be pickable for the very next run. */
   useEffect(() => {
@@ -795,7 +788,6 @@ export default function RunPage() {
 
   const handleReset = () => {
     setSelectedGhostId(null);
-    setGhostTouched(false);
     setActiveGhost(null);
     setManualTracks([]);
     setMusicQuery("");
@@ -1054,16 +1046,13 @@ export default function RunPage() {
               <div className="block space-y-1.5">
                 <span className="text-sm font-medium">Corrida fantasma</span>
                 <p className="text-xs text-muted">
-                  Por padrão compara com sua última corrida — tempo até a mesma distância
-                  percorrida, não o trajeto. Pode trocar ou desligar abaixo.
+                  Desligado por padrão. Escolha uma corrida abaixo pra comparar — tempo até a
+                  mesma distância percorrida, não o trajeto.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedGhostId(null);
-                      setGhostTouched(true);
-                    }}
+                    onClick={() => setSelectedGhostId(null)}
                     className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
                       selectedGhostId === null
                         ? "border-accent bg-accent text-accent-foreground"
@@ -1076,10 +1065,7 @@ export default function RunPage() {
                     <button
                       key={run.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedGhostId(run.id);
-                        setGhostTouched(true);
-                      }}
+                      onClick={() => setSelectedGhostId(run.id)}
                       className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
                         selectedGhostId === run.id
                           ? "border-accent bg-accent text-accent-foreground"
