@@ -39,7 +39,7 @@ import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
 import {
-  EMBLEM_ACCENT,
+  EMBLEM_LADDER_KM,
   formatEmblemKm,
   milestonesJustCrossed,
   nextMilestone,
@@ -48,9 +48,10 @@ import {
 import {
   formatTimeHours,
   nextTimeMilestone,
-  TIME_ACCENT,
+  TIME_LADDER_HOURS,
   totalMovingHours,
 } from "@/lib/tracking/collectibles";
+import { metalForMilestone } from "@/lib/rankMetal";
 import { AchievementReveal } from "../achievement-reveal";
 import { EmblemBadge } from "../emblem-badge";
 import { EmblemProgressBar } from "../emblem-progress-bar";
@@ -417,7 +418,7 @@ function computeEmblemProgress(run: CompletedRun, allRuns: CompletedRun[]): Embl
     entries.push({
       key: "distancia",
       icon: DISTANCE_PROGRESS_ICON,
-      accent: EMBLEM_ACCENT[nextDistanceAfter.km] ?? "#5b8dff",
+      accent: metalForMilestone(EMBLEM_LADDER_KM, nextDistanceAfter.km).accent,
       label: "Distância",
       deltaLabel: `+${(run.distanceMeters / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km`,
       milestoneLabel: `${formatEmblemKm(nextDistanceAfter.km)} km`,
@@ -435,7 +436,7 @@ function computeEmblemProgress(run: CompletedRun, allRuns: CompletedRun[]): Embl
     entries.push({
       key: "tempo",
       icon: TIME_PROGRESS_ICON,
-      accent: TIME_ACCENT[nextTimeAfter.value] ?? "#5b8dff",
+      accent: metalForMilestone(TIME_LADDER_HOURS, nextTimeAfter.value).accent,
       label: "Tempo",
       deltaLabel: `+${(runMovingSeconds(run) / 3600).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} h`,
       milestoneLabel: formatTimeHours(nextTimeAfter.value),

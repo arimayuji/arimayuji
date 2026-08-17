@@ -212,6 +212,19 @@ export function EmblemBadge({
         alt=""
         className={`h-full w-full object-cover ${state === "sealed" ? "scale-[1.65] blur-md brightness-[0.45] saturate-150" : "scale-[1.4]"}`}
       />
+      {/*
+        Retints the commissioned art toward its rank's own metal/gem tone —
+        same `mix-blend-mode: color` trick shoe-showcase.tsx uses to recolour
+        a photo: it keeps the backdrop's own luminance (so the coin's
+        engraving and shading still read) and swaps in this layer's hue and
+        saturation instead. Eleven pieces of art, one shared rarity ramp,
+        without needing eleven separate re-renders from the image model.
+      */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ backgroundColor: accent, mixBlendMode: "color" }}
+        aria-hidden="true"
+      />
       {state === "sealed" && <SealedSphereShading />}
       {state === "opened" && <HorseGlowMark />}
     </div>

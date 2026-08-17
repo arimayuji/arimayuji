@@ -74,18 +74,3 @@ const EMBLEM_IMAGE_BASE_URL =
 export function emblemImageUrl(km: number): string {
   return `${EMBLEM_IMAGE_BASE_URL}/emblems/${km}.webp`;
 }
-
-/** A representative colour picked by hand from each piece — for the surrounding UI chrome (reveal glow, heading) to match its own artwork instead of one shared brand colour. */
-export const EMBLEM_ACCENT: Readonly<Record<number, string>> = {
-  5: "#8fb8e0",
-  10: "#35e0d0",
-  25: "#4ade80",
-  50: "#d4a24c",
-  100: "#ff6a3d",
-  250: "#e0559a",
-  500: "#8d7bf0",
-  1000: "#d4af37",
-  2500: "#8fd6ff",
-  5000: "#f2c94c",
-  10000: "#ffd76a",
-};

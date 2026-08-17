@@ -1,4 +1,5 @@
-import { EMBLEM_ACCENT, EMBLEM_LADDER_KM, formatEmblemKm } from "./emblems";
+import { metalForRank } from "@/lib/rankMetal";
+import { EMBLEM_LADDER_KM, formatEmblemKm } from "./emblems";
 import { runMovingSeconds, type CompletedRun, type EmblemCategory } from "./storage";
 
 /**
@@ -24,34 +25,6 @@ export const TIME_LADDER_HOURS: readonly number[] = [
 export const ELEVATION_NICKNAME: Readonly<Record<number, string>> = {
   8849: "Everest",
   44245: "5x Everest",
-};
-
-export const ELEVATION_ACCENT: Readonly<Record<number, string>> = {
-  100: "#7fd9c4",
-  250: "#5cc8b0",
-  500: "#4fb89e",
-  1000: "#3fa5a0",
-  2000: "#3f8fc4",
-  3500: "#5b7fd4",
-  5000: "#7a6fd0",
-  8849: "#dce8ff",
-  15000: "#9fb8ff",
-  25000: "#c9d6ff",
-  44245: "#ffffff",
-};
-
-export const TIME_ACCENT: Readonly<Record<number, string>> = {
-  5: "#e0b070",
-  10: "#d9a25c",
-  25: "#d4954c",
-  50: "#cf8a3f",
-  100: "#c97f38",
-  200: "#c17530",
-  350: "#b8692a",
-  500: "#d4af37",
-  750: "#e0bf4a",
-  1000: "#f0cf5a",
-  2000: "#ffd76a",
 };
 
 /**
@@ -110,6 +83,8 @@ export function formatTimeHours(value: number): string {
 
 export interface CollectibleDisplay {
   accent: string;
+  /** The rank-metal's own name (Cobre, Bronze, ... Prisma) — see rankMetal.ts. */
+  metalName: string;
   rank: number;
   /** Reveal-modal heading. */
   title: string;
@@ -123,8 +98,10 @@ export interface CollectibleDisplay {
 export function collectibleDisplay(category: EmblemCategory, value: number): CollectibleDisplay {
   if (category === "elevacao") {
     const nickname = ELEVATION_NICKNAME[value];
+    const metal = metalForRank(ELEVATION_LADDER_M.indexOf(value) + 1);
     return {
-      accent: ELEVATION_ACCENT[value] ?? "#5b8dff",
+      accent: metal.accent,
+      metalName: metal.name,
       rank: ELEVATION_LADDER_M.indexOf(value) + 1,
       title: nickname ? `${formatElevationM(value)} · ${nickname}` : `${formatElevationM(value)} de subida`,
       subtitle: "Ganho de elevação somado de todo o relevo que você já subiu correndo.",
@@ -132,16 +109,20 @@ export function collectibleDisplay(category: EmblemCategory, value: number): Col
     };
   }
   if (category === "tempo") {
+    const metal = metalForRank(TIME_LADDER_HOURS.indexOf(value) + 1);
     return {
-      accent: TIME_ACCENT[value] ?? "#5b8dff",
+      accent: metal.accent,
+      metalName: metal.name,
       rank: TIME_LADDER_HOURS.indexOf(value) + 1,
       title: `${formatTimeHours(value)} de corrida`,
       subtitle: "Tempo em movimento somado — cada minuto correndo, contado.",
       gridLabel: formatTimeHours(value),
     };
   }
+  const metal = metalForRank(EMBLEM_LADDER_KM.indexOf(value) + 1);
   return {
-    accent: EMBLEM_ACCENT[value] ?? "#5b8dff",
+    accent: metal.accent,
+    metalName: metal.name,
     rank: EMBLEM_LADDER_KM.indexOf(value) + 1,
     title: `${formatEmblemKm(value)} km na vida`,
     subtitle: "Soma de tudo que você já rodou dentro do Xanthus, corrida após corrida.",
