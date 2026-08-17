@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 // Pinned to maplibre-gl 5 for the same reason route-map.tsx is — see the
 // comment there about the 6.x worker breaking under a static export.
 import { AttributionControl, Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { ensurePmtilesProtocol, protomapsStyle, type ColorScheme } from "@/lib/protomaps";
+import { ensurePmtilesProtocol, protomapsStyle } from "@/lib/protomaps";
+import { useEffectiveColorScheme } from "@/lib/theme";
 import type { GroupMarker } from "@/lib/useGroupLiveRuns";
 
 /**
@@ -17,22 +18,6 @@ import type { GroupMarker } from "@/lib/useGroupLiveRuns";
  * enough machinery that bolting it onto the 1-marker case would just be two
  * components pretending to be one.
  */
-
-const DARK_QUERY = "(prefers-color-scheme: dark)";
-
-function subscribeColorScheme(onChange: () => void): () => void {
-  const query = window.matchMedia(DARK_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-function useColorScheme(): ColorScheme | null {
-  return useSyncExternalStore(
-    subscribeColorScheme,
-    () => (window.matchMedia(DARK_QUERY).matches ? "dark" : "light"),
-    () => null,
-  );
-}
 
 /** Fixed palette, not the CSS accent — several markers need to read apart from each other at a glance, which one shared accent colour can't do. */
 const PALETTE = ["#eb4d4d", "#f5a623", "#1fb6a4", "#9b59b6", "#2ecc71", "#e67e22", "#16a5d6", "#e84393"];
@@ -81,7 +66,7 @@ export function GroupLiveMap({ markers, className = "" }: { markers: GroupMarker
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
   const [following, setFollowing] = useState(true);
-  const scheme = useColorScheme();
+  const scheme = useEffectiveColorScheme();
   // Memoized on `scheme` alone — see live-map.tsx's own comment on why a
   // fresh style object every render would retrigger map creation.
   const style = useMemo(() => (scheme ? protomapsStyle(scheme) : null), [scheme]);

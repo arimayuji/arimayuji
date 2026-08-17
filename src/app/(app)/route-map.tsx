@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
   type SVGProps,
 } from "react";
@@ -19,6 +18,7 @@ import { AttributionControl, Map as MapLibreMap, Marker, type StyleSpecification
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { ensurePmtilesProtocol, protomapsStyle, type ColorScheme } from "@/lib/protomaps";
+import { useEffectiveColorScheme } from "@/lib/theme";
 import { bearingDegrees, haversineMeters } from "@/lib/tracking/geoFilter";
 import { replayHead, replayStretches, type ReplayCursor, type ReplayFrame } from "@/lib/tracking/replay";
 import {
@@ -55,29 +55,6 @@ function fastestStretchRange(
 
   const windowMeters = Math.min(1000, Math.max(150, totalMeters * 0.15));
   return findFastestStretch(points, windowMeters);
-}
-
-const DARK_QUERY = "(prefers-color-scheme: dark)";
-
-function subscribeColorScheme(onChange: () => void): () => void {
-  const query = window.matchMedia(DARK_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-/**
- * Null on the server and during hydration, then the real scheme — the same
- * `useSyncExternalStore` shape as `usePreferences`. Null matters here beyond
- * avoiding a hydration mismatch: the basemap style is chosen per theme, so
- * booting the map before the scheme is known would download a light style and
- * flash a white square at anyone running the app dark.
- */
-function useColorScheme(): ColorScheme | null {
-  return useSyncExternalStore(
-    subscribeColorScheme,
-    () => (window.matchMedia(DARK_QUERY).matches ? "dark" : "light"),
-    () => null,
-  );
 }
 
 /**
@@ -966,7 +943,7 @@ export function RouteMap({
   /** Overlays positioned against the map itself — the replay controls and readout. */
   children?: ReactNode;
 }) {
-  const scheme = useColorScheme();
+  const scheme = useEffectiveColorScheme();
   // Memoized on `scheme` alone: protomapsStyle() builds a fresh object every
   // call, and a new reference here would otherwise retrigger the map-creation
   // effect (and reload the whole map) on every unrelated re-render of this

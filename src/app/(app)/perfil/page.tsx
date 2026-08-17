@@ -8,6 +8,7 @@ import {
   ANNOUNCE_STEP_METERS,
   announceLabel,
   type DistanceUnit,
+  type ThemeMode,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
@@ -39,6 +40,12 @@ import { formatDistance, unitLabel } from "@/lib/units";
 const UNITS: { value: DistanceUnit; label: string; hint: string }[] = [
   { value: "km", label: "Quilômetros", hint: "km · min/km" },
   { value: "mi", label: "Milhas", hint: "mi · min/mi" },
+];
+
+const THEMES: { value: ThemeMode; label: string }[] = [
+  { value: "light", label: "Claro" },
+  { value: "dark", label: "Escuro" },
+  { value: "system", label: "Sistema" },
 ];
 
 /** Same register as the bottom-nav icons in app-shell.tsx: stroke-only, 1.7 weight, round joins. */
@@ -665,6 +672,25 @@ export default function PerfilPage() {
 
       <Screen>
         <AccountCard />
+
+        <SectionLabel delayMs={20}>Aparência</SectionLabel>
+        <Card className="pr-enter" style={delay(30)}>
+          <CardTitle>Tema</CardTitle>
+          <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+            &quot;Sistema&quot; segue o tema do aparelho e muda sozinho se você trocar por lá.
+          </p>
+          <div className="flex gap-2">
+            {THEMES.map((theme) => (
+              <SegmentedButton
+                key={theme.value}
+                selected={prefs.theme === theme.value}
+                onClick={() => update({ theme: theme.value })}
+              >
+                {theme.label}
+              </SegmentedButton>
+            ))}
+          </div>
+        </Card>
 
         <SectionLabel delayMs={40}>Descubra</SectionLabel>
         <Card className="pr-enter" style={delay(50)}>

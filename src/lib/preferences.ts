@@ -16,12 +16,16 @@
 
 export type DistanceUnit = "km" | "mi";
 
+/** "system" follows the OS/browser scheme live; "light"/"dark" pin it regardless of what the OS is set to. */
+export type ThemeMode = "light" | "dark" | "system";
+
 export interface Preferences {
   announceIntervalMeters: number;
   distanceUnit: DistanceUnit;
   /** Extra live stat tiles on /run — the run-so-far average pace and the pace of the km currently in progress. Both on by default; each is one more tile competing for space on a screen a sweaty thumb glances at mid-stride, so /perfil lets either be turned off. */
   showAveragePaceLive: boolean;
   showCurrentKmPaceLive: boolean;
+  theme: ThemeMode;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -34,6 +38,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   distanceUnit: "km",
   showAveragePaceLive: true,
   showCurrentKmPaceLive: true,
+  theme: "system",
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -68,7 +73,12 @@ function sanitize(raw: unknown): Preferences {
       ? value.showCurrentKmPaceLive
       : DEFAULT_PREFERENCES.showCurrentKmPaceLive;
 
-  return { announceIntervalMeters, distanceUnit, showAveragePaceLive, showCurrentKmPaceLive };
+  const theme: ThemeMode =
+    value.theme === "light" || value.theme === "dark" || value.theme === "system"
+      ? value.theme
+      : DEFAULT_PREFERENCES.theme;
+
+  return { announceIntervalMeters, distanceUnit, showAveragePaceLive, showCurrentKmPaceLive, theme };
 }
 
 /** Safe on the server and in private-mode browsers: always returns something usable. */

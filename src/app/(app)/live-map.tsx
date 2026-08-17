@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef } from "react";
 // Pinned to maplibre-gl 5 for the same reason route-map.tsx is — see the
 // comment there about the 6.x worker breaking under a static export.
 import { AttributionControl, Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { ensurePmtilesProtocol, protomapsStyle, type ColorScheme } from "@/lib/protomaps";
+import { ensurePmtilesProtocol, protomapsStyle } from "@/lib/protomaps";
+import { useEffectiveColorScheme } from "@/lib/theme";
 
 /**
  * A coach's live view of one student's position — a single marker that
@@ -18,27 +19,11 @@ import { ensurePmtilesProtocol, protomapsStyle, type ColorScheme } from "@/lib/p
  * summary card.
  */
 
-const DARK_QUERY = "(prefers-color-scheme: dark)";
-
-function subscribeColorScheme(onChange: () => void): () => void {
-  const query = window.matchMedia(DARK_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-function useColorScheme(): ColorScheme | null {
-  return useSyncExternalStore(
-    subscribeColorScheme,
-    () => (window.matchMedia(DARK_QUERY).matches ? "dark" : "light"),
-    () => null,
-  );
-}
-
 export function LiveMap({ lat, lon, className = "" }: { lat: number; lon: number; className?: string }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
-  const scheme = useColorScheme();
+  const scheme = useEffectiveColorScheme();
   // Memoized on `scheme` alone: protomapsStyle() builds a fresh object every
   // call, and a new reference here would retrigger the map-creation effect
   // below on every unrelated re-render.
