@@ -126,14 +126,10 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 
 ## Ferramentas externas usadas no projeto
 
-- Design/animações/logo: **não documentado ainda** — a sessão de
-  2026-08-17 mencionou "a gente usa [uma IA] pra fazer algumas animações
-  e logos" mas a frase foi cortada antes do nome da ferramenta. Ver
-  Perguntas em aberto.
+- Design/animações/logo: **[Recraft AI](https://www.recraft.ai/)**.
 
 ## Perguntas em aberto (preencher quando puder)
 
-- [ ] Qual ferramenta/IA é usada pra animações e logos do Xanthus?
 - [ ] A conta de desenvolvedor do Google Play já terminou a verificação?
       Se sim, falta só configurar o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
 - [ ] Existe prazo/meta pra submeter o iOS pra revisão real da App Store
