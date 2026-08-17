@@ -176,10 +176,21 @@ Emails disparados pelo backend (welcome, confirmação de exclusão de conta,
 e no futuro anúncio de versão/newsletter) usam o [Resend](https://resend.com/).
 Como o app é 100% client-side (export estático, sem servidor Next.js
 rodando em produção), o envio nunca acontece no navegador — sempre por uma
-Appwrite Function reagindo a um evento (`users.create`, `users.delete`),
-mesmo padrão de `appwrite-functions/delete-account`. A chave da API vive
-só na configuração da Function no Appwrite Console, nunca neste repositório
-nem em `NEXT_PUBLIC_*` — o app cliente nunca manda e-mail diretamente.
+Appwrite Function invocada com a sessão de quem chama, mesmo padrão de
+`appwrite-functions/delete-account`. A chave da API vive só na configuração
+da Function no Appwrite Console, nunca neste repositório nem em
+`NEXT_PUBLIC_*` — o app cliente nunca manda e-mail diretamente.
+
+**Por que não é um evento do Appwrite (`users.create`)**: é o gatilho óbvio
+à primeira vista, mas o próprio Appwrite documenta esse evento como não
+confiável pra contas criadas via OAuth — e Google/Apple são o único login
+que este app oferece (ver a issue linkada no comentário de
+`appwrite-functions/send-welcome-email/src/main.js`). Em vez disso, o
+welcome email é disparado direto do código, no exato momento em que
+`createProfile()` roda pela primeira vez (`handle-picker.tsx` →
+`sendWelcomeEmail()` em `src/lib/auth.ts`) — o único ponto client-side que
+garante "essa conta acabou de nascer", best-effort (nunca bloqueia nem
+falha a criação de conta se o envio de e-mail falhar).
 
 **Setup (uma vez):**
 
@@ -206,6 +217,23 @@ nem em `NEXT_PUBLIC_*` — o app cliente nunca manda e-mail diretamente.
    de `contato@`/`feedback@`, que são os endereços de *recebimento* já
    configurados via Cloudflare Email Routing (ver seção de domínio no
    `PROJECT-CONTEXT.md`); um manda, o outro recebe, são coisas separadas.
+
+**Deploy da function de boas-vindas** (via [Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+
+```bash
+cd appwrite-functions/send-welcome-email
+appwrite functions create \
+  --function-id send-welcome-email --name "Enviar e-mail de boas-vindas" \
+  --runtime node-22 --entrypoint src/main.js \
+  --execute users
+appwrite push functions
+```
+
+Depois, no Appwrite Console → Functions → send-welcome-email:
+- **Settings → API key scopes**: marca `users.read` (só precisa ler o
+  e-mail do usuário — o tipo `Account` do lado do cliente não carrega
+  e-mail de propósito, ver `src/lib/auth.ts`).
+- **Settings → Variables**: `RESEND_API_KEY` (passo 5 acima).
 
 **LGPD**: e-mail transacional (welcome, confirmação de exclusão) não
 precisa de opt-in separado — é execução do serviço. E-mail de

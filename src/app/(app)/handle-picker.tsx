@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createProfile, isHandleAvailable, isValidHandle, suggestHandle, type Account, type Profile } from "@/lib/auth";
+import {
+  createProfile,
+  isHandleAvailable,
+  isValidHandle,
+  sendWelcomeEmail,
+  suggestHandle,
+  type Account,
+  type Profile,
+} from "@/lib/auth";
 import { ModalPortal } from "./modal-portal";
 
 /**
@@ -51,6 +59,7 @@ export function HandlePicker({ account, onDone }: { account: Account; onDone: (p
     setError(null);
     try {
       const profile = await createProfile(account.id, handle, displayName.trim());
+      sendWelcomeEmail();
       onDone(profile);
     } catch {
       setError("Não deu pra criar o perfil agora — tenta de novo em instantes.");

@@ -6,7 +6,13 @@
  * on any of this.
  */
 import { ExecutionMethod, ID, type Models, OAuthProvider, Permission, Query, Role } from "appwrite";
-import { APPWRITE_DATABASE_ID, DELETE_ACCOUNT_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
+import {
+  APPWRITE_DATABASE_ID,
+  DELETE_ACCOUNT_FUNCTION_ID,
+  SEND_WELCOME_EMAIL_FUNCTION_ID,
+  TABLES,
+  getAppwrite,
+} from "./appwrite";
 
 export interface Profile extends Models.Row {
   handle: string;
@@ -164,6 +170,27 @@ export async function createProfile(userId: string, handle: string, displayName:
     // this grants the owner (and only the owner) update/delete on theirs.
     permissions: [Permission.update(Role.user(userId)), Permission.delete(Role.user(userId))],
   });
+}
+
+/**
+ * Best-effort — a welcome email failing (Resend down, function not deployed
+ * yet, whatever) must never block or fail account creation, so this
+ * swallows its own errors instead of throwing. Call once, right after
+ * `createProfile` succeeds (see handle-picker.tsx): that moment is the one
+ * reliable "this is a brand-new account" signal available client-side —
+ * Appwrite's own `users.create` event is documented as unreliable for
+ * OAuth-created accounts (Google/Apple, the only login this app offers),
+ * so this intentionally isn't triggered off that event server-side.
+ */
+export function sendWelcomeEmail(): void {
+  const appwrite = getAppwrite();
+  if (!appwrite) return;
+  appwrite.functions
+    .createExecution({ functionId: SEND_WELCOME_EMAIL_FUNCTION_ID, method: ExecutionMethod.POST })
+    .catch(() => {
+      // Nothing to recover here — the athlete's account and profile are
+      // already created either way.
+    });
 }
 
 // Re-exported so callers that need a fresh unique ID (e.g. for a future

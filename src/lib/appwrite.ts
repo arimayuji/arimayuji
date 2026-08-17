@@ -44,6 +44,10 @@ export const TABLES = {
 // creation, not one Appwrite generates).
 export const DELETE_ACCOUNT_FUNCTION_ID = "delete-account";
 
+// Matches appwrite-functions/send-welcome-email's Function ID — same
+// convention as DELETE_ACCOUNT_FUNCTION_ID above.
+export const SEND_WELCOME_EMAIL_FUNCTION_ID = "send-welcome-email";
+
 interface AppwriteServices {
   client: Client;
   account: Account;
