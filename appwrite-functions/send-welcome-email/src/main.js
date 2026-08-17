@@ -2,6 +2,12 @@ import { Client, Users } from "node-appwrite";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const FROM_ADDRESS = "Xanthus <noreply@xanthus.app.br>";
+// The horse-bust mark (src/app/horse-mark.tsx) — already proven at this
+// exact "small badge" size for the PWA/favicon, so it holds up in an email
+// header too. PNG, not the SVG this is exported from (assets/logo.svg):
+// Outlook/Hotmail's rendering engine has notoriously poor inline-SVG
+// support in email, unlike a browser.
+const LOGO_URL = "https://xanthus.yujiarima.workers.dev/pwa-icon-192.png";
 
 function welcomeEmailHtml(name) {
   const greeting = name ? `Oi, ${name}!` : "Oi!";
@@ -14,6 +20,7 @@ function welcomeEmailHtml(name) {
           <table role="presentation" width="100%" style="max-width:480px;background:#ffffff;border-radius:16px;border:1px solid #dde1e6;">
             <tr>
               <td style="padding:32px 28px;">
+                <img src="${LOGO_URL}" width="40" height="40" alt="Xanthus" style="display:block;margin:0 0 12px;border-radius:10px;" />
                 <p style="margin:0 0 4px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#2f6fed;font-weight:600;">Xanthus</p>
                 <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;">${greeting} Bem-vindo(a).</h1>
                 <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#5c6570;">
