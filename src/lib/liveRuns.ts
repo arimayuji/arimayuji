@@ -29,6 +29,8 @@ export interface LiveRun extends Models.Row {
   lat: number;
   lon: number;
   updatedAtMs: number;
+  /** Which "longão" (group_runs) session this ping belongs to, if any — lets a group of runners find each other's live rows with one query instead of the 1:1 coach case's per-athlete lookup. */
+  sessionCode?: string;
 }
 
 export interface LiveRunUpdate {
@@ -39,15 +41,22 @@ export interface LiveRunUpdate {
   lon: number;
 }
 
-/** Creates the live row for `runId`, readable by `coachIds` and no one else besides the athlete. */
+/**
+ * Creates the live row for `runId`, readable by `viewerIds` and no one else
+ * besides the athlete. `viewerIds` used to only ever be "the one coach
+ * picked before starting" — it's now the union of that and whoever is
+ * currently in the athlete's "longão" session (see `sessionCode`), so the
+ * same row serves both audiences without two separate live-tracking paths.
+ */
 export async function startLiveSession(
   runId: string,
   startedAt: number,
-  coachIds: string[],
+  viewerIds: string[],
   update: LiveRunUpdate,
+  sessionCode?: string,
 ): Promise<boolean> {
   const appwrite = getAppwrite();
-  if (!appwrite || coachIds.length === 0) return false;
+  if (!appwrite || viewerIds.length === 0) return false;
   const account = await getCurrentAccount();
   if (!account) return false;
 
@@ -65,17 +74,49 @@ export async function startLiveSession(
         lat: update.lat,
         lon: update.lon,
         updatedAtMs: Date.now(),
+        sessionCode: sessionCode ?? undefined,
       },
       permissions: [
         Permission.read(Role.user(account.id)),
         Permission.update(Role.user(account.id)),
         Permission.delete(Role.user(account.id)),
-        ...coachIds.map((coachId) => Permission.read(Role.user(coachId))),
+        ...viewerIds.map((viewerId) => Permission.read(Role.user(viewerId))),
       ],
     });
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Re-grants read on the already-running live row to exactly `viewerIds`,
+ * without touching its data — called while a "longão" is in progress, since
+ * who's in the session (and thus who should be able to see this athlete's
+ * dot) can change after the row was first created. Best-effort like every
+ * other write here: a missed refresh just means someone who joined recently
+ * can't see this athlete yet, not a failed run.
+ */
+export async function refreshLiveSessionAudience(runId: string, viewerIds: string[]): Promise<void> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return;
+  const account = await getCurrentAccount();
+  if (!account) return;
+  try {
+    await appwrite.tablesDB.updateRow<LiveRun>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.liveRuns,
+      rowId: runId,
+      data: {},
+      permissions: [
+        Permission.read(Role.user(account.id)),
+        Permission.update(Role.user(account.id)),
+        Permission.delete(Role.user(account.id)),
+        ...viewerIds.map((viewerId) => Permission.read(Role.user(viewerId))),
+      ],
+    });
+  } catch {
+    // Next refresh (or the next regular position update) catches up.
   }
 }
 
@@ -126,5 +167,29 @@ export async function getActiveLiveSession(studentId: string): Promise<LiveRun |
     return result.rows[0] ?? null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Every athlete currently live within one "longão" session — the group
+ * live map's whole data source. Deliberately just a query on `sessionCode`
+ * with no extra filtering: row permissions already restrict this to rows
+ * the signed-in account can actually read (i.e. the athletes who had
+ * already included this account in their audience via
+ * `startLiveSession`/`refreshLiveSessionAudience`), so what comes back is
+ * exactly the athletes visible to me, never the whole session's raw list.
+ */
+export async function listSessionLiveRuns(sessionCode: string): Promise<LiveRun[]> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return [];
+  try {
+    const result = await appwrite.tablesDB.listRows<LiveRun>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.liveRuns,
+      queries: [Query.equal("sessionCode", sessionCode), Query.limit(30)],
+    });
+    return result.rows;
+  } catch {
+    return [];
   }
 }

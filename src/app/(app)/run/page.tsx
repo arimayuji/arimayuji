@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { isStandaloneDisplay } from "@/lib/platform";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
-import { startLiveSession, updateLiveSession, endLiveSession } from "@/lib/liveRuns";
+import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
+import { getActiveGroupRunCode, getGroupRun, listParticipants, type GroupRun } from "@/lib/groupRuns";
+import { useAuth } from "@/lib/useAuth";
 import {
   formatDeltaDuration,
   formatDistanceKm,
@@ -479,6 +481,12 @@ export default function RunPage() {
   const [coaches, setCoaches] = useState<CoachConnection[]>([]);
   /** Which coach (if any) this run is being shared live with — chosen before starting, null means "not live". */
   const [liveCoachId, setLiveCoachId] = useState<string | null>(null);
+  /** Own account id, needed only to keep this athlete's own id out of the live-viewer permission list computed from the longão's participants below. */
+  const { account } = useAuth();
+  /** The "longão" this device currently remembers being part of, if any and still open — resolved from `getActiveGroupRunCode()`'s localStorage pointer, same re-check-on-return-to-idle timing as `coaches` above. */
+  const [longaoSession, setLongaoSession] = useState<GroupRun | null>(null);
+  /** Pre-selected on by default when there's an active longão — same reasoning `install-prompt.tsx` uses for defaults that should be visible but always a tap away from off. */
+  const [shareLongao, setShareLongao] = useState(true);
 
   /** See `recoverableRun`'s own comment — checked once, not on every re-render, since `start()`/`recover()` are the only things that should ever change what's buffered. */
   useEffect(() => {
@@ -551,6 +559,29 @@ export default function RunPage() {
     });
   }, [state.status]);
 
+  /**
+   * Same idle-refresh timing as the coach effect above — also drops a
+   * remembered session that expired or got closed since the last visit,
+   * instead of offering to share with something that no longer exists.
+   * Both branches resolve through the async function below rather than one
+   * setting state directly in the effect body, since only one of them did
+   * originally and that was enough to trip the cascading-render lint rule.
+   */
+  useEffect(() => {
+    if (state.status !== "idle") return;
+    let cancelled = false;
+    (async () => {
+      const code = getActiveGroupRunCode();
+      const session = code ? await getGroupRun(code) : null;
+      const usable =
+        session && session.status === "open" && new Date(session.expiresAt).getTime() > Date.now();
+      if (!cancelled) setLongaoSession(usable ? session : null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.status]);
+
   const selectedGhost = recentRuns.find((r) => r.id === selectedGhostId) ?? null;
 
   /**
@@ -563,23 +594,60 @@ export default function RunPage() {
   const announceMeters = preferences.announceIntervalMeters;
 
   /**
-   * Live position sharing — a ping to the chosen coach every few seconds
+   * Live position sharing — a ping to whoever's watching (the chosen coach,
+   * and/or everyone currently in the active "longão") every few seconds
    * while `tracking`/`paused`, never more often than that (a live map only
    * needs to be roughly current, not frame-perfect, and every extra request
    * is data and battery the athlete is paying for mid-run). The session
    * starts the moment tracking actually begins (not at the idle "choose a
    * coach" step, since warmup might never complete) and ends the moment
    * it stops being `tracking`/`paused` for any reason — finished, or this
-   * screen unmounting entirely — so a coach never keeps watching a dot that
+   * screen unmounting entirely — so nobody watching keeps seeing a dot that
    * stopped moving for a reason they can't see.
    */
   const liveSessionActiveRef = useRef(false);
   const lastLivePushRef = useRef(0);
   const LIVE_PUSH_INTERVAL_MS = 6000;
 
+  /** Kept outside React state — read fresh by the push effect below on its own next tick rather than becoming a dependency, same reasoning `liveSessionActiveRef` already follows. */
+  const groupRunParticipantIdsRef = useRef<string[]>([]);
+  const PARTICIPANT_POLL_MS = 20_000;
+  const activeSessionCode = shareLongao ? (longaoSession?.$id ?? null) : null;
+
+  /**
+   * Re-reads who's actually in the longão every 20s while live, and pushes
+   * the updated viewer list onto the already-running row (see
+   * `refreshLiveSessionAudience`'s own comment for why permissions set at
+   * creation time alone aren't enough — someone joining mid-run wouldn't
+   * otherwise ever be granted read on this athlete's dot).
+   */
   useEffect(() => {
     const live = state.status === "tracking" || state.status === "paused";
-    if (live && liveCoachId && state.runId) {
+    if (!live || !activeSessionCode) return;
+    let cancelled = false;
+    const poll = async () => {
+      const rows = await listParticipants(activeSessionCode);
+      if (cancelled) return;
+      const ids = rows.map((row) => row.participant.userId).filter((id) => id !== account?.id);
+      const current = groupRunParticipantIdsRef.current;
+      const changed = ids.length !== current.length || ids.some((id) => !current.includes(id));
+      groupRunParticipantIdsRef.current = ids;
+      if (changed && liveSessionActiveRef.current && state.runId) {
+        void refreshLiveSessionAudience(state.runId, [...(liveCoachId ? [liveCoachId] : []), ...ids]);
+      }
+    };
+    void poll();
+    const interval = setInterval(poll, PARTICIPANT_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [state.status, activeSessionCode, state.runId, liveCoachId, account?.id]);
+
+  useEffect(() => {
+    const live = state.status === "tracking" || state.status === "paused";
+    const viewerIds = [...(liveCoachId ? [liveCoachId] : []), ...groupRunParticipantIdsRef.current];
+    if (live && viewerIds.length > 0 && state.runId) {
       const lastPoint = state.points[state.points.length - 1];
       if (lastPoint) {
         const payload = {
@@ -595,8 +663,9 @@ export default function RunPage() {
           void startLiveSession(
             state.runId,
             Date.now() - state.elapsedSeconds * 1000,
-            [liveCoachId],
+            viewerIds,
             payload,
+            activeSessionCode ?? undefined,
           );
         } else if (Date.now() - lastLivePushRef.current >= LIVE_PUSH_INTERVAL_MS) {
           lastLivePushRef.current = Date.now();
@@ -609,6 +678,7 @@ export default function RunPage() {
     }
   }, [
     liveCoachId,
+    activeSessionCode,
     state.runId,
     state.status,
     state.distanceMeters,
@@ -1076,6 +1146,40 @@ export default function RunPage() {
                       {new Date(run.startedAt).toLocaleDateString("pt-BR")}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {longaoSession && (
+              <div className="block space-y-1.5">
+                <span className="text-sm font-medium">Longão: {longaoSession.name}</span>
+                <p className="text-xs text-muted">
+                  Quem já entrou nesse longão (código {longaoSession.$id}) vê sua posição enquanto a
+                  corrida rolar.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShareLongao(true)}
+                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                      shareLongao
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border bg-surface text-foreground hover:border-accent"
+                    }`}
+                  >
+                    Compartilhar com o longão
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShareLongao(false)}
+                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                      !shareLongao
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border bg-surface text-foreground hover:border-accent"
+                    }`}
+                  >
+                    Não compartilhar
+                  </button>
                 </div>
               </div>
             )}
