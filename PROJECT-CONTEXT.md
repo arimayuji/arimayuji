@@ -77,6 +77,16 @@ uma opção escondendo as outras:
   não registrada); depois de registrar `xanthus.app.br` como Web Platform
   no Appwrite Console isso desbloqueou Google e Apple, mas o Microsoft foi
   descartado por decisão do produto (não é bug pendente).
+- **Telefone/SMS**: código pronto (2026-08-17) e desligado —
+  `src/lib/auth.ts` (`sendPhoneOtp`/`verifyPhoneOtp`) +
+  `src/app/(app)/account-prompt.tsx` (`PhoneSignIn`), atrás de
+  `PHONE_AUTH_ENABLED = false`. **Não precisa de nenhuma env var/secret
+  no repo** — o que falta é só configurar um provedor de SMS de verdade
+  no **Appwrite Console → Auth → Settings → SMS** (Twilio, MSG91, Vonage
+  ou TextMagic) com as credenciais reais; feito isso, é só virar essa
+  flag pra `true`. Custo estimado via Twilio pra número brasileiro:
+  ~US$ 0,125 por login verificado (US$ 0,075 do SMS + US$ 0,05 do
+  Twilio Verify) — motivo de ainda estar desligado.
 
 ## Domínio e e-mail
 

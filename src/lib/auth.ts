@@ -74,6 +74,52 @@ export function signInWithApple(returnTo: string): void {
   appwrite.account.createOAuth2Session({ provider: OAuthProvider.Apple, success: url, failure: url });
 }
 
+/**
+ * Off until an SMS provider (Twilio, MSG91, Vonage or TextMagic) is
+ * actually wired up — that's an Appwrite Console setting (Auth ->
+ * Settings -> SMS), not a repo/env secret, so there's no `.env.local` key
+ * to add for this one. `sendPhoneOtp`/`verifyPhoneOtp` below already work
+ * end to end against that setting the moment it exists; flip this to
+ * `true` then, nothing else needs to change. See PROJECT-CONTEXT.md for
+ * the cost estimate that's the reason it's off (~US$0.125/verification
+ * for a Brazilian number via Twilio).
+ */
+export const PHONE_AUTH_ENABLED = false;
+
+/**
+ * Starts a passwordless phone login: Appwrite texts a 6-digit code to
+ * `phone` (E.164, e.g. "+5511999998888") and returns the token's `userId`
+ * — pass it straight into `verifyPhoneOtp` along with whatever code the
+ * athlete types back in. A brand-new number gets a fresh account
+ * automatically; a number already tied to one just gets signed into it —
+ * either way the `userId` in the response (not `ID.unique()`'s own value)
+ * is the one that matters, since Appwrite silently ignores the requested
+ * ID once the phone number already resolves to an existing account.
+ */
+export async function sendPhoneOtp(phone: string): Promise<string> {
+  const appwrite = getAppwrite();
+  if (!appwrite) throw new Error("Appwrite não configurado");
+  const token = await appwrite.account.createPhoneToken({ userId: ID.unique(), phone });
+  return token.userId;
+}
+
+/**
+ * Completes the login started by `sendPhoneOtp`. Unlike
+ * `signInWithGoogle`/`signInWithApple`, this never navigates the browser
+ * away — there's no OAuth consent screen to redirect through — so the
+ * caller is the one that has to move on afterwards (e.g. `window.location
+ * .assign(returnTo)`, matching what a completed OAuth round trip would
+ * have landed on) once this promise resolves; nothing here does it
+ * automatically. Uses the current (non-deprecated) `createSession`
+ * endpoint rather than the older `updatePhoneSession`, which does the
+ * same thing but is marked deprecated as of Appwrite 1.6.
+ */
+export async function verifyPhoneOtp(userId: string, secret: string): Promise<void> {
+  const appwrite = getAppwrite();
+  if (!appwrite) throw new Error("Appwrite não configurado");
+  await appwrite.account.createSession({ userId, secret });
+}
+
 export async function signOut(): Promise<void> {
   const appwrite = getAppwrite();
   if (!appwrite) return;

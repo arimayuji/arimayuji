@@ -1,6 +1,13 @@
 "use client";
 
-import { signInWithApple, signInWithGoogle } from "@/lib/auth";
+import { useState, type FormEvent } from "react";
+import {
+  PHONE_AUTH_ENABLED,
+  sendPhoneOtp,
+  signInWithApple,
+  signInWithGoogle,
+  verifyPhoneOtp,
+} from "@/lib/auth";
 import { ModalPortal } from "./modal-portal";
 
 const STROKE = {
@@ -22,12 +29,33 @@ const UNLOCKS = [
  * adding a friend/coach) — never on load, never for recording a run or
  * viewing history, which stay account-free. `returnTo` is the path the
  * OAuth provider sends the browser back to; it must already be registered
- * as an Appwrite "platform" hostname. Phone/SMS sign-in was dropped —
- * every remaining provider is OAuth, which always completes with a full
- * page reload at `returnTo`, so there's no in-page "just signed in" moment
- * for a caller to hook into.
+ * as an Appwrite "platform" hostname.
+ *
+ * Phone/SMS sign-in (behind `PHONE_AUTH_ENABLED`, off until an SMS
+ * provider is configured — see auth.ts) doesn't fit that same "click and
+ * the browser leaves" shape Google/Apple get for free from OAuth: there's
+ * no consent screen to redirect through, so completing it is just a
+ * fetch call that resolves in place. `PhoneSignIn` below forces the same
+ * end state anyway — a full navigation to `returnTo` once the code
+ * verifies — so every caller here still only has to handle "the modal
+ * closed, go check for a session," never a second "logged in in-place"
+ * case.
  */
 export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; returnTo: string }) {
+  const [phoneStep, setPhoneStep] = useState<"none" | "phone" | "code">("none");
+
+  if (phoneStep !== "none") {
+    return (
+      <PhoneSignIn
+        step={phoneStep}
+        returnTo={returnTo}
+        onClose={onClose}
+        onBack={() => setPhoneStep(phoneStep === "code" ? "phone" : "none")}
+        onCodeSent={() => setPhoneStep("code")}
+      />
+    );
+  }
+
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
@@ -105,6 +133,17 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
                 <GoogleIcon />
                 Continuar com Google
               </button>
+
+              {PHONE_AUTH_ENABLED && (
+                <button
+                  type="button"
+                  onClick={() => setPhoneStep("phone")}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold"
+                >
+                  <PhoneIcon />
+                  Continuar com telefone
+                </button>
+              )}
             </div>
 
             <p className="mt-5 border-t border-border pt-4 text-[11px] leading-relaxed text-muted">
@@ -115,6 +154,173 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
         </div>
       </div>
     </ModalPortal>
+  );
+}
+
+const BRAZIL_DIAL_CODE = "+55";
+
+/** Strips everything but digits, prefixing +55 unless the athlete already typed their own country code (a leading "+") — Appwrite's phone login needs strict E.164. */
+function toE164(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.startsWith("+")) return `+${trimmed.slice(1).replace(/\D/g, "")}`;
+  return `${BRAZIL_DIAL_CODE}${trimmed.replace(/\D/g, "")}`;
+}
+
+/**
+ * The two-step phone flow `AccountPrompt` swaps in for `PHONE_AUTH_ENABLED`.
+ * Its own modal rather than a state machine layered into `AccountPrompt`'s
+ * markup — the two steps (number, then code) share almost no layout with
+ * the provider list they replace, and keeping them as one big conditional
+ * render would mean threading `phone`/`code`/`userId` state through a
+ * component that doesn't otherwise need any state at all.
+ */
+function PhoneSignIn({
+  step,
+  returnTo,
+  onClose,
+  onBack,
+  onCodeSent,
+}: {
+  step: "phone" | "code";
+  returnTo: string;
+  onClose: () => void;
+  onBack: () => void;
+  onCodeSent: () => void;
+}) {
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  /** Set once `sendPhoneOtp` resolves — Appwrite may hand back a *different* ID than the one this device requested, when the phone number already belongs to an existing account (see auth.ts). `verifyPhoneOtp` has to use this one, not a freshly-generated one. */
+  const [userId, setUserId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSendCode(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      setUserId(await sendPhoneOtp(toE164(phone)));
+      onCodeSent();
+    } catch {
+      setError("Não deu pra enviar o código — confere o número e tenta de novo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifyCode(event: FormEvent) {
+    event.preventDefault();
+    if (!userId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await verifyPhoneOtp(userId, code);
+      // Full navigation, same end state an OAuth round trip lands on —
+      // see the "in place" note on AccountPrompt above for why this
+      // doesn't just close the modal and call it done.
+      window.location.assign(returnTo);
+    } catch {
+      setError("Código incorreto ou expirado — confere e tenta de novo.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ModalPortal>
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
+        <div className="w-full max-w-sm rounded-t-3xl bg-background text-foreground sm:rounded-3xl">
+          <div className="flex items-center justify-between px-4 pt-4">
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Voltar"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" {...STROKE}>
+                <path d="M15 6l-6 6 6 6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" {...STROKE}>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-7 pb-8">
+            {step === "phone" ? (
+              <form onSubmit={handleSendCode}>
+                <h2 className="text-center text-lg font-semibold text-balance">Qual seu telefone?</h2>
+                <p className="mt-2 text-center text-sm leading-relaxed text-muted">
+                  Manda um código por SMS pra confirmar que é você.
+                </p>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  required
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="mt-6 w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-center text-base outline-none focus:border-accent"
+                />
+                <p className="mt-2 text-center text-xs text-muted">
+                  Sem código do país? Assumimos Brasil ({BRAZIL_DIAL_CODE}).
+                </p>
+                {error && <p className="mt-3 text-center text-xs text-bad">{error}</p>}
+                <button
+                  type="submit"
+                  disabled={busy || !phone.trim()}
+                  className="mt-6 w-full rounded-xl bg-accent py-3.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+                >
+                  {busy ? "Enviando…" : "Enviar código"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyCode}>
+                <h2 className="text-center text-lg font-semibold text-balance">Digite o código</h2>
+                <p className="mt-2 text-center text-sm leading-relaxed text-muted">
+                  Mandamos um SMS com um código de 6 dígitos.
+                </p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  maxLength={6}
+                  value={code}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+                  placeholder="000000"
+                  className="mt-6 w-full rounded-xl border border-border bg-surface px-4 py-3.5 text-center font-mono text-2xl tracking-[0.3em] outline-none focus:border-accent"
+                />
+                {error && <p className="mt-3 text-center text-xs text-bad">{error}</p>}
+                <button
+                  type="submit"
+                  disabled={busy || code.length !== 6}
+                  className="mt-6 w-full rounded-xl bg-accent py-3.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+                >
+                  {busy ? "Confirmando…" : "Confirmar"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" aria-hidden="true" {...STROKE}>
+      <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
+      <path d="M10.5 18h3" />
+    </svg>
   );
 }
 
