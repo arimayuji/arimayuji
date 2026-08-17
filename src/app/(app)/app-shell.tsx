@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { InstallPrompt } from "./install-prompt";
-import { UpdateBanner } from "./update-banner";
+import { NotificationBell } from "./notification-bell";
 
 /**
  * App shell: the logged-in surface of Xanthus.
@@ -177,14 +177,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         Safe-area insets live here, once, instead of on every screen's own
         header — `ScreenHeader` (ui.tsx) used to add its own top inset, and
         every screen paid for it individually; a screen that renders
-        something ABOVE its own header (InstallPrompt, UpdateBanner) still
-        needed the same inset applied even earlier than that, which is
-        exactly the gap that let UpdateBanner render flush against the iOS
-        status bar. `/run` is the one screen that opts out (`immersive`) —
-        it wants an edge-to-edge map background during a live recording, and
-        handles the top inset on its own single header instead (see
-        run/page.tsx), since the shell skipping it here is what makes the
-        map full-bleed in the first place.
+        something ABOVE its own header (InstallPrompt) still needed the
+        same inset applied even earlier than that. `/run` is the one screen
+        that opts out (`immersive`) — it wants an edge-to-edge map
+        background during a live recording, and handles the top inset on
+        its own single header instead (see run/page.tsx), since the shell
+        skipping it here is what makes the map full-bleed in the first
+        place.
       */}
       <div
         className={`flex flex-1 flex-col ${
@@ -194,9 +193,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }`}
       >
         {!immersive && <InstallPrompt />}
-        {!immersive && <UpdateBanner />}
         {children}
       </div>
+      {/* Fixed, not inside the padded flow above — same reasoning as
+          BottomNav below: it needs to stay pinned to the viewport corner
+          across scroll, not just sit above whatever screen happens to be
+          showing. */}
+      {!immersive && <NotificationBell />}
       {!immersive && <BottomNav />}
     </ImmersiveContext.Provider>
   );
