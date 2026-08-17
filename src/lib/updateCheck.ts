@@ -8,7 +8,7 @@
 import { App } from "@capacitor/app";
 import { isNativePlatform } from "@/lib/platform";
 
-const VERSION_URL = "https://xanthus.yujiarima.workers.dev/download/version.json";
+const VERSION_URL = "https://xanthus.app.br/download/version.json";
 
 export interface UpdateInfo {
   versionCode: number;

@@ -30,7 +30,7 @@ sem conta Apple) só pra validar que o projeto compila — e, se os secrets do
 App Store Connect abaixo estiverem configurados, builda também um archive
 assinado de verdade e sobe direto pro TestFlight.
 
-**Baixar o APK**: <https://xanthus.yujiarima.workers.dev/download/xanthus.apk>
+**Baixar o APK**: <https://xanthus.app.br/download>
 — link fixo, sem expirar, sem precisar de login (ao contrário do artefato
 do próprio GitHub Actions, que expira em 30 dias e exige conta com acesso
 ao repo). Publicado automaticamente a cada push em `main` via o secret
@@ -168,7 +168,7 @@ nada.
 
 **Política de Privacidade** (`/privacidade`): já publicada junto com o
 resto do app — a URL a colar nas duas lojas é
-`https://xanthus.yujiarima.workers.dev/privacidade`.
+`https://xanthus.app.br/privacidade`.
 
 ## E-mail transacional (Resend)
 

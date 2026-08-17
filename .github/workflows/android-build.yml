@@ -254,7 +254,7 @@ jobs:
           # AppInfo.build, which is versionCode on Android) against this
           # file's versionCode to decide whether to show the update banner.
           cat > out/download/version.json <<EOF
-          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.yujiarima.workers.dev/download/xanthus.apk"}
+          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.app.br/download/xanthus.apk"}
           EOF
           # The download URL itself has to stay the fixed "xanthus.apk" path
           # above — that's what makes it a stable link the landing page and

@@ -30,9 +30,9 @@ no histórico de tasks — mesmo projeto).
 
 | Camada | Onde |
 |---|---|
-| Landing page + PWA | Cloudflare Workers, `xanthus.yujiarima.workers.dev` (domínio próprio `xanthus.app.br` sendo configurado — ver seção Domínio abaixo) |
+| Landing page + PWA | Cloudflare Workers — domínio próprio `xanthus.app.br` já no ar como Custom Domain (2026-08-17), `xanthus.yujiarima.workers.dev` continua respondendo em paralelo (é o subdomínio padrão do Worker, nunca desliga) |
 | Backend | Appwrite Cloud (auth, banco: `runs`, `live_runs`, `friendships`, `coach_relationships`, `place_ratings`, `run_comments`) |
-| Download Android (APK) | `https://xanthus.yujiarima.workers.dev/download/xanthus.apk` — link fixo, sem expirar, publicado automático a cada push em `main` |
+| Download Android (APK) | `https://xanthus.app.br/download` — página de instruções (não mais o link cru do `.apk`), publicada automático a cada push em `main` |
 | App nativo Android | `android/` (Capacitor), CI em `.github/workflows/android-build.yml` |
 | App nativo iOS | `ios/` (Capacitor), CI em `.github/workflows/ios-build.yml` |
 | Repositório | `arimayuji/arimayuji` no GitHub |
@@ -91,7 +91,12 @@ uma opção escondendo as outras:
 ## Domínio e e-mail
 
 - `xanthus.app.br` — registrado como Web Platform no Appwrite Console
-  (Overview → Platforms → Add Platform → Web App).
+  (Overview → Platforms → Add Platform → Web App) **e** conectado como
+  Custom Domain no Cloudflare Workers (confirmado no ar em 2026-08-17) —
+  serve o mesmo Worker que `xanthus.yujiarima.workers.dev`, então os dois
+  hosts respondem em paralelo. Todo link novo voltado pro usuário
+  (`updateCheck.ts`, `version.json` publicado pelo CI, e-mail de
+  boas-vindas, README) já usa `xanthus.app.br`.
 - E-mail via **Cloudflare Email Routing**, sem regras antes de 2026-08-17:
   hoje existem `contato@xanthus.app.br` e `feedback@xanthus.app.br`,
   ambos redirecionando pro e-mail pessoal do dono do projeto.

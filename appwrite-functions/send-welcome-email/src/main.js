@@ -7,7 +7,7 @@ const FROM_ADDRESS = "Xanthus <noreply@xanthus.app.br>";
 // header too. PNG, not the SVG this is exported from (assets/logo.svg):
 // Outlook/Hotmail's rendering engine has notoriously poor inline-SVG
 // support in email, unlike a browser.
-const LOGO_URL = "https://xanthus.yujiarima.workers.dev/pwa-icon-192.png";
+const LOGO_URL = "https://xanthus.app.br/pwa-icon-192.png";
 
 function welcomeEmailHtml(name) {
   const greeting = name ? `Oi, ${name}!` : "Oi!";
@@ -30,7 +30,7 @@ function welcomeEmailHtml(name) {
                 <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#5c6570;">
                   Quando quiser, &#233; s&#243; abrir o app e apertar &#8220;Come&#231;ar a correr&#8221;.
                 </p>
-                <a href="https://xanthus.yujiarima.workers.dev" style="display:inline-block;background:#2f6fed;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:999px;">
+                <a href="https://xanthus.app.br" style="display:inline-block;background:#2f6fed;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:999px;">
                   Abrir o Xanthus
                 </a>
                 <p style="margin:28px 0 0;font-size:12px;line-height:1.6;color:#93a0ab;">
