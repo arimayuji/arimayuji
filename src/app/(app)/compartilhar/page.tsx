@@ -573,8 +573,23 @@ function CompartilharContent() {
         (url) =>
           new Promise<HTMLImageElement | null>((resolve) => {
             const image = new Image();
-            image.onload = () => resolve(image);
-            image.onerror = () => resolve(null);
+            // Neither `onload` nor `onerror` is guaranteed to fire on every
+            // device for every file — seen in the wild as the picked photo
+            // just silently never decoding, leaving the card stuck on its
+            // cenário background with "Sua foto" still showing selected and
+            // no warning, since `photosSettled` never had a reason to become
+            // true. A resolve-anyway timeout turns that indefinite hang into
+            // the same explicit "falhou" path a real decode error already
+            // takes, instead of a state nothing here can ever recover from.
+            const giveUp = setTimeout(() => resolve(null), 8000);
+            image.onload = () => {
+              clearTimeout(giveUp);
+              resolve(image);
+            };
+            image.onerror = () => {
+              clearTimeout(giveUp);
+              resolve(null);
+            };
             image.src = url;
           }),
       ),
