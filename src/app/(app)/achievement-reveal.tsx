@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { formatDeltaDuration } from "@/lib/tracking/geoFilter";
 import { TIER_LABEL, type Achievement } from "@/lib/tracking/achievements";
@@ -268,12 +268,32 @@ export function AchievementReveal({
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const [opened, setOpened] = useState(alreadyOpened || reducedMotion);
+  /**
+   * Deliberately its own state, not derived from `opened` — the box's lid/
+   * light/plate choreography (driven by `data-unbox` below) is CSS
+   * transitions on elements that stay mounted the whole time, so they can
+   * animate. This copy block cannot: it only exists in the DOM once it has
+   * something to say, so a CSS transition on it has no "before" frame to
+   * animate from and would just pop in instantly the moment React mounts
+   * it — which is what made the tier/title/stats appear the instant you
+   * tapped, while the box itself was still visibly sealed. Delaying *when*
+   * it mounts (to 1600ms, the same beat the box choreography already
+   * settles on) fixes the timing; a `pr-enter` mount animation gives it an
+   * actual fade instead of a hard pop once it does.
+   */
+  const [copyRevealed, setCopyRevealed] = useState(alreadyOpened || reducedMotion);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paint = TIER_PAINT[achievement.tier];
   const tiltRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => () => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+  }, []);
 
   const handleOpen = () => {
     setOpened(true);
     onOpened();
+    revealTimerRef.current = setTimeout(() => setCopyRevealed(true), 1600);
     const el = tiltRef.current;
     if (el) {
       el.classList.remove("pr-box-tilt-active");
@@ -359,8 +379,8 @@ export function AchievementReveal({
             </div>
           </button>
 
-          {opened ? (
-            <div className="pr-unbox-copy mt-2 text-center">
+          {copyRevealed ? (
+            <div className="pr-enter mt-2 text-center">
               <p
                 className="font-mono text-xs font-semibold uppercase tracking-[0.3em]"
                 style={{ color: paint.glow }}
@@ -384,14 +404,14 @@ export function AchievementReveal({
                 Guardar
               </button>
             </div>
-          ) : (
+          ) : !opened ? (
             <div className="mt-2 text-center">
               <p className="text-sm font-semibold text-white">Toque pra abrir</p>
               <p className="mt-1 text-xs text-white/55">
                 Cada conquista vem com uma peça só sua, gerada a partir dessa corrida.
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </ModalPortal>
