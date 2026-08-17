@@ -63,15 +63,27 @@ const SHOE_IMAGE_SRC = "/shoe/shoe-side.png";
  *   feeds the "colour" blend below as the luminance layer, so a saturated
  *   source clip would fight the tint instead of carrying it.
  *
- * Plus, for the framing itself:
- * - Same side-on silhouette/crop as `shoe-side.png`, one slow 360° rotation
- *   (or a there-and-back turntable), looping cleanly.
+ * Plus, for the framing/subject/motion itself:
+ * - A carbon-plated racing shoe specifically (Nike ZoomX Vaporfly/Alphafly,
+ *   Adidas Adizero Adios Pro), not a generic trainer — thin aggressive
+ *   rocker sole with a visible plate line, low-profile racing silhouette.
+ *   A first pass generated a bulky everyday sneaker; that reads as "wrong
+ *   shoe" to anyone who actually runs in these.
+ * - No ground, plinth or turntable surface under it — the shoe itself has
+ *   no gravity here (the CSS fallback's actual motion is `pr-tumble-x` +
+ *   `pr-tumble-y` running at once, i.e. two rotation axes simultaneously,
+ *   plus a slow vertical drift; see globals.css), so the clip needs to
+ *   read as freely tumbling in space, not spinning in place standing on
+ *   its sole like a shop display. A single-axis turntable spin undersells
+ *   this badly.
  *
- * Suggested prompt: "A hand-drawn animated illustration of a running shoe
- * in profile, bold clean outlines, cel-shaded, rotating slowly 360 degrees
- * on a turntable, pure solid black background (#000000), neutral grey
- * shading with no color, smooth seamless loop, no shadow gradient on the
- * background."
+ * Suggested prompt: "A hand-drawn animated illustration of a carbon-plated
+ * racing shoe (like a Nike ZoomX Vaporfly or Adidas Adizero Adios Pro),
+ * thin aggressive rocker sole, visible carbon plate, bold clean outlines,
+ * cel-shaded, tumbling and rotating freely in zero gravity — multiple axes
+ * at once, not spinning flat in place — no ground or surface beneath it,
+ * pure solid black background (#000000), neutral grey shading with no
+ * color, smooth seamless loop, no shadow gradient on the background."
  */
 const SHOE_VIDEO_SRC = "/shoe/shoe-turntable.mp4";
 
