@@ -97,6 +97,16 @@ function LongaoIcon({ className }: { className?: string }) {
   );
 }
 
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.2" cy="6.8" r="0.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
@@ -838,6 +848,24 @@ export default function PerfilPage() {
               Abrir prévia do card
             </span>
           </Link>
+        </Card>
+
+        <Card className="pr-enter" style={delay(290)}>
+          <CardTitle>Instagram</CardTitle>
+          <a
+            href="https://instagram.com/xanthus.oficial"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+              <InstagramIcon className="h-5 w-5" />
+            </span>
+            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
+              Siga @xanthus.oficial pra ver corridas de quem já usa o app.
+            </p>
+            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
+          </a>
         </Card>
 
         <Card className="pr-enter" style={delay(310)}>

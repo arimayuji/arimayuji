@@ -130,6 +130,12 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 
 - Design/animações/logo: **[Recraft AI](https://www.recraft.ai/)**.
 
+## Redes sociais
+
+- Instagram: **[@xanthus.oficial](https://instagram.com/xanthus.oficial)** —
+  linkado em `/perfil` (card "Instagram"). A bio do Instagram é o lugar
+  combinado pra colocar os links de download (APK/TestFlight), não o app.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [ ] A conta de desenvolvedor do Google Play já terminou a verificação?
