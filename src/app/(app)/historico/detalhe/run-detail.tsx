@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
-import { computeElevationGain } from "@/lib/elevation";
+import { computeElevationProfile, elevationGainFromProfile, type ElevationSample } from "@/lib/elevation";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { getSyncedRun, shareRunWithCoaches } from "@/lib/runsSync";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
@@ -127,21 +127,22 @@ function StatQuadrant({
 }
 
 /**
- * How pace actually rose and fell across one split, not just its single
- * average — `curve` is already local pace (see `paceCurveSecPerKm` in
- * splits.ts), sampled evenly across the split's own distance. `min`/`max`
- * come from the *whole run*, not this row alone, so a uniformly fast km
- * sits visibly higher than a uniformly slow one instead of every row
- * re-normalizing to its own range and looking equally "full". Faster reads
- * higher, matching the flat bar this replaced (longer bar = faster pace).
+ * How a metric actually rose and fell across one split, not just its single
+ * average — `min`/`max` come from the *whole run*, not this row alone, so a
+ * uniformly high row sits visibly higher than a uniformly low one instead of
+ * every row re-normalizing to its own range and looking equally "full".
+ * Shared between the pace curve (`paceCurveSecPerKm` in splits.ts) and the
+ * elevation profile below — same shape (an array of samples plus a shared
+ * range), just a different source and a different "higher is better" story
+ * (faster for pace, doesn't matter for elevation, the caller decides).
  */
-function PaceSparkline({ curve, min, max }: { curve: number[]; min: number; max: number }) {
+function Sparkline({ curve, min, max }: { curve: number[]; min: number; max: number }) {
   if (curve.length === 0) return <div className="h-6 flex-1 rounded-full bg-background" />;
 
   const span = max - min;
-  const points = curve.map((pace, i) => {
+  const points = curve.map((value, i) => {
     const x = curve.length > 1 ? (i / (curve.length - 1)) * 100 : 50;
-    const y = span > 0 ? 22 - ((max - pace) / span) * 20 : 12;
+    const y = span > 0 ? 22 - ((value - min) / span) * 20 : 12;
     return [x, y] as const;
   });
   const line = points.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
@@ -163,47 +164,169 @@ function PaceSparkline({ curve, min, max }: { curve: number[]; min: number; max:
   );
 }
 
-function SplitsTable({ splits, unit }: { splits: Split[]; unit: "km" | "mi" }) {
+/** Real DEM elevation at an arbitrary cumulative distance, linearly interpolated between the two straddling profile samples — clamped to the profile's own range rather than extrapolated past either end, same rule splits.ts's own `timeAtDistance` follows. */
+function elevationAt(profile: ElevationSample[], distanceMeters: number): number {
+  const clamped = Math.max(profile[0].distanceMeters, Math.min(profile[profile.length - 1].distanceMeters, distanceMeters));
+  let i = 1;
+  while (i < profile.length - 1 && profile[i].distanceMeters < clamped) i++;
+  const a = profile[i - 1];
+  const b = profile[i];
+  const span = b.distanceMeters - a.distanceMeters;
+  const frac = span > 0 ? (clamped - a.distanceMeters) / span : 0;
+  return a.elevationMeters + frac * (b.elevationMeters - a.elevationMeters);
+}
+
+/** Elevation sampled at `SPARKLINE_SAMPLES` evenly spaced points across one split's own distance range — the elevation-profile counterpart of splits.ts's `paceCurveSecPerKm`, just a direct interpolation rather than a windowed derivative (elevation doesn't need smoothing the way point-to-point GPS pace does). */
+function elevationCurveForSplit(profile: ElevationSample[], splitStart: number, splitEnd: number): number[] {
+  if (profile.length < 2) return [];
+  const span = splitEnd - splitStart;
+  return Array.from({ length: SPARKLINE_SAMPLES }, (_, s) =>
+    elevationAt(profile, splitStart + (span * (s + 0.5)) / SPARKLINE_SAMPLES),
+  );
+}
+
+type SplitsMetric = "pace" | "elevacao";
+
+/** Matches splits.ts's own `PACE_CURVE_SAMPLES` — both curve types render at the same resolution so toggling between them doesn't visibly change how "smooth" a row looks. */
+const SPARKLINE_SAMPLES = 12;
+
+function SplitsTable({
+  splits,
+  unit,
+  points,
+}: {
+  splits: Split[];
+  unit: "km" | "mi";
+  points: Pick<StoredPoint, "lat" | "lon">[];
+}) {
+  const [metric, setMetric] = useState<SplitsMetric>("pace");
+  const [elevationProfile, setElevationProfile] = useState<ElevationSample[] | null>(null);
+  const [elevationUnavailable, setElevationUnavailable] = useState(false);
+  // A ref, not state — this only exists to stop a second fetch from firing
+  // while the first is still in flight; it has nothing to render, so
+  // updating it doesn't belong in React's render/setState cycle at all.
+  const elevationFetchStarted = useRef(false);
+
+  // Fetched on demand, the first time the athlete actually asks for the
+  // elevation view — not on every visit to this screen, since most visits
+  // never touch this toggle and MapTiler's elevation lookup is a real
+  // network call (the run's own total elevation gain, shown above, has its
+  // own separate lazy-once fetch for the same reason).
+  useEffect(() => {
+    if (metric !== "elevacao" || elevationFetchStarted.current) return;
+    elevationFetchStarted.current = true;
+    let cancelled = false;
+    computeElevationProfile(points).then((profile) => {
+      if (cancelled) return;
+      if (profile) setElevationProfile(profile);
+      else setElevationUnavailable(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [metric, points]);
+
+  const elevationLoading = metric === "elevacao" && !elevationProfile && !elevationUnavailable;
+
   if (splits.length === 0) return null;
+
   // paceCurveSecPerKm is always metric (seconds per km) regardless of display
   // unit — scale it the same way the split's own average pace already is.
   const toDisplayPace = (secPerKm: number) => secPerKm * (metersPerUnit(unit) / 1000);
-
   const paces = splits.map((s) => s.durationSeconds / (s.distanceMeters / metersPerUnit(unit)));
-  const curves = splits.map((s) =>
-    s.paceCurveSecPerKm.map(toDisplayPace).filter((v) => Number.isFinite(v)),
-  );
+  const paceCurves = splits.map((s) => s.paceCurveSecPerKm.map(toDisplayPace).filter((v) => Number.isFinite(v)));
   const fastest = Math.min(...paces);
   const slowest = Math.max(...paces);
-  const allCurveValues = curves.flat();
-  const curveMin = allCurveValues.length > 0 ? Math.min(...allCurveValues, fastest) : fastest;
-  const curveMax = allCurveValues.length > 0 ? Math.max(...allCurveValues, slowest) : slowest;
+  const allPaceValues = paceCurves.flat();
+  const paceCurveMin = allPaceValues.length > 0 ? Math.min(...allPaceValues, fastest) : fastest;
+  const paceCurveMax = allPaceValues.length > 0 ? Math.max(...allPaceValues, slowest) : slowest;
+
+  // Cumulative [start, end) distance each split spans — splits.ts only
+  // hands back each split's own span, not a running total, since most
+  // callers (the pace curve included) never need one. `splits` never runs
+  // past a few dozen rows even for an ultra, so the O(n²) re-sum per row
+  // costs nothing real and keeps this a plain derived value rather than
+  // reaching for a mutable accumulator.
+  const splitRanges = splits.map((s, i) => {
+    const start = splits.slice(0, i).reduce((sum, prior) => sum + prior.distanceMeters, 0);
+    return [start, start + s.distanceMeters] as const;
+  });
+
+  const elevationCurves = elevationProfile
+    ? splitRanges.map(([start, end]) => elevationCurveForSplit(elevationProfile, start, end))
+    : [];
+  const allElevationValues = elevationCurves.flat();
+  const elevationMin = allElevationValues.length > 0 ? Math.min(...allElevationValues) : 0;
+  const elevationMax = allElevationValues.length > 0 ? Math.max(...allElevationValues) : 0;
+
+  const showElevation = metric === "elevacao" && elevationProfile;
 
   return (
     <Card className="pr-enter" style={delay(140)}>
-      <CardTitle>Parciais por {unitLabel(unit)}</CardTitle>
-      <p className="mb-2.5 -mt-1 text-[11px] leading-relaxed text-muted">
-        Evolução do pace dentro de cada {unitLabel(unit)}, não só a média.
+      <div className="flex items-center justify-between gap-3">
+        <CardTitle>Parciais por {unitLabel(unit)}</CardTitle>
+        <div className="flex shrink-0 rounded-full border border-border p-0.5 font-mono text-[11px]">
+          {(["pace", "elevacao"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setMetric(option)}
+              className={`rounded-full px-2.5 py-1 font-semibold transition-colors ${
+                metric === option ? "bg-accent text-accent-foreground" : "text-muted"
+              }`}
+            >
+              {option === "pace" ? "Pace" : "Elevação"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="mb-2.5 mt-1 text-[11px] leading-relaxed text-muted">
+        {metric === "pace"
+          ? `Evolução do pace dentro de cada ${unitLabel(unit)}, não só a média.`
+          : "Perfil real do terreno dentro de cada trecho, via elevação do MapTiler."}
       </p>
-      <ul className="flex flex-col gap-3">
-        {splits.map((split, i) => {
-          const pace = paces[i];
-          const isFastest = pace === fastest && fastest !== slowest;
-          return (
-            <li key={split.index} className="flex items-center gap-3 text-sm">
-              <span className="w-5 shrink-0 font-mono text-xs text-muted">{split.index}</span>
-              <div className={isFastest ? "flex flex-1 items-center text-good" : "flex flex-1 items-center text-accent"}>
-                <PaceSparkline curve={curves[i]} min={curveMin} max={curveMax} />
-              </div>
-              <span
-                className={`w-14 shrink-0 text-right font-mono text-xs tabular-nums ${isFastest ? "font-semibold text-good" : "text-foreground"}`}
-              >
-                {formatAveragePace(split.distanceMeters, split.durationSeconds, unit)}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+
+      {elevationLoading && <p className="py-3 text-center text-xs text-muted">Calculando elevação…</p>}
+      {metric === "elevacao" && elevationUnavailable && (
+        <p className="py-3 text-center text-xs text-muted">Elevação indisponível pra essa corrida.</p>
+      )}
+
+      {(metric === "pace" || showElevation) && (
+        <ul className="flex flex-col gap-3">
+          {splits.map((split, i) => {
+            const pace = paces[i];
+            const isFastest = metric === "pace" && pace === fastest && fastest !== slowest;
+            const [start, end] = splitRanges[i];
+            const elevationDelta =
+              showElevation && elevationProfile
+                ? Math.round(elevationAt(elevationProfile, end) - elevationAt(elevationProfile, start))
+                : null;
+            return (
+              <li key={split.index} className="flex items-center gap-3 text-sm">
+                <span className="w-5 shrink-0 font-mono text-xs text-muted">{split.index}</span>
+                <div
+                  className={isFastest ? "flex flex-1 items-center text-good" : "flex flex-1 items-center text-accent"}
+                >
+                  <Sparkline
+                    curve={metric === "pace" ? paceCurves[i] : elevationCurves[i]}
+                    min={metric === "pace" ? paceCurveMin : elevationMin}
+                    max={metric === "pace" ? paceCurveMax : elevationMax}
+                  />
+                </div>
+                <span
+                  className={`w-14 shrink-0 text-right font-mono text-xs tabular-nums ${isFastest ? "font-semibold text-good" : "text-foreground"}`}
+                >
+                  {metric === "pace"
+                    ? formatAveragePace(split.distanceMeters, split.durationSeconds, unit)
+                    : elevationDelta === null
+                      ? "—"
+                      : `${elevationDelta > 0 ? "+" : ""}${elevationDelta} m`}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Card>
   );
 }
@@ -356,8 +479,9 @@ export function RunDetail({ id }: { id: string }) {
   useEffect(() => {
     if (load.status !== "ready" || load.run.elevationGainMeters !== undefined) return;
     let cancelled = false;
-    computeElevationGain(load.run.points).then((gain) => {
-      if (cancelled || gain === null) return;
+    computeElevationProfile(load.run.points).then((profile) => {
+      if (cancelled || !profile) return;
+      const gain = elevationGainFromProfile(profile);
       setComputedElevationGain(gain);
       void updateRunElevationGain(load.run.id, gain);
     });
@@ -517,7 +641,7 @@ export function RunDetail({ id }: { id: string }) {
           </Card>
         )}
 
-        <SplitsTable splits={splits} unit={unit} />
+        <SplitsTable splits={splits} unit={unit} points={run.points} />
 
         <ZonesCard points={run.points} />
 
