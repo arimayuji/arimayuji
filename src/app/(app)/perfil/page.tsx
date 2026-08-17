@@ -858,11 +858,25 @@ export default function PerfilPage() {
             rel="noopener noreferrer"
             className="flex items-center gap-3"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-              <InstagramIcon className="h-5 w-5" />
+            {/*
+              Icon-only most of the time; the handle periodically slides out
+              from behind it like a drawer opening, then pulls back in (see
+              .pr-ig-label/.pr-ig-icon in globals.css) — with the label
+              already open as the base/reduced-motion state, so it's never
+              the only way to learn the handle. `overflow-hidden` on this
+              pill is what makes the label's growing `max-width` actually
+              read as sliding out rather than just appearing.
+            */}
+            <span className="flex h-10 shrink-0 items-center overflow-hidden rounded-full bg-accent/12 text-accent">
+              <span className="pr-ig-icon flex h-10 w-10 shrink-0 items-center justify-center">
+                <InstagramIcon className="h-5 w-5" />
+              </span>
+              <span className="pr-ig-label shrink-0 pr-3 font-mono text-xs font-semibold tracking-wide">
+                @xanthus.oficial
+              </span>
             </span>
             <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Siga @xanthus.oficial pra ver corridas de quem já usa o app.
+              Corridas de quem já usa o app, direto no feed.
             </p>
             <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
           </a>

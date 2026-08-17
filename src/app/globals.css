@@ -603,6 +603,75 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 /*
+ * The Instagram badge on /perfil (perfil/page.tsx) — icon-only most of the
+ * time, periodically sliding a "@xanthus.oficial" panel out from behind it
+ * like a drawer, then pulling it back in. Base state (and reduced motion)
+ * is the label already open: same rule as the unboxing above, an ambient
+ * loop is a bonus for whoever's already looking at the screen, never the
+ * only way to learn the handle exists.
+ */
+.pr-ig-label {
+  max-width: 12rem;
+  opacity: 1;
+  margin-left: 0.5rem;
+}
+
+.pr-ig-icon {
+  scale: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pr-ig-label {
+    max-width: 0;
+    opacity: 0;
+    margin-left: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    animation: pr-ig-drawer 7s ease-in-out infinite;
+    animation-delay: 900ms;
+  }
+
+  .pr-ig-icon {
+    animation: pr-ig-icon-pulse 7s ease-in-out infinite;
+    animation-delay: 900ms;
+  }
+}
+
+@keyframes pr-ig-drawer {
+  0%,
+  8% {
+    max-width: 0;
+    opacity: 0;
+    margin-left: 0;
+  }
+  22%,
+  70% {
+    max-width: 12rem;
+    opacity: 1;
+    margin-left: 0.5rem;
+  }
+  88%,
+  100% {
+    max-width: 0;
+    opacity: 0;
+    margin-left: 0;
+  }
+}
+
+@keyframes pr-ig-icon-pulse {
+  0%,
+  8% {
+    scale: 1;
+  }
+  15% {
+    scale: 1.12;
+  }
+  22% {
+    scale: 1;
+  }
+}
+
+/*
  * The sealed box, tilted by hand — a Pokémon-card-style pointer/touch drag
  * (see handleTiltMove in achievement-reveal.tsx), not an ambient loop. The
  * transform is written straight to this element's inline style per pointer
