@@ -454,12 +454,15 @@ function RouteTiles({
   scheme,
   style,
   replay,
+  onSettled,
 }: {
   points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
   live: boolean;
   scheme: ColorScheme;
   style: StyleSpecification;
   replay: ReplayCursor | null;
+  /** Fired once the first load attempt has settled, either way — the basemap is showing, or it's given up (auto-retries exhausted). Lets a caller like the replay scrubber hold its "play" button until there's actually a map to ride over, instead of starting the animation on top of whatever's rendered so far (a blank/grey canvas mid-load). */
+  onSettled?: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -486,6 +489,14 @@ function RouteTiles({
   // silent auto-retries it triggers itself) so the budget below is spent
   // once per mounted map, not reset every time the effect re-fires.
   const autoRetriesRef = useRef(0);
+  // A ref, not a dependency: `onSettled` is typically a fresh inline
+  // closure every render of the caller, and this effect only needs its
+  // latest value at the moment it actually fires, not a reason to tear the
+  // whole map down and rebuild it.
+  const onSettledRef = useRef(onSettled);
+  useEffect(() => {
+    onSettledRef.current = onSettled;
+  }, [onSettled]);
 
   const geometry = useMemo(() => routeGeometry(points), [points]);
   // The style loads asynchronously, so the sources can only be filled in
@@ -537,6 +548,7 @@ function RouteTiles({
         retryTimer = setTimeout(() => setRetryAttempt((n) => n + 1), AUTO_RETRY_DELAY_MS);
       } else {
         setTilesFailed(true);
+        onSettledRef.current?.();
       }
     };
     const failTimer = setTimeout(handleFailure, TILE_LOAD_TIMEOUT_MS);
@@ -570,6 +582,7 @@ function RouteTiles({
       lastLiveFitAtRef.current = 0;
       clearTimeout(failTimer);
       setTilesFailed(false);
+      onSettledRef.current?.();
       const { start, end } = latest.current;
 
       startMarker.current = new Marker({ element: markerElement(START_MARKER) })
@@ -929,6 +942,7 @@ export function RouteMap({
   square = true,
   rounded = true,
   replay = null,
+  onTilesSettled,
   children,
 }: {
   points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[];
@@ -941,6 +955,8 @@ export function RouteMap({
   rounded?: boolean;
   /** Current position of a playback of this run (see src/lib/tracking/replay.ts); null draws the finished trace. */
   replay?: ReplayCursor | null;
+  /** Fired once the basemap's first load attempt settles (loaded, or gave up after auto-retrying) — see `RouteTiles`'s own prop of the same name. */
+  onTilesSettled?: () => void;
   /** Overlays positioned against the map itself — the replay controls and readout. */
   children?: ReactNode;
 }) {
@@ -972,7 +988,14 @@ export function RouteMap({
           {live ? "Aguardando trajeto GPS…" : "Sem trajeto GPS suficiente pra desenhar o mapa."}
         </div>
       ) : showTiles ? (
-        <RouteTiles points={points} live={live} scheme={scheme} style={style} replay={replay} />
+        <RouteTiles
+          points={points}
+          live={live}
+          scheme={scheme}
+          style={style}
+          replay={replay}
+          onSettled={onTilesSettled}
+        />
       ) : hasRoute ? (
         // The keyless/no-scheme SVG fallback needs a real two-point route to
         // project — it isn't built to draw a single "here" dot on its own,

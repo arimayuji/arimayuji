@@ -96,6 +96,18 @@ export function RouteReplay({
   /** True once the player has ever been touched — keeps the map on the plain top-down finished trace until then, same as before scrubbing existed. */
   const [started, setStarted] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  /**
+   * False until the basemap's own first load attempt has settled (see
+   * `onTilesSettled` on `RouteMap`). The chase camera and the finished-trace
+   * overview share the exact same map instance, so tiles are already
+   * loading well before anyone taps play — but nothing used to stop that tap
+   * from landing mid-load (or after a failed load) and starting the replay
+   * animation over a blank grey canvas with no explanation. Doesn't block
+   * forever: once the basemap gives up retrying, this still flips true, so a
+   * genuinely offline map doesn't leave the button stuck.
+   */
+  const [mapReady, setMapReady] = useState(false);
+  const handleTilesSettled = useCallback(() => setMapReady(true), []);
 
   const animation = useRef<number | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -117,7 +129,7 @@ export function RouteReplay({
   }, [stopAnimation]);
 
   const play = useCallback(() => {
-    if (!timeline) return;
+    if (!timeline || !mapReady) return;
     setStarted(true);
 
     if (reducedMotion) {
@@ -142,7 +154,7 @@ export function RouteReplay({
       }
     };
     animation.current = requestAnimationFrame(step);
-  }, [progress, reducedMotion, stopAnimation, timeline]);
+  }, [progress, reducedMotion, stopAnimation, timeline, mapReady]);
 
   const pause = useCallback(() => {
     stopAnimation();
@@ -186,6 +198,7 @@ export function RouteReplay({
     <RouteMap
       points={points}
       replay={cursor}
+      onTilesSettled={handleTilesSettled}
       className={fullscreen ? "h-full w-full !rounded-none" : className}
       rounded={!fullscreen}
       square={!fullscreen}
@@ -230,16 +243,17 @@ export function RouteReplay({
           <>
             <button
               type="button"
+              disabled={!mapReady}
               onClick={(event) => {
                 event.stopPropagation();
                 if (playing) pause();
                 else play();
               }}
-              className="absolute right-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white backdrop-blur-sm active:scale-95"
+              className="absolute right-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white backdrop-blur-sm active:scale-95 disabled:opacity-60"
               style={{ top: fullscreen ? "calc(0.75rem + env(safe-area-inset-top))" : "0.75rem" }}
             >
-              {playing ? <PauseIcon /> : <PlayIcon />}
-              {playing ? "Pausar" : started ? "Continuar" : "Replay"}
+              {mapReady ? (playing ? <PauseIcon /> : <PlayIcon />) : null}
+              {!mapReady ? "Carregando mapa…" : playing ? "Pausar" : started ? "Continuar" : "Replay"}
             </button>
 
             {/*
