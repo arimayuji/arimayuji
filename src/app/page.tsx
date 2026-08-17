@@ -1458,12 +1458,12 @@ export default function Home() {
                   App instalado de verdade. GPS continua registrando rota e pace
                   mesmo com a tela travada.
                 </p>
-                <a
-                  href="https://xanthus.yujiarima.workers.dev/download/xanthus.apk"
+                <Link
+                  href="/download"
                   className="mt-1 inline-flex w-full items-center justify-center rounded-full border border-border px-5 py-3 text-sm font-semibold transition-colors hover:border-accent hover:text-accent"
                 >
                   Baixar APK
-                </a>
+                </Link>
               </article>
 
               <article
