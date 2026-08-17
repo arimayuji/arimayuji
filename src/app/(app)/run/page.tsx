@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Fo
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { isStandaloneDisplay } from "@/lib/platform";
+import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
 import { getActiveGroupRunCode, getGroupRun, listParticipants, type GroupRun } from "@/lib/groupRuns";
@@ -80,27 +81,6 @@ function useIsStandalone(): boolean {
   return useSyncExternalStore(noopSubscribe, isStandaloneDisplay, () => false);
 }
 
-const DARK_QUERY = "(prefers-color-scheme: dark)";
-
-function subscribeColorScheme(onChange: () => void): () => void {
-  const query = window.matchMedia(DARK_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-/**
- * Same pattern as `route-map.tsx`'s `useColorScheme` — needed here because
- * the "Procurando GPS" clip picks its theme from an actual dark-mode check
- * in JS now, not a CSS `dark:invert dark:mix-blend-screen` trick. That
- * trick relied on `mix-blend-mode` applying to a `<video>` element, which
- * doesn't reliably happen inside a native WebView (confirmed: it left a
- * visible mismatched box behind the runners on a real Android build even
- * though it looked fine in every desktop browser tested). Baking the
- * inversion into a second video file instead needs no CSS support at all.
- */
-function useIsDarkMode(): boolean {
-  return useSyncExternalStore(subscribeColorScheme, () => window.matchMedia(DARK_QUERY).matches, () => false);
-}
 
 const PAUSE_ICON_STROKE = {
   fill: "none",
@@ -922,6 +902,15 @@ export default function RunPage() {
     setEmblemProgress([]);
     setElevationGain(null);
     setElevationFailed(false);
+    // `handleStartClick` sets this the moment "Iniciar corrida" is tapped
+    // and only ever clears it itself on the *first-ever* tap (the run-tips
+    // gate branch) — every tap after that hands off straight to
+    // `handleStart()` and leaves it `true` forever. Canceling out of
+    // "warming" (or discarding a run) back to idle used to land on that
+    // same stuck `true`, leaving the button's label invisible and the
+    // button itself disabled with no way to start another run short of
+    // reloading the page.
+    setStarting(false);
     reset();
   };
 
@@ -982,7 +971,11 @@ export default function RunPage() {
 
   const isLiveRun = state.status === "tracking" || state.status === "paused";
   const standalone = useIsStandalone();
-  const isDarkMode = useIsDarkMode();
+  // The user's own resolved theme (Preferences.theme, /perfil) — not a raw
+  // `matchMedia` read of the OS setting, which used to pick the wrong clip
+  // whenever someone had explicitly overridden the app to light or dark
+  // while their OS stayed on the other one.
+  const isDarkMode = useEffectiveColorScheme() === "dark";
   // Same condition passed to useImmersiveMode() above — while it's true,
   // AppShell skips its own top safe-area inset to keep the map full-bleed,
   // so this header has to carry that inset itself instead. The rest of the

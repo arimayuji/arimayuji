@@ -781,6 +781,20 @@ export function useRunTracker() {
   );
 
   const reset = useCallback(() => {
+    // Same teardown `finish()` does, and for the same reason: without it, a
+    // "Cancelar" tap during "warming" (or "descartar corrida" during
+    // "tracking"/"paused") left the GPS watch running with nowhere for its
+    // fixes to go — `beginGeoWatch()` documents its own assumption that a
+    // caller never starts a second watch without clearing the first, an
+    // assumption this violated the moment the athlete tapped "Começar"
+    // again: two live watches end up feeding the same refs at once,
+    // corrupting the next run's warmup/points. Idempotent either way — all
+    // three no-op harmlessly when there's nothing left to tear down (a
+    // reset that follows a normal finish(), which already cleared them).
+    clearWatch();
+    stopTicking();
+    void wakeLockRef.current.release();
+
     setState({
       status: "idle",
       runId: null,
@@ -799,7 +813,7 @@ export function useRunTracker() {
       points: [],
       pauseEvents: [],
     });
-  }, []);
+  }, [clearWatch, stopTicking]);
 
   useEffect(() => {
     const wakeLock = wakeLockRef.current;
