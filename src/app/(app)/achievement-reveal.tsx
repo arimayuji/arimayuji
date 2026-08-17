@@ -89,10 +89,18 @@ function BoxInterior({ uid, glow }: { uid: string; glow: string }) {
   return (
     <svg viewBox={VIEW_BOX} className="absolute inset-0 h-full w-full" aria-hidden="true">
       <defs>
-        {/* Reaches zero exactly at the top of the viewBox — anything still visible there gets a hard clipped edge instead of a light cone. */}
-        <linearGradient id={`${uid}-shaft`} x1="0" y1="76" x2="0" y2="-80" gradientUnits="userSpaceOnUse">
+        {/* Used to reach zero exactly at the top of the viewBox — any
+            container even a hair shorter than assumed then clips the shaft
+            mid-fade, showing its hard straight top edge instead of a
+            dissolve. Now finishes fading a full 70 units of margin before
+            that edge (y2 -10, not -80), and drops faster up front (steeper
+            early stops) so most of the shaft is already near-invisible well
+            within the visible frame — a real buffer, not an exact edge
+            match, is what actually survives varying container sizes. */}
+        <linearGradient id={`${uid}-shaft`} x1="0" y1="76" x2="0" y2="-10" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor={glow} stopOpacity="0.55" />
-          <stop offset="30%" stopColor={glow} stopOpacity="0.2" />
+          <stop offset="20%" stopColor={glow} stopOpacity="0.22" />
+          <stop offset="55%" stopColor={glow} stopOpacity="0.05" />
           <stop offset="100%" stopColor={glow} stopOpacity="0" />
         </linearGradient>
         <radialGradient id={`${uid}-mouth`} cx="0.5" cy="0.55" r="0.62">
@@ -102,7 +110,13 @@ function BoxInterior({ uid, glow }: { uid: string; glow: string }) {
         </radialGradient>
       </defs>
       <path d={BOX_MOUTH} fill="#05070a" />
-      <g className="pr-unbox-shaft">
+      {/* Blurred rather than left hard-edged — a real light shaft (or the
+          searchlight beams this is going for) is soft and hazy at every
+          edge, not a flat-shaded polygon with a visible straight side and
+          corner. The blur also folds into the margin above: it softens
+          whatever sliver of the fade is still faintly non-zero into
+          nothing perceptible, instead of relying on opacity alone. */}
+      <g className="pr-unbox-shaft blur-md">
         <path d="M 78 63 L 214 63 L 330 -150 L -40 -150 Z" fill={`url(#${uid}-shaft)`} />
         <path d={BOX_MOUTH} fill={`url(#${uid}-mouth)`} />
       </g>
