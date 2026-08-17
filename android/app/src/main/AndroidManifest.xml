@@ -18,6 +18,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Where the system browser hands a finished Google/Apple OAuth
+                 login back to this app (see src/lib/auth.ts's
+                 startOAuthSignIn and src/app/oauth-callback-listener.tsx) —
+                 Google and Apple both refuse to complete that login inside
+                 an embedded WebView, so it has to run in the system browser
+                 and come back through a deep link instead. The literal
+                 project ID here (matching NEXT_PUBLIC_APPWRITE_PROJECT_ID)
+                 is Appwrite's own documented `appwrite-callback-{PROJECT_ID}`
+                 convention, not a value invented for this app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="appwrite-callback-6a7cd5df0036246ce258" />
+            </intent-filter>
         </activity>
 
         <provider

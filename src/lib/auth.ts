@@ -5,14 +5,19 @@
  * backend layer, since recording a run and viewing history never depend
  * on any of this.
  */
+import { Browser } from "@capacitor/browser";
 import { ExecutionMethod, ID, type Models, OAuthProvider, Permission, Query, Role } from "appwrite";
 import {
   APPWRITE_DATABASE_ID,
   DELETE_ACCOUNT_FUNCTION_ID,
+  OAUTH_CALLBACK_SCHEME,
+  OAUTH_RETURN_TO_PARAM,
   SEND_WELCOME_EMAIL_FUNCTION_ID,
   TABLES,
   getAppwrite,
+  oauth2TokenUrl,
 } from "./appwrite";
+import { isNativePlatform } from "./platform";
 
 export interface Profile extends Models.Row {
   handle: string;
@@ -45,33 +50,68 @@ export function suggestHandle(name: string): string {
 }
 
 /**
- * Redirects the browser to the provider's consent screen — there is no
- * meaningful return value, since a successful login lands back on
- * `returnTo` as a fresh page load. `returnTo` must be a path already
- * registered as an Appwrite "platform" hostname (see the Appwrite
- * console), same origin as the app itself.
+ * Google and Apple both actively refuse to complete an OAuth login inside
+ * an embedded WebView (Google's own "disallowed_useragent" — a security
+ * policy against exactly the kind of code injection an embedded browser
+ * allows, not a bug), which is what every native install of this app runs
+ * on. Registering more Appwrite Console platforms doesn't touch this —
+ * the fix has to open the *system* browser (Chrome Custom Tabs on Android,
+ * SFSafariViewController on iOS, both via `@capacitor/browser`) instead of
+ * navigating the app's own WebView there, then thread the session back in
+ * through a deep link once the OS hands control back — see
+ * oauth-callback-listener.tsx, mounted once in layout.tsx, for the other
+ * half of this.
+ *
+ * The web path is unchanged and stays simpler on purpose: a normal
+ * redirect completes with a full page load at `returnTo`, no deep link or
+ * session-token exchange needed, so every existing web caller keeps
+ * working exactly as before.
  */
-export function signInWithGoogle(returnTo: string): void {
+async function startOAuthSignIn(provider: OAuthProvider, returnTo: string): Promise<void> {
   const appwrite = getAppwrite();
   if (!appwrite) return;
-  const url = `${window.location.origin}${returnTo}`;
-  appwrite.account.createOAuth2Session({ provider: OAuthProvider.Google, success: url, failure: url });
+
+  if (!isNativePlatform()) {
+    const url = `${window.location.origin}${returnTo}`;
+    appwrite.account.createOAuth2Session({ provider, success: url, failure: url });
+    return;
+  }
+
+  if (!OAUTH_CALLBACK_SCHEME) return;
+  // Appwrite's *token* flow, not `createOAuth2Session` — the consent
+  // screen runs in a different browser process than this app's own
+  // WebView, so there's no shared cookie jar for a session to land in.
+  // The token flow instead appends `userId`/`secret` as query params onto
+  // this success URL once the provider confirms the login (see
+  // oauth-callback-listener.tsx), which oauth-callback-listener.tsx
+  // exchanges for a real session via the same `account.createSession`
+  // call verifyPhoneOtp already uses.
+  const success = `${OAUTH_CALLBACK_SCHEME}://oauth-success?${OAUTH_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}`;
+  const failure = `${OAUTH_CALLBACK_SCHEME}://oauth-failure`;
+  const url = oauth2TokenUrl(provider, success, failure);
+  if (!url) return;
+  await Browser.open({ url });
+}
+
+/**
+ * `returnTo` must be a path already registered as an Appwrite "platform"
+ * hostname on web (see the Appwrite console) — unused for that lookup on
+ * native, which never leaves this app's own registered callback scheme.
+ */
+export function signInWithGoogle(returnTo: string): void {
+  void startOAuthSignIn(OAuthProvider.Google, returnTo);
 }
 
 /**
  * Required alongside Google (App Store guideline 4.8: any third-party
- * login needs an equivalent Sign in with Apple option). Same OAuth2
- * redirect flow as Google — Appwrite's "Apple" provider talks to Apple's
- * own `appleid.apple.com` authorize endpoint over the web, the same
- * mechanism a browser-based Sign in with Apple integration uses, so this
- * needs no native iOS entitlement or SDK on top of what Google already
- * uses here.
+ * login needs an equivalent Sign in with Apple option). Appwrite's
+ * "Apple" provider talks to Apple's own `appleid.apple.com` authorize
+ * endpoint over the web, the same mechanism a browser-based Sign in with
+ * Apple integration uses, so this needs no native iOS entitlement or SDK
+ * beyond what `startOAuthSignIn` already sets up for Google.
  */
 export function signInWithApple(returnTo: string): void {
-  const appwrite = getAppwrite();
-  if (!appwrite) return;
-  const url = `${window.location.origin}${returnTo}`;
-  appwrite.account.createOAuth2Session({ provider: OAuthProvider.Apple, success: url, failure: url });
+  void startOAuthSignIn(OAuthProvider.Apple, returnTo);
 }
 
 /**

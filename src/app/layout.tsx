@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Nunito } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { OAuthCallbackListener } from "./oauth-callback-listener";
 import { ServiceWorkerRegistration } from "./service-worker-registration";
 import { Splash } from "./splash";
 import { ThemeSync } from "./theme-sync";
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: light)", color: "#faf8f4" },
     { media: "(prefers-color-scheme: dark)", color: "#0b0e11" },
   ],
   width: "device-width",
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Splash />
         {children}
         <ServiceWorkerRegistration />
+        <OAuthCallbackListener />
       </body>
     </html>
   );

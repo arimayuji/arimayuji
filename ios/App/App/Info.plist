@@ -82,5 +82,28 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!--
+	  Where the system browser hands a finished Google/Apple OAuth login
+	  back to this app (see src/lib/auth.ts's startOAuthSignIn and
+	  src/app/oauth-callback-listener.tsx) — Google and Apple both refuse
+	  to complete that login inside an embedded WebView, so it has to run
+	  in Safari and come back through this URL scheme instead. Capacitor's
+	  stock AppDelegate already forwards any `application(_:open:options:)`
+	  call for a scheme registered here into the `App` plugin's
+	  `appUrlOpen` event, no extra native code needed on top of this
+	  declaration. The literal project ID here (matching
+	  NEXT_PUBLIC_APPWRITE_PROJECT_ID) is Appwrite's own documented
+	  `appwrite-callback-{PROJECT_ID}` convention, not a value invented
+	  for this app.
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>appwrite-callback-6a7cd5df0036246ce258</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

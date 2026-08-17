@@ -15,10 +15,23 @@
  * in each collection's permissions (see scripts/appwrite-setup.ts), not
  * in hiding these two values.
  */
-import { Account, Client, Functions, TablesDB, Teams } from "appwrite";
+import { Account, Client, Functions, type OAuthProvider, TablesDB, Teams } from "appwrite";
 
 const ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
+
+/**
+ * The custom URL scheme the native apps register (see AndroidManifest.xml
+ * and Info.plist) so the OS can hand a finished OAuth login back to this
+ * app instead of leaving the athlete stranded in the system browser —
+ * `appwrite-callback-{PROJECT_ID}` is Appwrite's own documented convention
+ * for this, not something invented here. Null with no project configured,
+ * same as everything else in this file.
+ */
+export const OAUTH_CALLBACK_SCHEME = PROJECT_ID ? `appwrite-callback-${PROJECT_ID}` : null;
+
+/** Where oauth-callback-listener.tsx (mounted once in layout.tsx) sends the athlete once the native OAuth round trip completes — carried through the callback URL's own query string since nothing else survives the trip out to the system browser and back. */
+export const OAUTH_RETURN_TO_PARAM = "returnTo";
 
 // Appwrite Cloud's free plan pre-provisions exactly one database per
 // project and doesn't allow creating a second — this is that one
@@ -77,4 +90,28 @@ export function getAppwrite(): AppwriteServices | null {
     };
   }
   return services;
+}
+
+/**
+ * Builds the OAuth2 *token* login URL by hand rather than calling the SDK's
+ * own `account.createOAuth2Token()` — that method, the moment `window`
+ * exists, immediately does `window.location.href = url` itself and returns
+ * nothing, which is exactly the in-app navigation the native flow (see
+ * auth.ts's `signInWithGoogle`/`signInWithApple`) has to avoid: it needs
+ * this URL to hand to the *system* browser instead, never to the app's own
+ * WebView. Mirrors the SDK's own construction of
+ * `/account/tokens/oauth2/{provider}` exactly, so a future SDK bump only
+ * needs checking against this if that endpoint's shape ever changes.
+ */
+export function oauth2TokenUrl(
+  provider: OAuthProvider,
+  success: string,
+  failure: string,
+): string | null {
+  if (!ENDPOINT || !PROJECT_ID) return null;
+  const url = new URL(`${ENDPOINT}/account/tokens/oauth2/${encodeURIComponent(provider)}`);
+  url.searchParams.set("success", success);
+  url.searchParams.set("failure", failure);
+  url.searchParams.set("project", PROJECT_ID);
+  return url.toString();
 }
