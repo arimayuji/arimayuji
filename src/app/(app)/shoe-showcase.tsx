@@ -8,9 +8,10 @@ import { usePrefersReducedMotion } from "@/lib/reducedMotion";
  *
  * Two renderers share this component, picked automatically:
  *
- * - `ShoeTurntable`: a real filmed turntable clip (see its own comment for
- *   the generation spec), chroma-keyed and retinted live on a canvas — the
- *   "real 3D" version.
+ * - `ShoeTurntable`: a generated turntable clip (see its own comment for
+ *   the generation spec — a hand-drawn/illustrated loop, not a photoreal
+ *   one, per the project's Recraft art direction), chroma-keyed and
+ *   retinted live on a canvas.
  * - The photo + CSS 3D fallback below: the original technique, still the
  *   base case whenever the clip isn't there yet (this repo doesn't ship the
  *   video asset — see `SHOE_VIDEO_SRC`), reduced motion is on, or the clip
@@ -19,7 +20,9 @@ import { usePrefersReducedMotion } from "@/lib/reducedMotion";
  *   colour the athlete picked for that shoe: the photo is desaturated with a
  *   CSS filter, then a second layer holding the flat athlete colour is
  *   clipped to the same photo's alpha channel (`mask-image`) and laid over
- *   it with `mix-blend-mode: color`.
+ *   it with `mix-blend-mode: color`. Kept as a photo rather than redrawn to
+ *   match, since it only ever shows when the illustrated clip isn't
+ *   available — the two are not meant to be seen side by side.
  *
  * Both paths take the exact same `color` prop and produce the exact same
  * result at rest — swapping one for the other is purely a fidelity upgrade,
@@ -38,25 +41,37 @@ function parseHex(hex: string): [number, number, number] {
 const SHOE_IMAGE_SRC = "/shoe/shoe-side.png";
 
 /**
- * Not shipped in this repo yet — generated separately (Recraft AI,
- * image-to-video from `shoe-side.png` as the start frame) and dropped in at
- * this path once it exists. Until then `ShoeTurntable` below fails to load
- * it (a plain 404) and every caller silently keeps getting the photo +
- * CSS-tumble version, so adding this file later is the entire "upgrade" —
- * no code change required.
+ * Not shipped in this repo yet — generated separately (Recraft Studio) and
+ * dropped in at this path once it exists. Until then `ShoeTurntable` below
+ * fails to load it (a plain 404) and every caller silently keeps getting
+ * the photo + CSS-tumble version, so adding this file later is the entire
+ * "upgrade" — no code change required.
+ *
+ * Art direction: hand-drawn/animated, bold clean outlines, cel-shaded —
+ * not photoreal. A photorealistic clip generated from a photo starting
+ * frame reads as "almost right" in a way flat, illustrated motion doesn't;
+ * the project's brand mark and emblem art are already all illustration,
+ * not photography, and this should read as the same family.
  *
  * Generation spec, so a regenerated clip keeps working with the chroma key
- * below without touching code:
+ * below without touching code (these two constraints are about what the
+ * *pipeline* needs, independent of art style):
  * - Pure black (#000000) background, evenly lit, no shadow/vignette
  *   gradient — anything short of solid black survives the chroma key as a
  *   grey halo around the shoe.
- * - Same side-on framing/crop as `shoe-side.png`, one slow 360° rotation
+ * - Grey/neutral shading on the shoe itself, no colour of its own — this
+ *   feeds the "colour" blend below as the luminance layer, so a saturated
+ *   source clip would fight the tint instead of carrying it.
+ *
+ * Plus, for the framing itself:
+ * - Same side-on silhouette/crop as `shoe-side.png`, one slow 360° rotation
  *   (or a there-and-back turntable), looping cleanly.
- * - Grey/neutral colouring on the shoe itself (matching the
- *   `grayscale(1) brightness(1.08) contrast(1.05)` filter the fallback
- *   photo already gets) — this feeds the "colour" blend below as the
- *   luminance layer, so a saturated source clip would fight the tint
- *   instead of carrying it.
+ *
+ * Suggested prompt: "A hand-drawn animated illustration of a running shoe
+ * in profile, bold clean outlines, cel-shaded, rotating slowly 360 degrees
+ * on a turntable, pure solid black background (#000000), neutral grey
+ * shading with no color, smooth seamless loop, no shadow gradient on the
+ * background."
  */
 const SHOE_VIDEO_SRC = "/shoe/shoe-turntable.mp4";
 

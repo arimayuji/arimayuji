@@ -129,6 +129,18 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 ## Ferramentas externas usadas no projeto
 
 - Design/animações/logo: **[Recraft AI](https://www.recraft.ai/)**.
+  - **API pública**: cobre geração de imagem/vetor (`https://external.api.recraft.ai/v1`,
+    Bearer token) — dá pra chamar direto por código com um token. **Vídeo
+    não tem API** — o gerador de vídeo só existe dentro do Recraft Studio
+    (web), não é automatizável; alguém precisa gerar manualmente lá e
+    passar o arquivo pronto.
+  - **Direção de arte (decidido em 2026-08-17)**: qualquer coisa gerada na
+    Recraft — imagem ou vídeo — deve ser **ilustração desenhada à mão,
+    com contorno definido, estilo animado/cel-shaded**, nunca
+    fotorrealista. Vale pra qualquer prompt futuro (o brand mark e as
+    artes de emblema já seguem essa linha; um clipe de vídeo "quase
+    realista" gerado a partir de uma foto foge da identidade visual do
+    app).
 
 ## Redes sociais
 
