@@ -170,6 +170,49 @@ nada.
 resto do app — a URL a colar nas duas lojas é
 `https://xanthus.yujiarima.workers.dev/privacidade`.
 
+## E-mail transacional (Resend)
+
+Emails disparados pelo backend (welcome, confirmação de exclusão de conta,
+e no futuro anúncio de versão/newsletter) usam o [Resend](https://resend.com/).
+Como o app é 100% client-side (export estático, sem servidor Next.js
+rodando em produção), o envio nunca acontece no navegador — sempre por uma
+Appwrite Function reagindo a um evento (`users.create`, `users.delete`),
+mesmo padrão de `appwrite-functions/delete-account`. A chave da API vive
+só na configuração da Function no Appwrite Console, nunca neste repositório
+nem em `NEXT_PUBLIC_*` — o app cliente nunca manda e-mail diretamente.
+
+**Setup (uma vez):**
+
+1. Cria conta em [resend.com](https://resend.com/) (free tier: 3.000
+   e-mails/mês, 100/dia — suficiente pra transacional numa base pequena).
+2. **Domains → Add Domain** → `xanthus.app.br`. O Resend mostra os
+   registros DNS necessários (SPF, DKIM, e opcionalmente DMARC) — adiciona
+   todos no painel da **Cloudflare** (mesma zona onde `xanthus.app.br` já
+   está configurado, **DNS → Records**). Não precisa trocar nameserver,
+   só adicionar os registros que o Resend pedir.
+3. Aguarda o domínio aparecer como **Verified** no Resend — geralmente
+   minutos, pode levar até um dia por propagação de DNS.
+4. **API Keys → Create API Key** → escopo "Sending access", restrita ao
+   domínio `xanthus.app.br` se a opção estiver disponível.
+5. Guarda a chave em **Appwrite Console → Functions → (a function que
+   for mandar o e-mail) → Settings → Variables → `RESEND_API_KEY`** — ela
+   fica só ali, não em `.env`/`.env.local` deste repo (que a Appwrite
+   Function nem lê) e não em secret do GitHub Actions (isso só seria
+   necessário se um disparo de broadcast/newsletter um dia rodar via CI
+   em vez de Appwrite Function — nesse caso, use uma chave *separada* da
+   da function, pra dar pra revogar uma sem derrubar a outra).
+6. Remetente: `noreply@xanthus.app.br` (não precisa de caixa de entrada
+   real pra endereço de *remetente*, só do domínio verificado) — diferente
+   de `contato@`/`feedback@`, que são os endereços de *recebimento* já
+   configurados via Cloudflare Email Routing (ver seção de domínio no
+   `PROJECT-CONTEXT.md`); um manda, o outro recebe, são coisas separadas.
+
+**LGPD**: e-mail transacional (welcome, confirmação de exclusão) não
+precisa de opt-in separado — é execução do serviço. E-mail de
+marketing/newsletter precisa, e o Resend deve ser adicionado à lista de
+terceiros na `/privacidade` quando o primeiro envio real acontecer (ver
+achado M5 da auditoria LGPD de 2026-08-17).
+
 ## Rodando localmente
 
 ```bash
