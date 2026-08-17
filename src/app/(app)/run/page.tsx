@@ -1274,6 +1274,22 @@ export default function RunPage() {
                 </p>
               </div>
             )}
+            {preferences.showAveragePaceLive && state.distanceMeters > 0 && (
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <span className="text-xs uppercase tracking-wide text-muted">Pace total</span>
+                <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
+                  {formatPace((state.elapsedSeconds / state.distanceMeters) * 1000)}
+                </p>
+              </div>
+            )}
+            {preferences.showCurrentKmPaceLive && state.currentKmPaceSecPerKm !== null && (
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <span className="text-xs uppercase tracking-wide text-muted">Pace do km atual</span>
+                <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
+                  {formatPace(state.currentKmPaceSecPerKm)}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3">

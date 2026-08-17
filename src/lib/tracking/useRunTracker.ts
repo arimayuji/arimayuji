@@ -64,6 +64,8 @@ export interface RunTrackerState {
   distanceMeters: number;
   elapsedSeconds: number;
   currentPaceSecPerKm: number | null;
+  /** Pace since the last completed whole kilometer, live and continuously updating — distinct from `currentPaceSecPerKm` (a smoothed instant reading) and from a run-so-far average, which the UI computes itself from `distanceMeters`/`elapsedSeconds`. Null until the first km mark exists (nothing to split yet) or the split has zero distance/duration. */
+  currentKmPaceSecPerKm: number | null;
   goal: RunGoal | null;
   forecastSecondsRemaining: number | null;
   paceNeededSecPerKm: number | null;
@@ -94,6 +96,7 @@ export function useRunTracker() {
     distanceMeters: 0,
     elapsedSeconds: 0,
     currentPaceSecPerKm: null,
+    currentKmPaceSecPerKm: null,
     goal: null,
     forecastSecondsRemaining: null,
     paceNeededSecPerKm: null,
@@ -159,6 +162,17 @@ export function useRunTracker() {
   const announceIntervalRef = useRef(1000);
   const lastAnnounceDistanceRef = useRef(0);
   const lastAnnounceTimeRef = useRef<number | null>(null);
+
+  /**
+   * Marks the start of the kilometer currently in progress, for the live
+   * "pace do km atual" stat — deliberately its own tracker rather than
+   * reusing `lastAnnounceDistanceRef` above: that one advances by whatever
+   * `announceIntervalMeters` the athlete picked for voice cues (250m–5000m),
+   * while this always marks real whole-kilometer boundaries regardless of
+   * that setting, since "current km" only means one thing.
+   */
+  const kmMarkDistanceRef = useRef(0);
+  const kmMarkTimeRef = useRef<number | null>(null);
 
   const distanceRef = useRef(0);
   const pointsRef = useRef<StoredPoint[]>([]);
@@ -254,6 +268,13 @@ export function useRunTracker() {
           startedAtRef.current = Date.now();
         }
         lastAnnounceTimeRef.current = timestamp;
+        // Marks the boundary the current km is measured from — the exact
+        // last-whole-km multiple at or below whatever distance is already
+        // on the books (0 for a fresh run, mid-km after a recovery), never
+        // the raw recovered distance itself, so "pace do km atual" always
+        // means the same thing: since the real X.0km mark.
+        kmMarkDistanceRef.current = Math.floor(distanceRef.current / 1000) * 1000;
+        kmMarkTimeRef.current = timestamp;
         pendingDriftMetersRef.current = 0;
         startTicking();
         return { ...s, status: "tracking" };
@@ -436,6 +457,22 @@ export function useRunTracker() {
       const vSmooth = speedEwmaRef.current.update(v, dt);
       const currentPaceSecPerKm = vSmooth > 0.3 ? 1000 / vSmooth : null;
 
+      // Live pace of the km currently in progress — recomputed on every fix
+      // (unlike the voice announcement below, which only fires once per
+      // interval crossed), since this is a number on screen that should
+      // never sit stale between crossings.
+      let currentKmPaceSecPerKm: number | null = null;
+      if (kmMarkTimeRef.current !== null) {
+        const kmSplitDistance = distanceRef.current - kmMarkDistanceRef.current;
+        const kmSplitSeconds = (timestamp - kmMarkTimeRef.current) / 1000;
+        currentKmPaceSecPerKm =
+          kmSplitDistance > 0 && kmSplitSeconds > 0 ? (kmSplitSeconds / kmSplitDistance) * 1000 : null;
+        if (kmSplitDistance >= 1000) {
+          kmMarkDistanceRef.current += 1000;
+          kmMarkTimeRef.current = timestamp;
+        }
+      }
+
       lastRawRef.current = { lat, lon };
       lastFilteredRef.current = filteredPoint;
       lastFixTimestampRef.current = timestamp;
@@ -485,6 +522,7 @@ export function useRunTracker() {
           ...s,
           distanceMeters: distanceRef.current,
           currentPaceSecPerKm,
+          currentKmPaceSecPerKm,
           forecastSecondsRemaining,
           paceNeededSecPerKm,
           ghostDeltaSeconds: ghostDelta,
@@ -540,6 +578,10 @@ export function useRunTracker() {
       lastAnnounceDistanceRef.current = 0;
       lastAnnounceTimeRef.current = null;
       announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
+      // kmMarkDistanceRef/kmMarkTimeRef aren't reset here — the
+      // warmup-completion block always recomputes both fresh from
+      // `distanceRef.current` (0 for a new run, the recovered distance for
+      // `recover()`), so there's no separate value to set per entry point.
       ghostSeriesRef.current = options?.ghostRun ? buildDistanceTimeSeries(options.ghostRun) : null;
 
       void wakeLockRef.current.acquire();
@@ -552,6 +594,7 @@ export function useRunTracker() {
         distanceMeters: 0,
         elapsedSeconds: 0,
         currentPaceSecPerKm: null,
+        currentKmPaceSecPerKm: null,
         goal: options?.goal ?? null,
         forecastSecondsRemaining: null,
         paceNeededSecPerKm: null,
@@ -615,6 +658,7 @@ export function useRunTracker() {
         distanceMeters: snapshot.distanceMeters,
         elapsedSeconds: 0,
         currentPaceSecPerKm: null,
+        currentKmPaceSecPerKm: null,
         goal: null,
         forecastSecondsRemaining: null,
         paceNeededSecPerKm: null,
@@ -744,6 +788,7 @@ export function useRunTracker() {
       distanceMeters: 0,
       elapsedSeconds: 0,
       currentPaceSecPerKm: null,
+      currentKmPaceSecPerKm: null,
       goal: null,
       forecastSecondsRemaining: null,
       paceNeededSecPerKm: null,

@@ -105,6 +105,45 @@ function SectionLabel({ children, delayMs }: { children: React.ReactNode; delayM
   );
 }
 
+/** One on/off preference row — a label, a short reason, and a switch, for settings that don't fit the mutually-exclusive `SegmentedButton` pattern above. */
+function PreferenceToggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center gap-3 text-left"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="mt-0.5 block text-xs text-muted">{hint}</span>
+      </span>
+      <span
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+          checked ? "bg-accent" : "bg-surface"
+        } border border-border`}
+      >
+        <span
+          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-background transition-transform ${
+            checked ? "translate-x-[22px]" : "translate-x-0.5"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
 /** Shared look for the segmented selectors — big targets, single accent. */
 const DEFAULT_SHOE_COLOR = "#2f6fed";
 
@@ -705,6 +744,27 @@ export default function PerfilPage() {
                   </span>
                 </SegmentedButton>
               ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="mt-6 border-t border-border pt-5">
+            <legend className="text-sm font-medium">Estatísticas na tela de corrida</legend>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Além do pace ao vivo, que fica sempre em destaque.
+            </p>
+            <div className="mt-3 flex flex-col gap-3">
+              <PreferenceToggle
+                label="Pace total"
+                hint="média da corrida inteira até agora"
+                checked={prefs.showAveragePaceLive}
+                onChange={(checked) => update({ showAveragePaceLive: checked })}
+              />
+              <PreferenceToggle
+                label="Pace do km atual"
+                hint="desde a última marca de km fechado"
+                checked={prefs.showCurrentKmPaceLive}
+                onChange={(checked) => update({ showCurrentKmPaceLive: checked })}
+              />
             </div>
           </fieldset>
 

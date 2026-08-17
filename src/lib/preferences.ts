@@ -19,6 +19,9 @@ export type DistanceUnit = "km" | "mi";
 export interface Preferences {
   announceIntervalMeters: number;
   distanceUnit: DistanceUnit;
+  /** Extra live stat tiles on /run — the run-so-far average pace and the pace of the km currently in progress. Both on by default; each is one more tile competing for space on a screen a sweaty thumb glances at mid-stride, so /perfil lets either be turned off. */
+  showAveragePaceLive: boolean;
+  showCurrentKmPaceLive: boolean;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -29,6 +32,8 @@ export const ANNOUNCE_STEP_METERS = 250;
 export const DEFAULT_PREFERENCES: Preferences = {
   announceIntervalMeters: 1000,
   distanceUnit: "km",
+  showAveragePaceLive: true,
+  showCurrentKmPaceLive: true,
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -53,7 +58,17 @@ function sanitize(raw: unknown): Preferences {
       ? value.distanceUnit
       : DEFAULT_PREFERENCES.distanceUnit;
 
-  return { announceIntervalMeters, distanceUnit };
+  const showAveragePaceLive =
+    typeof value.showAveragePaceLive === "boolean"
+      ? value.showAveragePaceLive
+      : DEFAULT_PREFERENCES.showAveragePaceLive;
+
+  const showCurrentKmPaceLive =
+    typeof value.showCurrentKmPaceLive === "boolean"
+      ? value.showCurrentKmPaceLive
+      : DEFAULT_PREFERENCES.showCurrentKmPaceLive;
+
+  return { announceIntervalMeters, distanceUnit, showAveragePaceLive, showCurrentKmPaceLive };
 }
 
 /** Safe on the server and in private-mode browsers: always returns something usable. */
