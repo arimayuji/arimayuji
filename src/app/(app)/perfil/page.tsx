@@ -11,7 +11,7 @@ import {
   type ThemeMode,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
+import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
 import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
 import { ShareCardTeaser } from "../share-card";
@@ -111,6 +111,14 @@ function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
       <path d="M9 5.5 15.5 12 9 18.5" />
+    </svg>
+  );
+}
+
+function HeartbeatIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M3 12h3.5l1.8-4.5L11 17l2.5-9 1.8 4.5H21" />
     </svg>
   );
 }
@@ -672,6 +680,14 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
+  /**
+   * Not a real permission grant, not persisted — there's no HealthKit/Health
+   * Connect plugin wired up yet (see PROJECT-CONTEXT.md's "Funcionalidades
+   * planejadas" for the actual phased plan). This just reveals the mockup
+   * card below so the shape of the feature is something to react to before
+   * any native permission prompt or data pipeline gets built.
+   */
+  const [healthDataPreview, setHealthDataPreview] = useState(false);
 
   return (
     <>
@@ -880,6 +896,65 @@ export default function PerfilPage() {
             </p>
             <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
           </a>
+        </Card>
+
+        <Card className="pr-enter" style={delay(300)}>
+          <CardTitle aside={<NoticeBadge>em breve</NoticeBadge>}>
+            Dados de saúde do smartwatch
+          </CardTitle>
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+              <HeartbeatIcon className="h-5 w-5" />
+            </span>
+            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
+              Frequência cardíaca em tempo real, calorias medidas de verdade (em vez da
+              estimativa de hoje), passos e os treinos já registrados no seu relógio — lidos do
+              HealthKit (iPhone) ou do Health Connect (Android), só dentro do app instalado, nunca
+              no navegador.
+            </p>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted/80 text-pretty">
+            Dado de saúde é uma categoria sensível pela LGPD: quando isso ler dados de verdade, vai
+            pedir um consentimento próprio, separado de tudo o mais — nada é lido sem ele.
+          </p>
+          <div className="mt-4 border-t border-border pt-4">
+            <PreferenceToggle
+              label="Ver como ficaria"
+              hint="Ainda não lê nada de verdade — isso só mostra a prévia da tela abaixo"
+              checked={healthDataPreview}
+              onChange={setHealthDataPreview}
+            />
+          </div>
+          {healthDataPreview && (
+            <div className="mt-4 rounded-xl border border-border bg-background p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium">Essa corrida</span>
+                <ExampleBadge />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <span className="text-[11px] uppercase tracking-wide text-muted">FC média</span>
+                  <p className="text-metal mt-0.5 font-mono text-xl tabular-nums">
+                    152<span className="ml-1 text-xs text-muted">bpm</span>
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] uppercase tracking-wide text-muted">Calorias</span>
+                  <p className="text-metal mt-0.5 font-mono text-xl tabular-nums">
+                    612<span className="ml-1 text-xs text-muted">kcal</span>
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] uppercase tracking-wide text-muted">Passos</span>
+                  <p className="text-metal mt-0.5 font-mono text-xl tabular-nums">8.412</p>
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-muted/80">
+                Números fictícios, só pra mostrar o formato — nenhum relógio foi lido pra gerar
+                isso.
+              </p>
+            </div>
+          )}
         </Card>
 
         <Card className="pr-enter" style={delay(310)}>
