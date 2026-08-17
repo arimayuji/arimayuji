@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
 import { ShareCardPreview } from "../share-card-preview";
 import { useShareSupport } from "@/lib/share";
@@ -212,6 +212,15 @@ export default function CompartilharPage() {
 function CompartilharContent() {
   const requestedRunId = useSearchParams().get("run");
   const [scenario, setScenario] = useState<ScenarioId | null>(null);
+  /**
+   * Which background actually renders when both a photo/video AND a
+   * scenario are available. Picking a photo or video sets this to "foto"
+   * (the natural expectation right after upload), but nothing here ever
+   * clears `photoUrls`/`videoUrl` — flipping back to "cenario" just hides
+   * the media from the render without losing it, so going back and forth
+   * doesn't require re-uploading.
+   */
+  const [backgroundMode, setBackgroundMode] = useState<"foto" | "cenario">("cenario");
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [photos, setPhotos] = useState<HTMLImageElement[]>([]);
   const [photoGridLayout, setPhotoGridLayout] = useState<PhotoGridLayout>("colunas");
@@ -342,6 +351,9 @@ function CompartilharContent() {
   /** Defaults to the sky matching the hour the run actually started at, until the athlete picks another. */
   const activeScenario = scenario ?? (run ? scenarioForRun(run) : "madrugada");
 
+  const hasMedia = photoUrls.length > 0 || !!videoUrl;
+  const usingMedia = hasMedia && backgroundMode === "foto";
+
   const shoe = shoes?.find((s) => s.id === shoeId) ?? null;
 
   const templates = useMemo(() => buildTemplateOptions(!!track), [track]);
@@ -371,9 +383,9 @@ function CompartilharContent() {
           scenario: activeScenario,
           layout: t.layout,
           unit: preferences.distanceUnit,
-          photos,
+          photos: usingMedia ? photos : [],
           photoGridLayout,
-          video,
+          video: usingMedia ? video : null,
           photoFilter,
           textEntrance,
           shoe: sharedShoe,
@@ -393,6 +405,7 @@ function CompartilharContent() {
     photos,
     photoGridLayout,
     video,
+    usingMedia,
     photoFilter,
     textEntrance,
     shoe,
@@ -589,6 +602,7 @@ function CompartilharContent() {
     setPhotoUrls(files.map((file) => URL.createObjectURL(file)));
     setVideo(null);
     setVideoUrl(null);
+    setBackgroundMode("foto");
   }
 
   function handleVideoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -600,6 +614,7 @@ function CompartilharContent() {
     setVideoUrl(URL.createObjectURL(file));
     setPhotos([]);
     setPhotoUrls([]);
+    setBackgroundMode("foto");
   }
 
   const showVideoOption =
@@ -639,7 +654,7 @@ function CompartilharContent() {
           {scene ? (
             <ShareCardPreview scene={scene} />
           ) : (
-            <ShareCard scenario={activeScenario} photoUrl={photoUrls[0] ?? undefined} />
+            <ShareCard scenario={activeScenario} photoUrl={usingMedia ? photoUrls[0] : undefined} />
           )}
         </div>
 
@@ -948,27 +963,26 @@ function CompartilharContent() {
           </Card>
         )}
 
-        <Card className={`pr-enter ${photoUrls.length > 0 || videoUrl ? "opacity-50" : ""}`} style={delay(200)}>
+        <Card className="pr-enter" style={delay(200)}>
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
             Cenário de fundo
           </CardTitle>
-          {(photoUrls.length > 0 || videoUrl) && (
-            <p className="mb-3 text-xs text-muted">
-              Desativado enquanto{" "}
-              {videoUrl
-                ? " um vídeo está selecionado"
-                : photoUrls.length > 1
-                  ? " fotos estão selecionadas"
-                  : " uma foto está selecionada"}
-              .
-            </p>
+          {hasMedia && (
+            <div className="mb-4 flex gap-2">
+              <SegmentedButton selected={backgroundMode === "foto"} onClick={() => setBackgroundMode("foto")}>
+                {videoUrl ? "Seu vídeo" : "Sua foto"}
+              </SegmentedButton>
+              <SegmentedButton selected={backgroundMode === "cenario"} onClick={() => setBackgroundMode("cenario")}>
+                Cenário
+              </SegmentedButton>
+            </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid grid-cols-2 gap-2 ${usingMedia ? "opacity-50" : ""}`}>
             {SCENARIO_IDS.map((id) => (
               <button
                 key={id}
                 type="button"
-                disabled={photoUrls.length > 0 || !!videoUrl}
+                disabled={usingMedia}
                 onClick={() => setScenario(id)}
                 aria-pressed={activeScenario === id}
                 className={`min-h-14 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed ${
