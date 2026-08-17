@@ -86,8 +86,8 @@ export default function PrivacidadePage() {
 
         <p className="pr-enter text-center text-xs leading-relaxed text-muted text-pretty" style={delay(240)}>
           Dúvida sobre privacidade? Escreva pra{" "}
-          <a href="mailto:yujiarima@hotmail.com" className="underline underline-offset-2 hover:text-accent">
-            yujiarima@hotmail.com
+          <a href="mailto:contato@xanthus.app.br" className="underline underline-offset-2 hover:text-accent">
+            contato@xanthus.app.br
           </a>
           .
         </p>
