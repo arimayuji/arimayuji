@@ -17,11 +17,12 @@
  * screen cheap to keep lit for an hour.
  */
 :root {
-  --background: #ffffff;
+  /* A hair off pure white — #ffffff next to any real content read as glaring; this keeps the same near-white weight with a barely-there warm cast instead. */
+  --background: #faf8f4;
   --foreground: #14181c;
-  --surface: #f2f4f5;
+  --surface: #f3f1ec;
   --muted: #6b747c;
-  --border: #dde1e3;
+  --border: #e1ddd5;
   --accent: #2f6fed;
   --accent-foreground: #ffffff;
   --good: #2e9e5b;
@@ -83,23 +84,29 @@ body {
  * mark and the achievement plates use (alternating specular/shadow bands
  * along one diagonal), clipped to text instead of stroked on an SVG path —
  * graphite/black tones instead of the mark's blue so it reads as "metal",
- * not "brand colour". The app runs dark-first (most people see this on a
- * near-black ground, not a light card), so every stop stays a few shades
- * lighter than --surface in dark mode — pure black bands would just merge
- * into the background instead of reading as shadow.
+ * not "brand colour".
+ *
+ * The two themes need opposite-value ramps, not the same one: on light
+ * mode's near-white ground this needs to stay dark overall (its own
+ * "specular" band is a mid grey, never white, or that band vanishes into
+ * the background — the exact washed-out numbers this was fixed from), on
+ * dark mode's near-black ground the ramp inverts to stay light overall for
+ * the same reason. Both keep the same alternating light/dark banding
+ * pattern that actually sells "brushed metal" over "flat grey" — only the
+ * overall value each stop sits at flips between the two.
  */
 .text-metal {
   background-image: linear-gradient(
     135deg,
-    #9aa0a6 0%,
-    #4a4f56 14%,
-    #cfd3d7 26%,
-    #5a6067 40%,
-    #eef0f2 50%,
-    #4a4f56 60%,
-    #b4b9bf 74%,
-    #3a3f45 88%,
-    #8a9096 100%
+    #2b2f34 0%,
+    #0e1114 14%,
+    #454b52 26%,
+    #14181c 40%,
+    #5c636b 50%,
+    #14181c 60%,
+    #3d434a 74%,
+    #0a0d0f 88%,
+    #262b30 100%
   );
   background-clip: text;
   -webkit-background-clip: text;
