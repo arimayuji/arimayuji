@@ -260,6 +260,22 @@ jobs:
           cat > out/download/version.json <<EOF
           {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.yujiarima.workers.dev/download/xanthus.apk"}
           EOF
+          # The download URL itself has to stay the fixed "xanthus.apk" path
+          # above — that's what makes it a stable link the landing page and
+          # the in-app update banner never need to change. But what the
+          # browser actually SAVES the file as can still be friendlier: this
+          # appends a rule to the `_headers` file (already copied into out/
+          # from public/_headers by `next build`, with its own
+          # Access-Control-Allow-Origin rule for this same path — a
+          # different header name, so both rules apply without conflict)
+          # telling Cloudflare to send a versioned Content-Disposition
+          # filename, so what lands in the user's Downloads folder reads
+          # "Xanthus-1.0.87.apk" instead of the generic "xanthus.apk".
+          cat >> out/_headers <<EOF
+
+          /download/xanthus.apk
+            Content-Disposition: attachment; filename="Xanthus-${ANDROID_VERSION_NAME}.apk"
+          EOF
           npx wrangler deploy
           echo "published=true" >> "$GITHUB_OUTPUT"
 
