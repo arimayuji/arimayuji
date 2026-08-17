@@ -292,10 +292,20 @@ jobs:
         # silently blocking every trigger, not just this one step).
         if: steps.publish.outputs.published == 'true'
         run: |
-          sleep 5
-          ACTUAL_SIZE=$(curl -s -o /dev/null -w "%{size_download}" https://xanthus.yujiarima.workers.dev/download/xanthus.apk)
-          if [ "$ACTUAL_SIZE" != "$EXPECTED_SIZE" ]; then
-            echo "::error::Link público serve $ACTUAL_SIZE bytes, esperado $EXPECTED_SIZE — deploy pode ter quebrado o download."
-            exit 1
-          fi
-          echo "OK — link público confirmado com $ACTUAL_SIZE bytes."
+          # A single check right after deploy can catch a CDN edge that
+          # hadn't propagated yet — a false alarm, not a broken deploy (hit
+          # this for real once already: run failed here while the actual
+          # download worked fine seconds later). Retries give propagation
+          # a real window instead of failing the whole release on the first
+          # stale read.
+          for attempt in 1 2 3 4 5; do
+            sleep 5
+            ACTUAL_SIZE=$(curl -s -o /dev/null -w "%{size_download}" https://xanthus.yujiarima.workers.dev/download/xanthus.apk)
+            if [ "$ACTUAL_SIZE" = "$EXPECTED_SIZE" ]; then
+              echo "OK — link público confirmado com $ACTUAL_SIZE bytes (tentativa $attempt)."
+              exit 0
+            fi
+            echo "::warning::Tentativa $attempt: link público serve $ACTUAL_SIZE bytes, esperado $EXPECTED_SIZE — pode ser cache de CDN ainda propagando."
+          done
+          echo "::error::Link público serve $ACTUAL_SIZE bytes, esperado $EXPECTED_SIZE após 5 tentativas — deploy pode ter quebrado o download."
+          exit 1
