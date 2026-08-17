@@ -226,6 +226,17 @@ function CompartilharContent() {
   const [photoGridLayout, setPhotoGridLayout] = useState<PhotoGridLayout>("colunas");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+  /**
+   * True only once every photo in the current `photoUrls` set has finished
+   * loading (decoded or failed) — while a pick is still in flight this stays
+   * false so the render below can tell "still loading" apart from "loaded
+   * and genuinely empty," and never silently falls back to the cenário
+   * background just because `photos` hasn't caught up yet.
+   */
+  const [photosSettled, setPhotosSettled] = useState(true);
+  /** Set when every photo in the current pick failed to decode (e.g. a HEIC file the browser can't render) — surfaced as an explicit message instead of quietly drawing the cenário while "Sua foto" stays selected. */
+  const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
+  const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [photoFilter, setPhotoFilter] = useState<PhotoFilterId>("original");
   const [textEntrance, setTextEntrance] = useState<TextEntranceId>("bumerangue");
   const [albumArt, setAlbumArt] = useState<HTMLImageElement | null>(null);
@@ -353,6 +364,10 @@ function CompartilharContent() {
 
   const hasMedia = photoUrls.length > 0 || !!videoUrl;
   const usingMedia = hasMedia && backgroundMode === "foto";
+  /** True once a photo/video pick in "foto" mode has finished loading and none of it decoded — the exact case that used to draw the cenário in its place while "Sua foto" stayed selected, with nothing on screen explaining why. */
+  const mediaLoadFailed =
+    backgroundMode === "foto" &&
+    ((photoUrls.length > 0 && photosSettled && photoLoadFailed) || (!!videoUrl && videoLoadFailed));
 
   const shoe = shoes?.find((s) => s.id === shoeId) ?? null;
 
@@ -545,8 +560,14 @@ function CompartilharContent() {
   // the instant it does arrive. `photos` only updates once every URL in the
   // current set has resolved (decoded or failed), never partially.
   useEffect(() => {
-    if (photoUrls.length === 0) return;
+    if (photoUrls.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPhotosSettled(true);
+      return;
+    }
     let cancelled = false;
+    // A fresh pick starts "not settled" so the render below can wait instead of assuming these photos already failed.
+    setPhotosSettled(false);
     Promise.all(
       photoUrls.map(
         (url) =>
@@ -558,7 +579,11 @@ function CompartilharContent() {
           }),
       ),
     ).then((images) => {
-      if (!cancelled) setPhotos(images.filter((img): img is HTMLImageElement => img !== null));
+      if (cancelled) return;
+      const decoded = images.filter((img): img is HTMLImageElement => img !== null);
+      setPhotos(decoded);
+      setPhotosSettled(true);
+      setPhotoLoadFailed(decoded.length === 0);
     });
     return () => {
       cancelled = true;
@@ -584,7 +609,9 @@ function CompartilharContent() {
       setVideo(el);
     };
     el.onerror = () => {
-      if (!cancelled) setVideo(null);
+      if (cancelled) return;
+      setVideo(null);
+      setVideoLoadFailed(true);
     };
     el.src = videoUrl;
     return () => {
@@ -599,9 +626,11 @@ function CompartilharContent() {
     if (files.length === 0) return;
     setPhotos([]);
     setPhotoFilter("original");
+    setPhotoLoadFailed(false);
     setPhotoUrls(files.map((file) => URL.createObjectURL(file)));
     setVideo(null);
     setVideoUrl(null);
+    setVideoLoadFailed(false);
     setBackgroundMode("foto");
   }
 
@@ -610,10 +639,12 @@ function CompartilharContent() {
     event.target.value = "";
     if (!file) return;
     setVideo(null);
+    setVideoLoadFailed(false);
     setPhotoFilter("original");
     setVideoUrl(URL.createObjectURL(file));
     setPhotos([]);
     setPhotoUrls([]);
+    setPhotoLoadFailed(false);
     setBackgroundMode("foto");
   }
 
@@ -976,6 +1007,13 @@ function CompartilharContent() {
                 Cenário
               </SegmentedButton>
             </div>
+          )}
+          {mediaLoadFailed && (
+            <p className="mb-4 text-xs leading-relaxed text-warn" role="status">
+              Esse {videoUrl ? "vídeo" : "arquivo"} não abriu — o formato pode não ser suportado
+              (ex.: fotos em HEIC). Por enquanto o card usa um cenário no lugar. Tenta escolher
+              outra foto ou vídeo, ou exportar em JPG/PNG antes de subir.
+            </p>
           )}
           <div className={`grid grid-cols-2 gap-2 ${usingMedia ? "opacity-50" : ""}`}>
             {SCENARIO_IDS.map((id) => (

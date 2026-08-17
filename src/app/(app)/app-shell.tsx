@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandMark } from "./brand-mark";
 import { InstallPrompt } from "./install-prompt";
 import { NotificationBell } from "./notification-bell";
 
@@ -199,6 +200,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           BottomNav below: it needs to stay pinned to the viewport corner
           across scroll, not just sit above whatever screen happens to be
           showing. */}
+      {!immersive && <BrandMark />}
       {!immersive && <NotificationBell />}
       {!immersive && <BottomNav />}
     </ImmersiveContext.Provider>
