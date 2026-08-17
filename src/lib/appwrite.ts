@@ -34,6 +34,8 @@ export const TABLES = {
   runs: "runs",
   liveRuns: "live_runs",
   runComments: "run_comments",
+  groupRuns: "group_runs",
+  groupRunParticipants: "group_run_participants",
 } as const;
 
 // Matches appwrite-functions/delete-account's Function ID — set this exact

@@ -366,6 +366,107 @@ async function main() {
   await ensure("live_runs.updatedAtMs", () =>
     tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "updatedAtMs", required: true, min: 0 }),
   );
+  // Which "longão" (group_runs) this live position belongs to, if any — see
+  // group_runs below. Optional: most live runs are still the plain
+  // 1-coach case with no group session involved.
+  await ensure("live_runs.sessionCode", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "sessionCode", size: 12, required: false }),
+  );
+  await waitForColumn("live_runs", "sessionCode");
+  await ensure("live_runs index: sessionCode", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "live_runs",
+      key: "by_session_code",
+      type: TablesDBIndexType.Key,
+      columns: ["sessionCode"],
+    }),
+  );
+
+  // -------------------------------------------------------------- group_runs
+  console.log("\ngroup_runs");
+  await ensure("table group_runs", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "group_runs",
+      name: "group_runs",
+      // Row ID *is* the 6-character join code (see groupRuns.ts) — found
+      // again by id, same convention as live_runs. Read is open to any
+      // signed-in account, same reasoning as a TestFlight public link: the
+      // code itself (1-in-a-billion-ish) is the real gate, and this row
+      // holds no location, only name/host/schedule. Only the host may
+      // update (e.g. close it) or delete.
+      permissions: [Permission.read(Role.users()), Permission.create(Role.users())],
+      rowSecurity: true,
+    }),
+  );
+  await ensure("group_runs.hostId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "group_runs", key: "hostId", size: 36, required: true }),
+  );
+  await ensure("group_runs.name", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "group_runs", key: "name", size: 60, required: true }),
+  );
+  await ensure("group_runs.startsAt", () =>
+    tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "group_runs", key: "startsAt", required: true }),
+  );
+  await ensure("group_runs.expiresAt", () =>
+    tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "group_runs", key: "expiresAt", required: true }),
+  );
+  await ensure("group_runs.status", () =>
+    tablesDB.createEnumColumn({
+      databaseId: DATABASE_ID,
+      tableId: "group_runs",
+      key: "status",
+      elements: ["open", "closed"],
+      required: true,
+    }),
+  );
+
+  // ------------------------------------------------------ group_run_participants
+  console.log("\ngroup_run_participants");
+  await ensure("table group_run_participants", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      name: "group_run_participants",
+      // Same open-read reasoning as group_runs above — this row is just
+      // "who's in this session", no location. Row ID is deterministic
+      // (`${code}_${userId}`, see groupRuns.ts), so joining twice is a
+      // harmless 409 rather than a duplicate row, and leaving is a direct
+      // delete-by-id with no query needed first.
+      permissions: [Permission.read(Role.users()), Permission.create(Role.users())],
+      rowSecurity: true,
+    }),
+  );
+  await ensure("group_run_participants.sessionCode", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "group_run_participants", key: "sessionCode", size: 12, required: true }),
+  );
+  await ensure("group_run_participants.userId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "group_run_participants", key: "userId", size: 36, required: true }),
+  );
+  await ensure("group_run_participants.joinedAt", () =>
+    tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "group_run_participants", key: "joinedAt", required: true }),
+  );
+  await waitForColumn("group_run_participants", "sessionCode");
+  await ensure("group_run_participants index: sessionCode", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      key: "by_session",
+      type: TablesDBIndexType.Key,
+      columns: ["sessionCode"],
+    }),
+  );
+  await waitForColumn("group_run_participants", "userId");
+  await ensure("group_run_participants index: userId", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      key: "by_user",
+      type: TablesDBIndexType.Key,
+      columns: ["userId"],
+    }),
+  );
 
   // -------------------------------------------------------------- run_comments
   console.log("\nrun_comments");

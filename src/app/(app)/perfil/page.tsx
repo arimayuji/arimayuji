@@ -80,6 +80,16 @@ function CoachIcon({ className }: { className?: string }) {
   );
 }
 
+function LongaoIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <circle cx="7" cy="8" r="2.6" />
+      <circle cx="17" cy="8" r="2.6" />
+      <path d="M2.5 19.5a4.6 4.6 0 0 1 9 0M12.5 19.5a4.6 4.6 0 0 1 9 0" />
+    </svg>
+  );
+}
+
 function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
@@ -694,6 +704,19 @@ export default function PerfilPage() {
             <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
               Conecte com quem te treina ou com quem você treina — e escolha corrida por corrida o que
               compartilhar.
+            </p>
+            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
+          </Link>
+        </Card>
+
+        <Card className="pr-enter" style={delay(100)}>
+          <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Longão</CardTitle>
+          <Link href="/longao" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+              <LongaoIcon className="h-5 w-5" />
+            </span>
+            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
+              Crie ou entre numa corrida em grupo com um código — só amigos entram.
             </p>
             <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
           </Link>
