@@ -102,13 +102,25 @@ function buildTemplateOptions(hasTrack: boolean): TemplateOption[] {
   return options;
 }
 
-/** One swipeable card in the template row — a real, once-drawn static frame of that exact combo over the athlete's own data, not a generic icon standing in for it. */
+/**
+ * One swipeable card in the template row — a real, once-drawn static frame
+ * of that exact combo over the athlete's own data, not a generic icon
+ * standing in for it. The label overlay exists because the row is
+ * frequently mostly `LockedTemplateThumb` cards (any run without a logged
+ * track locks 4 of the 6 combos) — those carry their own big, obvious
+ * label, and a bare unlabeled canvas sitting next to them just reads as a
+ * decorative preview rather than a distinct, selectable option. Without a
+ * label of its own, "Trajeto · Foto" — the one combo that never needs a
+ * track — was easy to miss entirely.
+ */
 function TemplateThumb({
   scene,
+  label,
   active,
   onClick,
 }: {
   scene: ShareCardScene;
+  label: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -125,7 +137,7 @@ function TemplateThumb({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`block shrink-0 snap-center overflow-hidden rounded-2xl border-2 transition-colors ${
+      className={`relative block shrink-0 snap-center overflow-hidden rounded-2xl border-2 transition-colors ${
         active ? "border-accent" : "border-border"
       }`}
       style={{ width: 128, aspectRatio: `${SHARE_CARD_WIDTH} / ${SHARE_CARD_HEIGHT}` }}
@@ -136,6 +148,9 @@ function TemplateThumb({
         height={SHARE_CARD_HEIGHT}
         className="block h-full w-full"
       />
+      <span className="pointer-events-none absolute inset-x-1.5 bottom-1.5 truncate rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] leading-tight font-medium text-white">
+        {label}
+      </span>
     </button>
   );
 }
@@ -658,6 +673,7 @@ function CompartilharContent() {
                   <TemplateThumb
                     key={t.id}
                     scene={templateScene}
+                    label={t.label}
                     active={t.id === activeTemplate?.id}
                     onClick={() => setTemplateId(t.id)}
                   />
