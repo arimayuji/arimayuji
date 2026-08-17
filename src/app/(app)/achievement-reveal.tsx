@@ -103,10 +103,16 @@ function BoxInterior({ uid, glow }: { uid: string; glow: string }) {
           <stop offset="55%" stopColor={glow} stopOpacity="0.05" />
           <stop offset="100%" stopColor={glow} stopOpacity="0" />
         </linearGradient>
+        {/* Used to fade to fully transparent, not just a dimmer tint of
+            `glow` — since this radial fill is clipped exactly to the
+            BOX_MOUTH path below, any non-zero opacity left at its outer
+            edge meets the box body's own fill with a visible seam right
+            where the two shapes' boundaries coincide. Fading to 0 lets the
+            glow dissolve into the mouth's own dark base fill instead. */}
         <radialGradient id={`${uid}-mouth`} cx="0.5" cy="0.55" r="0.62">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="46%" stopColor={glow} />
-          <stop offset="100%" stopColor={glow} stopOpacity="0.55" />
+          <stop offset="40%" stopColor={glow} />
+          <stop offset="100%" stopColor={glow} stopOpacity="0" />
         </radialGradient>
       </defs>
       <path d={BOX_MOUTH} fill="#05070a" />

@@ -129,7 +129,8 @@ const AUTO_RETRY_DELAY_MS = 2000;
  * while the view still reads as tilted and riding-along rather than flat.
  */
 const CHASE_PITCH = 34;
-const CHASE_ZOOM = 17.2;
+/** Was 17.2 — each +1 here doubles the apparent scale, so this pulls the chase camera back roughly 25% (2^0.42 ≈ 1.33x more visible area) to make it easier to tell where along the route the replay actually is. */
+const CHASE_ZOOM = 16.8;
 /** Below this the two points behind a bearing calculation are close enough that GPS noise, not real heading, would decide which way the camera faces. */
 const CHASE_BEARING_MIN_METERS = 3;
 /** How long the camera takes to swoop from the overview into the chase position, and back out again when playback ends. */
