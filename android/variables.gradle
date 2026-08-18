@@ -1,5 +1,11 @@
 ext {
-    minSdkVersion = 24
+    // 26, not the Capacitor-template default of 24 — capacitor-health
+    // (src/lib/health.ts) pulls in androidx.health.connect:connect-client,
+    // which hard-requires API 26 in its own manifest (Health Connect itself
+    // doesn't exist below Android 8.0, so there's no lower-minSdk build of
+    // it to depend on instead). Bumping this only drops Android 7.x and
+    // older, a vanishingly small slice of real devices at this point.
+    minSdkVersion = 26
     compileSdkVersion = 36
     targetSdkVersion = 36
     androidxActivityVersion = '1.11.0'
