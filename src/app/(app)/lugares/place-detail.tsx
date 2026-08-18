@@ -89,7 +89,15 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
       <ScreenHeader title={place.name} subtitle={place.neighborhood} />
 
       <Screen>
-        <Card className="pr-enter" style={delay(40)}>
+        <Card className="pr-enter overflow-hidden" style={delay(40)}>
+          {place.coverImage && (
+            // eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway.
+            <img
+              src={place.coverImage}
+              alt=""
+              className="-mx-5 -mt-5 mb-4 block h-40 w-[calc(100%+2.5rem)] object-cover"
+            />
+          )}
           <p className="text-sm leading-relaxed text-pretty">{place.description}</p>
           <p className="mt-4 border-t border-border pt-3 text-xs text-muted">
             <strong className="font-medium text-foreground">Melhor horário:</strong> {place.bestTime}

@@ -48,6 +48,15 @@ export interface RunningPlace {
   city: string;
   neighborhood: string;
   description: string;
+  /**
+   * Illustrated cover for the place card/detail header — a hand-drawn,
+   * cel-shaded scene of a real, recognizable feature of the place (Avenida
+   * Paulista's MASP, Ibirapuera's marquise, CERET's running track), not a
+   * generic park stock image. Optional for the same reason `circuits` is:
+   * a place with no cover yet just renders without one, rather than a
+   * placeholder standing in for art that was never actually made.
+   */
+  coverImage?: string;
   criteria: PlaceCriteria;
   bestTime: string;
   /** Null for a linear route (no natural loop) or when no reliable figure exists. */
@@ -71,6 +80,7 @@ export const CITIES_WITH_PLACES = ["São Paulo"] as const;
 export const RUNNING_PLACES: RunningPlace[] = [
   {
     id: "parque-ibirapuera",
+    coverImage: "/lugares/parque-ibirapuera.webp",
     name: "Parque Ibirapuera",
     city: "São Paulo",
     neighborhood: "Vila Mariana / Moema · Zona Sul",
@@ -207,6 +217,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-villa-lobos",
+    coverImage: "/lugares/parque-villa-lobos.webp",
     name: "Parque Villa-Lobos",
     city: "São Paulo",
     neighborhood: "Alto de Pinheiros · Zona Oeste",
@@ -240,6 +251,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-do-povo",
+    coverImage: "/lugares/parque-do-povo.webp",
     name: "Parque do Povo – Mário Pimenta Camargo",
     city: "São Paulo",
     neighborhood: "Itaim Bibi / Vila Olímpia · Zona Sul",
@@ -278,6 +290,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "avenida-paulista",
+    coverImage: "/lugares/avenida-paulista.webp",
     name: "Avenida Paulista",
     city: "São Paulo",
     neighborhood: "Bela Vista / Jardim Paulista · Centro-Sul",
@@ -313,6 +326,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-agua-branca",
+    coverImage: "/lugares/parque-agua-branca.webp",
     name: "Parque da Água Branca",
     city: "São Paulo",
     neighborhood: "Água Branca / Barra Funda · Zona Oeste",
@@ -346,6 +360,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "cidade-universitaria-usp",
+    coverImage: "/lugares/cidade-universitaria-usp.webp",
     name: "Cidade Universitária USP / Raia Olímpica",
     city: "São Paulo",
     neighborhood: "Butantã · Zona Oeste",
@@ -381,6 +396,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "marginal-pinheiros-bruno-covas",
+    coverImage: "/lugares/marginal-pinheiros-bruno-covas.webp",
     name: "Marginal Pinheiros – Parque Bruno Covas",
     city: "São Paulo",
     neighborhood: "Margens do Rio Pinheiros · Zona Oeste/Sul",
@@ -416,6 +432,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-aclimacao",
+    coverImage: "/lugares/parque-aclimacao.webp",
     name: "Parque da Aclimação",
     city: "São Paulo",
     neighborhood: "Aclimação · Centro-Sul",
@@ -449,6 +466,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "horto-florestal",
+    coverImage: "/lugares/horto-florestal.webp",
     name: "Parque Estadual Alberto Löfgren (Horto Florestal)",
     city: "São Paulo",
     neighborhood: "Horto Florestal · Zona Norte",
@@ -482,6 +500,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "ceret-tatuape",
+    coverImage: "/lugares/ceret-tatuape.webp",
     name: "Parque CERET",
     city: "São Paulo",
     neighborhood: "Tatuapé / Jardim Anália Franco · Zona Leste",
