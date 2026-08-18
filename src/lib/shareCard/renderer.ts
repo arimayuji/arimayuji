@@ -68,7 +68,7 @@ const ROUTE_DRAW_START = 260;
 const ROUTE_DRAW_MS = 3400;
 const ROUTE_DRAW_END = ROUTE_DRAW_START + ROUTE_DRAW_MS;
 
-const MONO_FALLBACK = "ui-monospace, SFMono-Regular, Menlo, monospace";
+const NUMBER_FONT_FALLBACK = "system-ui, sans-serif";
 
 const clamp01 = (value: number) => (value < 0 ? 0 : value > 1 ? 1 : value);
 
@@ -530,17 +530,20 @@ function formatDurationClock(totalSeconds: number): string {
 }
 
 /**
- * The mono face the rest of the app uses, read off the CSS custom property
- * next/font defines. Falls back to the platform mono rather than failing —
- * canvas silently substitutes an unknown family, so a wrong guess here would
- * show up as a proportional-font card and nothing else.
+ * The face every numeric readout in the app uses (the same `font-mono`
+ * Tailwind class resolves to elsewhere — Nunito at a fixed Black weight,
+ * not literally monospace despite the name), read off the CSS custom
+ * property next/font defines. Falls back to a generic sans rather than
+ * failing — canvas silently substitutes an unknown family, so a wrong
+ * guess here would show up as a mismatched system-font card and nothing
+ * else.
  */
-function monoFontFamily(): string {
-  if (typeof window === "undefined") return MONO_FALLBACK;
+function numberFontFamily(): string {
+  if (typeof window === "undefined") return NUMBER_FONT_FALLBACK;
   const value = getComputedStyle(document.documentElement)
-    .getPropertyValue("--font-geist-mono")
+    .getPropertyValue("--font-nunito-numbers")
     .trim();
-  return value ? `${value}, ${MONO_FALLBACK}` : MONO_FALLBACK;
+  return value ? `${value}, ${NUMBER_FONT_FALLBACK}` : NUMBER_FONT_FALLBACK;
 }
 
 /**
@@ -603,7 +606,7 @@ export function buildShareCardScene({
     when: formatWhen(run.startedAt),
     record,
     shoe,
-    fontFamily: monoFontFamily(),
+    fontFamily: numberFontFamily(),
   };
 }
 

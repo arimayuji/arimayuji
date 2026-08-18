@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Nunito } from "next/font/google";
+import { Nunito } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { OAuthCallbackListener } from "./oauth-callback-listener";
@@ -16,17 +16,28 @@ import { ThemeSync } from "./theme-sync";
  */
 const THEME_INIT_SCRIPT = `(function(){try{var raw=localStorage.getItem("xanthus:preferences");var theme=raw?JSON.parse(raw).theme:"system";var dark=theme==="dark"||(theme!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark);}catch(e){}})();`;
 
-/** Rounder, chubbier than Geist for body text and headings — the numeric readouts (pace, distance, splits) stay on Geist Mono below for tabular alignment. */
+/** Body text and headings, at whatever weight each element already asks for (variable font, no fixed weight here). */
 const nunito = Nunito({
   variable: "--font-nunito",
   subsets: ["latin"],
 });
 
-/** Fixed at Bold rather than the variable range — every number on screen (pace, distance, splits) reads thicker now, not just the ones with an explicit font-bold class. */
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+/**
+ * Every numeric readout on screen (pace, distance, splits) used to run on
+ * Geist Mono — a real monospace, chosen for tabular alignment in things
+ * like the splits table. Nunito at a fixed Black weight keeps that same
+ * alignment (it supports tabular figures, and `tabular-nums` is already
+ * applied everywhere these numbers render) while reading rounder and
+ * heavier — the "chubby, game-HUD" look asked for, compared side by side
+ * against several other candidates before landing here. Fixed at Black
+ * (900) rather than the variable range for the same reason Geist Mono was
+ * pinned to Bold before it: every number reads at the same weight, not
+ * just the ones with their own explicit font-bold class.
+ */
+const nunitoNumbers = Nunito({
+  variable: "--font-nunito-numbers",
   subsets: ["latin"],
-  weight: "700",
+  weight: "900",
 });
 
 export const metadata: Metadata = {
@@ -59,7 +70,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       // The theme-init script (below) adds/removes "dark" before hydration,
       // ahead of what the server rendered — an intentional mismatch, not a bug.
       suppressHydrationWarning
-      className={`${nunito.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${nunito.variable} ${nunitoNumbers.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

@@ -52,7 +52,16 @@
   --color-warn: var(--warn);
   --color-bad: var(--bad);
   --font-sans: var(--font-nunito);
-  --font-mono: var(--font-geist-mono);
+  /*
+   * Every numeric readout in the app reaches this through the `font-mono`
+   * Tailwind class — not literally monospace anymore (see layout.tsx's
+   * nunitoNumbers), but every call site keeps working unchanged: they were
+   * never asking for true fixed-width glyphs, just "the font all the
+   * numbers use," and tabular-nums (already applied wherever alignment
+   * matters, e.g. the splits table) is what actually keeps digits lined up
+   * — that works the same in Nunito as it did in Geist Mono.
+   */
+  --font-mono: var(--font-nunito-numbers);
 }
 
 :root.dark {
