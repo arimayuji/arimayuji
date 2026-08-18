@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   deleteCompletedRun,
@@ -196,29 +196,61 @@ function Summary({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit }) {
  * finished-run screen shows a PR *the moment it happens*, this is where it
  * lives afterward. Recomputed from `runs` (cheap enough at personal-app
  * scale) rather than stored, so it never drifts if history changes.
+ *
+ * Defaults to whichever unit the athlete already uses app-wide, but the
+ * km/mi toggle here is its own local choice, not a rewrite of that global
+ * preference — this card is the one place km and milha records used to
+ * show up interleaved (1 km, 1/2 milha, 1 milha, 5 km...) in one list,
+ * which read as a mistake rather than two parallel systems.
  */
-function PersonalRecords({ runs }: { runs: CompletedRun[] }) {
-  const bests = allTimeBests(runs);
+function PersonalRecords({ runs, defaultUnit }: { runs: CompletedRun[]; defaultUnit: DistanceUnit }) {
+  const [unit, setUnit] = useState<DistanceUnit>(defaultUnit);
+  const bests = useMemo(
+    () => allTimeBests(runs).filter((best) => best.unit === "both" || best.unit === unit),
+    [runs, unit],
+  );
   if (bests.length === 0) return null;
 
   return (
     <Card className="pr-enter" style={delay(65)}>
-      <CardTitle>Recordes pessoais</CardTitle>
-      <ul className="flex flex-col gap-2">
+      <CardTitle
+        aside={
+          <div className="flex overflow-hidden rounded-full border border-border text-xs font-semibold">
+            {(["km", "mi"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setUnit(option)}
+                aria-pressed={unit === option}
+                className={`px-3 py-1 transition-colors ${
+                  unit === option ? "bg-accent text-accent-foreground" : "text-muted hover:text-foreground"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        Recordes pessoais
+      </CardTitle>
+      <ul className="flex flex-col gap-1">
         {bests.map((best) => (
-          <li
-            key={best.targetMeters}
-            className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
-          >
-            <span className="text-muted">{best.label}</span>
-            <span className="flex items-baseline gap-2">
-              <span className="font-mono font-semibold tabular-nums">
-                {formatElapsed(Math.round(best.splitSeconds))}
+          <li key={best.targetMeters} className="border-t border-border first:border-t-0">
+            <Link
+              href={`/historico/detalhe?id=${best.runId}`}
+              className="-mx-1 flex items-center justify-between gap-2 rounded-lg px-1 py-2 text-sm hover:bg-background"
+            >
+              <span className="text-muted">{unit === "mi" && best.milesLabel ? best.milesLabel : best.label}</span>
+              <span className="flex items-baseline gap-2">
+                <span className="font-mono font-semibold tabular-nums">
+                  {formatElapsed(Math.round(best.splitSeconds))}
+                </span>
+                <span className="text-xs text-muted">
+                  {formatRunDate(new Date(best.achievedAt))}
+                </span>
               </span>
-              <span className="text-xs text-muted">
-                {formatRunDate(new Date(best.achievedAt))}
-              </span>
-            </span>
+            </Link>
           </li>
         ))}
       </ul>
@@ -721,7 +753,7 @@ export default function HistoricoPage() {
         {load.status === "ready" && runs.length > 0 && (
           <>
             {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
-            <PersonalRecords runs={runs} />
+            <PersonalRecords runs={runs} defaultUnit={unit} />
             <RunFrequencyHeatmap runs={runs} unit={unit} />
 
             {showSearchTool && (
