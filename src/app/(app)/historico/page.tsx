@@ -120,42 +120,32 @@ function RouteThumb({ points }: { points: StoredPoint[] }) {
 
 function EmptyState() {
   return (
-    <Card className="pr-enter flex flex-col items-center px-6 py-10 text-center" style={delay(80)}>
-      <svg
-        viewBox="0 0 120 72"
-        className="pr-svg h-auto w-40 text-accent"
-        role="img"
-        aria-label="Ilustração de um percurso ainda não percorrido"
-      >
-        <path
-          d="M10 58 C 30 58, 26 22, 48 22 S 76 50, 96 34 L 110 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray="5 7"
-          opacity="0.35"
+    <Card className="pr-enter overflow-hidden text-center" style={delay(80)}>
+      <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+        <img
+          src="/historico-empty.webp"
+          alt="Ilustração de um percurso ainda não percorrido"
+          className="h-full w-full object-cover"
         />
-        <circle cx="10" cy="58" r="5" fill="currentColor" />
-        <circle cx="110" cy="16" r="4" fill="none" stroke="currentColor" strokeWidth="2.5" />
-      </svg>
+      </div>
 
-      <h2 className="mt-6 text-lg font-semibold text-balance">
+      <h2 className="text-lg font-semibold text-balance">
         Seu histórico começa na primeira corrida
       </h2>
-      <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted text-pretty">
+      <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted text-pretty">
         Ainda não há nenhuma corrida gravada neste aparelho. Assim que você finalizar um
         treino, ele aparece aqui com distância, tempo, pace médio e o traçado do percurso.
       </p>
 
       <Link
         href="/run"
-        className="mt-7 w-full max-w-xs rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+        className="mx-auto mt-7 w-full max-w-xs rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
       >
         Gravar primeira corrida
       </Link>
 
-      <p className="mt-5 max-w-xs text-xs leading-relaxed text-muted">
+      <p className="mx-auto mt-5 max-w-xs text-xs leading-relaxed text-muted">
         As corridas ficam salvas só neste aparelho, offline. Nada é enviado pra nenhum
         servidor.
       </p>

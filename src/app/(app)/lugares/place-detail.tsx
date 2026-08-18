@@ -91,12 +91,10 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
       <Screen>
         <Card className="pr-enter overflow-hidden" style={delay(40)}>
           {place.coverImage && (
-            // eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway.
-            <img
-              src={place.coverImage}
-              alt=""
-              className="-mx-5 -mt-5 mb-4 block h-40 w-[calc(100%+2.5rem)] object-cover"
-            />
+            <div className="-mx-5 -mt-5 mb-4 h-40 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+              <img src={place.coverImage} alt="" className="h-full w-full object-cover" />
+            </div>
           )}
           <p className="text-sm leading-relaxed text-pretty">{place.description}</p>
           <p className="mt-4 border-t border-border pt-3 text-xs text-muted">
