@@ -287,6 +287,43 @@ export const RUNNING_PLACES: RunningPlace[] = [
       "https://prefeitura.sp.gov.br/web/meio_ambiente/w/parques/regiao_centrooeste/22396",
       "https://www.acre.com.br/ciclistas-reclamam-de-roubos-na-ciclovia-do-rio-pinheiros-31-01-2025-cotidiano/",
     ],
+    circuits: [
+      // Pista do parque: rastreado de trechos reais do OpenStreetMap (Overpass
+      // API) dentro do parque — fecha em loop exato, sem gap. Mais curto que a
+      // estimativa de ~1,5km da própria prefeitura porque essa é só a pista
+      // interna que o OSM tem mapeada; o restante do circuito citado inclui
+      // caminhos ainda não traçados publicamente.
+      {
+        name: "Pista do parque",
+        distanceMeters: 911,
+        points: [
+          { lat: -23.589737, lon: -46.688366 }, { lat: -23.589745, lon: -46.688282 }, { lat: -23.589786, lon: -46.688126 }, { lat: -23.589768, lon: -46.688096 },
+          { lat: -23.589087, lon: -46.687878 }, { lat: -23.589047, lon: -46.688005 }, { lat: -23.588975, lon: -46.688227 }, { lat: -23.588918, lon: -46.688415 },
+          { lat: -23.588883, lon: -46.68845 }, { lat: -23.58877, lon: -46.688449 }, { lat: -23.588602, lon: -46.688398 }, { lat: -23.588539, lon: -46.688364 },
+          { lat: -23.588506, lon: -46.688319 }, { lat: -23.588493, lon: -46.688244 }, { lat: -23.588494, lon: -46.688176 }, { lat: -23.588467, lon: -46.688089 },
+          { lat: -23.588418, lon: -46.68801 }, { lat: -23.588338, lon: -46.687946 }, { lat: -23.588354, lon: -46.687829 }, { lat: -23.588321, lon: -46.687833 },
+          { lat: -23.58826, lon: -46.687823 }, { lat: -23.588221, lon: -46.687793 }, { lat: -23.588175, lon: -46.687776 }, { lat: -23.588116, lon: -46.687769 },
+          { lat: -23.588064, lon: -46.687785 }, { lat: -23.588022, lon: -46.68779 }, { lat: -23.587971, lon: -46.687848 }, { lat: -23.587939, lon: -46.687875 },
+          { lat: -23.587895, lon: -46.687892 }, { lat: -23.587851, lon: -46.687819 }, { lat: -23.587874, lon: -46.68793 }, { lat: -23.587849, lon: -46.687936 },
+          { lat: -23.587807, lon: -46.687947 }, { lat: -23.587768, lon: -46.687968 }, { lat: -23.58772, lon: -46.688001 }, { lat: -23.58768, lon: -46.688042 },
+          { lat: -23.587653, lon: -46.688081 }, { lat: -23.587619, lon: -46.688118 }, { lat: -23.587573, lon: -46.688153 }, { lat: -23.58752, lon: -46.688184 },
+          { lat: -23.587546, lon: -46.68802 }, { lat: -23.587507, lon: -46.688222 }, { lat: -23.587483, lon: -46.688292 }, { lat: -23.587462, lon: -46.688332 },
+          { lat: -23.587423, lon: -46.688401 }, { lat: -23.58741, lon: -46.688443 }, { lat: -23.587401, lon: -46.688494 }, { lat: -23.587396, lon: -46.688563 },
+          { lat: -23.587375, lon: -46.688609 }, { lat: -23.587347, lon: -46.688702 }, { lat: -23.587304, lon: -46.688747 }, { lat: -23.587412, lon: -46.688738 },
+          { lat: -23.587433, lon: -46.688757 }, { lat: -23.58747, lon: -46.688768 }, { lat: -23.587501, lon: -46.6888 }, { lat: -23.587523, lon: -46.688851 },
+          { lat: -23.587531, lon: -46.688898 }, { lat: -23.587529, lon: -46.688938 }, { lat: -23.58755, lon: -46.688966 }, { lat: -23.587577, lon: -46.688983 },
+          { lat: -23.587657, lon: -46.689017 }, { lat: -23.587696, lon: -46.689057 }, { lat: -23.587718, lon: -46.689098 }, { lat: -23.587723, lon: -46.689153 },
+          { lat: -23.58781, lon: -46.689087 }, { lat: -23.587915, lon: -46.689081 }, { lat: -23.58796, lon: -46.6891 }, { lat: -23.588009, lon: -46.689149 },
+          { lat: -23.588061, lon: -46.689196 }, { lat: -23.588112, lon: -46.689202 }, { lat: -23.588165, lon: -46.689187 }, { lat: -23.588214, lon: -46.689153 },
+          { lat: -23.588255, lon: -46.689149 }, { lat: -23.588255, lon: -46.689149 }, { lat: -23.588284, lon: -46.689136 }, { lat: -23.588407, lon: -46.689087 },
+          { lat: -23.588436, lon: -46.689051 }, { lat: -23.588457, lon: -46.689002 }, { lat: -23.588514, lon: -46.68894 }, { lat: -23.588551, lon: -46.688923 },
+          { lat: -23.588621, lon: -46.688928 }, { lat: -23.58869, lon: -46.68894 }, { lat: -23.588718, lon: -46.688983 }, { lat: -23.588847, lon: -46.68878 },
+          { lat: -23.588877, lon: -46.688651 }, { lat: -23.58896, lon: -46.688427 }, { lat: -23.58902, lon: -46.688254 }, { lat: -23.589053, lon: -46.688147 },
+          { lat: -23.589067, lon: -46.688103 }, { lat: -23.589089, lon: -46.688023 }, { lat: -23.589023, lon: -46.68808 }, { lat: -23.589047, lon: -46.688005 },
+          { lat: -23.589067, lon: -46.688103 }, { lat: -23.589232, lon: -46.688182 }, { lat: -23.589438, lon: -46.68826 }, { lat: -23.589737, lon: -46.688366 },
+        ],
+      },
+    ],
   },
   {
     id: "avenida-paulista",
@@ -357,6 +394,30 @@ export const RUNNING_PLACES: RunningPlace[] = [
     bestTime: "Manhã de dia útil, logo na abertura às 6h",
     loopDistanceMeters: 1100,
     sources: ["https://www.saopaulo.sp.gov.br/conhecasp/parques-e-reservas-naturais/parque-da-agua-branca/"],
+    circuits: [
+      // Circuito interno: rastreado de trechos reais do OpenStreetMap (Overpass
+      // API) dentro do parque — fecha em loop exato, sem gap.
+      {
+        name: "Circuito interno",
+        distanceMeters: 1100,
+        points: [
+          { lat: -23.527813, lon: -46.66735 }, { lat: -23.527793, lon: -46.667415 }, { lat: -23.527779, lon: -46.667462 }, { lat: -23.527582, lon: -46.668101 },
+          { lat: -23.527522, lon: -46.668288 }, { lat: -23.52744, lon: -46.668549 }, { lat: -23.527136, lon: -46.669507 }, { lat: -23.526892, lon: -46.67026 },
+          { lat: -23.52688, lon: -46.670298 }, { lat: -23.526885, lon: -46.670327 }, { lat: -23.526897, lon: -46.670347 }, { lat: -23.52778, lon: -46.670906 },
+          { lat: -23.527794, lon: -46.670916 }, { lat: -23.527807, lon: -46.670919 }, { lat: -23.52782, lon: -46.670919 }, { lat: -23.527833, lon: -46.670915 },
+          { lat: -23.527843, lon: -46.670906 }, { lat: -23.52785, lon: -46.670892 }, { lat: -23.5285, lon: -46.669709 }, { lat: -23.528769, lon: -46.669232 },
+          { lat: -23.529324, lon: -46.668248 }, { lat: -23.529379, lon: -46.66815 }, { lat: -23.529529, lon: -46.667872 }, { lat: -23.529754, lon: -46.667456 },
+          { lat: -23.529767, lon: -46.667431 }, { lat: -23.529828, lon: -46.667319 }, { lat: -23.529929, lon: -46.667132 }, { lat: -23.530275, lon: -46.666492 },
+          { lat: -23.530317, lon: -46.666414 }, { lat: -23.53032, lon: -46.666387 }, { lat: -23.530307, lon: -46.666364 }, { lat: -23.530277, lon: -46.666344 },
+          { lat: -23.530243, lon: -46.666321 }, { lat: -23.529687, lon: -46.665965 }, { lat: -23.529346, lon: -46.665751 }, { lat: -23.529293, lon: -46.665719 },
+          { lat: -23.529252, lon: -46.665589 }, { lat: -23.529127, lon: -46.665625 }, { lat: -23.528997, lon: -46.665592 }, { lat: -23.528823, lon: -46.665591 },
+          { lat: -23.52879, lon: -46.665593 }, { lat: -23.528623, lon: -46.665605 }, { lat: -23.528502, lon: -46.665614 }, { lat: -23.528416, lon: -46.665655 },
+          { lat: -23.528353, lon: -46.66571 }, { lat: -23.52828, lon: -46.66585 }, { lat: -23.528237, lon: -46.665988 }, { lat: -23.528091, lon: -46.666458 },
+          { lat: -23.528004, lon: -46.666737 }, { lat: -23.527993, lon: -46.666778 }, { lat: -23.527911, lon: -46.667035 }, { lat: -23.527867, lon: -46.667167 },
+          { lat: -23.527842, lon: -46.667263 }, { lat: -23.527813, lon: -46.66735 },
+        ],
+      },
+    ],
   },
   {
     id: "cidade-universitaria-usp",
@@ -463,6 +524,29 @@ export const RUNNING_PLACES: RunningPlace[] = [
     bestTime: "Dia de semana, 5h-7h — pista vazia e clima fresco, que é quando as subidas rendem",
     loopDistanceMeters: 960,
     sources: ["https://prefeitura.sp.gov.br/web/meio_ambiente/w/parques/regiao_centrooeste/5728"],
+    circuits: [
+      // Volta do lago: rastreado de trechos reais do OpenStreetMap (Overpass
+      // API) dentro do parque — fecha a 142m de virar um loop completo (junção que o OSM não marcou como contínua; esse trecho final é uma linha reta, não uma curva chutada).
+      {
+        name: "Volta do lago",
+        distanceMeters: 1130,
+        points: [
+          { lat: -23.572892, lon: -46.626781 }, { lat: -23.573031, lon: -46.626897 }, { lat: -23.573191, lon: -46.627023 }, { lat: -23.573387, lon: -46.627159 },
+          { lat: -23.573634, lon: -46.627324 }, { lat: -23.573855, lon: -46.627471 }, { lat: -23.573823, lon: -46.627704 }, { lat: -23.57369, lon: -46.627938 },
+          { lat: -23.573561, lon: -46.628181 }, { lat: -23.573485, lon: -46.628324 }, { lat: -23.573377, lon: -46.628524 }, { lat: -23.573153, lon: -46.628844 },
+          { lat: -23.573338, lon: -46.628953 }, { lat: -23.573359, lon: -46.629149 }, { lat: -23.573383, lon: -46.629478 }, { lat: -23.573397, lon: -46.629694 },
+          { lat: -23.573411, lon: -46.629887 }, { lat: -23.57344, lon: -46.630037 }, { lat: -23.573487, lon: -46.630176 }, { lat: -23.573533, lon: -46.630273 },
+          { lat: -23.573581, lon: -46.630346 }, { lat: -23.573636, lon: -46.630414 }, { lat: -23.573696, lon: -46.630467 }, { lat: -23.573761, lon: -46.630505 },
+          { lat: -23.573844, lon: -46.63053 }, { lat: -23.573919, lon: -46.630532 }, { lat: -23.574069, lon: -46.630529 }, { lat: -23.574154, lon: -46.630492 },
+          { lat: -23.574222, lon: -46.630429 }, { lat: -23.574264, lon: -46.63035 }, { lat: -23.574557, lon: -46.629589 }, { lat: -23.574617, lon: -46.629507 },
+          { lat: -23.574684, lon: -46.629452 }, { lat: -23.574776, lon: -46.629417 }, { lat: -23.574885, lon: -46.6294 }, { lat: -23.575772, lon: -46.629276 },
+          { lat: -23.575864, lon: -46.62924 }, { lat: -23.575943, lon: -46.629182 }, { lat: -23.576022, lon: -46.62907 }, { lat: -23.576051, lon: -46.628941 },
+          { lat: -23.576044, lon: -46.628816 }, { lat: -23.576004, lon: -46.628712 }, { lat: -23.575948, lon: -46.628619 }, { lat: -23.575869, lon: -46.628538 },
+          { lat: -23.575711, lon: -46.628472 }, { lat: -23.574899, lon: -46.628194 }, { lat: -23.574787, lon: -46.628145 }, { lat: -23.574669, lon: -46.628056 },
+          { lat: -23.574117, lon: -46.627642 }, { lat: -23.573938, lon: -46.627578 }, { lat: -23.573938, lon: -46.627578 },
+        ],
+      },
+    ],
   },
   {
     id: "horto-florestal",
@@ -497,6 +581,30 @@ export const RUNNING_PLACES: RunningPlace[] = [
     bestTime: "Manhã de dia útil ou sábado cedo, 6h-9h — chegue com folga pro fechamento às 18h",
     loopDistanceMeters: 2000,
     sources: ["https://www.saopaulo.sp.gov.br/conhecasp/parques-e-reservas-naturais/horto-florestal/"],
+    circuits: [
+      // Volta do lago: rastreado de trechos reais do OpenStreetMap (Overpass
+      // API) dentro do parque — fecha a 431m de virar um loop completo (junção que o OSM não marcou como contínua; esse trecho final é uma linha reta, não uma curva chutada).
+      {
+        name: "Volta do lago",
+        distanceMeters: 2000,
+        points: [
+          { lat: -23.462818, lon: -46.639468 }, { lat: -23.46252, lon: -46.639544 }, { lat: -23.462158, lon: -46.639462 }, { lat: -23.461846, lon: -46.639558 },
+          { lat: -23.461668, lon: -46.63956 }, { lat: -23.461536, lon: -46.639719 }, { lat: -23.461242, lon: -46.640073 }, { lat: -23.461258, lon: -46.640499 },
+          { lat: -23.460995, lon: -46.640934 }, { lat: -23.461069, lon: -46.64113 }, { lat: -23.461487, lon: -46.641312 }, { lat: -23.461746, lon: -46.641617 },
+          { lat: -23.461797, lon: -46.641718 }, { lat: -23.462026, lon: -46.642298 }, { lat: -23.462122, lon: -46.64273 }, { lat: -23.462011, lon: -46.642939 },
+          { lat: -23.461811, lon: -46.642944 }, { lat: -23.461584, lon: -46.642789 }, { lat: -23.461457, lon: -46.642835 }, { lat: -23.461482, lon: -46.642986 },
+          { lat: -23.461557, lon: -46.643162 }, { lat: -23.461855, lon: -46.64351 }, { lat: -23.462013, lon: -46.643944 }, { lat: -23.462124, lon: -46.644512 },
+          { lat: -23.463187, lon: -46.6446 }, { lat: -23.463871, lon: -46.644739 }, { lat: -23.464143, lon: -46.644942 }, { lat: -23.464232, lon: -46.644792 },
+          { lat: -23.464985, lon: -46.644853 }, { lat: -23.464747, lon: -46.643683 }, { lat: -23.464543, lon: -46.642947 }, { lat: -23.464517, lon: -46.642667 },
+          { lat: -23.464446, lon: -46.642113 }, { lat: -23.464398, lon: -46.64166 }, { lat: -23.464559, lon: -46.641098 }, { lat: -23.464645, lon: -46.640516 },
+          { lat: -23.464797, lon: -46.640183 }, { lat: -23.465195, lon: -46.639804 }, { lat: -23.465521, lon: -46.639588 }, { lat: -23.465693, lon: -46.639379 },
+          { lat: -23.465233, lon: -46.638875 }, { lat: -23.46452, lon: -46.638512 }, { lat: -23.464452, lon: -46.63838 }, { lat: -23.464535, lon: -46.638198 },
+          { lat: -23.464828, lon: -46.638011 }, { lat: -23.464925, lon: -46.638015 }, { lat: -23.46507, lon: -46.637875 }, { lat: -23.465308, lon: -46.638083 },
+          { lat: -23.465707, lon: -46.638396 }, { lat: -23.466228, lon: -46.63868 }, { lat: -23.46637, lon: -46.639608 }, { lat: -23.466426, lon: -46.639986 },
+          { lat: -23.466479, lon: -46.640178 }, { lat: -23.466562, lon: -46.640158 }, { lat: -23.466644, lon: -46.640139 },
+        ],
+      },
+    ],
   },
   {
     id: "ceret-tatuape",
@@ -531,6 +639,28 @@ export const RUNNING_PLACES: RunningPlace[] = [
     bestTime: "Terça a quinta, 19h-21h, pra usar a pista de atletismo (parque abre até 22h em dia útil)",
     loopDistanceMeters: 1600,
     sources: ["https://prefeitura.sp.gov.br/web/esportes/w/ceret/8631"],
+    circuits: [
+      // Circuito de caminhada: rastreado de trechos reais do OpenStreetMap (Overpass
+      // API) dentro do parque — fecha a 113m de virar um loop completo (junção que o OSM não marcou como contínua; esse trecho final é uma linha reta, não uma curva chutada).
+      {
+        name: "Circuito de caminhada",
+        distanceMeters: 1600,
+        points: [
+          { lat: -23.561151, lon: -46.555481 }, { lat: -23.561166, lon: -46.555411 }, { lat: -23.56099, lon: -46.555114 }, { lat: -23.560761, lon: -46.554722 },
+          { lat: -23.560608, lon: -46.55445 }, { lat: -23.560272, lon: -46.554104 }, { lat: -23.560154, lon: -46.554201 }, { lat: -23.560019, lon: -46.554273 },
+          { lat: -23.559998, lon: -46.554299 }, { lat: -23.559931, lon: -46.554244 }, { lat: -23.559838, lon: -46.55423 }, { lat: -23.559735, lon: -46.554249 },
+          { lat: -23.559025, lon: -46.554506 }, { lat: -23.558712, lon: -46.554619 }, { lat: -23.558397, lon: -46.554733 }, { lat: -23.558101, lon: -46.55484 },
+          { lat: -23.557716, lon: -46.554979 }, { lat: -23.55768, lon: -46.555029 }, { lat: -23.557652, lon: -46.555069 }, { lat: -23.557622, lon: -46.555198 },
+          { lat: -23.557598, lon: -46.555402 }, { lat: -23.557606, lon: -46.555558 }, { lat: -23.557613, lon: -46.555717 }, { lat: -23.557638, lon: -46.555852 },
+          { lat: -23.557673, lon: -46.55599 }, { lat: -23.557712, lon: -46.5561 }, { lat: -23.557777, lon: -46.556262 }, { lat: -23.557841, lon: -46.55638 },
+          { lat: -23.557941, lon: -46.556506 }, { lat: -23.558083, lon: -46.556662 }, { lat: -23.558221, lon: -46.556773 }, { lat: -23.558349, lon: -46.556863 },
+          { lat: -23.55845, lon: -46.556926 }, { lat: -23.558589, lon: -46.556966 }, { lat: -23.558744, lon: -46.557004 }, { lat: -23.558827, lon: -46.55702 },
+          { lat: -23.55892, lon: -46.557038 }, { lat: -23.559005, lon: -46.557051 }, { lat: -23.55905, lon: -46.55708 }, { lat: -23.559058, lon: -46.557085 },
+          { lat: -23.559342, lon: -46.556998 }, { lat: -23.559387, lon: -46.556982 }, { lat: -23.559936, lon: -46.556789 }, { lat: -23.560226, lon: -46.556686 },
+          { lat: -23.560759, lon: -46.556498 },
+        ],
+      },
+    ],
   },
 ];
 
