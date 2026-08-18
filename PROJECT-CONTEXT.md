@@ -211,9 +211,24 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
          nada disso foi validado em dispositivo, só `tsc`/`eslint`/`next
          build` (o plugin é nativo puro, não roda no sandbox nem no
          navegador).
-      3. Confirmar que o Android realmente lê certo quando o Health Connect
-         não está instalado (`isHealthAvailable()` deveria devolver
-         `false` nesse caso — código escrito pra isso, não testado).
+      3. ~~Confirmar que o Android realmente lê certo quando o Health
+         Connect não está instalado~~ — **confirmado por leitura de código
+         em 2026-08-18** (não em dispositivo real, isso ainda depende do
+         item 2 acima): o plugin `capacitor-health` chama
+         `HealthConnectClient.getOrCreate(context)` dentro de um
+         `try/catch` (`HealthPlugin.kt`, método `isHealthAvailable`) — essa
+         chamada da própria AndroidX Health Connect lança exceção quando o
+         app Health Connect não está instalado no aparelho, e o plugin
+         captura isso e resolve `{available: false}` em vez de rejeitar a
+         chamada. `src/lib/health.ts`'s `isHealthAvailable()` tem seu
+         próprio `try/catch` por cima disso (dupla proteção). E
+         `fetchRunHealthData()` já checa `isHealthAvailable()` primeiro e
+         devolve `null` antes de chamar `requestHealthPermissions()` ou
+         qualquer query — nenhuma chamada nativa a mais acontece nesse
+         caminho. Na UI (`run-detail.tsx`), `healthData` nulo já cai de
+         volta pro comportamento antigo sem quebrar nada: o card de FC
+         média some, calorias volta pra estimativa. Restam só os itens 1 e
+         2 acima como bloqueio real pra ligar `HEALTH_DATA_ENABLED`.
 
 ## Ferramentas externas usadas no projeto
 
