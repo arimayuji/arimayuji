@@ -25,6 +25,23 @@ export interface PlaceCriteria {
   fluxo: CriteriaScore;
 }
 
+/**
+ * A named loop inside a place, traced as a real polyline so it can be drawn
+ * on the same basemap the run/history screens already use — not a hand-drawn
+ * approximation. `points` come from OpenStreetMap way data (Overpass API):
+ * every named path/cycleway segment inside the venue's real boundary,
+ * stitched end-to-end into one loop by matching shared endpoints. Where OSM's
+ * own path segments left a small gap (a junction it never tagged as
+ * continuous), the loop is closed with a short straight line rather than
+ * inventing a plausible-looking curve — see the CIRCUITS comment on each
+ * entry below for how close that gap actually was.
+ */
+export interface RunningCircuit {
+  name: string;
+  distanceMeters: number;
+  points: { lat: number; lon: number }[];
+}
+
 export interface RunningPlace {
   id: string;
   name: string;
@@ -38,6 +55,14 @@ export interface RunningPlace {
   /** Real safety caveat worth surfacing prominently — omitted when there isn't one. */
   safetyFlag?: string;
   sources: string[];
+  /**
+   * Named circuits worth drawing on a real map (see `/lugares/[id]`'s circuit
+   * map). Optional and per-place: only populated where a real, verifiable
+   * path trace exists — a place with no `circuits` just doesn't show that
+   * section, rather than a fabricated loop standing in for research that was
+   * never actually done.
+   */
+  circuits?: RunningCircuit[];
 }
 
 /** Cities with real researched entries. Anything else shown in the filter is "em breve". */
@@ -78,6 +103,106 @@ export const RUNNING_PLACES: RunningPlace[] = [
     sources: [
       "https://ibirapuera.org/correr/percursos-e-caminhos/",
       "https://prefeitura.sp.gov.br/web/meio_ambiente/w/parques/regiao_sul/14062",
+    ],
+    circuits: [
+      // Volta do Lago: a paved ~2,7km cycleway/footway ring around the lake
+      // (OSM tags: highway=cycleway, surface=asphalt, lit=yes, width=3) —
+      // stitched from 4 way segments that close into an exact loop with zero
+      // gap between the last and first point. The closest thing this list
+      // has to ground truth.
+      {
+        name: "Volta do Lago",
+        distanceMeters: 2680,
+        points: [
+          { lat: -23.585897, lon: -46.660654 }, { lat: -23.585775, lon: -46.660664 }, { lat: -23.585649, lon: -46.660645 }, { lat: -23.58548, lon: -46.660605 },
+          { lat: -23.58518, lon: -46.660508 }, { lat: -23.585, lon: -46.66042 }, { lat: -23.584779, lon: -46.660237 }, { lat: -23.584735, lon: -46.660201 },
+          { lat: -23.584628, lon: -46.660136 }, { lat: -23.584558, lon: -46.660102 }, { lat: -23.584501, lon: -46.660085 }, { lat: -23.584424, lon: -46.660078 },
+          { lat: -23.584363, lon: -46.660079 }, { lat: -23.584284, lon: -46.660083 }, { lat: -23.584156, lon: -46.660099 }, { lat: -23.584041, lon: -46.66012 },
+          { lat: -23.583947, lon: -46.660146 }, { lat: -23.583869, lon: -46.660171 }, { lat: -23.58377, lon: -46.660216 }, { lat: -23.583738, lon: -46.660236 },
+          { lat: -23.583707, lon: -46.66026 }, { lat: -23.583636, lon: -46.660311 }, { lat: -23.58356, lon: -46.660397 }, { lat: -23.583458, lon: -46.660517 },
+          { lat: -23.583369, lon: -46.660668 }, { lat: -23.58333, lon: -46.660778 }, { lat: -23.583291, lon: -46.660905 }, { lat: -23.583264, lon: -46.661007 },
+          { lat: -23.583238, lon: -46.661135 }, { lat: -23.583236, lon: -46.661218 }, { lat: -23.583238, lon: -46.66129 }, { lat: -23.58324, lon: -46.661377 },
+          { lat: -23.583244, lon: -46.661452 }, { lat: -23.583267, lon: -46.661652 }, { lat: -23.583291, lon: -46.661777 }, { lat: -23.58331, lon: -46.661843 },
+          { lat: -23.58335, lon: -46.661938 }, { lat: -23.583404, lon: -46.662038 }, { lat: -23.583447, lon: -46.662098 }, { lat: -23.58354, lon: -46.662248 },
+          { lat: -23.583595, lon: -46.662331 }, { lat: -23.583633, lon: -46.662391 }, { lat: -23.583669, lon: -46.662433 }, { lat: -23.583727, lon: -46.662472 },
+          { lat: -23.584057, lon: -46.662605 }, { lat: -23.584223, lon: -46.662677 }, { lat: -23.584646, lon: -46.662794 }, { lat: -23.5849, lon: -46.662844 },
+          { lat: -23.585563, lon: -46.662936 }, { lat: -23.586108, lon: -46.663005 }, { lat: -23.586463, lon: -46.663043 }, { lat: -23.58665, lon: -46.663085 },
+          { lat: -23.586859, lon: -46.663121 }, { lat: -23.586892, lon: -46.663126 }, { lat: -23.587023, lon: -46.663137 }, { lat: -23.587169, lon: -46.663141 },
+          { lat: -23.587326, lon: -46.663122 }, { lat: -23.587467, lon: -46.663096 }, { lat: -23.587635, lon: -46.66303 }, { lat: -23.587813, lon: -46.66295 },
+          { lat: -23.587831, lon: -46.662943 }, { lat: -23.587933, lon: -46.662904 }, { lat: -23.588168, lon: -46.662807 }, { lat: -23.588198, lon: -46.6628 },
+          { lat: -23.588397, lon: -46.662746 }, { lat: -23.588541, lon: -46.662744 }, { lat: -23.58868, lon: -46.662764 }, { lat: -23.588898, lon: -46.662815 },
+          { lat: -23.589061, lon: -46.66282 }, { lat: -23.589244, lon: -46.662792 }, { lat: -23.589394, lon: -46.662769 }, { lat: -23.589553, lon: -46.662699 },
+          { lat: -23.589782, lon: -46.662542 }, { lat: -23.589995, lon: -46.662376 }, { lat: -23.590195, lon: -46.662185 }, { lat: -23.590213, lon: -46.662158 },
+          { lat: -23.590315, lon: -46.661955 }, { lat: -23.590428, lon: -46.661724 }, { lat: -23.5905, lon: -46.66156 }, { lat: -23.590579, lon: -46.661415 },
+          { lat: -23.590665, lon: -46.661301 }, { lat: -23.590774, lon: -46.661211 }, { lat: -23.591044, lon: -46.660968 }, { lat: -23.591178, lon: -46.660874 },
+          { lat: -23.591276, lon: -46.660801 }, { lat: -23.591515, lon: -46.660632 }, { lat: -23.591622, lon: -46.660544 }, { lat: -23.591641, lon: -46.660512 },
+          { lat: -23.591651, lon: -46.660494 }, { lat: -23.591687, lon: -46.660411 }, { lat: -23.591698, lon: -46.660314 }, { lat: -23.591706, lon: -46.660114 },
+          { lat: -23.591703, lon: -46.65993 }, { lat: -23.591667, lon: -46.659758 }, { lat: -23.591609, lon: -46.659596 }, { lat: -23.591569, lon: -46.659526 },
+          { lat: -23.591545, lon: -46.659484 }, { lat: -23.59149, lon: -46.659428 }, { lat: -23.591231, lon: -46.659178 }, { lat: -23.591046, lon: -46.659002 },
+          { lat: -23.591027, lon: -46.658984 }, { lat: -23.590815, lon: -46.658749 }, { lat: -23.590738, lon: -46.658658 }, { lat: -23.590588, lon: -46.65847 },
+          { lat: -23.590479, lon: -46.6583 }, { lat: -23.590351, lon: -46.658004 }, { lat: -23.59032, lon: -46.657929 }, { lat: -23.590222, lon: -46.657655 },
+          { lat: -23.590181, lon: -46.657552 }, { lat: -23.590159, lon: -46.657501 }, { lat: -23.589978, lon: -46.65716 }, { lat: -23.589761, lon: -46.656739 },
+          { lat: -23.589748, lon: -46.656714 }, { lat: -23.589669, lon: -46.656605 }, { lat: -23.589584, lon: -46.65652 }, { lat: -23.589517, lon: -46.65645 },
+          { lat: -23.589409, lon: -46.656391 }, { lat: -23.589326, lon: -46.656362 }, { lat: -23.589165, lon: -46.656328 }, { lat: -23.58895, lon: -46.656306 },
+          { lat: -23.588877, lon: -46.656267 }, { lat: -23.588822, lon: -46.65624 }, { lat: -23.588714, lon: -46.656283 }, { lat: -23.588642, lon: -46.656338 },
+          { lat: -23.588531, lon: -46.656414 }, { lat: -23.588425, lon: -46.656484 }, { lat: -23.588208, lon: -46.656654 }, { lat: -23.588087, lon: -46.65674 },
+          { lat: -23.587976, lon: -46.656836 }, { lat: -23.587632, lon: -46.657157 }, { lat: -23.587532, lon: -46.657249 }, { lat: -23.587406, lon: -46.657371 },
+          { lat: -23.587289, lon: -46.657511 }, { lat: -23.587144, lon: -46.657748 }, { lat: -23.587032, lon: -46.657924 }, { lat: -23.586922, lon: -46.658099 },
+          { lat: -23.586818, lon: -46.65828 }, { lat: -23.586703, lon: -46.658512 }, { lat: -23.586644, lon: -46.658678 }, { lat: -23.586622, lon: -46.658864 },
+          { lat: -23.586575, lon: -46.659167 }, { lat: -23.586558, lon: -46.659373 }, { lat: -23.586505, lon: -46.659849 }, { lat: -23.586471, lon: -46.660018 },
+          { lat: -23.58644, lon: -46.66012 }, { lat: -23.586399, lon: -46.660214 }, { lat: -23.586289, lon: -46.660389 }, { lat: -23.586149, lon: -46.660532 },
+          { lat: -23.586035, lon: -46.660603 }, { lat: -23.585897, lon: -46.660654 },
+        ],
+      },
+      // Volta da Grade: the ~6km unpaved perimeter trail, tagged "Trilha
+      // 6km"/"Trilha 6 km" across 21 separate OSM way fragments. Stitched
+      // end-to-end, this closes to within 263m (out of ~5,1km traced) —
+      // real OSM data doesn't tag every junction as continuous. That last
+      // stretch is a straight line between the two open ends rather than a
+      // guessed curve; the actual loop is very likely ~6km as the park
+      // itself states, this trace just falls a bit short of it.
+      {
+        name: "Volta da Grade",
+        distanceMeters: 5400,
+        points: [
+          { lat: -23.590352, lon: -46.65567 }, { lat: -23.590756, lon: -46.655643 }, { lat: -23.591089, lon: -46.655591 }, { lat: -23.591243, lon: -46.655655 },
+          { lat: -23.59149, lon: -46.655585 }, { lat: -23.591652, lon: -46.655742 }, { lat: -23.591898, lon: -46.655882 }, { lat: -23.591892, lon: -46.656037 },
+          { lat: -23.592022, lon: -46.656387 }, { lat: -23.592459, lon: -46.656565 }, { lat: -23.59267, lon: -46.657206 }, { lat: -23.593062, lon: -46.658423 },
+          { lat: -23.593207, lon: -46.658815 }, { lat: -23.593344, lon: -46.659227 }, { lat: -23.593473, lon: -46.659696 }, { lat: -23.593547, lon: -46.660144 },
+          { lat: -23.593644, lon: -46.660323 }, { lat: -23.59373, lon: -46.66045 }, { lat: -23.593899, lon: -46.661027 }, { lat: -23.593157, lon: -46.661426 },
+          { lat: -23.593121, lon: -46.661524 }, { lat: -23.593324, lon: -46.662159 }, { lat: -23.593184, lon: -46.66223 }, { lat: -23.592093, lon: -46.661964 },
+          { lat: -23.591777, lon: -46.661986 }, { lat: -23.59151, lon: -46.661937 }, { lat: -23.591313, lon: -46.66196 }, { lat: -23.591033, lon: -46.662881 },
+          { lat: -23.590843, lon: -46.66316 }, { lat: -23.590794, lon: -46.6634 }, { lat: -23.59068, lon: -46.663503 }, { lat: -23.590516, lon: -46.663452 },
+          { lat: -23.590329, lon: -46.663285 }, { lat: -23.590021, lon: -46.663456 }, { lat: -23.589993, lon: -46.663939 }, { lat: -23.589963, lon: -46.664085 },
+          { lat: -23.589838, lon: -46.664191 }, { lat: -23.589625, lon: -46.66398 }, { lat: -23.589546, lon: -46.663953 }, { lat: -23.589496, lon: -46.664093 },
+          { lat: -23.589364, lon: -46.664183 }, { lat: -23.589098, lon: -46.66397 }, { lat: -23.589045, lon: -46.663711 }, { lat: -23.588862, lon: -46.663605 },
+          { lat: -23.588573, lon: -46.663843 }, { lat: -23.588466, lon: -46.663839 }, { lat: -23.588557, lon: -46.663403 }, { lat: -23.588536, lon: -46.663289 },
+          { lat: -23.5884, lon: -46.663307 }, { lat: -23.588306, lon: -46.663496 }, { lat: -23.588375, lon: -46.663712 }, { lat: -23.588097, lon: -46.663778 },
+          { lat: -23.587799, lon: -46.663902 }, { lat: -23.587542, lon: -46.663906 }, { lat: -23.587402, lon: -46.663812 }, { lat: -23.587296, lon: -46.663536 },
+          { lat: -23.587225, lon: -46.663341 }, { lat: -23.586159, lon: -46.663176 }, { lat: -23.584563, lon: -46.662972 }, { lat: -23.584155, lon: -46.662858 },
+          { lat: -23.583205, lon: -46.662769 }, { lat: -23.582273, lon: -46.662666 }, { lat: -23.582146, lon: -46.662717 }, { lat: -23.582245, lon: -46.663024 },
+          { lat: -23.58223, lon: -46.663166 }, { lat: -23.58211, lon: -46.663092 }, { lat: -23.582037, lon: -46.663086 }, { lat: -23.58198, lon: -46.663184 },
+          { lat: -23.581821, lon: -46.663172 }, { lat: -23.581682, lon: -46.663051 }, { lat: -23.581618, lon: -46.662951 }, { lat: -23.581462, lon: -46.662957 },
+          { lat: -23.581288, lon: -46.662872 }, { lat: -23.581107, lon: -46.662884 }, { lat: -23.580971, lon: -46.662678 }, { lat: -23.580782, lon: -46.662502 },
+          { lat: -23.580722, lon: -46.662308 }, { lat: -23.580743, lon: -46.662164 }, { lat: -23.580643, lon: -46.662119 }, { lat: -23.580671, lon: -46.662052 },
+          { lat: -23.58071, lon: -46.661938 }, { lat: -23.580575, lon: -46.661729 }, { lat: -23.580372, lon: -46.661453 }, { lat: -23.580426, lon: -46.661252 },
+          { lat: -23.580519, lon: -46.661202 }, { lat: -23.580565, lon: -46.6614 }, { lat: -23.580817, lon: -46.661917 }, { lat: -23.581585, lon: -46.662577 },
+          { lat: -23.582293, lon: -46.662534 }, { lat: -23.582346, lon: -46.662376 }, { lat: -23.582896, lon: -46.662278 }, { lat: -23.583142, lon: -46.661968 },
+          { lat: -23.583167, lon: -46.661654 }, { lat: -23.583005, lon: -46.661293 }, { lat: -23.582811, lon: -46.661043 }, { lat: -23.582753, lon: -46.660738 },
+          { lat: -23.582632, lon: -46.660218 }, { lat: -23.58262, lon: -46.65988 }, { lat: -23.582722, lon: -46.659473 }, { lat: -23.582521, lon: -46.659179 },
+          { lat: -23.582353, lon: -46.658911 }, { lat: -23.582503, lon: -46.658776 }, { lat: -23.582755, lon: -46.658653 }, { lat: -23.582882, lon: -46.658448 },
+          { lat: -23.582929, lon: -46.658234 }, { lat: -23.582904, lon: -46.65806 }, { lat: -23.582812, lon: -46.657836 }, { lat: -23.58282, lon: -46.657756 },
+          { lat: -23.582873, lon: -46.657723 }, { lat: -23.582998, lon: -46.657736 }, { lat: -23.583168, lon: -46.657817 }, { lat: -23.583288, lon: -46.657697 },
+          { lat: -23.583426, lon: -46.657469 }, { lat: -23.583589, lon: -46.657029 }, { lat: -23.583813, lon: -46.656785 }, { lat: -23.584957, lon: -46.656077 },
+          { lat: -23.585399, lon: -46.655885 }, { lat: -23.585737, lon: -46.655695 }, { lat: -23.585843, lon: -46.655591 }, { lat: -23.585995, lon: -46.655458 },
+          { lat: -23.586331, lon: -46.655792 }, { lat: -23.586386, lon: -46.655731 }, { lat: -23.586409, lon: -46.655679 }, { lat: -23.586413, lon: -46.65563 },
+          { lat: -23.586394, lon: -46.655555 }, { lat: -23.586369, lon: -46.655442 }, { lat: -23.586374, lon: -46.655342 }, { lat: -23.586404, lon: -46.655226 },
+          { lat: -23.586541, lon: -46.654982 }, { lat: -23.587077, lon: -46.654133 }, { lat: -23.587254, lon: -46.65387 }, { lat: -23.587279, lon: -46.653585 },
+          { lat: -23.587494, lon: -46.653269 }, { lat: -23.587747, lon: -46.653148 }, { lat: -23.588483, lon: -46.652886 }, { lat: -23.588714, lon: -46.652898 },
+          { lat: -23.589599, lon: -46.653552 }, { lat: -23.58974, lon: -46.653528 }, { lat: -23.590051, lon: -46.653493 }, { lat: -23.590539, lon: -46.653209 },
+          { lat: -23.590632, lon: -46.653107 },
+        ],
+      },
     ],
   },
   {
