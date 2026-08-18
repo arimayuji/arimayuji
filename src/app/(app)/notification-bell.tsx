@@ -14,6 +14,15 @@ const STROKE = {
 } as const;
 
 const DISMISSED_KEY = "xanthus:update-dismissed-version";
+/**
+ * Separate from `DISMISSED_KEY` on purpose: tapping a notification to go
+ * look at it (download the update, in this case) used to also permanently
+ * dismiss it, so a row you'd only glanced at vanished from the panel —
+ * conflating "I've seen this" with "I'm done with this, throw it away".
+ * Reading no longer removes anything; only the explicit clear button (the
+ * broom icon below) writes to `DISMISSED_KEY`.
+ */
+const READ_KEY = "xanthus:update-read-version";
 
 function wasDismissed(versionCode: number): boolean {
   try {
@@ -31,6 +40,22 @@ function dismissUpdate(versionCode: number) {
   }
 }
 
+function wasRead(versionCode: number): boolean {
+  try {
+    return localStorage.getItem(READ_KEY) === String(versionCode);
+  } catch {
+    return false;
+  }
+}
+
+function markUpdateRead(versionCode: number) {
+  try {
+    localStorage.setItem(READ_KEY, String(versionCode));
+  } catch {
+    // Storage disabled: it just counts as unread again next open, harmless.
+  }
+}
+
 function BellIcon({ className }: { className: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
@@ -40,35 +65,41 @@ function BellIcon({ className }: { className: string }) {
   );
 }
 
-/** One row in the open panel — a title, a short detail line, and whatever gets tapped (a route, or the APK download link). */
+/** One row in the open panel — a title, a short detail line, and whatever gets tapped (a route, or the APK download link). Tapping the row itself never removes it: only the broom (`onClear`) does. */
 function NotificationRow({
   title,
   detail,
   href,
-  onDismiss,
+  unread = false,
+  onClear,
   onNavigate,
 }: {
   title: string;
   detail: string;
   href: string;
-  onDismiss?: () => void;
+  /** A small dot next to the title — the only visual difference from "read"; the row stays put either way until cleared. */
+  unread?: boolean;
+  onClear?: () => void;
   onNavigate: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 px-4 py-3">
       <Link href={href} onClick={onNavigate} className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{title}</p>
+        <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+          {unread && <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
+          {title}
+        </p>
         <p className="truncate text-xs text-muted">{detail}</p>
       </Link>
-      {onDismiss && (
+      {onClear && (
         <button
           type="button"
-          onClick={onDismiss}
-          aria-label="Dispensar"
+          onClick={onClear}
+          aria-label="Limpar"
           className="shrink-0 rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad"
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" {...STROKE}>
-            <path d="M6 6l12 12M18 6L6 18" />
+            <path d="M4 20h16M6 20l1-11h10l1 11M9 9V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3M5 9h14" />
           </svg>
         </button>
       )}
@@ -92,27 +123,31 @@ function NotificationRow({
 export function NotificationBell() {
   const { update, pendingFriendRequests, pendingCoachInvites } = useNotificationSummary();
   const [open, setOpen] = useState(false);
-  // Forces a re-render after dismissing an update without waiting for the
-  // next route change to re-run useNotificationSummary's effect — the value
-  // itself is never read, only bumping it matters.
-  const [, setDismissedTick] = useState(0);
+  // Forces a re-render after marking read/clearing an update without waiting
+  // for the next route change to re-run useNotificationSummary's effect —
+  // the value itself is never read, only bumping it matters.
+  const [, setTick] = useState(0);
 
   const updateVisible = update !== null && !wasDismissed(update.versionCode);
-  const count = (updateVisible ? 1 : 0) + pendingFriendRequests + pendingCoachInvites;
+  const updateUnread = updateVisible && !wasRead(update.versionCode);
+  // Drives the panel's empty state — everything not yet cleared, read or not.
+  const visibleCount = (updateVisible ? 1 : 0) + pendingFriendRequests + pendingCoachInvites;
+  // Drives the badge number on the bell itself — only what's actually new.
+  const unreadCount = (updateUnread ? 1 : 0) + pendingFriendRequests + pendingCoachInvites;
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={count > 0 ? `Notificações (${count})` : "Notificações"}
+        aria-label={unreadCount > 0 ? `Notificações (${unreadCount} novas)` : "Notificações"}
         className="fixed right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/92 text-foreground shadow-sm backdrop-blur-md"
         style={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
       >
         <BellIcon className="h-5 w-5" />
-        {count > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-bad px-1 font-mono text-[10px] font-semibold text-white">
-            {count > 9 ? "9+" : count}
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
@@ -127,19 +162,40 @@ export function NotificationBell() {
             >
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <p className="text-sm font-semibold">Notificações</p>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  aria-label="Fechar"
-                  className="rounded-full p-1 text-muted hover:text-foreground"
-                >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" {...STROKE}>
-                    <path d="M6 6l12 12M18 6L6 18" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-1">
+                  {/* The one clear action for the whole panel — only the update
+                      notification is ever dismissable (friend/coach rows track
+                      real pending state and clear themselves once acted on
+                      elsewhere), so this only needs to show up for that case. */}
+                  {updateVisible && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (update) dismissUpdate(update.versionCode);
+                        setTick((t) => t + 1);
+                      }}
+                      aria-label="Limpar notificação de atualização"
+                      className="rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" {...STROKE}>
+                        <path d="M4 20h16M6 20l1-11h10l1 11M9 9V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3M5 9h14" />
+                      </svg>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    aria-label="Fechar"
+                    className="rounded-full p-1 text-muted hover:text-foreground"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" {...STROKE}>
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
-              {count === 0 ? (
+              {visibleCount === 0 ? (
                 <p className="px-4 py-6 text-center text-xs text-muted">Nada novo por enquanto.</p>
               ) : (
                 <div className="divide-y divide-border">
@@ -148,14 +204,11 @@ export function NotificationBell() {
                       title="Nova versão disponível"
                       detail={`Versão ${update.versionName} — toque pra baixar`}
                       href={update.url}
+                      unread={updateUnread}
                       onNavigate={() => {
-                        dismissUpdate(update.versionCode);
-                        setDismissedTick((t) => t + 1);
+                        markUpdateRead(update.versionCode);
+                        setTick((t) => t + 1);
                         setOpen(false);
-                      }}
-                      onDismiss={() => {
-                        dismissUpdate(update.versionCode);
-                        setDismissedTick((t) => t + 1);
                       }}
                     />
                   )}
@@ -166,6 +219,7 @@ export function NotificationBell() {
                       }
                       detail="toque pra ver"
                       href="/amigos"
+                      unread
                       onNavigate={() => setOpen(false)}
                     />
                   )}
@@ -176,6 +230,7 @@ export function NotificationBell() {
                       }
                       detail="toque pra ver"
                       href="/treinador"
+                      unread
                       onNavigate={() => setOpen(false)}
                     />
                   )}
