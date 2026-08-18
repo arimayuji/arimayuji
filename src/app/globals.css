@@ -73,6 +73,21 @@
   --pr-heat-4: #86b6ef;
 }
 
+/*
+ * Without this, pulling down past the top of a screen triggers the
+ * browser's own elastic rubber-band bounce — and on mobile Chrome that
+ * bounce drags `position: fixed` elements (BrandMark, NotificationBell,
+ * BottomNav) down with it instead of leaving them pinned to the viewport,
+ * since the bounce translates the whole rendering surface rather than just
+ * the document's own scroll offset. `contain` (not `none`) stops that
+ * bounce at this document's own edges without also disabling a nested
+ * scroller's overscroll behaviour (e.g. a modal's own scrollable body).
+ */
+html,
+body {
+  overscroll-behavior-y: contain;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
