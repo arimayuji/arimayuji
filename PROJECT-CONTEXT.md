@@ -97,22 +97,13 @@ uma opção escondendo as outras:
   hosts respondem em paralelo. Todo link novo voltado pro usuário
   (`updateCheck.ts`, `version.json` publicado pelo CI, e-mail de
   boas-vindas, README) já usa `xanthus.app.br`.
-  **⚠️ Regressão descoberta em 2026-08-18**: usuário reportou `xanthus.app.br`
-  devolvendo `DNS_PROBE_FINISHED_NXDOMAIN` no navegador (screenshot real,
-  celular). Investigado via DNS-over-HTTPS público (`dns.google/resolve`)
-  nesta sessão: a zona `xanthus.app.br` **continua** delegada pra Cloudflare
-  (`art.ns.cloudflare.com`/`dns.cloudflare.com` respondem como autoritativos,
-  SOA presente), mas consultas A **e** CNAME pro apex voltam sem nenhum
-  registro (`NOERROR`/`Answer` vazio) — ou seja, o binding de Custom Domain
-  do Worker parece ter caído/sumido do lado do Cloudflare, não é problema de
-  nameserver/registro.br. Não é algo que se corrija por código: nenhum commit
-  recente mexeu em `wrangler.jsonc` nem em rota/domínio, e este sandbox não
-  tem token de API do Cloudflare pra reconectar o Custom Domain remotamente.
-  **Ação pendente do usuário**: conferir no dashboard Cloudflare → Workers &
-  Pages → worker `xanthus` → aba "Domains & Routes" / "Custom Domains" se
-  `xanthus.app.br` ainda aparece anexado (e o status do certificado SSL) —
-  se caiu, só precisa re-adicionar o Custom Domain lá, não editar nada no
-  repo.
+  **Regressão de 2026-08-18, já resolvida**: usuário reportou `xanthus.app.br`
+  devolvendo `DNS_PROBE_FINISHED_NXDOMAIN` no navegador (o binding de Custom
+  Domain do Worker tinha caído do lado da Cloudflare — a zona continuava
+  corretamente delegada, só o binding em si tinha sumido). Usuário
+  re-adicionou o Custom Domain no dashboard; confirmado voltando a
+  responder `200` (`curl -sI https://xanthus.app.br/`) ainda em 2026-08-18,
+  poucas horas depois. Voltou ao normal, nada de código envolvido.
 - E-mail via **Cloudflare Email Routing**, sem regras antes de 2026-08-17:
   hoje existem `contato@xanthus.app.br` e `feedback@xanthus.app.br`,
   ambos redirecionando pro e-mail pessoal do dono do projeto.
