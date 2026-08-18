@@ -574,7 +574,6 @@ export default function EstatisticasPage() {
       <ScreenHeader
         title="Progresso"
         subtitle="Rodagem, ritmo, constância e conquistas — tudo calculado sobre as corridas salvas neste aparelho."
-        badge={runs.length > 0 ? <NoticeBadge>dados reais</NoticeBadge> : undefined}
       />
 
       <Screen>

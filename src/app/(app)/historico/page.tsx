@@ -14,7 +14,7 @@ import { allTimeBests } from "@/lib/tracking/personalRecords";
 import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
+import { Card, CardTitle, delay, Screen, ScreenHeader, Stat } from "../ui";
 import { ModalPortal } from "../modal-portal";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 
@@ -696,7 +696,6 @@ export default function HistoricoPage() {
       <ScreenHeader
         title="Histórico"
         subtitle="Suas corridas gravadas, direto do armazenamento local deste aparelho."
-        badge={runs.length > 0 ? <NoticeBadge>dados reais</NoticeBadge> : undefined}
       />
 
       <Screen>
