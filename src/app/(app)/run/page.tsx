@@ -70,7 +70,6 @@ import { usePreferences } from "@/lib/usePreferences";
 import { useImmersiveMode, useTabReclick } from "../app-shell";
 import { NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
-import { StatIconBadge } from "../stat-icon-badge";
 
 const RECENT_GHOST_CANDIDATES = 6;
 
@@ -1355,11 +1354,21 @@ export default function RunPage() {
       {isLiveRun && (
         <main className="relative z-10 flex flex-1 flex-col px-6 pb-10">
           <div className="flex flex-1 flex-col items-center justify-center gap-1">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-metal font-mono text-[7rem] leading-none font-semibold tabular-nums whitespace-nowrap">
+            {/*
+             * `scaleY` stretches the glyphs taller without widening them —
+             * the digits still lay out at their normal (narrower) width, so
+             * this reads as "presença maior" the way a StandBy-style clock
+             * does, instead of just bumping font-size until five characters
+             * (`43:43`) stop fitting the screen width.
+             */}
+            <div className="flex flex-col items-center px-3 py-4">
+              <span
+                className="text-metal font-mono text-[6.25rem] leading-none font-extrabold tabular-nums whitespace-nowrap"
+                style={{ transform: "scaleY(1.4)" }}
+              >
                 {formatPace(state.currentPaceSecPerKm)}
               </span>
-              <span className="text-sm text-muted">min/km</span>
+              <span className="mt-2.5 text-sm text-muted">min/km</span>
               {state.ghostDeltaSeconds !== null && (
                 <div className="mt-2">
                   <GhostDeltaPill deltaSeconds={state.ghostDeltaSeconds} />
@@ -1397,54 +1406,63 @@ export default function RunPage() {
               );
             })()}
 
-          <div className="grid grid-cols-2 gap-4 py-6">
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs uppercase tracking-wide text-muted">Distância</span>
-                <StatIconBadge icon="distancia" />
-              </div>
-              <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
-                {formatDistanceKm(state.distanceMeters)} <span className="text-base text-muted">km</span>
+          {/*
+           * No cards: a bordered tile per stat (plus a repeated icon badge in
+           * every corner) was the thing being redesigned away here — this is
+           * plain label/number text in a 2-column matrix, sized in two tiers
+           * (Distância/Tempo biggest, everything else one step down) so the
+           * hierarchy reads from type scale alone, with each label sized
+           * proportionally to its own row's number instead of one flat size
+           * next to numbers of very different weight.
+           */}
+          <div className="grid grid-cols-2 gap-x-7 gap-y-11 py-10">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[15px] font-semibold tracking-[0.06em] text-muted uppercase">Distância</span>
+              <p className="text-metal font-mono text-[38px] leading-none tabular-nums">
+                {formatDistanceKm(state.distanceMeters)}{" "}
+                <span className="text-[17px] font-normal text-muted">km</span>
               </p>
             </div>
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs uppercase tracking-wide text-muted">Tempo</span>
-                <StatIconBadge icon="tempo" />
-              </div>
-              <p className="text-metal mt-1 font-mono text-2xl tabular-nums">{formatElapsed(state.elapsedSeconds)}</p>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[15px] font-semibold tracking-[0.06em] text-muted uppercase">Tempo</span>
+              <p className="text-metal font-mono text-[38px] leading-none tabular-nums">
+                {formatElapsed(state.elapsedSeconds)}
+              </p>
             </div>
             {state.goal?.distanceMeters && (
-              <div className="rounded-xl border border-border bg-surface p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs uppercase tracking-wide text-muted">Chegada prevista em</span>
-                  <StatIconBadge icon="eta" />
-                </div>
-                <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
+                  Chegada prevista em
+                </span>
+                <p className="text-metal font-mono text-[27px] leading-none tabular-nums">
                   {formatGoalEta(state.forecastSecondsRemaining)}
                 </p>
               </div>
             )}
             {state.paceNeededSecPerKm !== null && (
-              <div className="rounded-xl border border-border bg-surface p-4">
-                <span className="text-xs uppercase tracking-wide text-muted">Pace necessário</span>
-                <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
+                  Pace necessário
+                </span>
+                <p className="text-metal font-mono text-[27px] leading-none tabular-nums">
                   {formatPace(state.paceNeededSecPerKm)}
                 </p>
               </div>
             )}
             {preferences.showAveragePaceLive && state.distanceMeters > 0 && (
-              <div className="rounded-xl border border-border bg-surface p-4">
-                <span className="text-xs uppercase tracking-wide text-muted">Pace total</span>
-                <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">Pace total</span>
+                <p className="text-metal font-mono text-[27px] leading-none tabular-nums">
                   {formatPace((state.elapsedSeconds / state.distanceMeters) * 1000)}
                 </p>
               </div>
             )}
             {preferences.showCurrentKmPaceLive && state.currentKmPaceSecPerKm !== null && (
-              <div className="rounded-xl border border-border bg-surface p-4">
-                <span className="text-xs uppercase tracking-wide text-muted">Pace do km atual</span>
-                <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
+                  Pace do km atual
+                </span>
+                <p className="text-metal font-mono text-[27px] leading-none tabular-nums">
                   {formatPace(state.currentKmPaceSecPerKm)}
                 </p>
               </div>
