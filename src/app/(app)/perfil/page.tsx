@@ -433,6 +433,59 @@ function ShoeForm({
   );
 }
 
+const SHOE_GLYPH_SRC = "/shoe/shoe-side.png";
+
+/**
+ * Generic shoe silhouette (the same unbranded illustrated asset
+ * `shoe-showcase.tsx` uses for the /run selector), tinted to this specific
+ * shoe's own colour — same grayscale-then-mix-blend-color recipe, just a
+ * plain small swatch instead of the showcase's floating 3D loot item. This
+ * is the fallback for a shoe with no personal photo yet: a real, if
+ * generic, running-shoe shape instead of a flat colour dot, without ever
+ * trying to depict an actual branded model (the presets are real product
+ * names, but this app never draws a real product — see the comment on
+ * SHOE_VIDEO_SRC in shoe-showcase.tsx for why that line matters).
+ */
+function ShoeGlyph({
+  color,
+  className = "",
+  "data-testid": dataTestId,
+}: {
+  color: string;
+  className?: string;
+  "data-testid"?: string;
+}) {
+  return (
+    <span
+      className={`relative inline-block overflow-hidden ${className}`}
+      aria-hidden="true"
+      data-testid={dataTestId}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+      <img
+        src={SHOE_GLYPH_SRC}
+        alt=""
+        className="h-full w-full object-contain"
+        style={{ filter: "grayscale(1) brightness(1.08) contrast(1.05)" }}
+      />
+      <span
+        className="absolute inset-0 mix-blend-color"
+        style={{
+          backgroundColor: color,
+          WebkitMaskImage: `url(${SHOE_GLYPH_SRC})`,
+          maskImage: `url(${SHOE_GLYPH_SRC})`,
+          WebkitMaskSize: "contain",
+          maskSize: "contain",
+          WebkitMaskRepeat: "no-repeat",
+          maskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+          maskPosition: "center",
+        }}
+      />
+    </span>
+  );
+}
+
 /**
  * One registered shoe, with the mileage it has actually accumulated. The
  * stats come from matching run history on the shoe's name, so a shoe that's
@@ -457,19 +510,16 @@ function ShoeRow({
   return (
     <li className="border-t border-border pt-3 first:border-t-0 first:pt-0">
       <div className="flex items-center gap-3">
-        <span
-          aria-hidden
-          style={{ backgroundColor: shoe.color }}
-          className="h-5 w-5 shrink-0 rounded-full border border-border"
-          data-testid="shoe-swatch"
-        />
-        {shoe.photoDataUrl && (
+        {shoe.photoDataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- data URL from the athlete's own file, nothing Next's <Image> optimizer can handle.
           <img
             src={shoe.photoDataUrl}
             alt={`Foto de ${shoe.name}`}
             className="h-11 w-11 shrink-0 rounded-lg border border-border object-cover"
+            data-testid="shoe-swatch"
           />
+        ) : (
+          <ShoeGlyph color={shoe.color} className="h-11 w-11 shrink-0 rounded-lg border border-border bg-background" data-testid="shoe-swatch" />
         )}
         <div className="min-w-0 flex-1">
           {shoe.brand && <p className="truncate text-xs text-muted">{shoe.brand}</p>}

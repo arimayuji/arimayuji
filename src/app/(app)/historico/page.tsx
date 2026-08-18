@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   deleteCompletedRun,
@@ -120,42 +120,32 @@ function RouteThumb({ points }: { points: StoredPoint[] }) {
 
 function EmptyState() {
   return (
-    <Card className="pr-enter flex flex-col items-center px-6 py-10 text-center" style={delay(80)}>
-      <svg
-        viewBox="0 0 120 72"
-        className="pr-svg h-auto w-40 text-accent"
-        role="img"
-        aria-label="Ilustração de um percurso ainda não percorrido"
-      >
-        <path
-          d="M10 58 C 30 58, 26 22, 48 22 S 76 50, 96 34 L 110 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray="5 7"
-          opacity="0.35"
+    <Card className="pr-enter overflow-hidden text-center" style={delay(80)}>
+      <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+        <img
+          src="/historico-empty.webp"
+          alt="Ilustração de um percurso ainda não percorrido"
+          className="h-full w-full object-cover"
         />
-        <circle cx="10" cy="58" r="5" fill="currentColor" />
-        <circle cx="110" cy="16" r="4" fill="none" stroke="currentColor" strokeWidth="2.5" />
-      </svg>
+      </div>
 
-      <h2 className="mt-6 text-lg font-semibold text-balance">
+      <h2 className="text-lg font-semibold text-balance">
         Seu histórico começa na primeira corrida
       </h2>
-      <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted text-pretty">
+      <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted text-pretty">
         Ainda não há nenhuma corrida gravada neste aparelho. Assim que você finalizar um
         treino, ele aparece aqui com distância, tempo, pace médio e o traçado do percurso.
       </p>
 
       <Link
         href="/run"
-        className="mt-7 w-full max-w-xs rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+        className="mx-auto mt-7 w-full max-w-xs rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
       >
         Gravar primeira corrida
       </Link>
 
-      <p className="mt-5 max-w-xs text-xs leading-relaxed text-muted">
+      <p className="mx-auto mt-5 max-w-xs text-xs leading-relaxed text-muted">
         As corridas ficam salvas só neste aparelho, offline. Nada é enviado pra nenhum
         servidor.
       </p>
@@ -196,29 +186,61 @@ function Summary({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit }) {
  * finished-run screen shows a PR *the moment it happens*, this is where it
  * lives afterward. Recomputed from `runs` (cheap enough at personal-app
  * scale) rather than stored, so it never drifts if history changes.
+ *
+ * Defaults to whichever unit the athlete already uses app-wide, but the
+ * km/mi toggle here is its own local choice, not a rewrite of that global
+ * preference — this card is the one place km and milha records used to
+ * show up interleaved (1 km, 1/2 milha, 1 milha, 5 km...) in one list,
+ * which read as a mistake rather than two parallel systems.
  */
-function PersonalRecords({ runs }: { runs: CompletedRun[] }) {
-  const bests = allTimeBests(runs);
+function PersonalRecords({ runs, defaultUnit }: { runs: CompletedRun[]; defaultUnit: DistanceUnit }) {
+  const [unit, setUnit] = useState<DistanceUnit>(defaultUnit);
+  const bests = useMemo(
+    () => allTimeBests(runs).filter((best) => best.unit === "both" || best.unit === unit),
+    [runs, unit],
+  );
   if (bests.length === 0) return null;
 
   return (
     <Card className="pr-enter" style={delay(65)}>
-      <CardTitle>Recordes pessoais</CardTitle>
-      <ul className="flex flex-col gap-2">
+      <CardTitle
+        aside={
+          <div className="flex overflow-hidden rounded-full border border-border text-xs font-semibold">
+            {(["km", "mi"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setUnit(option)}
+                aria-pressed={unit === option}
+                className={`px-3 py-1 transition-colors ${
+                  unit === option ? "bg-accent text-accent-foreground" : "text-muted hover:text-foreground"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        Recordes pessoais
+      </CardTitle>
+      <ul className="flex flex-col gap-1">
         {bests.map((best) => (
-          <li
-            key={best.targetMeters}
-            className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
-          >
-            <span className="text-muted">{best.label}</span>
-            <span className="flex items-baseline gap-2">
-              <span className="font-mono font-semibold tabular-nums">
-                {formatElapsed(Math.round(best.splitSeconds))}
+          <li key={best.targetMeters} className="border-t border-border first:border-t-0">
+            <Link
+              href={`/historico/detalhe?id=${best.runId}`}
+              className="-mx-1 flex items-center justify-between gap-2 rounded-lg px-1 py-2 text-sm hover:bg-background"
+            >
+              <span className="text-muted">{unit === "mi" && best.milesLabel ? best.milesLabel : best.label}</span>
+              <span className="flex items-baseline gap-2">
+                <span className="font-mono font-semibold tabular-nums">
+                  {formatElapsed(Math.round(best.splitSeconds))}
+                </span>
+                <span className="text-xs text-muted">
+                  {formatRunDate(new Date(best.achievedAt))}
+                </span>
               </span>
-              <span className="text-xs text-muted">
-                {formatRunDate(new Date(best.achievedAt))}
-              </span>
-            </span>
+            </Link>
           </li>
         ))}
       </ul>
@@ -721,7 +743,7 @@ export default function HistoricoPage() {
         {load.status === "ready" && runs.length > 0 && (
           <>
             {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
-            <PersonalRecords runs={runs} />
+            <PersonalRecords runs={runs} defaultUnit={unit} />
             <RunFrequencyHeatmap runs={runs} unit={unit} />
 
             {showSearchTool && (

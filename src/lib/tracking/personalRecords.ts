@@ -13,15 +13,27 @@ import type { CompletedRun, StoredPoint } from "./storage";
  * captured), so those parts of the reference screenshot aren't reproduced.
  */
 
-export const STANDARD_DISTANCES = [
-  { meters: 1000, label: "1 km" },
-  { meters: 804.672, label: "1/2 milha" },
-  { meters: 1609.344, label: "1 milha" },
-  { meters: 5000, label: "5 km" },
-  { meters: 10000, label: "10 km" },
-  { meters: 21097.5, label: "21 km" },
-  { meters: 42195, label: "42 km" },
-] as const;
+/**
+ * `unit` tags which distance-unit list (see `/historico`'s "Recordes
+ * pessoais" toggle) each entry belongs to — `"both"` for the two race
+ * distances that are the same physical distance either way, just named
+ * differently (a half marathon is "21 km" or "13,1 milhas", never mixed
+ * into a single list with 5 km and 1 milha at the same time).
+ */
+export const STANDARD_DISTANCES: readonly {
+  meters: number;
+  label: string;
+  milesLabel?: string;
+  unit: "km" | "mi" | "both";
+}[] = [
+  { meters: 1000, label: "1 km", unit: "km" },
+  { meters: 5000, label: "5 km", unit: "km" },
+  { meters: 10000, label: "10 km", unit: "km" },
+  { meters: 804.672, label: "1/2 milha", unit: "mi" },
+  { meters: 1609.344, label: "1 milha", unit: "mi" },
+  { meters: 21097.5, label: "21 km", milesLabel: "13,1 milhas", unit: "both" },
+  { meters: 42195, label: "42 km", milesLabel: "26,2 milhas", unit: "both" },
+];
 
 export interface RunRecord {
   targetMeters: number;
@@ -113,6 +125,8 @@ export function computeRunRecords(run: CompletedRun, priorRuns: CompletedRun[]):
 export interface AllTimeBest {
   targetMeters: number;
   label: string;
+  milesLabel?: string;
+  unit: "km" | "mi" | "both";
   splitSeconds: number;
   runId: string;
   achievedAt: number;
@@ -121,12 +135,20 @@ export interface AllTimeBest {
 /** Current best split per standard distance across a runner's whole history, for a persistent "records" view. */
 export function allTimeBests(runs: CompletedRun[]): AllTimeBest[] {
   const bests: AllTimeBest[] = [];
-  for (const { meters, label } of STANDARD_DISTANCES) {
+  for (const { meters, label, milesLabel, unit } of STANDARD_DISTANCES) {
     let best: AllTimeBest | null = null;
     for (const run of runs) {
       const split = bestSplitSeconds(run.points, meters);
       if (split !== null && (best === null || split < best.splitSeconds)) {
-        best = { targetMeters: meters, label, splitSeconds: split, runId: run.id, achievedAt: run.startedAt };
+        best = {
+          targetMeters: meters,
+          label,
+          milesLabel,
+          unit,
+          splitSeconds: split,
+          runId: run.id,
+          achievedAt: run.startedAt,
+        };
       }
     }
     if (best) bests.push(best);

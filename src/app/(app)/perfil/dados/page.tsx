@@ -12,6 +12,7 @@ import {
 } from "@/lib/tracking/storage";
 import { activePainSignal } from "@/lib/plan";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
+import type { RunnerProfile } from "@/lib/runnerProfile";
 
 /**
  * Split out of `/perfil` on request: weight and pain are properties of the
@@ -145,6 +146,72 @@ function PainCard() {
   );
 }
 
+const WEIGHT_MIN_KG = 30;
+const WEIGHT_MAX_KG = 150;
+const WEIGHT_DEFAULT_KG = 70;
+
+/**
+ * Was a plain number input; a slider reads faster on a running app (drag
+ * once vs. type digits) and matches the `PillSlider` already used for pain
+ * intensity above. Range is 30–150 kg — a slider's whole point is a quick
+ * drag, so a range built for the overwhelming majority of runners beats the
+ * old input's 25–250 kg, which existed only because a text field has no
+ * cost to supporting edge cases.
+ *
+ * Keeps the "never invents a number" rule from the old copy: with no weight
+ * saved yet, this shows a prompt rather than a slider already parked on some
+ * value that would read as a real, if never-touched, answer.
+ */
+function WeightCard({
+  profile,
+  updateProfile,
+}: {
+  profile: RunnerProfile;
+  updateProfile: (patch: Partial<RunnerProfile>) => void;
+}) {
+  const hasWeight = profile.weightKg != null;
+
+  return (
+    <Card className="pr-enter" style={delay(90)}>
+      <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Peso</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Só usado pra estimar calorias gastas em cada corrida (≈1 kcal/kg/km, mais o custo
+        real de subida). Sem peso cadastrado, o app simplesmente não mostra a estimativa —
+        nunca inventa um número em cima de um peso chutado.
+      </p>
+
+      {hasWeight ? (
+        <>
+          <PillSlider
+            min={WEIGHT_MIN_KG}
+            max={WEIGHT_MAX_KG}
+            step={1}
+            value={profile.weightKg!}
+            onChange={(value) => updateProfile({ weightKg: value })}
+            formatValue={(value) => `${value} kg`}
+            tickCount={5}
+          />
+          <button
+            type="button"
+            onClick={() => updateProfile({ weightKg: undefined })}
+            className="mt-3 text-xs font-medium text-muted underline underline-offset-2 hover:text-foreground"
+          >
+            Remover peso cadastrado
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => updateProfile({ weightKg: WEIGHT_DEFAULT_KG })}
+          className="min-h-12 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold hover:border-accent"
+        >
+          Definir peso
+        </button>
+      )}
+    </Card>
+  );
+}
+
 export default function DadosPessoaisPage() {
   const [profile, updateProfile] = useRunnerProfile();
 
@@ -155,30 +222,7 @@ export default function DadosPessoaisPage() {
       <Screen>
         <PainCard />
 
-        <Card className="pr-enter" style={delay(90)}>
-          <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Peso</CardTitle>
-          <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-            Só usado pra estimar calorias gastas em cada corrida (≈1 kcal/kg/km, mais o custo
-            real de subida). Sem peso cadastrado, o app simplesmente não mostra a estimativa —
-            nunca inventa um número em cima de um peso chutado.
-          </p>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              inputMode="decimal"
-              min="25"
-              max="250"
-              placeholder="Ex.: 70"
-              value={profile.weightKg ?? ""}
-              onChange={(event) => {
-                const value = Number(event.target.value);
-                updateProfile({ weightKg: value > 0 ? value : undefined });
-              }}
-              className="min-h-12 w-28 rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
-            />
-            <span className="text-sm text-muted">kg</span>
-          </div>
-        </Card>
+        <WeightCard profile={profile} updateProfile={updateProfile} />
 
         <Link
           href="/perfil"

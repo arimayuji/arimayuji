@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { CircuitMap } from "./circuit-map";
 import { CriteriaRow } from "./criteria";
 import { RatePlaceModal } from "./rate-place-modal";
 
@@ -88,12 +89,25 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
       <ScreenHeader title={place.name} subtitle={place.neighborhood} />
 
       <Screen>
-        <Card className="pr-enter" style={delay(40)}>
+        <Card className="pr-enter overflow-hidden" style={delay(40)}>
+          {place.coverImage && (
+            <div className="-mx-5 -mt-5 mb-4 h-40 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+              <img src={place.coverImage} alt="" className="h-full w-full object-cover" />
+            </div>
+          )}
           <p className="text-sm leading-relaxed text-pretty">{place.description}</p>
           <p className="mt-4 border-t border-border pt-3 text-xs text-muted">
             <strong className="font-medium text-foreground">Melhor horário:</strong> {place.bestTime}
           </p>
         </Card>
+
+        {place.circuits && place.circuits.length > 0 && (
+          <Card className="pr-enter" style={delay(60)}>
+            <CardTitle>Circuitos sugeridos</CardTitle>
+            <CircuitMap circuits={place.circuits} />
+          </Card>
+        )}
 
         {place.safetyFlag && (
           <Card className="pr-enter border-bad/30 bg-bad/5" style={delay(70)}>
