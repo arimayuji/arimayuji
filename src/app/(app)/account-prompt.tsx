@@ -43,6 +43,21 @@ const UNLOCKS = [
  */
 export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; returnTo: string }) {
   const [phoneStep, setPhoneStep] = useState<"none" | "phone" | "code">("none");
+  /**
+   * `signInWithApple`/`signInWithGoogle` used to be fired with `void` and no
+   * `.catch()` — any failure (misconfigured env, a thrown error opening the
+   * system browser) was a silent no-op from the athlete's point of view,
+   * indistinguishable from five different real causes with no way to tell
+   * which without a debugger attached to the device. Surfacing whatever
+   * `startOAuthSignIn` returns here is the whole fix.
+   */
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  async function handleOAuth(signIn: (returnTo: string) => Promise<string | null>) {
+    setOauthError(null);
+    const error = await signIn(returnTo);
+    if (error) setOauthError(error);
+  }
 
   if (phoneStep !== "none") {
     return (
@@ -118,7 +133,7 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
                   any other third-party login offered alongside it. */}
               <button
                 type="button"
-                onClick={() => signInWithApple(returnTo)}
+                onClick={() => void handleOAuth(signInWithApple)}
                 className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold"
               >
                 <AppleIcon />
@@ -127,12 +142,18 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
 
               <button
                 type="button"
-                onClick={() => signInWithGoogle(returnTo)}
+                onClick={() => void handleOAuth(signInWithGoogle)}
                 className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold"
               >
                 <GoogleIcon />
                 Continuar com Google
               </button>
+
+              {oauthError && (
+                <p role="alert" className="rounded-lg bg-bad/10 px-3 py-2 text-left text-xs text-bad">
+                  {oauthError}
+                </p>
+              )}
 
               {PHONE_AUTH_ENABLED && (
                 <button

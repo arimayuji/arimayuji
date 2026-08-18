@@ -66,18 +66,31 @@ export function suggestHandle(name: string): string {
  * redirect completes with a full page load at `returnTo`, no deep link or
  * session-token exchange needed, so every existing web caller keeps
  * working exactly as before.
+ *
+ * Returns a diagnostic string the instant something is misconfigured or
+ * throws — every early return used to be a silent no-op (`void
+ * startOAuthSignIn(...)`, no `.catch()`), which is exactly why "the button
+ * does nothing" was impossible to tell apart from five different real
+ * causes without a debugger attached to the device. `null` means it got as
+ * far as actually navigating away or opening the system browser; it does
+ * NOT mean the login itself succeeded — there is no way to know that yet
+ * on this side of the redirect.
  */
-async function startOAuthSignIn(provider: OAuthProvider, returnTo: string): Promise<void> {
+async function startOAuthSignIn(provider: OAuthProvider, returnTo: string): Promise<string | null> {
   const appwrite = getAppwrite();
-  if (!appwrite) return;
+  if (!appwrite) return "Appwrite não configurado (NEXT_PUBLIC_APPWRITE_ENDPOINT/PROJECT_ID ausentes neste build).";
 
   if (!isNativePlatform()) {
     const url = `${window.location.origin}${returnTo}`;
-    appwrite.account.createOAuth2Session({ provider, success: url, failure: url });
-    return;
+    try {
+      appwrite.account.createOAuth2Session({ provider, success: url, failure: url });
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+    return null;
   }
 
-  if (!OAUTH_CALLBACK_SCHEME) return;
+  if (!OAUTH_CALLBACK_SCHEME) return "OAUTH_CALLBACK_SCHEME ausente (PROJECT_ID não configurado neste build nativo).";
   // Appwrite's *token* flow, not `createOAuth2Session` — the consent
   // screen runs in a different browser process than this app's own
   // WebView, so there's no shared cookie jar for a session to land in.
@@ -89,17 +102,24 @@ async function startOAuthSignIn(provider: OAuthProvider, returnTo: string): Prom
   const success = `${OAUTH_CALLBACK_SCHEME}://oauth-success?${OAUTH_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}`;
   const failure = `${OAUTH_CALLBACK_SCHEME}://oauth-failure`;
   const url = oauth2TokenUrl(provider, success, failure);
-  if (!url) return;
-  await Browser.open({ url });
+  if (!url) return "oauth2TokenUrl() devolveu null (ENDPOINT/PROJECT_ID ausentes neste build nativo).";
+  try {
+    await Browser.open({ url });
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  return null;
 }
 
 /**
  * `returnTo` must be a path already registered as an Appwrite "platform"
  * hostname on web (see the Appwrite console) — unused for that lookup on
  * native, which never leaves this app's own registered callback scheme.
+ * Resolves to a diagnostic string on failure, `null` on success — see
+ * `startOAuthSignIn`'s own doc comment for exactly what "success" covers.
  */
-export function signInWithGoogle(returnTo: string): void {
-  void startOAuthSignIn(OAuthProvider.Google, returnTo);
+export function signInWithGoogle(returnTo: string): Promise<string | null> {
+  return startOAuthSignIn(OAuthProvider.Google, returnTo);
 }
 
 /**
@@ -110,8 +130,8 @@ export function signInWithGoogle(returnTo: string): void {
  * Apple integration uses, so this needs no native iOS entitlement or SDK
  * beyond what `startOAuthSignIn` already sets up for Google.
  */
-export function signInWithApple(returnTo: string): void {
-  void startOAuthSignIn(OAuthProvider.Apple, returnTo);
+export function signInWithApple(returnTo: string): Promise<string | null> {
+  return startOAuthSignIn(OAuthProvider.Apple, returnTo);
 }
 
 /**
