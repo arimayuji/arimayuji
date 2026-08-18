@@ -82,10 +82,13 @@ export function RouteReplay({
   points,
   unit,
   className = "",
+  rounded = true,
 }: {
   points: StoredPoint[];
   unit: DistanceUnit;
   className?: string;
+  /** False for an edge-to-edge map — RouteMap's own rounded prop already treats this as a deliberate look, not a bug, for the full-bleed live map; same reasoning applies here. */
+  rounded?: boolean;
 }) {
   const timeline = useMemo(() => buildReplayTimeline(points), [points]);
   const reducedMotion = usePrefersReducedMotion();
@@ -200,7 +203,7 @@ export function RouteReplay({
       replay={cursor}
       onTilesSettled={handleTilesSettled}
       className={fullscreen ? "h-full w-full !rounded-none" : className}
-      rounded={!fullscreen}
+      rounded={fullscreen ? false : rounded}
       square={!fullscreen}
     >
       {frame && (

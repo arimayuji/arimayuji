@@ -143,9 +143,18 @@ export function Stat({
   unit?: string;
 }) {
   return (
-    <div>
+    // `min-w-0` matters here specifically because every caller puts this in
+    // a CSS grid column: grid items default to `min-width: auto`, which
+    // lets a long unbreakable value (font-mono, no natural wrap point —
+    // "1:08:06" has none) force its own track wider than the space
+    // actually available instead of shrinking to fit, pushing whichever
+    // column lands last off the edge of the screen. `truncate` on the
+    // value is the fallback once it's actually free to shrink: elide
+    // rather than silently clip past the viewport with no indication
+    // anything was cut.
+    <div className="min-w-0">
       <span className="text-[11px] uppercase tracking-wide text-muted">{label}</span>
-      <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums">
+      <p className="text-metal mt-0.5 truncate font-mono text-2xl tabular-nums">
         {value}
         {unit && <span className="ml-1 text-sm text-muted">{unit}</span>}
       </p>

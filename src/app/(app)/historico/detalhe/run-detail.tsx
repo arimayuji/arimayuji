@@ -623,8 +623,12 @@ export function RunDetail({ id }: { id: string }) {
       />
 
       <Screen>
-        <div className="pr-enter" style={delay(20)}>
-          <RouteReplay points={run.points} unit={unit} />
+        {/* `-mx-5` cancels Screen's own `px-5` specifically for this one
+            element — the map reads better full-bleed than boxed in with
+            everything else on the page, so it's the one thing here that
+            deliberately breaks out of the shared content column. */}
+        <div className="pr-enter -mx-5" style={delay(20)}>
+          <RouteReplay points={run.points} unit={unit} rounded={false} />
         </div>
 
         <Card className="pr-enter" style={delay(50)}>
