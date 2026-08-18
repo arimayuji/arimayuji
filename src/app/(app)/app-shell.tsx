@@ -193,15 +193,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             : "pt-[env(safe-area-inset-top)] pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
         }`}
       >
+        {/* In normal flow, not `position: fixed` — they used to float
+            pinned to the viewport for the whole scroll, which read as
+            stuck on top of whatever content had scrolled up underneath
+            rather than a header. Scrolling away with the rest of the
+            screen is the point now, so this is just the first row inside
+            the same padded column as everything else. */}
+        {!immersive && (
+          <div className="flex items-center justify-between px-4 pt-3">
+            <BrandMark />
+            <NotificationBell />
+          </div>
+        )}
         {!immersive && <InstallPrompt />}
         {children}
       </div>
-      {/* Fixed, not inside the padded flow above — same reasoning as
-          BottomNav below: it needs to stay pinned to the viewport corner
-          across scroll, not just sit above whatever screen happens to be
-          showing. */}
-      {!immersive && <BrandMark />}
-      {!immersive && <NotificationBell />}
       {!immersive && <BottomNav />}
     </ImmersiveContext.Provider>
   );

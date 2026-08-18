@@ -75,12 +75,12 @@ export function ScreenHeader({
       className="pr-enter px-5 pb-5"
       // The top safe-area inset is handled once, by AppShell's own wrapper
       // — every screen that uses ScreenHeader renders inside it, so adding
-      // it again here would double the gap under the iOS status bar.
-      // 4rem (not 2rem) so the title clears the fixed BrandMark/
-      // NotificationBell badges (brand-mark.tsx, notification-bell.tsx) —
-      // both sit at safe-area + 0.75rem, 2.5rem tall, so their bottom edge
-      // is at safe-area + 3.25rem; this leaves a clean gap under that.
-      style={delay(0, { paddingTop: "4rem" })}
+      // it again here would double the gap under the iOS status bar. The
+      // BrandMark/NotificationBell row (app-shell.tsx) is its own sibling
+      // above this now, in normal flow rather than floating over it, so
+      // this only needs its own breathing room, not a gap sized to clear
+      // anything.
+      style={delay(0, { paddingTop: "1.25rem" })}
     >
       <div className="mx-auto w-full max-w-md">
         <div className="flex flex-wrap items-center justify-between gap-3">

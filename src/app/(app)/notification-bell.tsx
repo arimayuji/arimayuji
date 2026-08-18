@@ -141,8 +141,7 @@ export function NotificationBell() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={unreadCount > 0 ? `Notificações (${unreadCount} novas)` : "Notificações"}
-        className="fixed right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/92 text-foreground shadow-sm backdrop-blur-md"
-        style={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/92 text-foreground shadow-sm backdrop-blur-md"
       >
         <BellIcon className="h-5 w-5" />
         {unreadCount > 0 && (
