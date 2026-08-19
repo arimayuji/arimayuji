@@ -3,13 +3,17 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { checkForUpdate, type UpdateInfo } from "./updateCheck";
-import { listFriendConnections } from "./friendships";
-import { listCoachConnections } from "./coachRelationships";
+import { listFriendConnections, type FriendConnection } from "./friendships";
+import { listCoachConnections, type CoachConnection } from "./coachRelationships";
 
 export interface NotificationSummary {
   update: UpdateInfo | null;
   pendingFriendRequests: number;
   pendingCoachInvites: number;
+  /** The incoming friend requests themselves — `/notificacoes` needs the real rows (who, when), not just a count. */
+  friendRequests: FriendConnection[];
+  /** The incoming coach/student invites themselves — same reason as `friendRequests`. */
+  coachInvites: CoachConnection[];
 }
 
 /**
@@ -31,6 +35,8 @@ export function useNotificationSummary(): NotificationSummary {
     update: null,
     pendingFriendRequests: 0,
     pendingCoachInvites: 0,
+    friendRequests: [],
+    coachInvites: [],
   });
 
   useEffect(() => {
@@ -41,10 +47,14 @@ export function useNotificationSummary(): NotificationSummary {
       listCoachConnections("pending"),
     ]).then(([update, friends, coaches]) => {
       if (cancelled) return;
+      const friendRequests = friends.filter((c) => c.direction === "incoming");
+      const coachInvites = coaches.filter((c) => c.direction === "incoming");
       setSummary({
         update,
-        pendingFriendRequests: friends.filter((c) => c.direction === "incoming").length,
-        pendingCoachInvites: coaches.filter((c) => c.direction === "incoming").length,
+        pendingFriendRequests: friendRequests.length,
+        pendingCoachInvites: coachInvites.length,
+        friendRequests,
+        coachInvites,
       });
     });
     return () => {
