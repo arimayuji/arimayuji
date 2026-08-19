@@ -434,7 +434,18 @@ async function main() {
       // (`${code}_${userId}`, see groupRuns.ts), so joining twice is a
       // harmless 409 rather than a duplicate row, and leaving is a direct
       // delete-by-id with no query needed first.
-      permissions: [Permission.read(Role.users()), Permission.create(Role.users())],
+      //
+      // *Create* is deliberately NOT open to Role.users() — unlike read,
+      // which is harmless (no location in this row), create is the actual
+      // privacy boundary ("only friends of the host may join") and that
+      // check can't be expressed as an Appwrite permission rule. Rows here
+      // are only ever created by the join-group-run Appwrite Function
+      // (privileged key, verifies the friendship server-side) — see that
+      // function's own comment, and src/lib/groupRuns.ts's file header, for
+      // the full story of why an open table-level create here previously
+      // let anyone insert themselves as a "participant" and get handed
+      // live GPS read access downstream.
+      permissions: [Permission.read(Role.users())],
       rowSecurity: true,
     }),
   );

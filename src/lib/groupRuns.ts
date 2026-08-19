@@ -13,17 +13,22 @@
  * Read on both tables is open to any signed-in account at the table level
  * (see scripts/appwrite-setup.ts) — the code is the real gate, same
  * reasoning as a TestFlight public link, and neither row holds any
- * location. The actual privacy boundary the athlete asked for — only
- * friends of the host may join — is enforced here in `joinGroupRun`, not
- * by Appwrite permissions, since Appwrite has no "is this account a friend
- * of that other account" rule to declare.
+ * location. *Create* on `group_run_participants` is not open, though: the
+ * actual privacy boundary the athlete asked for — only friends of the host
+ * may join — has no Appwrite permission rule to express ("is this account
+ * a friend of that other account" isn't a Role), so it's enforced
+ * server-side by the `join-group-run` Appwrite Function (same reasoning as
+ * `delete-account`) instead of trusted to a client-side check. A row
+ * inserted straight via the REST API, bypassing that check, would
+ * otherwise get treated as a vetted participant everywhere downstream —
+ * including by `refreshLiveSessionAudience` in liveRuns.ts, which grants
+ * live GPS read to whoever's on this list.
  *
  * Same degrade-to-empty/false convention as the rest of the backend layer.
  */
-import { Permission, Query, Role, type Models } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
+import { ExecutionMethod, Permission, Query, Role, type Models } from "appwrite";
+import { APPWRITE_DATABASE_ID, JOIN_GROUP_RUN_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getCurrentAccount, getProfile, type Profile } from "./auth";
-import { listFriendConnections } from "./friendships";
 
 export type GroupRunStatus = "open" | "closed";
 
@@ -107,13 +112,11 @@ export async function createGroupRun(name: string, startsAt: number): Promise<Cr
         // host update (e.g. closing it) and delete.
         permissions: [Permission.update(Role.user(account.id)), Permission.delete(Role.user(account.id))],
       });
-      await appwrite.tablesDB.createRow<GroupRunParticipant>({
-        databaseId: APPWRITE_DATABASE_ID,
-        tableId: TABLES.groupRunParticipants,
-        rowId: `${code}_${account.id}`,
-        data: { sessionCode: code, userId: account.id, joinedAt: new Date().toISOString() },
-        permissions: [Permission.delete(Role.user(account.id))],
-      });
+      // The host is always allowed to join their own session — the
+      // Function's friend check only runs for `hostId !== userId` — so this
+      // still succeeds without a round trip through `friendships`.
+      const joined = await callJoinGroupRunFunction(code);
+      if (!joined.ok) return { ok: false, reason: "failed" };
       setActiveGroupRunCode(code);
       return { ok: true, groupRun };
     } catch (err) {
@@ -138,54 +141,52 @@ export async function getGroupRun(code: string): Promise<GroupRun | null> {
   }
 }
 
-export type JoinGroupRunResult =
-  | { ok: true; groupRun: GroupRun }
-  | { ok: false; reason: "unavailable" | "not-found" | "expired" | "closed" | "not-friends" | "failed" };
+type JoinGroupRunFailureReason = "unavailable" | "not-found" | "expired" | "closed" | "not-friends" | "failed";
+
+export type JoinGroupRunResult = { ok: true; groupRun: GroupRun } | { ok: false; reason: JoinGroupRunFailureReason };
+
+/**
+ * Runs the `join-group-run` Appwrite Function, which does the actual
+ * membership check (host, or a mutual friend of the host — see that
+ * function's own comment for why this can't be a client-side check) and
+ * creates the participant row under its own privileged key. Shared by
+ * `createGroupRun` (the host auto-joining their own session) and
+ * `joinGroupRun` below — same call, same server-side gate either way.
+ */
+async function callJoinGroupRunFunction(code: string): Promise<JoinGroupRunResult> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return { ok: false, reason: "unavailable" };
+  try {
+    const execution = await appwrite.functions.createExecution({
+      functionId: JOIN_GROUP_RUN_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ sessionCode: code }),
+    });
+    const body = JSON.parse(execution.responseBody || "{}") as
+      | { ok: true; groupRun: GroupRun }
+      | { error: JoinGroupRunFailureReason };
+    if (execution.responseStatusCode >= 200 && execution.responseStatusCode < 300 && "ok" in body && body.ok) {
+      return { ok: true, groupRun: body.groupRun };
+    }
+    const reason = "error" in body ? body.error : "failed";
+    return { ok: false, reason: reason ?? "failed" };
+  } catch {
+    return { ok: false, reason: "failed" };
+  }
+}
 
 /**
  * Joining requires being a mutual friend of the host — the one privacy
- * decision this feature turns on. The host themself always passes (they're
- * already a participant from `createGroupRun`, but re-joining after leaving
- * shouldn't require friending themselves). Already-joined is treated as
- * success rather than an error, so this is safe to call from a "join" button
- * without checking membership first.
+ * decision this feature turns on, enforced server-side (see
+ * `callJoinGroupRunFunction`). Already-joined is treated as success rather
+ * than an error, so this is safe to call from a "join" button without
+ * checking membership first.
  */
 export async function joinGroupRun(code: string): Promise<JoinGroupRunResult> {
-  const appwrite = getAppwrite();
-  if (!appwrite) return { ok: false, reason: "unavailable" };
-  const account = await getCurrentAccount();
-  if (!account) return { ok: false, reason: "unavailable" };
-
   const normalized = normalizeJoinCode(code);
-  const groupRun = await getGroupRun(normalized);
-  if (!groupRun) return { ok: false, reason: "not-found" };
-  if (groupRun.status === "closed") return { ok: false, reason: "closed" };
-  if (new Date(groupRun.expiresAt).getTime() < Date.now()) return { ok: false, reason: "expired" };
-
-  if (groupRun.hostId !== account.id) {
-    const friends = await listFriendConnections("accepted");
-    const isFriendOfHost = friends.some((connection) => connection.otherId === groupRun.hostId);
-    if (!isFriendOfHost) return { ok: false, reason: "not-friends" };
-  }
-
-  try {
-    await appwrite.tablesDB.createRow<GroupRunParticipant>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.groupRunParticipants,
-      rowId: `${normalized}_${account.id}`,
-      data: { sessionCode: normalized, userId: account.id, joinedAt: new Date().toISOString() },
-      permissions: [Permission.delete(Role.user(account.id))],
-    });
-    setActiveGroupRunCode(normalized);
-    return { ok: true, groupRun };
-  } catch (err) {
-    if (isAppwriteConflict(err)) {
-      // Already a participant — not an error, just nothing new to do.
-      setActiveGroupRunCode(normalized);
-      return { ok: true, groupRun };
-    }
-    return { ok: false, reason: "failed" };
-  }
+  const result = await callJoinGroupRunFunction(normalized);
+  if (result.ok) setActiveGroupRunCode(normalized);
+  return result;
 }
 
 export async function leaveGroupRun(code: string): Promise<boolean> {

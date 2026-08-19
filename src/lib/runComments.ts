@@ -9,6 +9,7 @@
 import { ID, type Models, Permission, Query, Role } from "appwrite";
 import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
 import { getCurrentAccount } from "./auth";
+import type { SyncedRun } from "./runsSync";
 
 export interface RunComment extends Models.Row {
   runRowId: string;
@@ -20,15 +21,15 @@ const MAX_COMMENT_LENGTH = 500;
 
 /**
  * Adds a comment to `runRowId` (a `runs` table row — see `SyncedRun.$id`).
- * `studentId` is the run's owner, read from the caller's own copy of the
- * `SyncedRun` row rather than looked up here, since row-level permissions
- * already proved the coach can see that run and its owner.
+ * The run's owner is *not* a parameter: it's read back here via `getRow`
+ * under the caller's own session, so Appwrite's row-level read permission
+ * on `runs` is what actually proves the caller (a coach the run was shared
+ * with) may comment on it. Trusting a caller-supplied owner id here would
+ * let anyone with any account attach a comment — readable by an arbitrary
+ * victim — to any run, no relationship required; `getRow` throwing on a
+ * run the caller can't read is the whole enforcement.
  */
-export async function addRunComment(
-  runRowId: string,
-  studentId: string,
-  text: string,
-): Promise<RunComment | null> {
+export async function addRunComment(runRowId: string, text: string): Promise<RunComment | null> {
   const trimmed = text.trim().slice(0, MAX_COMMENT_LENGTH);
   if (!trimmed) return null;
 
@@ -39,6 +40,11 @@ export async function addRunComment(
   const authorId = account.id;
 
   try {
+    const run = await appwrite.tablesDB.getRow<SyncedRun>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.runs,
+      rowId: runRowId,
+    });
     return await appwrite.tablesDB.createRow<RunComment>({
       databaseId: APPWRITE_DATABASE_ID,
       tableId: TABLES.runComments,
@@ -48,7 +54,7 @@ export async function addRunComment(
         Permission.read(Role.user(authorId)),
         Permission.update(Role.user(authorId)),
         Permission.delete(Role.user(authorId)),
-        Permission.read(Role.user(studentId)),
+        Permission.read(Role.user(run.userId)),
       ],
     });
   } catch {

@@ -61,6 +61,13 @@ export const DELETE_ACCOUNT_FUNCTION_ID = "delete-account";
 // convention as DELETE_ACCOUNT_FUNCTION_ID above.
 export const SEND_WELCOME_EMAIL_FUNCTION_ID = "send-welcome-email";
 
+// Matches appwrite-functions/join-group-run's Function ID — same convention
+// as DELETE_ACCOUNT_FUNCTION_ID above. Joining a "longão" is privileged
+// (verifying "is this account a friend of the host" needs a scoped key,
+// same reasoning as delete-account) rather than a plain client-side
+// `createRow`, see that function's own comment for why.
+export const JOIN_GROUP_RUN_FUNCTION_ID = "join-group-run";
+
 interface AppwriteServices {
   client: Client;
   account: Account;

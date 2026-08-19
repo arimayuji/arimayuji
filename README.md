@@ -166,6 +166,31 @@ function a usuários autenticados — Appwrite identifica automaticamente
 quem está chamando pela própria sessão, sem o cliente precisar informar
 nada.
 
+**Entrar num "longão"** (`appwrite-functions/join-group-run`): a checagem
+"só amigos do host podem entrar" não dá pra expressar como permissão do
+Appwrite (não existe um Role "é amigo de fulano"), então quem cria a linha
+de participante é essa Function, com chave privilegiada, depois de
+verificar a amizade — nunca o cliente direto (ver o comentário do próprio
+`src/lib/groupRuns.ts` pra entender por que uma escrita aberta nessa
+tabela vazava a localização ao vivo de qualquer atleta pra qualquer conta).
+Deploy (via [Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+
+```bash
+cd appwrite-functions/join-group-run
+appwrite functions create \
+  --function-id join-group-run --name "Entrar num longão" \
+  --runtime node-22 --entrypoint src/main.js \
+  --execute users
+appwrite push functions
+```
+
+Depois, no Appwrite Console → Functions → join-group-run → **Settings →
+API key scopes**, marca `databases.read` e `databases.write` — é isso que
+dá à function a chave dinâmica (por execução, sem secret fixo guardado)
+necessária pra ler `group_runs`/`friendships` e criar a linha em
+`group_run_participants`. O `--execute users` restringe quem pode chamar a
+function a usuários autenticados, mesmo padrão de `delete-account`.
+
 **Política de Privacidade** (`/privacidade`): já publicada junto com o
 resto do app — a URL a colar nas duas lojas é
 `https://xanthus.app.br/privacidade`.

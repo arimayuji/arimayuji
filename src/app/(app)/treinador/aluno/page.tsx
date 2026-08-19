@@ -102,7 +102,7 @@ function AlunoContent() {
     const text = (commentDrafts[run.$id] ?? "").trim();
     if (!text) return;
     setPostingComment(run.$id);
-    const created = await addRunComment(run.$id, studentId, text);
+    const created = await addRunComment(run.$id, text);
     setPostingComment(null);
     if (!created) return;
     setComments((current) => {
