@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { isStandaloneDisplay } from "@/lib/platform";
@@ -34,8 +43,10 @@ import {
   type CompletedRun,
   type RunTrack,
   type Shoe,
+  type StoredPoint,
 } from "@/lib/tracking/storage";
 import { computeElevationGain } from "@/lib/elevation";
+import { projectRoute } from "@/lib/tracking/routeProjection";
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
@@ -354,6 +365,125 @@ function formatGoalEta(totalSeconds: number | null): string {
   return formatElapsed(Math.round(totalSeconds));
 }
 
+type MetricId = "ritmo" | "distancia" | "tempo" | "medio" | "parcial";
+
+/** The five always-available readouts the athlete can pick between for the giant focus number (see `metricTemplate` state) — the goal-dependent extras (chegada prevista, pace necessário, pace do km atual) stay outside this set since they only exist for some runs, and always render as extra grid cells instead of being pickable as the featured number. */
+const METRICS: { id: MetricId; label: string; short: string; chip: string; unit: string }[] = [
+  { id: "ritmo", label: "Ritmo atual", short: "Ritmo", chip: "Ritmo", unit: "min/km" },
+  { id: "distancia", label: "Distância", short: "Distância", chip: "Distância", unit: "km" },
+  { id: "tempo", label: "Tempo", short: "Tempo", chip: "Tempo", unit: "" },
+  { id: "medio", label: "Ritmo médio", short: "Ritmo médio", chip: "Médio", unit: "min/km" },
+  { id: "parcial", label: "Ritmo parcial", short: "Ritmo parcial", chip: "Parcial", unit: "min/km" },
+];
+
+function MetricIcon({ id, className }: { id: MetricId; className: string }) {
+  const common = { viewBox: "0 0 24 24", className, "aria-hidden": true as const };
+  switch (id) {
+    case "ritmo":
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />
+        </svg>
+      );
+    case "distancia":
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round">
+          <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
+          <circle cx="12" cy="9.5" r="2.3" />
+        </svg>
+      );
+    case "tempo":
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+          <circle cx="12" cy="12" r="9" strokeLinecap="butt" />
+          <path d="M12 7v5l3.5 2" />
+        </svg>
+      );
+    case "medio":
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+          <path d="M4 18a8 8 0 0 1 16 0" />
+          <path d="M12 18l4-6" />
+          <circle cx="12" cy="18" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "parcial":
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 21V4" />
+          <path d="M6 4h11l-3 3.5L17 11H6" />
+        </svg>
+      );
+  }
+}
+
+/** One tile in the tracking screen's metric grid — icon-labeled card, same shape whether the reading comes from `METRICS` or from a goal/preference-gated extra. */
+function MetricCard({
+  icon,
+  label,
+  value,
+  unit,
+}: {
+  icon: MetricId;
+  label: string;
+  value: string;
+  unit?: string;
+}) {
+  return (
+    <div className="relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-border bg-surface p-3.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">{label}</span>
+        <MetricIcon id={icon} className="h-4 w-4 text-accent" />
+      </div>
+      <p className="text-metal font-mono text-[26px] leading-none tabular-nums">
+        {value}
+        {unit && <span className="ml-1 text-[13px] font-sans font-medium text-muted">{unit}</span>}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * A small live preview of the route, drawn as a plain SVG polyline via the
+ * same flat local projection `historico/detalhe` uses for its own thumbnail
+ * — deliberately not a real tiled map here: this redraws on every GPS fix
+ * while tracking, and reloading map tiles that often would cost data and
+ * battery for a 76px strip nobody is navigating by. The full basemap
+ * (`RouteMap`) still renders once the run is over, on the finished screen.
+ */
+function RouteStrip({ points }: { points: StoredPoint[] }) {
+  const projected = points.length >= 2 ? projectRoute(points, { viewBoxSize: 100, paddingFraction: 0.14 }) : null;
+  return (
+    <div className="relative mt-3 h-[76px] shrink-0 overflow-hidden rounded-2xl border border-border bg-surface">
+      <span className="absolute top-2 left-2.5 text-[10px] font-semibold tracking-[0.06em] text-muted uppercase">
+        Rota
+      </span>
+      {projected ? (
+        <svg
+          viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="h-full w-full"
+        >
+          {projected.polylines.map((pts, i) => (
+            <polyline
+              key={i}
+              points={pts}
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.9}
+            />
+          ))}
+        </svg>
+      ) : (
+        <div className="flex h-full items-center justify-center text-xs text-muted">Aguardando rota…</div>
+      )}
+    </div>
+  );
+}
+
 interface EmblemProgressEntry {
   key: string;
   icon: ReactNode;
@@ -476,6 +606,21 @@ export default function RunPage() {
   const [longaoSession, setLongaoSession] = useState<GroupRun | null>(null);
   /** Pre-selected on by default when there's an active longão — same reasoning `install-prompt.tsx` uses for defaults that should be visible but always a tap away from off. */
   const [shareLongao, setShareLongao] = useState(true);
+
+  /** Which metric gets the giant focus number on the tracking screen — a per-run UI choice, not persisted anywhere (defaults back to "ritmo" on the next run). */
+  const [metricTemplate, setMetricTemplate] = useState<MetricId>("ritmo");
+  /**
+   * Manual lap marks — local to this screen, same reasoning as `manualTracks`
+   * below: a pacing aid the athlete controls by tapping the lap button, not
+   * something `useRunTracker` needs to know about or persist. Each entry
+   * freezes the split pace since the *previous* mark (or since the run
+   * started, for the first one) at the moment it was tapped.
+   */
+  const [laps, setLaps] = useState<{ atDistanceMeters: number; atElapsedSeconds: number; paceSecPerKm: number }[]>(
+    [],
+  );
+  const [lapToast, setLapToast] = useState<string | null>(null);
+  const lapToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** See `recoverableRun`'s own comment — checked once, not on every re-render, since `start()`/`recover()` are the only things that should ever change what's buffered. */
   useEffect(() => {
@@ -901,6 +1046,10 @@ export default function RunPage() {
     setEmblemProgress([]);
     setElevationGain(null);
     setElevationFailed(false);
+    setMetricTemplate("ritmo");
+    setLaps([]);
+    clearTimeout(lapToastTimerRef.current ?? undefined);
+    setLapToast(null);
     // `handleStartClick` sets this the moment "Iniciar corrida" is tapped
     // and only ever clears it itself on the *first-ever* tap (the run-tips
     // gate branch) — every tap after that hands off straight to
@@ -966,6 +1115,32 @@ export default function RunPage() {
   const handleRecoverDiscard = () => {
     void clearActiveRun();
     setRecoverableRun(null);
+  };
+
+  /**
+   * Freezes the split pace since the previous mark (or since the run
+   * started, for the first tap) into `laps`, then starts a fresh split from
+   * this instant — mirrors how a real stopwatch lap button works. Guards
+   * against a double-tap with nothing new to measure (zero elapsed time or
+   * distance since the last mark) rather than recording a divide-by-zero
+   * pace.
+   */
+  const markLap = () => {
+    const prev = laps[laps.length - 1];
+    const fromDistanceMeters = prev?.atDistanceMeters ?? 0;
+    const fromElapsedSeconds = prev?.atElapsedSeconds ?? 0;
+    const deltaMeters = state.distanceMeters - fromDistanceMeters;
+    const deltaSeconds = state.elapsedSeconds - fromElapsedSeconds;
+    if (deltaMeters <= 0 || deltaSeconds <= 0) return;
+    const paceSecPerKm = deltaSeconds / (deltaMeters / 1000);
+    const next = [
+      ...laps,
+      { atDistanceMeters: state.distanceMeters, atElapsedSeconds: state.elapsedSeconds, paceSecPerKm },
+    ];
+    setLaps(next);
+    clearTimeout(lapToastTimerRef.current ?? undefined);
+    setLapToast(`Volta ${next.length} marcada · ${formatPace(paceSecPerKm)}/km`);
+    lapToastTimerRef.current = setTimeout(() => setLapToast(null), 2400);
   };
 
   const isLiveRun = state.status === "tracking" || state.status === "paused";
@@ -1351,157 +1526,179 @@ export default function RunPage() {
         </main>
       )}
 
-      {isLiveRun && (
-        <main className="relative z-10 flex flex-1 flex-col px-6 pb-10">
-          <div className="flex flex-1 flex-col items-center justify-center gap-1">
-            {/*
-             * `scaleY` stretches the glyphs taller without widening them —
-             * the digits still lay out at their normal (narrower) width, so
-             * this reads as "presença maior" the way a StandBy-style clock
-             * does, instead of just bumping font-size until five characters
-             * (`43:43`) stop fitting the screen width.
-             */}
-            <div className="flex flex-col items-center px-3 py-4">
-              <span
-                className="text-metal font-mono text-[6.25rem] leading-none font-extrabold tabular-nums whitespace-nowrap"
-                style={{ transform: "scaleY(1.4)" }}
-              >
-                {formatPace(state.currentPaceSecPerKm)}
-              </span>
-              <span className="mt-2.5 text-sm text-muted">min/km</span>
-              {state.ghostDeltaSeconds !== null && (
-                <div className="mt-2">
-                  <GhostDeltaPill deltaSeconds={state.ghostDeltaSeconds} />
+      {isLiveRun &&
+        (() => {
+          const featured = METRICS.find((m) => m.id === metricTemplate) ?? METRICS[0];
+          const avgPaceSecPerKm = state.distanceMeters > 10 ? (state.elapsedSeconds / state.distanceMeters) * 1000 : NaN;
+          const lastLap = laps[laps.length - 1] ?? null;
+          const splitPaceSecPerKm = lastLap ? lastLap.paceSecPerKm : avgPaceSecPerKm;
+          const metricValues: Record<MetricId, string> = {
+            ritmo: formatPace(state.currentPaceSecPerKm),
+            distancia: formatDistanceKm(state.distanceMeters),
+            tempo: formatElapsed(state.elapsedSeconds),
+            medio: formatPace(avgPaceSecPerKm),
+            parcial: formatPace(splitPaceSecPerKm),
+          };
+          // "medio" only fills a grid slot when the athlete opted into it on
+          // /perfil (same preference the old plain-text layout respected) —
+          // unless it's the featured pick, in which case showing it there
+          // already satisfies "I want to see this".
+          const gridMetrics = METRICS.filter(
+            (m) => m.id !== featured.id && (m.id !== "medio" || preferences.showAveragePaceLive),
+          );
+
+          return (
+            <main className="relative z-10 flex flex-1 flex-col px-5 pb-8">
+              <div className="flex items-center justify-end">
+                <span className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-muted">
+                  {laps.length} {laps.length === 1 ? "volta" : "voltas"}
+                </span>
+              </div>
+
+              {/*
+               * Template picker — pick which metric gets the giant number
+               * below. Purely a display choice: nothing about how the run is
+               * actually tracked changes with it.
+               */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {METRICS.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMetricTemplate(m.id)}
+                    className={`flex flex-1 basis-[30%] items-center justify-center gap-1.5 rounded-xl border px-2.5 py-2.5 text-[13px] font-bold whitespace-nowrap transition-colors ${
+                      m.id === featured.id
+                        ? "border-accent bg-accent/15 text-accent"
+                        : "border-border bg-surface text-foreground"
+                    }`}
+                  >
+                    <MetricIcon id={m.id} className="h-4 w-4" />
+                    {m.chip}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-col items-center px-3 py-6">
+                <span className="text-metal font-mono text-[4.75rem] leading-none font-extrabold tabular-nums whitespace-nowrap">
+                  {metricValues[featured.id]}
+                </span>
+                <span className="mt-2.5 text-xs font-semibold tracking-[0.1em] text-accent uppercase">
+                  {featured.label}
+                  {featured.unit ? ` · ${featured.unit}` : ""}
+                </span>
+                {state.ghostDeltaSeconds !== null && (
+                  <div className="mt-3">
+                    <GhostDeltaPill deltaSeconds={state.ghostDeltaSeconds} />
+                  </div>
+                )}
+              </div>
+
+              {state.status === "paused" &&
+                (() => {
+                  const currentPause = state.pauseEvents[state.pauseEvents.length - 1];
+                  return (
+                    <div className="mb-2 rounded-xl border border-border bg-surface p-4">
+                      <span className="text-xs uppercase tracking-wide text-muted">
+                        Pausado — por quê? (opcional)
+                      </span>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {PAUSE_REASONS.map((reason) => (
+                          <button
+                            key={reason.label}
+                            type="button"
+                            onClick={() => setPauseReason(reason.label)}
+                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                              currentPause?.reason === reason.label
+                                ? "border-accent bg-accent text-accent-foreground"
+                                : "border-border bg-background text-foreground hover:border-accent"
+                            }`}
+                          >
+                            <reason.icon className="h-3.5 w-3.5" />
+                            {reason.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {gridMetrics.map((m) => (
+                  <MetricCard
+                    key={m.id}
+                    icon={m.id}
+                    label={m.short}
+                    value={metricValues[m.id]}
+                    unit={m.unit === "min/km" ? "/km" : m.unit || undefined}
+                  />
+                ))}
+                {state.goal?.distanceMeters && (
+                  <MetricCard icon="tempo" label="Chegada prevista" value={formatGoalEta(state.forecastSecondsRemaining)} />
+                )}
+                {state.paceNeededSecPerKm !== null && (
+                  <MetricCard icon="ritmo" label="Pace necessário" value={formatPace(state.paceNeededSecPerKm)} unit="/km" />
+                )}
+                {preferences.showCurrentKmPaceLive && state.currentKmPaceSecPerKm !== null && (
+                  <MetricCard icon="ritmo" label="Pace do km atual" value={formatPace(state.currentKmPaceSecPerKm)} unit="/km" />
+                )}
+              </div>
+
+              <RouteStrip points={state.points} />
+
+              <div className="mt-4 flex flex-1 items-end gap-3">
+                <button
+                  type="button"
+                  onClick={markLap}
+                  disabled={state.status !== "tracking"}
+                  aria-label="Marcar volta"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border bg-surface disabled:opacity-40"
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 3v18M5 5h13l-3 4 3 4H5" />
+                  </svg>
+                </button>
+                {state.status === "tracking" ? (
+                  <button
+                    type="button"
+                    onClick={pause}
+                    className="flex-1 rounded-full border border-border bg-surface py-4 text-base font-semibold hover:border-accent"
+                  >
+                    Pausar
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={resume}
+                    disabled={state.gpsQuality !== "good"}
+                    title={
+                      state.gpsQuality !== "good"
+                        ? "Aguardando o sinal de GPS melhorar antes de retomar"
+                        : undefined
+                    }
+                    className="flex-1 rounded-full border border-accent bg-surface py-4 text-base font-semibold text-accent disabled:cursor-not-allowed disabled:border-border disabled:text-muted"
+                  >
+                    {state.gpsQuality !== "good" ? "Aguardando sinal…" : "Retomar"}
+                  </button>
+                )}
+                <HoldToFinishButton
+                  onConfirm={() => {
+                    const run = finish({ shoeName });
+                    setManualTracks(run.tracks ?? []);
+                  }}
+                />
+              </div>
+
+              {lapToast && (
+                <div
+                  className="pr-enter absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-accent px-4 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground"
+                  style={{ "--pr-dur": "0.25s" } as CSSProperties}
+                >
+                  {lapToast}
                 </div>
               )}
-            </div>
-          </div>
-
-          {state.status === "paused" &&
-            (() => {
-              const currentPause = state.pauseEvents[state.pauseEvents.length - 1];
-              return (
-                <div className="mt-4 rounded-xl border border-border bg-surface p-4">
-                  <span className="text-xs uppercase tracking-wide text-muted">
-                    Pausado — por quê? (opcional)
-                  </span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {PAUSE_REASONS.map((reason) => (
-                      <button
-                        key={reason.label}
-                        type="button"
-                        onClick={() => setPauseReason(reason.label)}
-                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          currentPause?.reason === reason.label
-                            ? "border-accent bg-accent text-accent-foreground"
-                            : "border-border bg-background text-foreground hover:border-accent"
-                        }`}
-                      >
-                        <reason.icon className="h-3.5 w-3.5" />
-                        {reason.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-
-          {/*
-           * No cards: a bordered tile per stat (plus a repeated icon badge in
-           * every corner) was the thing being redesigned away here — this is
-           * plain label/number text in a 2-column matrix, sized in two tiers
-           * (Distância/Tempo biggest, everything else one step down) so the
-           * hierarchy reads from type scale alone, with each label sized
-           * proportionally to its own row's number instead of one flat size
-           * next to numbers of very different weight.
-           */}
-          <div className="grid grid-cols-2 gap-x-7 gap-y-11 py-10">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[15px] font-semibold tracking-[0.06em] text-muted uppercase">Distância</span>
-              <p className="text-metal font-mono text-[38px] leading-none tabular-nums">
-                {formatDistanceKm(state.distanceMeters)}{" "}
-                <span className="text-[17px] font-normal text-muted">km</span>
-              </p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[15px] font-semibold tracking-[0.06em] text-muted uppercase">Tempo</span>
-              <p className="text-metal font-mono text-[38px] leading-none tabular-nums">
-                {formatElapsed(state.elapsedSeconds)}
-              </p>
-            </div>
-            {state.goal?.distanceMeters && (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
-                  Chegada prevista em
-                </span>
-                <p className="text-metal font-mono text-[27px] leading-none tabular-nums">
-                  {formatGoalEta(state.forecastSecondsRemaining)}
-                </p>
-              </div>
-            )}
-            {state.paceNeededSecPerKm !== null && (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
-                  Pace necessário
-                </span>
-                <p className="text-metal font-mono text-[27px] leading-none tabular-nums">
-                  {formatPace(state.paceNeededSecPerKm)}
-                </p>
-              </div>
-            )}
-            {preferences.showAveragePaceLive && state.distanceMeters > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">Pace total</span>
-                <p className="text-metal font-mono text-[27px] leading-none tabular-nums">
-                  {formatPace((state.elapsedSeconds / state.distanceMeters) * 1000)}
-                </p>
-              </div>
-            )}
-            {preferences.showCurrentKmPaceLive && state.currentKmPaceSecPerKm !== null && (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
-                  Pace do km atual
-                </span>
-                <p className="text-metal font-mono text-[27px] leading-none tabular-nums">
-                  {formatPace(state.currentKmPaceSecPerKm)}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            {state.status === "tracking" ? (
-              <button
-                type="button"
-                onClick={pause}
-                className="flex-1 rounded-full border border-border bg-surface py-4 text-base font-semibold hover:border-accent"
-              >
-                Pausar
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={resume}
-                disabled={state.gpsQuality !== "good"}
-                title={
-                  state.gpsQuality !== "good"
-                    ? "Aguardando o sinal de GPS melhorar antes de retomar"
-                    : undefined
-                }
-                className="flex-1 rounded-full border border-accent bg-surface py-4 text-base font-semibold text-accent disabled:cursor-not-allowed disabled:border-border disabled:text-muted"
-              >
-                {state.gpsQuality !== "good" ? "Aguardando sinal…" : "Retomar"}
-              </button>
-            )}
-            <HoldToFinishButton
-              onConfirm={() => {
-                const run = finish({ shoeName });
-                setManualTracks(run.tracks ?? []);
-              }}
-            />
-          </div>
-        </main>
-      )}
+            </main>
+          );
+        })()}
 
       {state.status === "finished" && state.finishedRun && (
         <main className="flex flex-1 flex-col items-center justify-center gap-8 px-6 text-center">

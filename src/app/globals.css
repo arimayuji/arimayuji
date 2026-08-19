@@ -51,17 +51,16 @@
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-sans: var(--font-nunito);
+  --font-sans: var(--font-inter);
   /*
    * Every numeric readout in the app reaches this through the `font-mono`
-   * Tailwind class — not literally monospace anymore (see layout.tsx's
-   * nunitoNumbers), but every call site keeps working unchanged: they were
-   * never asking for true fixed-width glyphs, just "the font all the
-   * numbers use," and tabular-nums (already applied wherever alignment
-   * matters, e.g. the splits table) is what actually keeps digits lined up
-   * — that works the same in Nunito as it did in Geist Mono.
+   * Tailwind class — not literally monospace (see layout.tsx's oswald),
+   * but every call site keeps working unchanged: they were never asking
+   * for true fixed-width glyphs, just "the font all the numbers use," and
+   * tabular-nums (already applied wherever alignment matters, e.g. the
+   * splits table) is what actually keeps digits lined up.
    */
-  --font-mono: var(--font-nunito-numbers);
+  --font-mono: var(--font-oswald);
 }
 
 :root.dark {
@@ -100,7 +99,16 @@ body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /*
+   * Was a literal `Arial, Helvetica, sans-serif` — an unlayered rule, which
+   * in Tailwind v4 wins over the `@layer base` rule that would otherwise
+   * apply `--font-sans` here, so the app's body text was actually
+   * rendering in the Arial fallback this whole time regardless of which
+   * font `--font-sans` pointed at. Explicitly pointing at the same
+   * variable Tailwind's own font-sans utility uses is what actually makes
+   * a `--font-sans` change (Nunito → Inter, see layout.tsx) visible.
+   */
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
 /*

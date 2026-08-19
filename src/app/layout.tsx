@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Nunito } from "next/font/google";
+import { Inter, Oswald } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { OAuthCallbackListener } from "./oauth-callback-listener";
@@ -17,27 +17,27 @@ import { ThemeSync } from "./theme-sync";
 const THEME_INIT_SCRIPT = `(function(){try{var raw=localStorage.getItem("xanthus:preferences");var theme=raw?JSON.parse(raw).theme:"system";var dark=theme==="dark"||(theme!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark);}catch(e){}})();`;
 
 /** Body text and headings, at whatever weight each element already asks for (variable font, no fixed weight here). */
-const nunito = Nunito({
-  variable: "--font-nunito",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
 /**
- * Every numeric readout on screen (pace, distance, splits) used to run on
- * Geist Mono — a real monospace, chosen for tabular alignment in things
- * like the splits table. Nunito at a fixed Black weight keeps that same
- * alignment (it supports tabular figures, and `tabular-nums` is already
- * applied everywhere these numbers render) while reading rounder and
- * heavier — the "chubby, game-HUD" look asked for, compared side by side
- * against several other candidates before landing here. Fixed at Black
- * (900) rather than the variable range for the same reason Geist Mono was
- * pinned to Bold before it: every number reads at the same weight, not
- * just the ones with their own explicit font-bold class.
+ * Every numeric readout on screen (pace, distance, splits) and every
+ * display heading runs on Oswald — condensed enough to hold the giant
+ * focus-metric number (see /run) at a size that would otherwise overflow,
+ * while still reading as digits rather than a logo face. Static weights
+ * (not the variable axis) because only three are ever asked for by design:
+ * 500 for small labels/wordmark, 600 for most numbers, 700 for the
+ * post-run summary's headline time. `tabular-nums` (already applied
+ * everywhere these numbers render, e.g. the splits table) still keeps
+ * digits aligned — Oswald's digits are already near-uniform width by
+ * design, so the two combine rather than fight.
  */
-const nunitoNumbers = Nunito({
-  variable: "--font-nunito-numbers",
+const oswald = Oswald({
+  variable: "--font-oswald",
   subsets: ["latin"],
-  weight: "900",
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -70,7 +70,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       // The theme-init script (below) adds/removes "dark" before hydration,
       // ahead of what the server rendered — an intentional mismatch, not a bug.
       suppressHydrationWarning
-      className={`${nunito.variable} ${nunitoNumbers.variable} h-full antialiased`}
+      className={`${inter.variable} ${oswald.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
