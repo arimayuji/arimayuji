@@ -79,7 +79,7 @@ import {
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useImmersiveMode, useTabReclick } from "../app-shell";
-import { NoticeBadge } from "../ui";
+import { Card, NoticeBadge, SegmentedButton } from "../ui";
 import { PillSlider } from "../pill-slider";
 
 const RECENT_GHOST_CANDIDATES = 6;
@@ -360,6 +360,37 @@ function GpsDot({ quality }: { quality: string }) {
   );
 }
 
+/**
+ * The "Tipo de meta" tab icons (Xanthus Preparar Corrida.dc.html) — just
+ * `distancia`/`tempo`/`livre`. The mock's fourth tab, `ritmo` (a target
+ * pace to hold), isn't included: `RunGoal` has no pace-goal field at all,
+ * so it'd be a tab that looks selectable but does nothing once tapped.
+ */
+function GoalTypeIcon({ id, className }: { id: "distancia" | "tempo" | "livre"; className?: string }) {
+  const common = { viewBox: "0 0 24 24", className, "aria-hidden": true } as const;
+  if (id === "distancia") {
+    return (
+      <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+        <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
+        <circle cx="12" cy="9.5" r="2.3" />
+      </svg>
+    );
+  }
+  if (id === "tempo") {
+    return (
+      <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.5 2" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
+      <path d="M7 12a3 3 0 1 0 5-2 3 3 0 1 0-5 2 3 3 0 1 0 5 2 3 3 0 1 0-5-2z" />
+    </svg>
+  );
+}
+
 function formatGoalEta(totalSeconds: number | null): string {
   if (totalSeconds === null || !Number.isFinite(totalSeconds)) return "--:--";
   return formatElapsed(Math.round(totalSeconds));
@@ -572,8 +603,10 @@ export default function RunPage() {
    * snapshot the moment the new run's own persistence kicks in.
    */
   const [recoverableRun, setRecoverableRun] = useState<ActiveRunSnapshot | null>(null);
+  /** Which of `goalKm`/`goalMinutes` actually becomes the run's goal on start — the two sliders stay mutually exclusive in the UI (Xanthus Preparar Corrida.dc.html's "Tipo de meta" tabs) even though `RunGoal` itself supports both at once, since showing both permanently-visible sliders read as "set them both" when only one was ever meant to gate the run. */
+  const [goalType, setGoalType] = useState<"distancia" | "tempo" | "livre">("distancia");
   const [goalKm, setGoalKm] = useState("5");
-  const [goalMinutes, setGoalMinutes] = useState("");
+  const [goalMinutes, setGoalMinutes] = useState("30");
   const [shoeName, setShoeName] = useState("");
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
@@ -985,12 +1018,12 @@ export default function RunPage() {
     setManualTracks([]);
     setMusicQuery("");
     setMusicResults(null);
-    const distanceMeters = Number(goalKm) > 0 ? Number(goalKm) * 1000 : undefined;
-    const durationSeconds = Number(goalMinutes) > 0 ? Number(goalMinutes) * 60 : undefined;
+    const distanceMeters = goalType === "distancia" && Number(goalKm) > 0 ? Number(goalKm) * 1000 : undefined;
+    const durationSeconds = goalType === "tempo" && Number(goalMinutes) > 0 ? Number(goalMinutes) * 60 : undefined;
     setActiveGhost(selectedGhost);
     start({
       announceIntervalMeters: announceMeters,
-      goal: distanceMeters ? { distanceMeters, durationSeconds } : undefined,
+      goal: distanceMeters || durationSeconds ? { distanceMeters, durationSeconds } : undefined,
       ghostRun: selectedGhost ?? undefined,
     });
   };
@@ -1251,31 +1284,59 @@ export default function RunPage() {
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <span className="text-sm font-medium">Meta de distância (km)</span>
-              <PillSlider
-                className="mt-2"
-                min={0}
-                max={42}
-                step={1}
-                value={Number(goalKm) || 0}
-                onChange={(km) => setGoalKm(String(km))}
-                formatValue={(km) => (km === 0 ? "sem meta" : `${km} km`)}
-              />
-            </div>
+            <Card>
+              <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                Tipo de meta
+              </span>
+              <div className="flex gap-2">
+                <SegmentedButton selected={goalType === "distancia"} onClick={() => setGoalType("distancia")}>
+                  <span className="flex items-center justify-center gap-1.5">
+                    <GoalTypeIcon id="distancia" className="h-4 w-4" />
+                    Distância
+                  </span>
+                </SegmentedButton>
+                <SegmentedButton selected={goalType === "tempo"} onClick={() => setGoalType("tempo")}>
+                  <span className="flex items-center justify-center gap-1.5">
+                    <GoalTypeIcon id="tempo" className="h-4 w-4" />
+                    Tempo
+                  </span>
+                </SegmentedButton>
+                <SegmentedButton selected={goalType === "livre"} onClick={() => setGoalType("livre")}>
+                  <span className="flex items-center justify-center gap-1.5">
+                    <GoalTypeIcon id="livre" className="h-4 w-4" />
+                    Livre
+                  </span>
+                </SegmentedButton>
+              </div>
 
-            <div className="space-y-1.5">
-              <span className="text-sm font-medium">Meta de tempo (min)</span>
-              <PillSlider
-                className="mt-2"
-                min={0}
-                max={180}
-                step={5}
-                value={Number(goalMinutes) || 0}
-                onChange={(minutes) => setGoalMinutes(String(minutes))}
-                formatValue={(minutes) => (minutes === 0 ? "sem meta" : `${minutes} min`)}
-              />
-            </div>
+              {goalType === "distancia" && (
+                <PillSlider
+                  className="mt-4"
+                  min={1}
+                  max={42}
+                  step={1}
+                  value={Number(goalKm) || 1}
+                  onChange={(km) => setGoalKm(String(km))}
+                  formatValue={(km) => `${km} km`}
+                />
+              )}
+              {goalType === "tempo" && (
+                <PillSlider
+                  className="mt-4"
+                  min={5}
+                  max={180}
+                  step={5}
+                  value={Number(goalMinutes) || 5}
+                  onChange={(minutes) => setGoalMinutes(String(minutes))}
+                  formatValue={(minutes) => `${minutes} min`}
+                />
+              )}
+              {goalType === "livre" && (
+                <p className="mt-4 text-xs leading-relaxed text-muted">
+                  Sem meta — só cronômetro, mapa e pace ao vivo.
+                </p>
+              )}
+            </Card>
 
             <div className="space-y-1.5">
               <span className="text-sm font-medium">Aviso por voz a cada</span>
