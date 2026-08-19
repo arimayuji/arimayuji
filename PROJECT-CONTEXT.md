@@ -192,16 +192,23 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       pro Health Connect, `uses-permission android.permission.health.*`) e
       `Info.plist` (`NSHealthShareUsageDescription`/
       `NSHealthUpdateUsageDescription`).
-    - **`HEALTH_DATA_ENABLED = false`** em `src/lib/health.ts` — chave
-      única que liga tudo isso de uma vez, mesmo padrão do
-      `PHONE_AUTH_ENABLED`. Só virar `true` depois de:
-      1. Habilitar a **capability HealthKit** no App ID no Apple Developer
-         Portal (passo manual, developer.apple.com — não dá pra fazer por
-         código, só depois disso o entitlement funciona de verdade).
+    - **`HEALTH_DATA_ENABLED = true`** em `src/lib/health.ts` desde
+      2026-08-19 — chave única que liga tudo isso de uma vez, mesmo padrão
+      do `PHONE_AUTH_ENABLED`. Entitlement (`App.entitlements`) e a
+      capability no `project.pbxproj` já commitados em `main` (commits
+      `673ad84`/`c8aa8bf`). Faltava:
+      1. ~~Habilitar a **capability HealthKit** no App ID no Apple Developer
+         Portal~~ — **feito manualmente pelo dono do projeto em
+         developer.apple.com em 2026-08-19** (passo que não dava pra fazer
+         por código). Ainda não confirmado se o build assinado do TestFlight
+         (job `testflight` em `ios-build.yml`, assinatura automática com API
+         key Admin) já reflete isso sem erro — checar os últimos runs em
+         github.com/arimayuji/xanthus/actions antes de assumir que está
+         tudo verde.
       2. Testar em aparelho real com um relógio de verdade sincronizado —
          nada disso foi validado em dispositivo, só `tsc`/`eslint`/`next
          build` (o plugin é nativo puro, não roda no sandbox nem no
-         navegador).
+         navegador). Esse é o único bloqueio real que resta.
       3. ~~Confirmar que o Android realmente lê certo quando o Health
          Connect não está instalado~~ — **confirmado por leitura de código
          em 2026-08-18** (não em dispositivo real, isso ainda depende do
@@ -218,8 +225,9 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
          qualquer query — nenhuma chamada nativa a mais acontece nesse
          caminho. Na UI (`run-detail.tsx`), `healthData` nulo já cai de
          volta pro comportamento antigo sem quebrar nada: o card de FC
-         média some, calorias volta pra estimativa. Restam só os itens 1 e
-         2 acima como bloqueio real pra ligar `HEALTH_DATA_ENABLED`.
+         média some, calorias volta pra estimativa. Resta só o item 2 acima
+         (teste em aparelho real) como validação real pendente — a flag já
+         está ligada em `main`.
 
 ## Ferramentas externas usadas no projeto
 
@@ -247,8 +255,14 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 
 - [ ] A conta de desenvolvedor do Google Play já terminou a verificação?
       Se sim, falta só configurar o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
-- [ ] Existe prazo/meta pra submeter o iOS pra revisão real da App Store
-      (não só TestFlight Internal Testing)?
+- [x] **2026-08-19: decidido** — próximo passo do iOS não é revisão completa
+      da App Store, é abrir **TestFlight External Testing** (grupo +
+      Beta App Review, mais leve que revisão completa) pra poder gerar um
+      **link público** e colocar na bio do Instagram — Internal Testing não
+      serve pra isso porque só aceita quem já é usuário do time na conta de
+      dev, sem link compartilhável. Ainda não submetido; ver checklist na
+      sessão que fez essa pesquisa. Revisão completa da App Store (produção)
+      continua sem prazo definido.
 - [ ] A corrida compartilhada / modo treinador tem trabalho combinado que
       ainda não está no código (além do que já está listado acima)?
 - [ ] Alguma decisão de produto/negócio recente que vale registrar aqui
