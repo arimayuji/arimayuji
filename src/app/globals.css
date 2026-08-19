@@ -742,6 +742,85 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 /*
+ * The hop-impact-spin the tap kicks off, chest-opening-animation style: a
+ * quick anticipation hop, a squashed landing, then a full spin that settles
+ * facing forward — all *before* `data-unbox` flips to "open" and the
+ * existing lid/light/item choreography above takes over unchanged. Applied
+ * to `.pr-unbox-spin`, a wrapper *inside* `.pr-box-tilt` rather than that
+ * element itself: `.pr-box-tilt` still receives inline `transform` writes
+ * from the pointer-drag tilt while sealed, and a CSS `animation` fighting
+ * over the same property on the same element is undefined-order territory.
+ * Only mounted with this class while the reveal is mid-sequence (see
+ * achievement-reveal.tsx's `phase === "opening"`), so it always plays once
+ * from frame 0 rather than needing to be reset between reveals.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .pr-unbox-spin {
+    animation: pr-unbox-hopspin 950ms both;
+    transform-style: preserve-3d;
+  }
+}
+
+@keyframes pr-unbox-hopspin {
+  0% {
+    transform: translateY(0%) scale(1, 1) rotateY(0deg);
+    animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1);
+  }
+  22% {
+    /* Anticipation hop, eased out to its peak. */
+    transform: translateY(-11%) scale(0.97, 1.06) rotateY(0deg);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.85, 0.35);
+  }
+  40% {
+    /* Impact: squashed wide and flat right as it lands. */
+    transform: translateY(2%) scale(1.09, 0.85) rotateY(0deg);
+    animation-timing-function: cubic-bezier(0.2, 1.5, 0.4, 1);
+  }
+  52% {
+    /* Settles before the spin starts, so the two don't visually fight. */
+    transform: translateY(0%) scale(1, 1) rotateY(0deg);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1);
+  }
+  100% {
+    /* Two full turns, landing back on the same face it started on. */
+    transform: translateY(0%) scale(1, 1) rotateY(720deg);
+  }
+}
+
+/*
+ * The burst of light the instant the lid pops — bigger and brighter than
+ * the ambient `.pr-unbox-shaft`/`.pr-unbox-glow` that stay lit afterward,
+ * a one-shot flash rather than a steady state. Keyed off the same
+ * `[data-unbox="open"]` flip everything else in the sequence uses, so it
+ * fires exactly when the lid actually starts moving, no extra prop or
+ * timer needed to line it up.
+ */
+.pr-unbox-burst {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-unbox="open"] .pr-unbox-burst {
+    animation: pr-unbox-burst 750ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes pr-unbox-burst {
+  0% {
+    opacity: 0;
+    scale: 0.3;
+  }
+  22% {
+    opacity: 1;
+    scale: 1.15;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.8;
+  }
+}
+
+/*
  * The Instagram badge on /perfil (perfil/page.tsx) — icon-only most of the
  * time, periodically sliding a "@xanthus.oficial" panel out from behind it
  * like a drawer, then pulling it back in. Base state (and reduced motion)

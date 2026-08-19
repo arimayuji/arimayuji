@@ -44,6 +44,23 @@ const BOX_FRONT = `M ${BOX.frontBottomLeft} L ${BOX.frontBottomRight} L ${BOX.fr
 const BOX_SIDE = `M ${BOX.frontBottomRight} L ${BOX.backBottomRight} L ${BOX.backTopRight} L ${BOX.frontTopRight} Z`;
 const BOX_MOUTH = `M ${BOX.frontTopLeft} L ${BOX.frontTopRight} L ${BOX.backTopRight} L ${BOX.backTopLeft} Z`;
 
+/**
+ * The tier-colour band wrapped around the body, front and side — one
+ * continuous "ribbon" rather than the old thin front-only line with nothing
+ * on the side at all. Centred on the body's own vertical midpoint (92↔150),
+ * and the side half is the front half's edge offset by the box's own depth
+ * vector (46,-30), so the two pieces meet exactly at the shared corner
+ * with no visible seam.
+ */
+const BODY_BAND_HALF = 5;
+const BODY_MID_Y = (92 + 150) / 2;
+const BODY_BAND_FRONT = `M 30 ${BODY_MID_Y - BODY_BAND_HALF} L 170 ${BODY_MID_Y - BODY_BAND_HALF} L 170 ${
+  BODY_MID_Y + BODY_BAND_HALF
+} L 30 ${BODY_MID_Y + BODY_BAND_HALF} Z`;
+const BODY_BAND_SIDE = `M 170 ${BODY_MID_Y - BODY_BAND_HALF} L 216 ${BODY_MID_Y - BODY_BAND_HALF - 30} L 216 ${
+  BODY_MID_Y + BODY_BAND_HALF - 30
+} L 170 ${BODY_MID_Y + BODY_BAND_HALF} Z`;
+
 /** Overhangs the body by 4 units on each side, the way a real shoebox lid does. */
 const LID_FRONT = "M 26 96 L 174 96 L 174 79 L 26 79 Z";
 const LID_SIDE = "M 174 96 L 222 64 L 222 47 L 174 79 Z";
@@ -159,15 +176,17 @@ function BoxShell({ uid, achievement }: { uid: string; achievement: Achievement 
         <path d={BOX_SIDE} fill={`url(#${uid}-side)`} />
         <path d={BOX_FRONT} fill={`url(#${uid}-body)`} />
       </g>
-      <path d="M 30 121 L 170 121" stroke={paint.glow} strokeWidth="2.6" opacity="0.6" strokeLinecap="round" />
+      <path d={BODY_BAND_SIDE} fill={paint.glow} opacity="0.55" />
+      <path d={BODY_BAND_FRONT} fill={paint.glow} opacity="0.7" />
       <text
         x="100"
         y="141"
         textAnchor="middle"
         fontFamily="ui-monospace, monospace"
         fontSize="10"
+        fontWeight="700"
         letterSpacing="3.4"
-        fill="#7c858e"
+        fill={`url(#${uid}-lid)`}
       >
         XANTHUS
       </text>
@@ -220,6 +239,12 @@ function Stage({
   return (
     <>
       <BoxInterior uid={uid} glow={glow} />
+      {/* One-shot flash right as the lid pops — see `.pr-unbox-burst` in globals.css. */}
+      <div
+        className="pr-unbox-burst pointer-events-none absolute top-[38%] left-1/2 h-[70%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-lg"
+        style={{ background: `radial-gradient(closest-side, #ffffff, ${glow} 55%, transparent 78%)` }}
+        aria-hidden="true"
+      />
       <div
         className="pr-unbox-item absolute left-[26.25%] top-[7.5%] w-1/2"
         style={{ perspective: "900px" }}
@@ -273,39 +298,70 @@ export function AchievementReveal({
   onClose: () => void;
 }) {
   const reducedMotion = usePrefersReducedMotion();
-  const [opened, setOpened] = useState(alreadyOpened || reducedMotion);
   /**
-   * Deliberately its own state, not derived from `opened` — the box's lid/
+   * `"opening"` is the chest-style hop/impact/spin (`.pr-unbox-spin` in
+   * globals.css) that plays *before* the lid actually moves — `data-unbox`
+   * below stays `"sealed"` for that whole stretch, so the existing lid/
+   * light/item choreography only starts once this phase hands off to
+   * `"open"`, exactly as it always did, just delayed by however long the
+   * spin takes instead of firing the instant the tap lands.
+   */
+  const [phase, setPhase] = useState<"sealed" | "opening" | "open">(
+    alreadyOpened || reducedMotion ? "open" : "sealed",
+  );
+  const opened = phase === "open";
+  /**
+   * Deliberately its own state, not derived from `phase` — the box's lid/
    * light/plate choreography (driven by `data-unbox` below) is CSS
    * transitions on elements that stay mounted the whole time, so they can
    * animate. This copy block cannot: it only exists in the DOM once it has
    * something to say, so a CSS transition on it has no "before" frame to
    * animate from and would just pop in instantly the moment React mounts
-   * it — which is what made the tier/title/stats appear the instant you
-   * tapped, while the box itself was still visibly sealed. Delaying *when*
-   * it mounts (to 1600ms, the same beat the box choreography already
-   * settles on) fixes the timing; a `pr-enter` mount animation gives it an
+   * it — which is what made the tier/title/stats appear the instant the
+   * lid started moving, while the box was still visibly mid-reveal.
+   * Delaying *when* it mounts (to 1600ms after the lid actually starts
+   * moving) fixes the timing; a `pr-enter` mount animation gives it an
    * actual fade instead of a hard pop once it does.
    */
   const [copyRevealed, setCopyRevealed] = useState(alreadyOpened || reducedMotion);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paint = TIER_PAINT[achievement.tier];
   const tiltRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => () => {
-    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
-  }, []);
+  /** Matches `.pr-unbox-hopspin`'s duration in globals.css — the two have to agree, since this is what tells the lid choreography when to start. */
+  const HOP_SPIN_MS = 950;
+
+  useEffect(
+    () => () => {
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      if (openTimerRef.current) clearTimeout(openTimerRef.current);
+    },
+    [],
+  );
 
   const handleOpen = () => {
-    setOpened(true);
-    onOpened();
-    revealTimerRef.current = setTimeout(() => setCopyRevealed(true), 1600);
+    if (phase !== "sealed") return;
     const el = tiltRef.current;
     if (el) {
       el.classList.remove("pr-box-tilt-active");
       el.style.transform = "";
       el.style.setProperty("--sheen-o", "0");
     }
+
+    if (reducedMotion) {
+      setPhase("open");
+      onOpened();
+      setCopyRevealed(true);
+      return;
+    }
+
+    setPhase("opening");
+    openTimerRef.current = setTimeout(() => {
+      setPhase("open");
+      onOpened();
+      revealTimerRef.current = setTimeout(() => setCopyRevealed(true), 1600);
+    }, HOP_SPIN_MS);
   };
 
   /**
@@ -316,7 +372,7 @@ export function AchievementReveal({
    * globals.css can take over.
    */
   const handleTiltMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (opened || reducedMotion) return;
+    if (phase !== "sealed" || reducedMotion) return;
     const el = tiltRef.current;
     if (!el) return;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -362,24 +418,26 @@ export function AchievementReveal({
         <div className="w-full max-w-[340px]" data-unbox={opened ? "open" : "sealed"}>
           <button
             type="button"
-            disabled={opened}
+            disabled={phase !== "sealed"}
             onClick={handleOpen}
             onPointerMove={handleTiltMove}
             onPointerLeave={handleTiltEnd}
             onPointerUp={handleTiltEnd}
             onPointerCancel={handleTiltEnd}
-            aria-label={opened ? undefined : "Abrir a caixa — arraste pra girar"}
+            aria-label={phase === "sealed" ? "Abrir a caixa — arraste pra girar" : undefined}
             className="relative block aspect-square w-full overflow-hidden disabled:cursor-default"
-            style={{ perspective: opened ? undefined : "1000px", touchAction: opened ? undefined : "none" }}
+            style={{ perspective: phase === "sealed" ? "1000px" : undefined, touchAction: phase === "sealed" ? "none" : undefined }}
           >
             <div ref={tiltRef} className="pr-box-tilt absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
-              <Stage
-                achievement={achievement}
-                label={record.label}
-                uid={`unbox-${record.targetMeters}`}
-                tumbleDelayMs={alreadyOpened || reducedMotion ? 0 : 1850}
-              />
-              {!opened && !reducedMotion && (
+              <div className={phase === "opening" ? "pr-unbox-spin absolute inset-0" : "absolute inset-0"}>
+                <Stage
+                  achievement={achievement}
+                  label={record.label}
+                  uid={`unbox-${record.targetMeters}`}
+                  tumbleDelayMs={alreadyOpened || reducedMotion ? 0 : HOP_SPIN_MS + 1850}
+                />
+              </div>
+              {phase === "sealed" && !reducedMotion && (
                 <div className="pr-box-sheen pointer-events-none absolute inset-0" aria-hidden="true" />
               )}
             </div>
@@ -410,7 +468,7 @@ export function AchievementReveal({
                 Guardar
               </button>
             </div>
-          ) : !opened ? (
+          ) : phase === "sealed" ? (
             <div className="mt-2 text-center">
               <p className="text-sm font-semibold text-white">Toque pra abrir</p>
               <p className="mt-1 text-xs text-white/55">
