@@ -124,6 +124,51 @@ function HeartbeatIcon({ className }: { className?: string }) {
 }
 
 /**
+ * One dense row inside `DiscoveryCard` below — icon badge, truncating
+ * label/caption, a status tag, a chevron. The compact list-row treatment
+ * the redesign handoff (Xanthus Perfil.dc.html) uses for every plain
+ * "goes to another real screen, nothing else on it" link — as opposed to
+ * `ShareCardTeaser`/the health-data preview below, which keep their own
+ * dedicated cards because they embed a real visual, not just a caption.
+ */
+function DiscoveryRow({
+  href,
+  external,
+  icon,
+  label,
+  caption,
+  tag,
+}: {
+  href: string;
+  external?: boolean;
+  icon: React.ReactNode;
+  label: string;
+  caption: string;
+  tag: string;
+}) {
+  const linkProps = external ? { target: "_blank", rel: "noopener noreferrer" } : {};
+  return (
+    <Link
+      href={href}
+      {...linkProps}
+      className="flex items-center gap-3 border-t border-border py-3 first:border-t-0 first:pt-0"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background text-muted">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{label}</span>
+        <span className="block truncate text-xs text-muted">{caption}</span>
+      </span>
+      <span className="shrink-0 rounded-full border border-border px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.06em] text-muted uppercase">
+        {tag}
+      </span>
+      <ChevronIcon className="h-3.5 w-3.5 shrink-0 text-muted" />
+    </Link>
+  );
+}
+
+/**
  * A plain label, not a `Card` — this screen collects a lot of unrelated
  * settings in one scroll, and grouping them under a few named clusters is
  * what actually addresses that ("muito poluída"), not moving cards around
@@ -768,60 +813,44 @@ export default function PerfilPage() {
           </div>
         </Card>
 
-        <SectionLabel delayMs={40}>Descubra</SectionLabel>
+        <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
         <Card className="pr-enter" style={delay(50)}>
-          <CardTitle aside={<NoticeBadge>São Paulo</NoticeBadge>}>Lugares pra correr</CardTitle>
-          <Link href="/lugares" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-              <PlacesIcon className="h-5 w-5" />
-            </span>
-            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Parques e rotas avaliados por segurança, percurso, estrutura, iluminação e fluxo — curadoria
-              inicial mais nota real de quem já correu lá.
-            </p>
-            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
-          </Link>
-        </Card>
-
-        <SectionLabel delayMs={70}>Comunidade</SectionLabel>
-        <Card className="pr-enter" style={delay(80)}>
-          <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Amigos</CardTitle>
-          <Link href="/amigos" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-              <FriendsIcon className="h-5 w-5" />
-            </span>
-            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Adicione quem você corre junto pelo @ e responda os convites que chegarem.
-            </p>
-            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
-          </Link>
-        </Card>
-
-        <Card className="pr-enter" style={delay(90)}>
-          <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Treinador</CardTitle>
-          <Link href="/treinador" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-              <CoachIcon className="h-5 w-5" />
-            </span>
-            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Conecte com quem te treina ou com quem você treina — e escolha corrida por corrida o que
-              compartilhar.
-            </p>
-            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
-          </Link>
-        </Card>
-
-        <Card className="pr-enter" style={delay(100)}>
-          <CardTitle aside={<NoticeBadge>precisa de conta</NoticeBadge>}>Longão</CardTitle>
-          <Link href="/longao" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-              <LongaoIcon className="h-5 w-5" />
-            </span>
-            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Crie ou entre numa corrida em grupo com um código — só amigos entram.
-            </p>
-            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
-          </Link>
+          <DiscoveryRow
+            href="/lugares"
+            icon={<PlacesIcon className="h-4.5 w-4.5" />}
+            label="Lugares pra correr"
+            caption="Parques e rotas avaliados por quem já correu lá"
+            tag="São Paulo"
+          />
+          <DiscoveryRow
+            href="/amigos"
+            icon={<FriendsIcon className="h-4.5 w-4.5" />}
+            label="Amigos"
+            caption="Adicione quem você corre junto pelo @"
+            tag="precisa de conta"
+          />
+          <DiscoveryRow
+            href="/treinador"
+            icon={<CoachIcon className="h-4.5 w-4.5" />}
+            label="Treinador"
+            caption="Conecte com quem te treina ou com quem você treina"
+            tag="precisa de conta"
+          />
+          <DiscoveryRow
+            href="/longao"
+            icon={<LongaoIcon className="h-4.5 w-4.5" />}
+            label="Longão"
+            caption="Corrida em grupo com código — só amigos entram"
+            tag="precisa de conta"
+          />
+          <DiscoveryRow
+            href="https://instagram.com/xanthus.oficial"
+            external
+            icon={<InstagramIcon className="h-4.5 w-4.5" />}
+            label="Instagram"
+            caption="@xanthus.oficial · corridas de quem já usa o app"
+            tag="conectar"
+          />
         </Card>
 
         <SectionLabel delayMs={110}>Treino</SectionLabel>
@@ -916,37 +945,6 @@ export default function PerfilPage() {
           </Link>
         </Card>
 
-        <Card className="pr-enter" style={delay(290)}>
-          <CardTitle>Instagram</CardTitle>
-          <a
-            href="https://instagram.com/xanthus.oficial"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3"
-          >
-            {/*
-              Icon-only most of the time; the handle periodically slides out
-              from behind it like a drawer opening, then pulls back in (see
-              .pr-ig-label/.pr-ig-icon in globals.css) — with the label
-              already open as the base/reduced-motion state, so it's never
-              the only way to learn the handle. `overflow-hidden` on this
-              pill is what makes the label's growing `max-width` actually
-              read as sliding out rather than just appearing.
-            */}
-            <span className="flex h-10 shrink-0 items-center overflow-hidden rounded-full bg-accent/12 text-accent">
-              <span className="pr-ig-icon flex h-10 w-10 shrink-0 items-center justify-center">
-                <InstagramIcon className="h-5 w-5" />
-              </span>
-              <span className="pr-ig-label shrink-0 pr-3 font-mono text-xs font-semibold tracking-wide">
-                @xanthus.oficial
-              </span>
-            </span>
-            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Corridas de quem já usa o app, direto no feed.
-            </p>
-            <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
-          </a>
-        </Card>
 
         <Card className="pr-enter" style={delay(300)}>
           <CardTitle aside={<NoticeBadge>em breve</NoticeBadge>}>
