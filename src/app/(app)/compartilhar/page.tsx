@@ -57,6 +57,15 @@ const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
 
 const NO_RUN_TEXT = "Fui correr 🏃 — Xanthus";
 
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
+      <path d="M6 3l1.2 3.3L10.5 7.5 7.2 8.7 6 12l-1.2-3.3L1.5 7.5 4.8 6.3 6 3z" />
+      <path d="M17.5 11l2 5.5 5.5 2-5.5 2-2 5.5-2-5.5L10 18.5l5.5-2 2-5.5z" />
+    </svg>
+  );
+}
+
 interface TemplateOption {
   id: string;
   layout: ShareCardLayout;
@@ -745,6 +754,19 @@ function CompartilharContent() {
           </div>
         )}
 
+        <button
+          type="button"
+          onClick={() => {
+            setScenario(SCENARIO_IDS[Math.floor(Math.random() * SCENARIO_IDS.length)]);
+            setTextEntrance(TEXT_ENTRANCE_IDS[Math.floor(Math.random() * TEXT_ENTRANCE_IDS.length)]);
+          }}
+          className="pr-enter flex h-11.5 items-center justify-center gap-2 rounded-full border border-border bg-surface text-sm font-bold hover:border-accent"
+          style={delay(170)}
+        >
+          <SparkleIcon className="h-3.5 w-3.5 text-accent" />
+          Surpreenda-me
+        </button>
+
         <Card className="pr-enter" style={delay(185)}>
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Sua foto ou vídeo</CardTitle>
           <p className="text-xs leading-relaxed text-muted text-pretty">
@@ -1030,27 +1052,37 @@ function CompartilharContent() {
               outra foto ou vídeo, ou exportar em JPG/PNG antes de subir.
             </p>
           )}
-          <div className={`grid grid-cols-2 gap-2 ${usingMedia ? "opacity-50" : ""}`}>
-            {SCENARIO_IDS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                disabled={usingMedia}
-                onClick={() => setScenario(id)}
-                aria-pressed={activeScenario === id}
-                className={`min-h-14 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed ${
-                  activeScenario === id
-                    ? "border-accent bg-accent/10 text-accent"
-                    : "border-border bg-background text-foreground hover:border-accent disabled:hover:border-border"
-                }`}
-              >
-                <span className="block">{SCENARIOS[id].label}</span>
-                <span className="mt-0.5 block text-[11px] font-normal text-muted">
-                  {SCENARIOS[id].hint}
-                </span>
-              </button>
-            ))}
+          <div
+            className={`-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 ${usingMedia ? "opacity-50" : ""}`}
+          >
+            {SCENARIO_IDS.map((id) => {
+              const def = SCENARIOS[id];
+              const [sky0, sky1, sky2, sky3] = def.sky;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={usingMedia}
+                  onClick={() => setScenario(id)}
+                  aria-pressed={activeScenario === id}
+                  className={`relative block w-24 shrink-0 snap-center overflow-hidden rounded-2xl border-2 transition-colors disabled:cursor-not-allowed ${
+                    activeScenario === id ? "border-accent" : "border-border"
+                  }`}
+                  style={{
+                    aspectRatio: "92 / 128",
+                    background: `linear-gradient(180deg, ${sky0} 0%, ${sky1} 46%, ${sky2} 78%, ${sky3} 100%)`,
+                  }}
+                >
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 block bg-gradient-to-t from-black/75 to-transparent px-2 pt-8 pb-2 text-left text-[11px] leading-tight font-semibold text-white">
+                    {def.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted text-pretty">
+            {SCENARIOS[activeScenario].hint}
+          </p>
         </Card>
 
         {shoes && shoes.length > 0 && (
