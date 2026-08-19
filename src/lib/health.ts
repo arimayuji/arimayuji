@@ -22,7 +22,7 @@ import { Health, type HealthPermission, type PermissionResponse, type Workout } 
 import type { CompletedRun } from "./tracking/storage";
 import { isNativePlatform } from "./platform";
 
-export const HEALTH_DATA_ENABLED = false;
+export const HEALTH_DATA_ENABLED = true;
 
 /**
  * Read-only, and only what the "essa corrida" card actually shows —
