@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import {
   deleteCompletedRun,
@@ -65,13 +65,20 @@ function formatRunDate(date: Date): string {
  * card itself clips it to the rounded corner via `overflow-hidden`, so this
  * stays a plain rectangle rather than rounding its own edges.
  */
-function RouteThumb({ points }: { points: StoredPoint[] }) {
+function RouteThumb({
+  points,
+  className = "h-full w-24 shrink-0 border-r border-border bg-background",
+}: {
+  points: StoredPoint[];
+  /** Overrides the list-row sizing (fixed 96px column) for other contexts, e.g. `FocalRunModal`'s full-width preview. */
+  className?: string;
+}) {
   const size = 56;
   const pad = 6;
 
   if (points.length < 2) {
     return (
-      <div className="flex h-full w-24 shrink-0 items-center justify-center border-r border-border bg-background">
+      <div className={`flex items-center justify-center ${className}`}>
         <span className="text-[10px] text-muted">sem GPS</span>
       </div>
     );
@@ -102,7 +109,7 @@ function RouteThumb({ points }: { points: StoredPoint[] }) {
     <svg
       viewBox={`0 0 ${size} ${size}`}
       preserveAspectRatio="xMidYMid slice"
-      className="h-full w-24 shrink-0 border-r border-border bg-background text-accent"
+      className={`text-accent ${className}`}
       role="img"
       aria-label="Traçado da corrida"
     >
@@ -476,6 +483,7 @@ function HistorySearchBar({
   onPeriodChange,
   sort,
   onSortChange,
+  suggestions,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
@@ -483,33 +491,92 @@ function HistorySearchBar({
   onPeriodChange: (value: Period) => void;
   sort: SortKey;
   onSortChange: (value: SortKey) => void;
+  /** Up to a handful of recent dates + shoe names, offered as tap-to-fill chips while the search field is focused. */
+  suggestions: string[];
 }) {
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sortLabel = SORT_OPTIONS.find((option) => option.key === sort)?.label ?? SORT_OPTIONS[0].label;
+
+  // A 150ms delay before actually clearing focus state — long enough that a
+  // suggestion chip's own `onMouseDown` (fired before this blur) still sees
+  // the chip row mounted, short enough nobody notices the field staying
+  // "focused" a beat after really leaving it.
+  const handleBlur = () => {
+    blurTimerRef.current = setTimeout(() => setFocused(false), 150);
+  };
+  const pickSuggestion = (value: string) => {
+    clearTimeout(blurTimerRef.current ?? undefined);
+    onQueryChange(value);
+    setFocused(false);
+  };
 
   return (
     <div className="pr-enter flex flex-col gap-2.5" style={delay(85)}>
-      <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5">
-        <svg
-          viewBox="0 0 24 24"
-          className="h-4 w-4 shrink-0 text-muted"
-          aria-hidden="true"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      <div>
+        <div
+          className={`flex items-center gap-2.5 border bg-surface px-4 py-3 transition-[border-radius,border-color,box-shadow] duration-[0.45s] ${
+            focused ? "rounded-2xl border-accent shadow-[0_0_0_4px_rgba(74,120,224,0.16)]" : "rounded-full border-border"
+          }`}
         >
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" />
-        </svg>
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Buscar por data ou tênis…"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
-        />
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-4 w-4 shrink-0 transition-transform duration-300 ${focused ? "scale-110 text-accent" : "text-muted"}`}
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            onFocus={() => {
+              clearTimeout(blurTimerRef.current ?? undefined);
+              setFocused(true);
+            }}
+            onBlur={handleBlur}
+            placeholder="Buscar por data ou tênis…"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => onQueryChange("")}
+              aria-label="Limpar busca"
+              className="pr-enter flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-background text-muted"
+              style={delay(0, { "--pr-dur": "0.2s" } as CSSProperties)}
+            >
+              <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {focused && suggestions.length > 0 && (
+          <div className="pr-enter mt-2.5 flex flex-wrap gap-1.5" style={delay(0, { "--pr-dur": "0.3s" } as CSSProperties)}>
+            {suggestions.map((sug) => (
+              <button
+                key={sug}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  pickSuggestion(sug);
+                }}
+                className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-muted"
+              >
+                {sug}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -558,24 +625,135 @@ function HistorySearchBar({
   );
 }
 
+/**
+ * Quick peek at one run's route without leaving the list — the thumbnail's
+ * own tap target (see `RunRow`), separate from the rest of the card, which
+ * still opens the full `/historico/detalhe` page. That page (splits,
+ * achievements, comments, share) isn't part of this redesign pass — this
+ * modal is a shallow preview layered on top of it, not a replacement.
+ */
+function FocalRunModal({ run, unit, onClose }: { run: CompletedRun; unit: DistanceUnit; onClose: () => void }) {
+  const seconds = runMovingSeconds(run);
+  const started = new Date(run.startedAt);
+
+  return (
+    <ModalPortal>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+        onClick={onClose}
+      >
+        <div
+          className="pr-enter w-full max-w-sm rounded-3xl border border-border bg-surface p-5"
+          style={delay(0, { "--pr-dur": "0.25s" } as CSSProperties)}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold">
+              {formatRunDate(started)} · {timeFormatter.format(started)}
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="mt-3.5 h-40 overflow-hidden rounded-2xl border border-border bg-background">
+            <RouteThumb points={run.points} className="h-full w-full" />
+          </div>
+
+          <div className="mt-4 flex justify-between">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.06em] text-muted uppercase">Distância</p>
+              <p className="mt-0.5 text-base font-extrabold">
+                {formatDistance(run.distanceMeters, unit)} {unitLabel(unit)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.06em] text-muted uppercase">Duração</p>
+              <p className="mt-0.5 text-base font-extrabold">{formatElapsed(seconds)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.06em] text-muted uppercase">Ritmo</p>
+              <p className="mt-0.5 text-base font-extrabold">{formatAveragePace(run.distanceMeters, seconds, unit)}</p>
+            </div>
+          </div>
+
+          <Link
+            href={`/historico/detalhe?id=${run.id}`}
+            className="mt-5 block w-full rounded-full bg-accent py-3 text-center text-sm font-semibold text-accent-foreground"
+          >
+            Ver detalhes completos
+          </Link>
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}
+
+/** Same bottom-sheet shell `SortSheet` above uses — deleting a run used to confirm inline inside the card itself; a sheet reads as more deliberate for something with no undo. */
+function DeleteConfirmSheet({
+  run,
+  unit,
+  deleting,
+  onCancel,
+  onConfirm,
+}: {
+  run: CompletedRun;
+  unit: DistanceUnit;
+  deleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <ModalPortal>
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
+        <div className="w-full max-w-sm rounded-t-3xl bg-background px-6 pt-6 pb-8 text-center sm:rounded-3xl">
+          <h2 className="text-base font-semibold">Excluir esse treino?</h2>
+          <p className="mt-1 text-sm text-muted">
+            {formatRunDate(new Date(run.startedAt))} · {formatDistance(run.distanceMeters, unit)} {unitLabel(unit)}
+          </p>
+          <div className="mt-6 flex gap-2.5">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={deleting}
+              className="flex-1 rounded-full border border-border py-3.5 text-sm font-semibold disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={deleting}
+              className="flex-1 rounded-full bg-bad py-3.5 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {deleting ? "Excluindo…" : "Excluir"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}
+
 function RunRow({
   run,
   unit,
   index,
-  confirmingDelete,
-  deleting,
+  onFocusRun,
   onRequestDelete,
-  onCancelDelete,
-  onConfirmDelete,
 }: {
   run: CompletedRun;
   unit: DistanceUnit;
   index: number;
-  confirmingDelete: boolean;
-  deleting: boolean;
+  onFocusRun: () => void;
   onRequestDelete: () => void;
-  onCancelDelete: () => void;
-  onConfirmDelete: () => void;
 }) {
   const seconds = runMovingSeconds(run);
   const started = new Date(run.startedAt);
@@ -583,44 +761,49 @@ function RunRow({
   return (
     <li className="pr-enter" style={delay(90 + index * 45)}>
       <article className="relative flex items-stretch overflow-hidden rounded-2xl border border-border bg-surface">
-        <Link href={`/historico/detalhe?id=${run.id}`} className="flex min-w-0 flex-1 items-stretch gap-4">
+        <button
+          type="button"
+          onClick={onFocusRun}
+          aria-label="Prévia rápida do trajeto"
+          className="shrink-0 transition-transform active:scale-95"
+        >
           <RouteThumb points={run.points} />
-          <div className="min-w-0 flex-1 py-4 pr-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <h3 className="truncate text-sm font-medium">{formatRunDate(started)}</h3>
-              <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
-                {timeFormatter.format(started)}
-              </span>
-            </div>
-            <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
-              {formatDistance(run.distanceMeters, unit)}
-              <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
-            </p>
-            <dl className="mt-1.5 flex gap-4 font-mono text-xs tabular-nums text-muted">
-              <div className="flex items-center gap-1.5">
-                <dt aria-label="tempo">
-                  <ClockIcon />
-                </dt>
-                <dd className="text-foreground">{formatElapsed(seconds)}</dd>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <dt aria-label={paceLabel(unit)}>
-                  <PaceIcon />
-                </dt>
-                <dd className="text-foreground">
-                  {formatAveragePace(run.distanceMeters, seconds, unit)}
-                </dd>
-              </div>
-            </dl>
-            {run.shoeName && (
-              <p className="mt-1.5 flex items-center gap-1.5 truncate font-mono text-xs text-muted">
-                <span aria-label="tênis" className="shrink-0">
-                  <ShoeIcon />
-                </span>
-                <span className="text-foreground">{run.shoeName}</span>
-              </p>
-            )}
+        </button>
+        <Link href={`/historico/detalhe?id=${run.id}`} className="min-w-0 flex-1 py-4 pr-2 pl-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="truncate text-sm font-medium">{formatRunDate(started)}</h3>
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
+              {timeFormatter.format(started)}
+            </span>
           </div>
+          <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
+            {formatDistance(run.distanceMeters, unit)}
+            <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
+          </p>
+          <dl className="mt-1.5 flex gap-4 font-mono text-xs tabular-nums text-muted">
+            <div className="flex items-center gap-1.5">
+              <dt aria-label="tempo">
+                <ClockIcon />
+              </dt>
+              <dd className="text-foreground">{formatElapsed(seconds)}</dd>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <dt aria-label={paceLabel(unit)}>
+                <PaceIcon />
+              </dt>
+              <dd className="text-foreground">
+                {formatAveragePace(run.distanceMeters, seconds, unit)}
+              </dd>
+            </div>
+          </dl>
+          {run.shoeName && (
+            <p className="mt-1.5 flex items-center gap-1.5 truncate font-mono text-xs text-muted">
+              <span aria-label="tênis" className="shrink-0">
+                <ShoeIcon />
+              </span>
+              <span className="text-foreground">{run.shoeName}</span>
+            </p>
+          )}
         </Link>
 
         <button
@@ -631,30 +814,6 @@ function RunRow({
         >
           <TrashIcon />
         </button>
-
-        {confirmingDelete && (
-          <div className="absolute inset-0 flex items-center justify-between gap-3 rounded-2xl bg-surface px-4">
-            <p className="text-xs leading-snug text-pretty">Excluir essa corrida? Não dá pra desfazer.</p>
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={onCancelDelete}
-                disabled={deleting}
-                className="rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={onConfirmDelete}
-                disabled={deleting}
-                className="rounded-full bg-bad px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                {deleting ? "Excluindo…" : "Excluir"}
-              </button>
-            </div>
-          </div>
-        )}
       </article>
     </li>
   );
@@ -665,9 +824,11 @@ export default function HistoricoPage() {
   const [{ distanceUnit: unit }] = usePreferences();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [focalRunId, setFocalRunId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState<Period>("recent3");
   const [sort, setSort] = useState<SortKey>("recent");
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const handleConfirmDelete = async (id: string) => {
     setDeletingId(id);
@@ -712,6 +873,15 @@ export default function HistoricoPage() {
       ? [...matchedRuns].sort((a, b) => b.startedAt - a.startedAt).slice(0, 3)
       : matchedRuns;
   const visibleRuns = showSearchTool ? sortRuns(cappedRuns, sort) : runs;
+  const focalRun = focalRunId ? runs.find((run) => run.id === focalRunId) ?? null : null;
+  const confirmingRun = confirmingId ? runs.find((run) => run.id === confirmingId) ?? null : null;
+
+  // Up to 2 recent dates + every distinct shoe name — same set the old
+  // inline suggestion row offered, just read fresh from whatever's loaded.
+  const suggestions = [
+    ...new Set(runs.slice(0, 2).map((run) => formatRunDate(new Date(run.startedAt)))),
+    ...new Set(runs.map((run) => run.shoeName).filter((name): name is string => Boolean(name))),
+  ].slice(0, 6);
 
   return (
     <>
@@ -742,10 +912,6 @@ export default function HistoricoPage() {
 
         {load.status === "ready" && runs.length > 0 && (
           <>
-            {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
-            <PersonalRecords runs={runs} defaultUnit={unit} />
-            <RunFrequencyHeatmap runs={runs} unit={unit} />
-
             {showSearchTool && (
               <HistorySearchBar
                 query={query}
@@ -754,6 +920,7 @@ export default function HistoricoPage() {
                 onPeriodChange={setPeriod}
                 sort={sort}
                 onSortChange={setSort}
+                suggestions={suggestions}
               />
             )}
 
@@ -779,18 +946,60 @@ export default function HistoricoPage() {
                     run={run}
                     unit={unit}
                     index={index}
-                    confirmingDelete={confirmingId === run.id}
-                    deleting={deletingId === run.id}
+                    onFocusRun={() => setFocalRunId(run.id)}
                     onRequestDelete={() => setConfirmingId(run.id)}
-                    onCancelDelete={() => setConfirmingId(null)}
-                    onConfirmDelete={() => void handleConfirmDelete(run.id)}
                   />
                 ))}
               </ul>
             )}
+
+            {/*
+             * Collapsed by default, at the end of the screen — someone
+             * opening Histórico almost always wants their runs, not the
+             * summary/records/heatmap around them; those stay a tap away
+             * instead of pushing the list down every time.
+             */}
+            <button
+              type="button"
+              onClick={() => setSummaryOpen((v) => !v)}
+              className="mt-2 flex w-full items-center justify-between border-t border-border pt-5 pb-1"
+            >
+              <span className="text-xs font-bold tracking-[0.06em] text-muted uppercase">Resumo e recordes</span>
+              <svg
+                viewBox="0 0 24 24"
+                className={`h-3.5 w-3.5 text-muted transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            {summaryOpen && (
+              <div className="pr-enter flex flex-col gap-4" style={delay(0, { "--pr-dur": "0.2s" } as CSSProperties)}>
+                {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
+                <PersonalRecords runs={runs} defaultUnit={unit} />
+                <RunFrequencyHeatmap runs={runs} unit={unit} />
+              </div>
+            )}
           </>
         )}
       </Screen>
+
+      {focalRun && <FocalRunModal run={focalRun} unit={unit} onClose={() => setFocalRunId(null)} />}
+      {confirmingRun && (
+        <DeleteConfirmSheet
+          run={confirmingRun}
+          unit={unit}
+          deleting={deletingId === confirmingRun.id}
+          onCancel={() => setConfirmingId(null)}
+          onConfirm={() => void handleConfirmDelete(confirmingRun.id)}
+        />
+      )}
     </>
   );
 }
