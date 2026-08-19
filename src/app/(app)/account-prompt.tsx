@@ -52,10 +52,20 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
    * `startOAuthSignIn` returns here is the whole fix.
    */
   const [oauthError, setOauthError] = useState<string | null>(null);
+  /**
+   * Which provider button is mid-flight — `startOAuthSignIn` genuinely
+   * awaits something before the browser leaves (a native `Browser.open`
+   * round trip, or just the `createOAuth2Session` call on web) and used to
+   * leave both buttons sitting there with no sign anything happened, which
+   * reads exactly like the tap did nothing on a slower connection.
+   */
+  const [oauthProvider, setOauthProvider] = useState<"apple" | "google" | null>(null);
 
-  async function handleOAuth(signIn: (returnTo: string) => Promise<string | null>) {
+  async function handleOAuth(provider: "apple" | "google", signIn: (returnTo: string) => Promise<string | null>) {
     setOauthError(null);
+    setOauthProvider(provider);
     const error = await signIn(returnTo);
+    setOauthProvider(null);
     if (error) setOauthError(error);
   }
 
@@ -133,20 +143,22 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
                   any other third-party login offered alongside it. */}
               <button
                 type="button"
-                onClick={() => void handleOAuth(signInWithApple)}
-                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold"
+                onClick={() => void handleOAuth("apple", signInWithApple)}
+                disabled={oauthProvider !== null}
+                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold disabled:opacity-60"
               >
                 <AppleIcon />
-                Continuar com Apple
+                {oauthProvider === "apple" ? "Abrindo…" : "Continuar com Apple"}
               </button>
 
               <button
                 type="button"
-                onClick={() => void handleOAuth(signInWithGoogle)}
-                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold"
+                onClick={() => void handleOAuth("google", signInWithGoogle)}
+                disabled={oauthProvider !== null}
+                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold disabled:opacity-60"
               >
                 <GoogleIcon />
-                Continuar com Google
+                {oauthProvider === "google" ? "Abrindo…" : "Continuar com Google"}
               </button>
 
               {oauthError && (

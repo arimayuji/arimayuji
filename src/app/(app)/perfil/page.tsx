@@ -287,11 +287,14 @@ const EMPTY_SHOE_DRAFT: ShoeDraft = { brand: "", name: "", color: DEFAULT_SHOE_C
 function ShoeForm({
   initial,
   submitLabel,
+  savingLabel,
   onSubmit,
   onCancel,
 }: {
   initial: ShoeDraft;
   submitLabel: string;
+  /** Shown in place of `submitLabel` while `onSubmit`'s own write is in flight — distinct per caller ("Salvando…" for an edit, "Adicionando…" for a new shoe) since `saving` alone used to just dim the button with no word telling you which thing it was doing. */
+  savingLabel: string;
   onSubmit: (draft: ShoeDraft) => void;
   onCancel: () => void;
 }) {
@@ -464,7 +467,7 @@ function ShoeForm({
           disabled={!canSubmit}
           className="min-h-11 flex-1 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground disabled:opacity-60"
         >
-          {submitLabel}
+          {saving ? savingLabel : submitLabel}
         </button>
         <button
           type="button"
@@ -540,12 +543,15 @@ function ShoeRow({
   shoe,
   summary,
   unit,
+  deleting,
   onEdit,
   onDelete,
 }: {
   shoe: Shoe;
   summary: ShoeSummary | undefined;
   unit: DistanceUnit;
+  /** True while this row's own `deleteShoe` + refresh is in flight — the row itself doesn't optimistically disappear until the list actually reloads, so the confirm button needs its own busy word instead of just sitting there tappable again. */
+  deleting: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -590,15 +596,17 @@ function ShoeRow({
           <>
             <button
               type="button"
+              disabled={deleting}
               onClick={onDelete}
-              className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad"
+              className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
             >
-              Confirmar exclusão
+              {deleting ? "Excluindo…" : "Confirmar exclusão"}
             </button>
             <button
               type="button"
+              disabled={deleting}
               onClick={() => setConfirmingDelete(false)}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground"
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -678,6 +686,7 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
   const [summaries, setSummaries] = useState<ShoeSummary[]>([]);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const refresh = useCallback(
     () =>
@@ -716,6 +725,7 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
                   <ShoeForm
                     initial={shoe}
                     submitLabel="Salvar"
+                    savingLabel="Salvando…"
                     onCancel={() => setEditingId(null)}
                     onSubmit={async (draft) => {
                       await updateShoe({ ...shoe, ...draft });
@@ -730,13 +740,16 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
                   shoe={shoe}
                   summary={summaryFor(shoe.name)}
                   unit={unit}
+                  deleting={deletingId === shoe.id}
                   onEdit={() => {
                     setAdding(false);
                     setEditingId(shoe.id);
                   }}
                   onDelete={async () => {
+                    setDeletingId(shoe.id);
                     await deleteShoe(shoe.id);
                     await refresh();
+                    setDeletingId(null);
                   }}
                 />
               ),
@@ -749,6 +762,7 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
         <ShoeForm
           initial={EMPTY_SHOE_DRAFT}
           submitLabel="Adicionar tênis"
+          savingLabel="Adicionando…"
           onCancel={() => setAdding(false)}
           onSubmit={async (draft) => {
             await createShoe(draft);

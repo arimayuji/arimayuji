@@ -73,6 +73,8 @@ export default function TreinadorPage() {
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: "good" | "bad"; message: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** Which of the two actions on the *same* incoming request `busyId` is currently mid-flight — `busyId` alone can't tell Aceitar and Recusar's busy labels apart, since both buttons share it. */
+  const [busyAction, setBusyAction] = useState<"accept" | "decline" | null>(null);
   const [activeTab, setActiveTab] = useState<CoachTab>("convites");
 
   useEffect(() => {
@@ -120,10 +122,16 @@ export default function TreinadorPage() {
     }
   };
 
-  const act = async (relationshipId: string, action: () => Promise<boolean>) => {
+  const act = async (
+    relationshipId: string,
+    action: () => Promise<boolean>,
+    kind: "accept" | "decline" | null = null,
+  ) => {
     setBusyId(relationshipId);
+    setBusyAction(kind);
     const ok = await action();
     setBusyId(null);
+    setBusyAction(null);
     if (ok) reload();
     else setFeedback({ tone: "bad", message: "Não deu pra concluir agora — tenta de novo em instantes." });
   };
@@ -283,25 +291,33 @@ export default function TreinadorPage() {
                                     type="button"
                                     disabled={busyId === connection.relationship.$id}
                                     onClick={() =>
-                                      act(connection.relationship.$id, () =>
-                                        respondToCoachRequest(connection.relationship.$id, true),
+                                      act(
+                                        connection.relationship.$id,
+                                        () => respondToCoachRequest(connection.relationship.$id, true),
+                                        "accept",
                                       )
                                     }
                                     className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
                                   >
-                                    Aceitar
+                                    {busyId === connection.relationship.$id && busyAction === "accept"
+                                      ? "Aceitando…"
+                                      : "Aceitar"}
                                   </button>
                                   <button
                                     type="button"
                                     disabled={busyId === connection.relationship.$id}
                                     onClick={() =>
-                                      act(connection.relationship.$id, () =>
-                                        respondToCoachRequest(connection.relationship.$id, false),
+                                      act(
+                                        connection.relationship.$id,
+                                        () => respondToCoachRequest(connection.relationship.$id, false),
+                                        "decline",
                                       )
                                     }
                                     className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
                                   >
-                                    Recusar
+                                    {busyId === connection.relationship.$id && busyAction === "decline"
+                                      ? "Recusando…"
+                                      : "Recusar"}
                                   </button>
                                 </div>
                               </div>
@@ -428,7 +444,7 @@ function OutgoingRequestRow({
             onClick={onCancel}
             className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
           >
-            Confirmar
+            {busy ? "Cancelando…" : "Confirmar"}
           </button>
           <button
             type="button"
@@ -473,7 +489,7 @@ function RelationshipRow({
             onClick={onRemove}
             className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
           >
-            Confirmar
+            {busy ? "Desfazendo…" : "Confirmar"}
           </button>
           <button
             type="button"

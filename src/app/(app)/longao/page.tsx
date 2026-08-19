@@ -129,6 +129,9 @@ function LongaoContent() {
   const [reloadKey, setReloadKey] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  /** Which remembered session's "Abrir" is mid-join — distinct from `joining`, which only tracks the code-entry form's own submit button below. */
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<LongaoTab>("criar");
 
   const reload = () => setReloadKey((key) => key + 1);
@@ -179,12 +182,15 @@ function LongaoContent() {
     }
   };
 
-  const performJoin = async (code: string) => {
-    if (joining || !normalizeJoinCode(code)) return;
-    setJoining(true);
+  /** `sessionId` set only when called from a "Seus longões recentes" row's own "Abrir" button — tracked in `openingId` instead of `joining`, so that row's busy label doesn't also light up the unrelated code-entry form's submit button below. */
+  const performJoin = async (code: string, sessionId?: string) => {
+    if (joining || openingId || !normalizeJoinCode(code)) return;
+    if (sessionId) setOpeningId(sessionId);
+    else setJoining(true);
     setFeedback(null);
     const result = await joinGroupRun(code);
-    setJoining(false);
+    if (sessionId) setOpeningId(null);
+    else setJoining(false);
     if (result.ok) {
       setJoinCode("");
       reload();
@@ -199,21 +205,26 @@ function LongaoContent() {
   };
 
   const handleShare = async (code: string, name: string) => {
-    const url = `${window.location.origin}/longao?c=${code}`;
-    const text = `Bora correr o "${name}" comigo? Entra com o código ${code} no Xanthus, ou abre: ${url}`;
-    if (shareSupport === "share") {
-      try {
-        await navigator.share({ title: "Longão no Xanthus", text, url });
-        return;
-      } catch {
-        // Cancelled or failed — clipboard below is the fallback either way.
-      }
-    }
+    setSharing(true);
     try {
-      await navigator.clipboard.writeText(text);
-      setFeedback({ tone: "good", message: "Convite copiado — cola onde quiser mandar." });
-    } catch {
-      setFeedback({ tone: "bad", message: "Não deu pra copiar — o código é " + code + "." });
+      const url = `${window.location.origin}/longao?c=${code}`;
+      const text = `Bora correr o "${name}" comigo? Entra com o código ${code} no Xanthus, ou abre: ${url}`;
+      if (shareSupport === "share") {
+        try {
+          await navigator.share({ title: "Longão no Xanthus", text, url });
+          return;
+        } catch {
+          // Cancelled or failed — clipboard below is the fallback either way.
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        setFeedback({ tone: "good", message: "Convite copiado — cola onde quiser mandar." });
+      } catch {
+        setFeedback({ tone: "bad", message: "Não deu pra copiar — o código é " + code + "." });
+      }
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -301,10 +312,11 @@ function LongaoContent() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => handleShare(activeSession.$id, activeSession.name)}
-                    className="rounded-full border border-accent px-3.5 py-2 text-xs font-semibold text-accent"
+                    disabled={sharing}
+                    onClick={() => void handleShare(activeSession.$id, activeSession.name)}
+                    className="rounded-full border border-accent px-3.5 py-2 text-xs font-semibold text-accent disabled:opacity-60"
                   >
-                    Compartilhar
+                    {sharing ? "Compartilhando…" : "Compartilhar"}
                   </button>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-muted">
@@ -423,10 +435,11 @@ function LongaoContent() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => void performJoin(session.$id)}
-                            className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:border-accent"
+                            disabled={openingId === session.$id}
+                            onClick={() => void performJoin(session.$id, session.$id)}
+                            className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:border-accent disabled:opacity-60"
                           >
-                            Abrir
+                            {openingId === session.$id ? "Abrindo…" : "Abrir"}
                           </button>
                         </li>
                       ))}

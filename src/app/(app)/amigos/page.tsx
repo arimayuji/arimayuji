@@ -66,6 +66,8 @@ export default function AmigosPage() {
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: "good" | "bad"; message: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** Which of the two actions on the *same* incoming request `busyId` is currently mid-flight — `busyId` alone can't tell Aceitar and Recusar's busy labels apart, since both buttons share it. */
+  const [busyAction, setBusyAction] = useState<"accept" | "decline" | null>(null);
   const [activeTab, setActiveTab] = useState<FriendTab>("convites");
 
   useEffect(() => {
@@ -107,10 +109,16 @@ export default function AmigosPage() {
     }
   };
 
-  const act = async (friendshipId: string, action: () => Promise<boolean>) => {
+  const act = async (
+    friendshipId: string,
+    action: () => Promise<boolean>,
+    kind: "accept" | "decline" | null = null,
+  ) => {
     setBusyId(friendshipId);
+    setBusyAction(kind);
     const ok = await action();
     setBusyId(null);
+    setBusyAction(null);
     if (ok) reload();
     else setFeedback({ tone: "bad", message: "Não deu pra concluir agora — tenta de novo em instantes." });
   };
@@ -243,25 +251,33 @@ export default function AmigosPage() {
                                 type="button"
                                 disabled={busyId === connection.friendship.$id}
                                 onClick={() =>
-                                  act(connection.friendship.$id, () =>
-                                    respondToFriendRequest(connection.friendship.$id, true),
+                                  act(
+                                    connection.friendship.$id,
+                                    () => respondToFriendRequest(connection.friendship.$id, true),
+                                    "accept",
                                   )
                                 }
                                 className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
                               >
-                                Aceitar
+                                {busyId === connection.friendship.$id && busyAction === "accept"
+                                  ? "Aceitando…"
+                                  : "Aceitar"}
                               </button>
                               <button
                                 type="button"
                                 disabled={busyId === connection.friendship.$id}
                                 onClick={() =>
-                                  act(connection.friendship.$id, () =>
-                                    respondToFriendRequest(connection.friendship.$id, false),
+                                  act(
+                                    connection.friendship.$id,
+                                    () => respondToFriendRequest(connection.friendship.$id, false),
+                                    "decline",
                                   )
                                 }
                                 className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
                               >
-                                Recusar
+                                {busyId === connection.friendship.$id && busyAction === "decline"
+                                  ? "Recusando…"
+                                  : "Recusar"}
                               </button>
                             </PersonRow>
                           ))}
@@ -351,7 +367,7 @@ function OutgoingRequestRow({
             onClick={onCancel}
             className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
           >
-            Confirmar
+            {busy ? "Cancelando…" : "Confirmar"}
           </button>
           <button
             type="button"
@@ -396,7 +412,7 @@ function FriendRow({
             onClick={onRemove}
             className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
           >
-            Confirmar
+            {busy ? "Desfazendo…" : "Confirmar"}
           </button>
           <button
             type="button"

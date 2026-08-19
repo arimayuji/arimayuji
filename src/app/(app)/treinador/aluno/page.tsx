@@ -246,7 +246,7 @@ function AlunoContent() {
                       disabled={postingComment === run.$id || !(commentDrafts[run.$id] ?? "").trim()}
                       className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-40"
                     >
-                      {postingComment === run.$id ? "..." : "Enviar"}
+                      {postingComment === run.$id ? "Enviando…" : "Enviar"}
                     </button>
                   </form>
                 </li>

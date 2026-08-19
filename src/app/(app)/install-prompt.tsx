@@ -57,6 +57,8 @@ export function InstallPrompt() {
   const showIosHint = useIsIos();
   const [deferredEvent, setDeferredEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  /** True between the tap and the OS install dialog actually appearing — `prompt()`/`userChoice` are real awaits, not instant, and the button used to just sit there with no sign the tap registered. */
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     if (!eligible) return;
@@ -96,10 +98,12 @@ export function InstallPrompt() {
 
   async function handleInstall() {
     if (!deferredEvent) return;
+    setInstalling(true);
     await deferredEvent.prompt();
     const { outcome } = await deferredEvent.userChoice;
     if (outcome === "accepted") dismiss();
     setDeferredEvent(null);
+    setInstalling(false);
   }
 
   if (!eligible || dismissed || (!deferredEvent && !showIosHint)) return null;
@@ -129,9 +133,10 @@ export function InstallPrompt() {
         <button
           type="button"
           onClick={handleInstall}
-          className="shrink-0 rounded-full bg-accent px-3.5 py-2 text-xs font-semibold text-accent-foreground"
+          disabled={installing}
+          className="shrink-0 rounded-full bg-accent px-3.5 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60"
         >
-          Instalar
+          {installing ? "Abrindo…" : "Instalar"}
         </button>
       )}
       <button
