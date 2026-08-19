@@ -22,6 +22,15 @@ export function AccountCard() {
   const { status, account, profile, refresh } = useAuth();
   const [showPrompt, setShowPrompt] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  /** True while `signOut` (a real Appwrite call) is in flight — this button has no text label to swap to a busy verb like the rest of the app does, so the icon itself spins instead. */
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await signOut();
+    await refresh();
+    setSigningOut(false);
+  };
 
   return (
     <Card className="pr-enter">
@@ -63,25 +72,41 @@ export function AccountCard() {
           </div>
           <button
             type="button"
-            onClick={() => void signOut().then(refresh)}
-            aria-label="Sair"
-            title="Sair"
-            className="shrink-0 rounded-full p-2 text-bad hover:bg-bad/10"
+            onClick={() => void handleSignOut()}
+            disabled={signingOut}
+            aria-label={signingOut ? "Saindo…" : "Sair"}
+            title={signingOut ? "Saindo…" : "Sair"}
+            className="shrink-0 rounded-full p-2 text-bad hover:bg-bad/10 disabled:opacity-60"
           >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4.5 w-4.5"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
-              <path d="M16 17l5-5-5-5" />
-              <path d="M21 12H9" />
-            </svg>
+            {signingOut ? (
+              <svg viewBox="0 0 20 20" className="h-4.5 w-4.5 animate-spin" aria-hidden="true">
+                <circle
+                  cx="10"
+                  cy="10"
+                  r="7"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  fill="none"
+                  strokeDasharray="24 44"
+                  strokeLinecap="round"
+                />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4.5 w-4.5"
+                aria-hidden="true"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
+                <path d="M16 17l5-5-5-5" />
+                <path d="M21 12H9" />
+              </svg>
+            )}
           </button>
         </div>
       )}
