@@ -52,6 +52,43 @@ export function SegmentedButton({
   );
 }
 
+/**
+ * A pill-track tab switcher — two (or a few) mutually-exclusive views inside
+ * one card, e.g. Amigos' Convites/Amigos or Longão's Criar/Entrar. Distinct
+ * from `SegmentedButton` above: that one is a row of equal-weight bordered
+ * buttons for a form field's value; this is a single accent-filled pill
+ * sliding between labels sunk into a track, the shape a *tab switch* reads
+ * as everywhere else in the redesign (the run screen's own metric picker,
+ * the sort sheets) — using `SegmentedButton` here would look like a form
+ * control sitting where a navigation control belongs.
+ */
+export function PillTabs<T extends string>({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: readonly { id: T; label: string }[];
+  active: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div className="flex gap-1 rounded-full bg-background p-1">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={`h-9 flex-1 rounded-full text-xs font-bold transition-colors ${
+            active === tab.id ? "bg-accent text-accent-foreground" : "text-muted"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Neutral counterpart for things that are real but not yet persisted. */
 export function NoticeBadge({ children }: { children: ReactNode }) {
   return (

@@ -12,7 +12,7 @@ import {
 } from "@/lib/friendships";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/amigos";
 
@@ -51,36 +51,10 @@ function PersonRow({ connection, children }: { connection: FriendConnection; chi
 
 type FriendTab = "convites" | "amigos";
 
-/** Pill switcher — same two-option toggle style the tracking screen's template picker and other tabbed cards in this redesign use. */
-function TabSwitcher({
-  active,
-  onChange,
-}: {
-  active: FriendTab;
-  onChange: (tab: FriendTab) => void;
-}) {
-  return (
-    <div className="mb-4 flex gap-1 rounded-full bg-background p-1">
-      {(
-        [
-          { id: "convites", label: "Convites" },
-          { id: "amigos", label: "Amigos" },
-        ] as const
-      ).map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          onClick={() => onChange(tab.id)}
-          className={`h-9 flex-1 rounded-full text-xs font-bold transition-colors ${
-            active === tab.id ? "bg-accent text-accent-foreground" : "text-muted"
-          }`}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+const FRIEND_TABS = [
+  { id: "convites", label: "Convites" },
+  { id: "amigos", label: "Amigos" },
+] as const;
 
 export default function AmigosPage() {
   const { status } = useAuth();
@@ -244,7 +218,9 @@ export default function AmigosPage() {
             )}
 
             <Card className="pr-enter" style={delay(80)}>
-              <TabSwitcher active={activeTab} onChange={setActiveTab} />
+              <div className="mb-4">
+                <PillTabs tabs={FRIEND_TABS} active={activeTab} onChange={setActiveTab} />
+              </div>
 
               {activeTab === "convites" ? (
                 connections === null ? (

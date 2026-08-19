@@ -13,9 +13,17 @@ import {
 import { normalizeHandle } from "@/lib/friendships";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/treinador";
+
+type CoachTab = "convites" | "treinadores" | "alunos";
+
+const COACH_TABS = [
+  { id: "convites", label: "Convites" },
+  { id: "treinadores", label: "Treinadores" },
+  { id: "alunos", label: "Alunos" },
+] as const;
 
 const SEND_ERRORS: Record<string, string> = {
   "not-found": "Ninguém com esse @ por aqui. Confere a escrita — o @ é o mesmo que a pessoa escolheu ao criar a conta.",
@@ -65,6 +73,7 @@ export default function TreinadorPage() {
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: "good" | "bad"; message: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<CoachTab>("convites");
 
   useEffect(() => {
     if (status !== "signed-in") return;
@@ -244,137 +253,146 @@ export default function TreinadorPage() {
             )}
 
             <Card className="pr-enter" style={delay(80)}>
-              <CardTitle aside={incoming.length > 0 ? <NoticeBadge>{incoming.length}</NoticeBadge> : undefined}>
-                Convites recebidos
-              </CardTitle>
-              {connections === null ? (
-                <div className="h-12 animate-pulse rounded-lg bg-background" />
-              ) : incoming.length === 0 ? (
-                <p className="text-xs leading-relaxed text-muted">Nenhum convite esperando resposta.</p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {incoming.map((connection) => (
-                    <PersonRow key={connection.relationship.$id} connection={connection}>
-                      <div className="flex flex-col items-end gap-1.5">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
-                          quer ser {otherRoleLabel(connection.myRole)}
-                        </span>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={busyId === connection.relationship.$id}
-                            onClick={() =>
-                              act(connection.relationship.$id, () =>
-                                respondToCoachRequest(connection.relationship.$id, true),
-                              )
-                            }
-                            className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
-                          >
-                            Aceitar
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === connection.relationship.$id}
-                            onClick={() =>
-                              act(connection.relationship.$id, () =>
-                                respondToCoachRequest(connection.relationship.$id, false),
-                              )
-                            }
-                            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
-                          >
-                            Recusar
-                          </button>
-                        </div>
+              <div className="mb-4">
+                <PillTabs tabs={COACH_TABS} active={activeTab} onChange={setActiveTab} />
+              </div>
+
+              {activeTab === "convites" &&
+                (connections === null ? (
+                  <div className="h-12 animate-pulse rounded-lg bg-background" />
+                ) : incoming.length === 0 && outgoing.length === 0 ? (
+                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
+                    Nenhum convite esperando resposta — enviados ou recebidos.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-5">
+                    {incoming.length > 0 && (
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
+                          Recebidos
+                        </p>
+                        <ul className="flex flex-col gap-3">
+                          {incoming.map((connection) => (
+                            <PersonRow key={connection.relationship.$id} connection={connection}>
+                              <div className="flex flex-col items-end gap-1.5">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                                  quer ser {otherRoleLabel(connection.myRole)}
+                                </span>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={busyId === connection.relationship.$id}
+                                    onClick={() =>
+                                      act(connection.relationship.$id, () =>
+                                        respondToCoachRequest(connection.relationship.$id, true),
+                                      )
+                                    }
+                                    className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+                                  >
+                                    Aceitar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={busyId === connection.relationship.$id}
+                                    onClick={() =>
+                                      act(connection.relationship.$id, () =>
+                                        respondToCoachRequest(connection.relationship.$id, false),
+                                      )
+                                    }
+                                    className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
+                                  >
+                                    Recusar
+                                  </button>
+                                </div>
+                              </div>
+                            </PersonRow>
+                          ))}
+                        </ul>
                       </div>
-                    </PersonRow>
-                  ))}
-                </ul>
-              )}
-            </Card>
+                    )}
 
-            {outgoing.length > 0 && (
-              <Card className="pr-enter" style={delay(100)}>
-                <CardTitle>Convites enviados</CardTitle>
-                <ul className="flex flex-col gap-3">
-                  {outgoing.map((connection) => (
-                    <OutgoingRequestRow
-                      key={connection.relationship.$id}
-                      connection={connection}
-                      busy={busyId === connection.relationship.$id}
-                      onCancel={() =>
-                        act(connection.relationship.$id, () => removeCoachRelationship(connection.relationship.$id))
-                      }
-                    />
-                  ))}
-                </ul>
-              </Card>
-            )}
+                    {outgoing.length > 0 && (
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
+                          Enviados
+                        </p>
+                        <ul className="flex flex-col gap-3">
+                          {outgoing.map((connection) => (
+                            <OutgoingRequestRow
+                              key={connection.relationship.$id}
+                              connection={connection}
+                              busy={busyId === connection.relationship.$id}
+                              onCancel={() =>
+                                act(connection.relationship.$id, () =>
+                                  removeCoachRelationship(connection.relationship.$id),
+                                )
+                              }
+                            />
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
 
-            <Card className="pr-enter" style={delay(120)}>
-              <CardTitle aside={myCoaches.length > 0 ? <NoticeBadge>{myCoaches.length}</NoticeBadge> : undefined}>
-                Seus treinadores
-              </CardTitle>
-              {connections === null ? (
-                <div className="h-12 animate-pulse rounded-lg bg-background" />
-              ) : myCoaches.length === 0 ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  Nenhum treinador ainda. Depois de aceito, você escolhe corrida por corrida o que enviar
-                  pra ele ver, na tela de detalhe de cada corrida.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {myCoaches.map((connection) => (
-                    <RelationshipRow
-                      key={connection.relationship.$id}
-                      connection={connection}
-                      busy={busyId === connection.relationship.$id}
-                      onRemove={() =>
-                        act(connection.relationship.$id, () => removeCoachRelationship(connection.relationship.$id))
-                      }
-                    />
-                  ))}
-                </ul>
-              )}
-            </Card>
+              {activeTab === "treinadores" &&
+                (connections === null ? (
+                  <div className="h-12 animate-pulse rounded-lg bg-background" />
+                ) : myCoaches.length === 0 ? (
+                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
+                    Nenhum treinador ainda. Depois de aceito, você escolhe corrida por corrida o que enviar
+                    pra ele ver, na tela de detalhe de cada corrida.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {myCoaches.map((connection) => (
+                      <RelationshipRow
+                        key={connection.relationship.$id}
+                        connection={connection}
+                        busy={busyId === connection.relationship.$id}
+                        onRemove={() =>
+                          act(connection.relationship.$id, () => removeCoachRelationship(connection.relationship.$id))
+                        }
+                      />
+                    ))}
+                  </ul>
+                ))}
 
-            <Card className="pr-enter" style={delay(140)}>
-              <CardTitle aside={myStudents.length > 0 ? <NoticeBadge>{myStudents.length}</NoticeBadge> : undefined}>
-                Seus alunos
-              </CardTitle>
-              {connections === null ? (
-                <div className="h-12 animate-pulse rounded-lg bg-background" />
-              ) : myStudents.length === 0 ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  Nenhum aluno ainda. Convide pelo @ acima, marcando &quot;É meu aluno&quot;.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {myStudents.map((connection) => (
-                    <li
-                      key={connection.relationship.$id}
-                      className="border-t border-border pt-3 first:border-t-0 first:pt-0"
-                    >
-                      <Link
-                        href={`/treinador/aluno?id=${connection.otherId}`}
-                        className="flex items-center gap-3"
+              {activeTab === "alunos" &&
+                (connections === null ? (
+                  <div className="h-12 animate-pulse rounded-lg bg-background" />
+                ) : myStudents.length === 0 ? (
+                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
+                    Nenhum aluno ainda. Convide pelo @ acima, marcando &quot;É meu aluno&quot;.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {myStudents.map((connection) => (
+                      <li
+                        key={connection.relationship.$id}
+                        className="border-t border-border pt-3 first:border-t-0 first:pt-0"
                       >
-                        <Avatar name={connection.profile?.displayName ?? "?"} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">
-                            {connection.profile?.displayName ?? "Corredor(a)"}
-                          </p>
-                          <p className="truncate font-mono text-xs text-muted">
-                            {connection.profile ? `@${connection.profile.handle}` : "conta sem @ ainda"}
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-accent px-3.5 py-2 text-xs font-semibold text-accent-foreground">
-                          Ver corridas
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                        <Link
+                          href={`/treinador/aluno?id=${connection.otherId}`}
+                          className="flex items-center gap-3"
+                        >
+                          <Avatar name={connection.profile?.displayName ?? "?"} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">
+                              {connection.profile?.displayName ?? "Corredor(a)"}
+                            </p>
+                            <p className="truncate font-mono text-xs text-muted">
+                              {connection.profile ? `@${connection.profile.handle}` : "conta sem @ ainda"}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-accent px-3.5 py-2 text-xs font-semibold text-accent-foreground">
+                            Ver corridas
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ))}
             </Card>
           </>
         )}

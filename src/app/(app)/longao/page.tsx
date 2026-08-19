@@ -20,9 +20,16 @@ import {
 import { useAuth } from "@/lib/useAuth";
 import { useShareSupport } from "@/lib/share";
 import { AccountPrompt } from "../account-prompt";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/longao";
+
+type LongaoTab = "criar" | "entrar";
+
+const LONGAO_TABS = [
+  { id: "criar", label: "Criar" },
+  { id: "entrar", label: "Entrar" },
+] as const;
 
 const JOIN_ERRORS: Record<string, string> = {
   "not-found": "Nenhum longão com esse código. Confere com quem te chamou.",
@@ -122,6 +129,7 @@ function LongaoContent() {
   const [reloadKey, setReloadKey] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [activeTab, setActiveTab] = useState<LongaoTab>("criar");
 
   const reload = () => setReloadKey((key) => key + 1);
 
@@ -354,48 +362,50 @@ function LongaoContent() {
             ) : (
               <>
                 <Card className="pr-enter" style={delay(40)}>
-                  <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>Criar longão</CardTitle>
-                  <form onSubmit={handleCreate}>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      placeholder="Nome — ex: Longão de domingo no Ibira"
-                      maxLength={60}
-                      className="w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm outline-none focus:border-accent"
-                    />
-                    <button
-                      type="submit"
-                      disabled={creating}
-                      className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60"
-                    >
-                      {creating ? "Criando…" : "Criar e gerar código"}
-                    </button>
-                  </form>
-                </Card>
+                  <div className="mb-4">
+                    <PillTabs tabs={LONGAO_TABS} active={activeTab} onChange={setActiveTab} />
+                  </div>
 
-                <Card className="pr-enter" style={delay(60)}>
-                  <CardTitle>Entrar com código</CardTitle>
-                  <form onSubmit={handleJoin}>
-                    <input
-                      type="text"
-                      value={joinCode}
-                      onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-                      placeholder="Código de 6 letras"
-                      maxLength={6}
-                      autoCapitalize="characters"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      className="w-full rounded-xl border border-border bg-background px-3.5 py-3 text-center font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
-                    />
-                    <button
-                      type="submit"
-                      disabled={joining || !normalizeJoinCode(joinCode)}
-                      className="mt-3 min-h-12 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent disabled:opacity-60"
-                    >
-                      {joining ? "Entrando…" : "Entrar"}
-                    </button>
-                  </form>
+                  {activeTab === "criar" ? (
+                    <form onSubmit={handleCreate}>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        placeholder="Nome — ex: Longão de domingo no Ibira"
+                        maxLength={60}
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm outline-none focus:border-accent"
+                      />
+                      <button
+                        type="submit"
+                        disabled={creating}
+                        className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+                      >
+                        {creating ? "Criando…" : "Criar e gerar código"}
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleJoin}>
+                      <input
+                        type="text"
+                        value={joinCode}
+                        onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                        placeholder="Código de 6 letras"
+                        maxLength={6}
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-3 text-center font-mono text-lg tracking-[0.3em] outline-none focus:border-accent"
+                      />
+                      <button
+                        type="submit"
+                        disabled={joining || !normalizeJoinCode(joinCode)}
+                        className="mt-3 min-h-12 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent disabled:opacity-60"
+                      >
+                        {joining ? "Entrando…" : "Entrar"}
+                      </button>
+                    </form>
+                  )}
                 </Card>
 
                 {mySessions !== null && mySessions.length > 0 && (
