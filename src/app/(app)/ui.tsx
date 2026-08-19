@@ -137,10 +137,13 @@ export function Stat({
   label,
   value,
   unit,
+  icon,
 }: {
   label: string;
   value: string;
   unit?: string;
+  /** Small glyph shown ahead of the label — optional, most callers don't pass one. */
+  icon?: ReactNode;
 }) {
   return (
     // `min-w-0` matters here specifically because every caller puts this in
@@ -153,7 +156,10 @@ export function Stat({
     // rather than silently clip past the viewport with no indication
     // anything was cut.
     <div className="min-w-0">
-      <span className="text-[11px] uppercase tracking-wide text-muted">{label}</span>
+      <span className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted">
+        {icon}
+        {label}
+      </span>
       <p className="text-metal mt-0.5 truncate font-mono text-2xl tabular-nums">
         {value}
         {unit && <span className="ml-1 text-sm text-muted">{unit}</span>}

@@ -351,7 +351,7 @@ function WeeklyVolumeChart({ weeks, unit }: { weeks: WeekBucket[]; unit: Distanc
             <div key={week.weekStart} className="flex flex-1 flex-col items-center gap-1.5">
               <div className="flex h-32 w-full items-end">
                 <div
-                  className={`pr-bar w-full rounded-sm ${isCurrent ? "bg-accent/50" : "bg-accent"}`}
+                  className={`pr-bar w-full rounded-md ${isCurrent ? "bg-accent/50" : "bg-accent"}`}
                   style={delay(100 + index * 45, { height: `${heightPct}%` } as CSSProperties)}
                   title={`Semana de ${weekLabel(week.weekStart)}: ${formatDistance(week.distanceMeters, unit)} ${unitLabel(unit)}`}
                 />
@@ -528,7 +528,7 @@ function DailyVolumeChart({ runs, unit }: { runs: CompletedRun[]; unit: Distance
             <div key={day.dayStart} className="flex flex-1 flex-col items-center gap-1">
               <div className="flex h-24 w-full items-end">
                 <div
-                  className={`pr-bar w-full rounded-sm ${isToday ? "bg-accent/50" : day.distanceMeters > 0 ? "bg-accent" : "bg-border"}`}
+                  className={`pr-bar w-full rounded-md ${isToday ? "bg-accent/50" : day.distanceMeters > 0 ? "bg-accent" : "bg-border"}`}
                   style={delay(180 + index * 25, { height: `${Math.max(heightPct, 4)}%` } as CSSProperties)}
                   title={`${new Date(day.dayStart).toLocaleDateString("pt-BR")}: ${formatDistance(day.distanceMeters, unit)} ${unitLabel(unit)}`}
                 />

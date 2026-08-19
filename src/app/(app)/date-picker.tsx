@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ModalPortal } from "./modal-portal";
 
 /**
  * Calendar picker for the race-goal date.
@@ -10,17 +11,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * seven-column layout. It replaces `<input type="date">`, whose native popup
  * looks like a different app on every platform and can't say "past dates are
  * not a race date".
+ *
+ * Opens as a bottom sheet (`ModalPortal`, same shell `SortSheet`/
+ * `DeleteConfirmSheet` use elsewhere) rather than an anchored dropdown near
+ * the trigger — no viewport-clipping math to get right on a small phone
+ * screen, and it matches every other picker/confirm surface in the app.
  */
-
-const PANEL_MIN_WIDTH = 288;
-const PANEL_HEIGHT = 392;
-const VIEWPORT_MARGIN = 8;
-
-/**
- * The tab bar is fixed over the bottom of every app screen, so the space that
- * is actually free below the field ends above it, not at the viewport edge.
- */
-const TAB_BAR_HEIGHT = 80;
 
 /** Monday-first, same week shape the plan and history screens use. */
 const WEEKDAY_INITIALS = ["S", "T", "Q", "Q", "S", "S", "D"];
@@ -130,35 +126,19 @@ export function GoalDatePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [browsed, setBrowsed] = useState<{ year: number; month: number } | null>(null);
-  const [panel, setPanel] = useState({ left: 0, width: PANEL_MIN_WIDTH, above: false });
-
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const today = startOfToday();
   const selected = value ? fromIsoDate(value) : null;
 
-  const close = useCallback(() => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  }, []);
+  const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
     if (!open) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
-
-    document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, close]);
 
   const toggle = () => {
@@ -166,30 +146,6 @@ export function GoalDatePicker({
       close();
       return;
     }
-
-    /*
-     * Measured on the way open so the panel can be pushed back inside the
-     * viewport: anchored flush to a trigger that sits near the right edge it
-     * would hang off screen, which on a phone scrolls the whole page sideways.
-     */
-    const rect = triggerRef.current?.getBoundingClientRect();
-    if (rect) {
-      const width = Math.min(
-        Math.max(rect.width, PANEL_MIN_WIDTH),
-        window.innerWidth - VIEWPORT_MARGIN * 2,
-      );
-      const maxLeft = Math.max(VIEWPORT_MARGIN, window.innerWidth - VIEWPORT_MARGIN - width);
-      const left = Math.min(Math.max(rect.left, VIEWPORT_MARGIN), maxLeft);
-      const roomBelow = window.innerHeight - TAB_BAR_HEIGHT - rect.bottom;
-      const roomAbove = rect.top;
-      const needed = PANEL_HEIGHT + VIEWPORT_MARGIN;
-      setPanel({
-        left: left - rect.left,
-        width,
-        above: roomBelow < needed && roomAbove >= needed,
-      });
-    }
-
     const anchor = selected && selected >= today ? selected : today;
     setBrowsed({ year: anchor.getFullYear(), month: anchor.getMonth() });
     setOpen(true);
@@ -224,9 +180,8 @@ export function GoalDatePicker({
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div className="relative">
       <button
-        ref={triggerRef}
         type="button"
         onClick={toggle}
         aria-haspopup="dialog"
@@ -244,14 +199,14 @@ export function GoalDatePicker({
       </button>
 
       {open && (
-        <div
-          role="dialog"
-          aria-label="Escolher a data da prova"
-          style={{ width: panel.width, marginLeft: panel.left }}
-          className={`absolute left-0 z-20 rounded-2xl border border-border bg-surface p-3 shadow-lg ${
-            panel.above ? "bottom-full mb-2" : "top-full mt-2"
-          }`}
-        >
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={close}>
+            <div
+              role="dialog"
+              aria-label="Escolher a data da prova"
+              onClick={(event) => event.stopPropagation()}
+              className="w-full max-w-sm rounded-t-3xl bg-background p-5 pb-8 text-foreground sm:rounded-3xl"
+            >
           <div className="flex items-center justify-between gap-2">
             <button
               type="button"
@@ -344,7 +299,9 @@ export function GoalDatePicker({
               "Só datas de hoje em diante — a prova ainda vai acontecer."
             )}
           </p>
-        </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
     </div>
   );

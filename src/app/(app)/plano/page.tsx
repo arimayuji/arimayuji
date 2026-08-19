@@ -11,7 +11,6 @@ import {
   NoticeBadge,
   Screen,
   ScreenHeader,
-  SegmentedButton,
   Stat,
 } from "../ui";
 import { getEvidenceById, getEvidenceForTopicRanked } from "@/lib/evidence";
@@ -319,7 +318,116 @@ function PlanBuildSequence({ stages, onDone }: { stages: readonly string[]; onDo
   );
 }
 
-const RUN_DAYS_OPTIONS = [3, 4, 5] as const;
+/** Matches what the plan engine itself clamps to (periodization.ts: "at least 2 — long + one more, at most 6 — always 1 rest day") — the stepper's own bounds, not an arbitrary UI choice. */
+const MIN_WEEKLY_DAYS = 2;
+const MAX_WEEKLY_DAYS = 6;
+
+const DISTANCE_TILE: Record<number, { main: string; sub: string }> = {
+  5000: { main: "5", sub: "km" },
+  10000: { main: "10", sub: "km" },
+  21097: { main: "Meia", sub: "21 km" },
+  42195: { main: "Maratona", sub: "42 km" },
+};
+
+/** Big number + unit, not a squeezed-in label on a segmented button — a race distance is the single most consequential choice on this screen. */
+function DistanceTileGrid({
+  selected,
+  onSelect,
+}: {
+  selected: number | undefined;
+  onSelect: (meters: number) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2.5">
+      {GOAL_DISTANCE_OPTIONS.map((option) => {
+        const isSelected = selected === option.meters;
+        const tile = DISTANCE_TILE[option.meters];
+        return (
+          <button
+            key={option.meters}
+            type="button"
+            onClick={() => onSelect(option.meters)}
+            aria-pressed={isSelected}
+            className={`flex h-16 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${
+              isSelected
+                ? "border-transparent bg-accent text-accent-foreground"
+                : "border-border bg-background text-foreground"
+            }`}
+          >
+            <span className="text-lg font-extrabold">{tile.main}</span>
+            <span className="text-xs font-semibold opacity-75">{tile.sub}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** –/+ over a continuous range, not a fixed 3-option pick — the plan engine already supports every value from 2 to 6, the old 3/4/5 buttons just never let you reach the rest. */
+function WeeklyDaysStepper({ value, onChange }: { value: number; onChange: (days: number) => void }) {
+  return (
+    <div className="flex h-16 items-center justify-between rounded-xl border border-border bg-background px-2">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(MIN_WEEKLY_DAYS, value - 1))}
+        disabled={value <= MIN_WEEKLY_DAYS}
+        aria-label="Menos dias por semana"
+        className="flex h-11 w-11 items-center justify-center rounded-lg text-xl font-bold text-foreground disabled:opacity-30"
+      >
+        −
+      </button>
+      <span className="flex items-baseline gap-1.5">
+        <span className="text-2xl font-extrabold">{value}</span>
+        <span className="text-xs font-semibold text-muted">{value === 1 ? "dia/semana" : "dias/semana"}</span>
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(MAX_WEEKLY_DAYS, value + 1))}
+        disabled={value >= MAX_WEEKLY_DAYS}
+        aria-label="Mais dias por semana"
+        className="flex h-11 w-11 items-center justify-center rounded-lg text-xl font-bold text-foreground disabled:opacity-30"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+function VolumeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" {...ICON_STROKE}>
+      <path d="M4 19c4-6 6-10 8-10s3 6 8 6" />
+    </svg>
+  );
+}
+
+function SessionsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" {...ICON_STROKE}>
+      <rect x="4" y="4" width="16" height="16" rx="4" />
+      <path d="M8 12l3 3 6-6" />
+    </svg>
+  );
+}
+
+function StrongIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" {...ICON_STROKE}>
+      <path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c0-2-1-3-1-3s2 1.5 2 5.5A5.5 5.5 0 0 1 6.5 18C5.7 13.4 8.8 11 12 2z" />
+    </svg>
+  );
+}
+
+/** Icon-labeled Volume/Sessões/Forte trio, shared by the real-plan card, the example-week card, and the build sequence's revealed week. */
+function WeekStatsRow({ volumeKm, sessions, hard }: { volumeKm: number; sessions: number; hard: number }) {
+  return (
+    <div className="mb-5 grid grid-cols-3 gap-3 border-b border-border pb-4">
+      <Stat icon={<VolumeIcon />} label="Volume" value={String(volumeKm)} unit="km" />
+      <Stat icon={<SessionsIcon />} label="Sessões" value={String(sessions)} />
+      <Stat icon={<StrongIcon />} label="Forte" value={String(hard)} />
+    </div>
+  );
+}
 
 /**
  * What feeds the plan engine — race distance/date drive the volume ramp and
@@ -354,38 +462,28 @@ function GoalCard({
       </p>
 
       <fieldset>
-        <legend className="text-sm font-medium">Distância da prova</legend>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {GOAL_DISTANCE_OPTIONS.map((option) => (
-            <SegmentedButton
-              key={option.meters}
-              selected={profile.goalDistanceMeters === option.meters}
-              onClick={() => updateProfile({ goalDistanceMeters: option.meters })}
-            >
-              {option.label}
-            </SegmentedButton>
-          ))}
-        </div>
+        <legend className="mb-2.5 block text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
+          Distância da prova
+        </legend>
+        <DistanceTileGrid
+          selected={profile.goalDistanceMeters}
+          onSelect={(meters) => updateProfile({ goalDistanceMeters: meters })}
+        />
       </fieldset>
 
-      <div className="mt-4 space-y-1.5">
-        <p className="text-sm font-medium">Data da prova</p>
+      <div className="mt-5 space-y-1.5">
+        <p className="text-[11px] font-bold tracking-[0.05em] text-muted uppercase">Data da prova</p>
         <GoalDatePicker value={profile.goalDate} onChange={(goalDate) => updateProfile({ goalDate })} />
       </div>
 
       <fieldset className="mt-6 border-t border-border pt-5">
-        <legend className="text-sm font-medium">Dias de corrida por semana</legend>
-        <div className="mt-2 flex gap-2">
-          {RUN_DAYS_OPTIONS.map((days) => (
-            <SegmentedButton
-              key={days}
-              selected={(profile.weeklyRunDays ?? 4) === days}
-              onClick={() => updateProfile({ weeklyRunDays: days })}
-            >
-              {days}
-            </SegmentedButton>
-          ))}
-        </div>
+        <legend className="mb-2.5 block text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
+          Dias de corrida por semana
+        </legend>
+        <WeeklyDaysStepper
+          value={profile.weeklyRunDays ?? 4}
+          onChange={(days) => updateProfile({ weeklyRunDays: days })}
+        />
       </fieldset>
 
       <fieldset className="mt-6 border-t border-border pt-5">
@@ -394,45 +492,55 @@ function GoalCard({
           Uma prova ou treino forte recente numa distância conhecida — dá as suas zonas de pace
           reais. Sem isso o plano ainda calcula volume, só não mostra pace por zona.
         </p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {GOAL_DISTANCE_OPTIONS.map((option) => (
-            <SegmentedButton
-              key={option.meters}
-              selected={profile.recentRaceDistanceMeters === option.meters}
-              onClick={() => updateProfile({ recentRaceDistanceMeters: option.meters })}
-            >
-              {option.label}
-            </SegmentedButton>
-          ))}
+        <div className="mt-3">
+          <DistanceTileGrid
+            selected={profile.recentRaceDistanceMeters}
+            onSelect={(meters) => updateProfile({ recentRaceDistanceMeters: meters })}
+          />
         </div>
-        <div className="mt-3 flex items-center gap-2">
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            placeholder="min"
-            value={recentMinutes}
-            onChange={(event) =>
-              setRecentRaceTime(Number(event.target.value) || 0, Number(recentSeconds) || 0)
-            }
-            className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
-          />
-          <span className="text-muted">:</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            max="59"
-            placeholder="seg"
-            value={recentSeconds}
-            onChange={(event) =>
-              setRecentRaceTime(Number(recentMinutes) || 0, Number(event.target.value) || 0)
-            }
-            className="min-h-12 w-full rounded-xl border border-border bg-background px-3 py-3 text-center font-mono text-sm tabular-nums outline-none focus:border-accent"
-          />
+        <div className="mt-4 flex items-end justify-center gap-2.5">
+          <div className="flex flex-col items-center gap-1.5">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              placeholder="00"
+              value={recentMinutes}
+              onChange={(event) =>
+                setRecentRaceTime(
+                  Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0,
+                  Number(recentSeconds) || 0,
+                )
+              }
+              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none ${
+                recentMinutes ? "border-accent" : "border-border"
+              }`}
+            />
+            <span className="text-[11px] font-bold tracking-[0.05em] text-muted uppercase">min</span>
+          </div>
+          <span className="pb-5 text-2xl font-extrabold text-muted">:</span>
+          <div className="flex flex-col items-center gap-1.5">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              placeholder="00"
+              value={recentSeconds}
+              onChange={(event) =>
+                setRecentRaceTime(
+                  Number(recentMinutes) || 0,
+                  Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0,
+                )
+              }
+              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none ${
+                recentSeconds ? "border-accent" : "border-border"
+              }`}
+            />
+            <span className="text-[11px] font-bold tracking-[0.05em] text-muted uppercase">seg</span>
+          </div>
         </div>
         {profile.recentRaceTimeSeconds && !profile.recentRaceDistanceMeters && (
-          <p className="mt-2 text-xs text-warn">Falta escolher a distância desse tempo.</p>
+          <p className="mt-2 text-center text-xs text-warn">Falta escolher a distância desse tempo.</p>
         )}
       </fieldset>
 
@@ -568,11 +676,7 @@ export default function PlanoPage() {
             <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>
               Semana {currentWeek.weekNumber} — {PHASE_LABEL[currentWeek.phase]}
             </CardTitle>
-            <div className="mb-5 grid grid-cols-3 gap-3 border-b border-border pb-4">
-              <Stat label="Volume" value={String(currentWeek.totalKm)} unit="km" />
-              <Stat label="Sessões" value={String(runCount)} />
-              <Stat label="Forte" value={String(qualityCount)} />
-            </div>
+            <WeekStatsRow volumeKm={currentWeek.totalKm} sessions={runCount} hard={qualityCount} />
             <ul className="flex flex-col gap-3">
               {displaySessions.map((session, index) => (
                 <SessionRow
@@ -670,11 +774,7 @@ export default function PlanoPage() {
               <CardTitle aside={<ExampleBadge>semana de exemplo</ExampleBadge>}>
                 Semana 3 de 12 — base
               </CardTitle>
-              <div className="mb-5 grid grid-cols-3 gap-3 border-b border-border pb-4">
-                <Stat label="Volume" value={String(TOTAL_DEMO_KM)} unit="km" />
-                <Stat label="Sessões" value={String(DEMO_SESSION_COUNT)} />
-                <Stat label="Forte" value="1" />
-              </div>
+              <WeekStatsRow volumeKm={TOTAL_DEMO_KM} sessions={DEMO_SESSION_COUNT} hard={1} />
               <ul className="flex flex-col gap-3">
                 {DEMO_WEEK.map((session, index) => (
                   <SessionRow
