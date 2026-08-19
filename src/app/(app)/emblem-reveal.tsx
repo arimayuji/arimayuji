@@ -9,12 +9,74 @@ import { ModalPortal } from "./modal-portal";
 
 /**
  * Opening one milestone emblem — deliberately a simpler reveal than the PR
- * shoebox (`achievement-reveal.tsx`): a tap pops the sealed pin into its
- * real design with a scale/glow beat, no 3D lid to animate. The whole point
- * is that this collection is a different kind of thing from a PR trophy
- * case, and the reveal should read that way too, not reuse the same
+ * shoebox (`achievement-reveal.tsx`): a tap cracks the sealed sphere open
+ * (see `CrackBurst`) into its real design, no 3D lid to animate. The whole
+ * point is that this collection is a different kind of thing from a PR
+ * trophy case, and the reveal should read that way too, not reuse the same
  * ceremony for two systems that are meant to stay separate.
  */
+
+/**
+ * The instant beat between "sealed" and "opened": the ambient `.pr-orbit`
+ * shimmer winds up into a fast spin, fracture lines flash across the shell,
+ * two shards fly clear, and the emblem itself bursts out from underneath —
+ * see the `pr-crack-*` keyframes in globals.css. Mounted only on the actual
+ * tap-to-open transition (the caller gates this on `!alreadyOpened`), so
+ * revisiting an emblem you already own never replays it.
+ */
+function CrackBurst({ accent }: { accent: string }) {
+  return (
+    <>
+      <span
+        className="pr-crack-spin pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+        aria-hidden="true"
+      >
+        <span
+          className="absolute -inset-[25%]"
+          style={{
+            background: `conic-gradient(from 0deg, transparent 0%, transparent 55%, ${accent}66 68%, #ffffffe6 76%, ${accent}66 84%, transparent 96%, transparent 100%)`,
+          }}
+        />
+      </span>
+      {/* Two shell halves, clipped to a jagged seam instead of a flat diameter — the same reason a shard reads as broken glass rather than a cleanly cut disc. */}
+      <span
+        className="pr-crack-shard-a pointer-events-none absolute inset-0 rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle at 30% 24%, rgba(255,255,255,0.7) 0%, transparent 40%), rgba(6,8,11,0.85)",
+          clipPath: "polygon(0% 0%, 100% 0%, 58% 42%, 34% 62%, 46% 74%, 22% 78%, 0% 58%)",
+        }}
+        aria-hidden="true"
+      />
+      <span
+        className="pr-crack-shard-b pointer-events-none absolute inset-0 rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle at 72% 78%, rgba(0,0,0,0.85) 0%, transparent 55%), rgba(6,8,11,0.8)",
+          clipPath: "polygon(100% 100%, 0% 100%, 40% 60%, 58% 66%, 46% 44%, 66% 36%, 100% 48%)",
+        }}
+        aria-hidden="true"
+      />
+      <svg viewBox="0 0 120 120" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+        <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+          {[
+            { d: "M60 14 L54 40 L70 52 L58 78 L66 106", delay: "0ms" },
+            { d: "M14 50 L44 56 L36 72 L60 66 L96 92", delay: "40ms" },
+            { d: "M106 30 L76 50 L88 66 L60 60 L30 100", delay: "70ms" },
+          ].map((line) => (
+            <path
+              key={line.d}
+              d={line.d}
+              className="pr-crack-line"
+              stroke="#ffffff"
+              style={{ animationDelay: line.delay }}
+            />
+          ))}
+        </g>
+      </svg>
+    </>
+  );
+}
 export function EmblemReveal({
   category = "distancia",
   value,
@@ -177,8 +239,12 @@ export function EmblemReveal({
                 </>
               )}
               <span
-                className={`relative block transition-transform duration-500 ease-out ${
-                  opened ? "scale-100" : "scale-90 active:scale-95"
+                className={`relative block ${
+                  opened
+                    ? !alreadyOpened && !reducedMotion
+                      ? "pr-crack-emerge"
+                      : "scale-100"
+                    : "scale-90 transition-transform duration-500 ease-out active:scale-95"
                 }`}
               >
                 <EmblemBadge
@@ -188,6 +254,11 @@ export function EmblemReveal({
                   state={opened ? "opened" : "sealed"}
                 />
               </span>
+              {/* Sibling, not a child of the span above — that span carries its own
+                  opacity/transform animation for the badge emerging, and nesting
+                  the burst inside it would drag the crack/shards/spin along for
+                  that same fade-and-delay instead of playing immediately. */}
+              {opened && !alreadyOpened && !reducedMotion && <CrackBurst accent={accent} />}
             </span>
           </button>
 
