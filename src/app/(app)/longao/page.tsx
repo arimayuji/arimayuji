@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import QRCode from "qrcode";
 import {
   closeGroupRun,
   createGroupRun,
@@ -37,6 +38,38 @@ function Avatar({ name }: { name: string }) {
     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent/40 text-xs font-bold text-accent-foreground">
       {name.charAt(0).toUpperCase() || "?"}
     </span>
+  );
+}
+
+/**
+ * Renders the join link as a scannable code — same URL `handleShare` sends
+ * (`/longao?c=CODE`, which pre-fills the join field), so scanning it does
+ * exactly what typing the 6-char code does, just without typing. Generated
+ * client-side (`qrcode`'s `toDataURL`) since this is a static export with
+ * no server to render one on. Fixed black-on-white regardless of app theme
+ * — that's what scanners actually expect, not a dark-mode nicety.
+ */
+function GroupRunQr({ url }: { url: string }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    QRCode.toDataURL(url, { width: 200, margin: 1, color: { dark: "#0b0e11", light: "#ffffff" } })
+      .then((result) => {
+        if (!cancelled) setDataUrl(result);
+      })
+      .catch(() => {
+        // No QR this time — the text code above still works fine on its own.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  if (!dataUrl) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- a generated data: URL, not an optimizable remote asset
+    <img src={dataUrl} alt="QR code do longão" width={140} height={140} className="rounded-xl" />
   );
 }
 
@@ -267,8 +300,12 @@ function LongaoContent() {
                   </button>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-muted">
-                  Manda esse código pra quem já é seu amigo aqui no app. Vence em algumas horas.
+                  Manda esse código pra quem já é seu amigo aqui no app, ou deixa a pessoa escanear o QR.
+                  Vence em algumas horas.
                 </p>
+                <div className="mt-3 flex justify-center">
+                  <GroupRunQr url={`${window.location.origin}/longao?c=${activeSession.$id}`} />
+                </div>
                 <Link
                   href={`/longao/mapa?c=${activeSession.$id}`}
                   className="mt-3 inline-block text-xs text-accent underline underline-offset-2"
