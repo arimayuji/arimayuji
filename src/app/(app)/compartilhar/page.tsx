@@ -122,6 +122,32 @@ function buildTemplateOptions(hasTrack: boolean): TemplateOption[] {
  * label of its own, "Trajeto · Foto" — the one combo that never needs a
  * track — was easy to miss entirely.
  */
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 4v11m0 0-4-4m4 4 4-4" />
+      <path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" />
+    </svg>
+  );
+}
+
+/**
+ * The thumbnail draws the exact rendered card, same pixels the download
+ * produces — but on its own that reads as a static preview, not something
+ * tappable that hands you a file. The download badge (icon dimming the
+ * middle of the frame on top) is purely UI chrome layered over the canvas,
+ * same as the label bar below it; neither ships in the actual exported
+ * image, only in this picker.
+ */
 function TemplateThumb({
   scene,
   label,
@@ -157,6 +183,11 @@ function TemplateThumb({
         height={SHARE_CARD_HEIGHT}
         className="block h-full w-full"
       />
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/28">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
+          <DownloadIcon className="h-4.5 w-4.5" />
+        </span>
+      </span>
       <span className="pointer-events-none absolute inset-x-1.5 bottom-1.5 truncate rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] leading-tight font-medium text-white">
         {label}
       </span>
