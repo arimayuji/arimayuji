@@ -11,10 +11,31 @@ const STROKE = {
   strokeLinejoin: "round",
 } as const;
 
+function MapPinIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+      <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
+      <path d="M9 10l2 2 4-4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/**
+ * Real turn-by-turn directions, not just a pin — Google Maps geocodes a
+ * `name, city` text query on its own, same as the design handoff's own
+ * link. No stored lat/lon on `RunningPlace` itself (only optional circuit
+ * polylines) worth reaching for here; a name+city query is exactly as
+ * precise as what a runner would type into Maps by hand anyway.
+ */
+function directionsUrl(place: RunningPlace): string {
+  const destination = encodeURIComponent(`${place.name}, ${place.city}`);
+  return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+}
+
 export function PlaceCard({ place }: { place: RunningPlace }) {
   return (
-    <Link href={`/lugares/${place.id}`} className="block rounded-2xl focus:outline-accent">
-      <article className="overflow-hidden rounded-2xl border border-border bg-surface">
+    <article className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <Link href={`/lugares/${place.id}`} className="block focus:outline-accent">
         {place.coverImage && (
           // eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway.
           <img
@@ -23,7 +44,7 @@ export function PlaceCard({ place }: { place: RunningPlace }) {
             className="h-32 w-full object-cover"
           />
         )}
-        <div className="p-5">
+        <div className="p-5 pb-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="truncate text-sm font-semibold">{place.name}</h3>
@@ -50,12 +71,23 @@ export function PlaceCard({ place }: { place: RunningPlace }) {
               <CriteriaMiniRow key={key} criteriaKey={key} score={place.criteria[key].score} />
             ))}
           </div>
-
-          <p className="mt-4 border-t border-border pt-3 text-xs text-muted">
-            <strong className="font-medium text-foreground">Melhor horário:</strong> {place.bestTime}
-          </p>
         </div>
-      </article>
-    </Link>
+      </Link>
+
+      <div className="flex items-end justify-between gap-3 border-t border-border p-5 pt-4">
+        <p className="text-xs leading-relaxed text-muted">
+          <strong className="font-medium text-foreground">Melhor horário:</strong> {place.bestTime}
+        </p>
+        <a
+          href={directionsUrl(place)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground"
+        >
+          <MapPinIcon className="h-3.5 w-3.5" />
+          Ir
+        </a>
+      </div>
+    </article>
   );
 }

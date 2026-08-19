@@ -49,6 +49,39 @@ function PersonRow({ connection, children }: { connection: FriendConnection; chi
   );
 }
 
+type FriendTab = "convites" | "amigos";
+
+/** Pill switcher — same two-option toggle style the tracking screen's template picker and other tabbed cards in this redesign use. */
+function TabSwitcher({
+  active,
+  onChange,
+}: {
+  active: FriendTab;
+  onChange: (tab: FriendTab) => void;
+}) {
+  return (
+    <div className="mb-4 flex gap-1 rounded-full bg-background p-1">
+      {(
+        [
+          { id: "convites", label: "Convites" },
+          { id: "amigos", label: "Amigos" },
+        ] as const
+      ).map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={`h-9 flex-1 rounded-full text-xs font-bold transition-colors ${
+            active === tab.id ? "bg-accent text-accent-foreground" : "text-muted"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function AmigosPage() {
   const { status } = useAuth();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
@@ -59,6 +92,7 @@ export default function AmigosPage() {
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: "good" | "bad"; message: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<FriendTab>("convites");
 
   useEffect(() => {
     if (status !== "signed-in") return;
@@ -210,85 +244,97 @@ export default function AmigosPage() {
             )}
 
             <Card className="pr-enter" style={delay(80)}>
-              <CardTitle aside={incoming.length > 0 ? <NoticeBadge>{incoming.length}</NoticeBadge> : undefined}>
-                Convites recebidos
-              </CardTitle>
-              {connections === null ? (
-                <div className="h-12 animate-pulse rounded-lg bg-background" />
-              ) : incoming.length === 0 ? (
-                <p className="text-xs leading-relaxed text-muted">Nenhum convite esperando resposta.</p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {incoming.map((connection) => (
-                    <PersonRow key={connection.friendship.$id} connection={connection}>
-                      <button
-                        type="button"
-                        disabled={busyId === connection.friendship.$id}
-                        onClick={() =>
-                          act(connection.friendship.$id, () =>
-                            respondToFriendRequest(connection.friendship.$id, true),
-                          )
-                        }
-                        className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
-                      >
-                        Aceitar
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busyId === connection.friendship.$id}
-                        onClick={() =>
-                          act(connection.friendship.$id, () =>
-                            respondToFriendRequest(connection.friendship.$id, false),
-                          )
-                        }
-                        className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
-                      >
-                        Recusar
-                      </button>
-                    </PersonRow>
-                  ))}
-                </ul>
-              )}
-            </Card>
+              <TabSwitcher active={activeTab} onChange={setActiveTab} />
 
-            {outgoing.length > 0 && (
-              <Card className="pr-enter" style={delay(100)}>
-                <CardTitle>Convites enviados</CardTitle>
-                <ul className="flex flex-col gap-3">
-                  {outgoing.map((connection) => (
-                    <OutgoingRequestRow
-                      key={connection.friendship.$id}
-                      connection={connection}
-                      busy={busyId === connection.friendship.$id}
-                      onCancel={() => act(connection.friendship.$id, () => removeFriendship(connection.friendship.$id))}
-                    />
-                  ))}
-                </ul>
-              </Card>
-            )}
+              {activeTab === "convites" ? (
+                connections === null ? (
+                  <div className="h-12 animate-pulse rounded-lg bg-background" />
+                ) : incoming.length === 0 && outgoing.length === 0 ? (
+                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
+                    Nenhum convite esperando resposta — enviados ou recebidos.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-5">
+                    {incoming.length > 0 && (
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
+                          Recebidos
+                        </p>
+                        <ul className="flex flex-col gap-3">
+                          {incoming.map((connection) => (
+                            <PersonRow key={connection.friendship.$id} connection={connection}>
+                              <button
+                                type="button"
+                                disabled={busyId === connection.friendship.$id}
+                                onClick={() =>
+                                  act(connection.friendship.$id, () =>
+                                    respondToFriendRequest(connection.friendship.$id, true),
+                                  )
+                                }
+                                className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+                              >
+                                Aceitar
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busyId === connection.friendship.$id}
+                                onClick={() =>
+                                  act(connection.friendship.$id, () =>
+                                    respondToFriendRequest(connection.friendship.$id, false),
+                                  )
+                                }
+                                className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
+                              >
+                                Recusar
+                              </button>
+                            </PersonRow>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-            <Card className="pr-enter" style={delay(120)}>
-              <CardTitle aside={friends.length > 0 ? <NoticeBadge>{friends.length}</NoticeBadge> : undefined}>
-                Seus amigos
-              </CardTitle>
-              {connections === null ? (
-                <div className="h-12 animate-pulse rounded-lg bg-background" />
-              ) : friends.length === 0 ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  Ninguém ainda. Manda o convite pelo @ acima — a amizade só vale depois que a outra pessoa aceita.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {friends.map((connection) => (
-                    <FriendRow
-                      key={connection.friendship.$id}
-                      connection={connection}
-                      busy={busyId === connection.friendship.$id}
-                      onRemove={() => act(connection.friendship.$id, () => removeFriendship(connection.friendship.$id))}
-                    />
-                  ))}
-                </ul>
-              )}
+                    {outgoing.length > 0 && (
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
+                          Enviados
+                        </p>
+                        <ul className="flex flex-col gap-3">
+                          {outgoing.map((connection) => (
+                            <OutgoingRequestRow
+                              key={connection.friendship.$id}
+                              connection={connection}
+                              busy={busyId === connection.friendship.$id}
+                              onCancel={() =>
+                                act(connection.friendship.$id, () => removeFriendship(connection.friendship.$id))
+                              }
+                            />
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )
+              ) : null}
+
+              {activeTab === "amigos" &&
+                (connections === null ? (
+                  <div className="h-12 animate-pulse rounded-lg bg-background" />
+                ) : friends.length === 0 ? (
+                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
+                    Nenhum amigo ainda. Adicione pelo @ acima.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {friends.map((connection) => (
+                      <FriendRow
+                        key={connection.friendship.$id}
+                        connection={connection}
+                        busy={busyId === connection.friendship.$id}
+                        onRemove={() => act(connection.friendship.$id, () => removeFriendship(connection.friendship.$id))}
+                      />
+                    ))}
+                  </ul>
+                ))}
             </Card>
 
             <p className="pr-enter text-center text-xs leading-relaxed text-muted text-pretty" style={delay(140)}>
