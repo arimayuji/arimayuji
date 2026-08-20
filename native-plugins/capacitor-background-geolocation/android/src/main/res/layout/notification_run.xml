@@ -9,6 +9,14 @@
   around this. Text colors use the theme attrs (?android:attr/...) rather
   than hardcoded colors so this reads correctly on both a light and a dark
   notification shade — the shade's own theme, not the app's.
+
+  Both the small caps labels (DISTÂNCIA/RITMO/TEMPO) and the values below
+  them use textColorPrimary, not textColorSecondary — label/value
+  hierarchy comes from size+letterSpacing alone. textColorSecondary's
+  built-in ~54% alpha is fine on a solid notification-drawer background,
+  but on the lock screen's translucent scrim (wallpaper bleeding through)
+  it loses almost all contrast against an arbitrary wallpaper; primary's
+  near-opaque color stays legible regardless of what's behind it.
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -31,7 +39,7 @@
             android:text="DISTÂNCIA"
             android:textSize="10sp"
             android:letterSpacing="0.05"
-            android:textColor="?android:attr/textColorSecondary" />
+            android:textColor="?android:attr/textColorPrimary" />
 
         <TextView
             android:id="@+id/xanthus_stat_distance"
@@ -54,7 +62,7 @@
             android:text="RITMO"
             android:textSize="10sp"
             android:letterSpacing="0.05"
-            android:textColor="?android:attr/textColorSecondary" />
+            android:textColor="?android:attr/textColorPrimary" />
 
         <TextView
             android:id="@+id/xanthus_stat_pace"
@@ -86,7 +94,7 @@
             android:text="TEMPO"
             android:textSize="10sp"
             android:letterSpacing="0.05"
-            android:textColor="?android:attr/textColorSecondary" />
+            android:textColor="?android:attr/textColorPrimary" />
 
         <TextView
             android:id="@+id/xanthus_stat_time"
