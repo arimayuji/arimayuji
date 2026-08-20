@@ -81,7 +81,7 @@ import {
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useImmersiveMode, useTabReclick } from "../app-shell";
-import { Card, NoticeBadge, SegmentedButton } from "../ui";
+import { Card, NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
 
 const RECENT_GHOST_CANDIDATES = 6;
@@ -425,6 +425,60 @@ function GoalTypeIcon({
   );
 }
 
+const GOAL_TYPE_LABELS: Record<"distancia" | "tempo" | "ritmo" | "livre", string> = {
+  distancia: "Distância",
+  tempo: "Tempo",
+  ritmo: "Ritmo",
+  livre: "Livre",
+};
+
+/**
+ * "Tipo de meta" category row (Xanthus Preparar Corrida.dc.html) — bare tabs
+ * (icon + label, active in accent with an underline bar) rather than boxed
+ * pill buttons, so it reads as a different *kind* of control than the preset
+ * options below it (`PresetChipRow`, which keeps the bordered/filled-pill
+ * look — those really are a flat set of interchangeable choices). Category
+ * vs. option had the exact same visual weight before this, which is what
+ * made the two hard to tell apart at a glance. Same icon-above-label +
+ * width-animated underline recipe as BottomNav's active-tab indicator
+ * (app-shell.tsx), reused here instead of invented fresh.
+ */
+function GoalTypeTabs({
+  value,
+  onChange,
+}: {
+  value: "distancia" | "tempo" | "ritmo" | "livre";
+  onChange: (id: "distancia" | "tempo" | "ritmo" | "livre") => void;
+}) {
+  const ids = ["distancia", "tempo", "ritmo", "livre"] as const;
+  return (
+    <div className="flex items-stretch justify-between">
+      {ids.map((id) => {
+        const active = value === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onChange(id)}
+            aria-pressed={active}
+            className={`flex flex-1 flex-col items-center gap-1.5 pb-2 text-[13px] transition-colors ${
+              active ? "font-semibold text-accent" : "font-medium text-muted hover:text-foreground"
+            }`}
+          >
+            <GoalTypeIcon id={id} className="h-5 w-5" />
+            {GOAL_TYPE_LABELS[id]}
+            <span
+              className="h-[3px] rounded-full bg-accent transition-[width] duration-200 ease-out"
+              style={{ width: active ? "28px" : "0px" }}
+              aria-hidden="true"
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function RepeatIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -477,9 +531,9 @@ function PresetChipRow({
           type="button"
           onClick={() => onSelect(preset.value)}
           aria-pressed={value === preset.value}
-          className={`min-h-11 rounded-xl border px-2 py-2.5 text-sm font-semibold transition-colors ${
+          className={`min-h-11 rounded-xl border-2 px-2 py-2.5 text-sm font-semibold transition-colors ${
             value === preset.value
-              ? "border-accent bg-accent text-accent-foreground"
+              ? "border-white/80 bg-accent text-accent-foreground"
               : "border-border bg-background text-foreground hover:border-accent"
           }`}
         >
@@ -490,9 +544,9 @@ function PresetChipRow({
         type="button"
         onClick={onOpenCustom}
         aria-pressed={customLabel !== null}
-        className={`min-h-11 rounded-xl border px-2 py-2.5 text-sm font-semibold transition-colors ${
+        className={`min-h-11 rounded-xl border-2 px-2 py-2.5 text-sm font-semibold transition-colors ${
           customLabel !== null
-            ? "border-accent bg-accent text-accent-foreground"
+            ? "border-white/80 bg-accent text-accent-foreground"
             : "border-dashed border-border bg-background text-muted hover:border-accent"
         }`}
       >
@@ -1555,31 +1609,8 @@ export default function RunPage() {
               <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
                 Tipo de meta
               </span>
-              <div className="grid grid-cols-2 gap-1.5">
-                <SegmentedButton selected={goalType === "distancia"} onClick={() => setGoalType("distancia")}>
-                  <span className="flex items-center justify-center gap-1.5">
-                    <GoalTypeIcon id="distancia" className="h-4 w-4" />
-                    Distância
-                  </span>
-                </SegmentedButton>
-                <SegmentedButton selected={goalType === "tempo"} onClick={() => setGoalType("tempo")}>
-                  <span className="flex items-center justify-center gap-1.5">
-                    <GoalTypeIcon id="tempo" className="h-4 w-4" />
-                    Tempo
-                  </span>
-                </SegmentedButton>
-                <SegmentedButton selected={goalType === "ritmo"} onClick={() => setGoalType("ritmo")}>
-                  <span className="flex items-center justify-center gap-1.5">
-                    <GoalTypeIcon id="ritmo" className="h-4 w-4" />
-                    Ritmo
-                  </span>
-                </SegmentedButton>
-                <SegmentedButton selected={goalType === "livre"} onClick={() => setGoalType("livre")}>
-                  <span className="flex items-center justify-center gap-1.5">
-                    <GoalTypeIcon id="livre" className="h-4 w-4" />
-                    Livre
-                  </span>
-                </SegmentedButton>
+              <div className="mb-3">
+                <GoalTypeTabs value={goalType} onChange={setGoalType} />
               </div>
 
               {goalType === "distancia" && (
