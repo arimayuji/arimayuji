@@ -78,6 +78,40 @@ export default function PrivacidadePage() {
           </ul>
         </Card>
 
+        <Card className="pr-enter" style={delay(180)}>
+          <CardTitle>Créditos</CardTitle>
+          <p className="text-sm leading-relaxed text-muted">
+            O modelo 3D de tênis (vitrine em Perfil → Meus tênis) é{" "}
+            <a
+              href="https://sketchfab.com/3d-models/running-shoe-759202749ca548c09d7cad02046588d8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-accent"
+            >
+              &quot;Running Shoe&quot;
+            </a>{" "}
+            por{" "}
+            <a
+              href="https://sketchfab.com/shyambhanushali3"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-accent"
+            >
+              shyambhanushali3
+            </a>
+            , licenciado sob{" "}
+            <a
+              href="http://creativecommons.org/licenses/by/4.0/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-accent"
+            >
+              CC BY 4.0
+            </a>{" "}
+            — recolorimos os materiais pra bater com a paleta do app, a geometria é a original.
+          </p>
+        </Card>
+
         <Card className="pr-enter" style={delay(200)}>
           <CardTitle>Apagar sua conta e seus dados</CardTitle>
           <p className="text-sm leading-relaxed text-muted">

@@ -15,6 +15,7 @@ import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, SegmentedBut
 import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
 import { ShareCardTeaser } from "../share-card";
+import { Shoe3DViewer } from "../shoe-3d-viewer";
 import { ShoeShowcase } from "../shoe-showcase";
 import {
   createShoe,
@@ -668,6 +669,7 @@ function ShoeHero({
   unit: DistanceUnit;
 }) {
   const [index, setIndex] = useState(0);
+  const [use3D, setUse3D] = useState(true);
   const shoe = shoes[Math.min(index, shoes.length - 1)];
   const totalMeters = summaryFor(shoe.name)?.totalMeters ?? 0;
 
@@ -678,7 +680,16 @@ function ShoeHero({
       disabled={shoes.length < 2}
       className="relative mb-4 flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-[#0b0e11] pb-6 disabled:cursor-default"
     >
-      <ShoeShowcase color={shoe.color} className="relative w-[42%]" />
+      {use3D ? (
+        // Real interactive model, drag-to-rotate — falls back to the photo/
+        // video showcase below if WebGL or the GLB load ever fails (a
+        // sluggish/unsupported WebView, a blocked asset request), same
+        // "best available, never a dead end" shape ShoeShowcase itself
+        // already uses internally for its own video-vs-photo fallback.
+        <Shoe3DViewer color={shoe.color} className="relative h-full w-[70%]" onFailed={() => setUse3D(false)} />
+      ) : (
+        <ShoeShowcase color={shoe.color} className="relative w-[42%]" />
+      )}
 
       <span className="absolute inset-x-4 bottom-3 flex items-end justify-between gap-3 text-left">
         <span className="min-w-0">
