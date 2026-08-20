@@ -15,25 +15,27 @@ on:
 # One run at a time per ref — mainly to avoid burning duplicate macOS
 # minutes (10x the cost of Linux minutes) on superseded pushes; this
 # workflow doesn't deploy anywhere, so there's no ordering hazard like
-# the Android one has, just cost.
+# the Android one has, just cost. Always cancel the superseded run
+# (PRs included, not just main) — a stale commit's build result is never
+# needed once a newer one has pushed, on any ref.
 concurrency:
   group: ios-build-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+  cancel-in-progress: true
 
 jobs:
-  # Split from a single sequential job into two independent ones: the
-  # unsigned Simulator build (validates on every push/PR, no secrets
-  # needed) and the signed TestFlight archive (only pushes to main, needs
-  # secrets) no longer wait on each other — each redoes its own cheap setup
-  # (npm ci, web build, fail-fast checks, cap sync) in exchange for running
-  # its expensive Xcode work in parallel with the other job. Each job also
-  # gets its own SPM/DerivedData cache scope (see the cache steps below) —
-  # they build genuinely different configurations (Debug-simulator vs.
-  # Release-archive) into different DerivedData locations, so a shared
-  # cache key would only ever help one of them anyway.
-  simulator:
-    runs-on: macos-latest
-    timeout-minutes: 20
+  # Cheap Linux gate (1x runner cost) in front of the two macOS jobs below
+  # (10x runner cost, private repo — every minute here that never has to
+  # run on macOS is a 10x savings). Catches the same tsc/lint failures the
+  # macOS jobs used to catch themselves, just before either of them ever
+  # spins up a macOS runner — `needs: checks` on both means a TS/lint error
+  # now costs one ~1min Ubuntu job instead of two ~1min macOS jobs (about
+  # 20x cheaper for that failure mode). Doesn't (and can't) catch Swift
+  # compile errors — those only surface inside `xcodebuild` itself, so
+  # that class of bug still needs either a real Xcode build (local, ideally
+  # — free and faster than CI) or the `simulator` job below.
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -57,14 +59,53 @@ jobs:
           NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
 
-      # Fails in seconds instead of after minutes of Xcode work. Duplicated
-      # in the `testflight` job too (cheap, ~10-15s) rather than shared, so
-      # a real type error fails both jobs independently instead of one
-      # blocking the other.
       - name: Type-check and lint
         run: |
           npx tsc --noEmit
           npm run lint
+
+      # `out/` is fully static (Next.js export) and identical regardless of
+      # which runner OS produced it — sharing it saves each macOS job below
+      # from re-running `next build` (~20s of 10x-priced time apiece) for
+      # output this job already has. Never share node_modules the same way:
+      # npm resolves OS-specific optional deps (native binaries for esbuild,
+      # sharp, etc.), so a node_modules tree built on Ubuntu isn't safe to
+      # reuse on macOS — those jobs still run their own `npm ci`.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-export
+          path: out/
+          retention-days: 1
+
+  # Split from a single sequential job into two independent ones: the
+  # unsigned Simulator build (validates on every push/PR, no secrets
+  # needed) and the signed TestFlight archive (only pushes to main, needs
+  # secrets) no longer wait on each other — each redoes its own cheap setup
+  # (npm ci, cap sync) in exchange for running its expensive Xcode work in
+  # parallel with the other job. Each job also gets its own
+  # SPM/DerivedData cache scope (see the cache steps below) — they build
+  # genuinely different configurations (Debug-simulator vs. Release-archive)
+  # into different DerivedData locations, so a shared cache key would only
+  # ever help one of them anyway.
+  simulator:
+    needs: checks
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-export
+          path: out/
 
       - name: Sync Capacitor iOS project
         run: npx cap sync ios
@@ -97,6 +138,7 @@ jobs:
           retention-days: 30
 
   testflight:
+    needs: checks
     runs-on: macos-latest
     timeout-minutes: 25
     # Only on main itself, same reasoning as the Android publish job —
@@ -116,17 +158,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build web export
-        run: npm run build
-        env:
-          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
-          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
-          NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
-
-      - name: Type-check and lint
-        run: |
-          npx tsc --noEmit
-          npm run lint
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-export
+          path: out/
 
       - name: Sync Capacitor iOS project
         run: npx cap sync ios
