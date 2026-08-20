@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -19,6 +20,9 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.util.TypedValue;
+import android.view.View;
+import android.widget.RemoteViews;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.getcapacitor.Logger;
 import java.util.Map;
@@ -38,6 +42,12 @@ public class BackgroundGeolocationService extends Service {
 
     // Must be unique for this application.
     private static final int NOTIFICATION_ID = 28351;
+
+    // Xanthus fork: pixel size of the route-thumbnail bitmap drawn by RouteThumbnail for
+    // the rich notification layout — a fixed multiple of the 36dp ImageView it renders
+    // into (notification_run.xml) so it stays sharp on high-density screens without the
+    // system having to upscale it.
+    private static final int ROUTE_THUMB_SIZE_PX = 120;
 
     private String callbackId;
 
@@ -325,18 +335,26 @@ public class BackgroundGeolocationService extends Service {
     // it appears that 'startForeground' is idempotent, so we just call it repeatedly
     // each time a background watcher is added.
     private void promoteToForeground(String notificationTitle, String notificationMessage) {
+        promoteToForeground(createBackgroundNotification(notificationTitle, notificationMessage));
+    }
+
+    // Xanthus fork: rich variant of promoteToForeground(title, message) above — same
+    // idempotent startForeground() call, just with the 3-column stat + route-thumbnail
+    // notification built by createRichBackgroundNotification() instead of the plain
+    // title/message one.
+    private void promoteToForegroundRich(String distanceLabel, String paceLabel, String timeLabel, String[] routePolylines) {
+        promoteToForeground(createRichBackgroundNotification(distanceLabel, paceLabel, timeLabel, routePolylines));
+    }
+
+    private void promoteToForeground(Notification notification) {
         try {
             // This method has been known to fail due to weird
             // permission bugs, so we prevent any exceptions from
             // crashing the app.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    NOTIFICATION_ID,
-                    createBackgroundNotification(notificationTitle, notificationMessage),
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
-                );
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
             } else {
-                startForeground(NOTIFICATION_ID, createBackgroundNotification(notificationTitle, notificationMessage));
+                startForeground(NOTIFICATION_ID, notification);
             }
         } catch (Exception exception) {
             Logger.error("Failed to foreground service", exception);
@@ -393,8 +411,23 @@ public class BackgroundGeolocationService extends Service {
         // `startForeground` with the same NOTIFICATION_ID is the documented-idempotent path
         // this file already relies on above, so this stays on the one tested code path
         // instead of adding a second, parallel way to touch the same notification.
-        void updateNotification(final String title, final String message) {
-            promoteToForeground(title, message);
+        //
+        // distanceLabel/paceLabel/timeLabel present (any of them) switches to the rich
+        // 3-column + route-thumbnail layout; otherwise this stays on the plain
+        // title/message notification, same as before this method grew rich-layout support.
+        void updateNotification(
+            final String title,
+            final String message,
+            final String distanceLabel,
+            final String paceLabel,
+            final String timeLabel,
+            final String[] routePolylines
+        ) {
+            if (distanceLabel != null || paceLabel != null || timeLabel != null) {
+                promoteToForegroundRich(distanceLabel, paceLabel, timeLabel, routePolylines);
+            } else {
+                promoteToForeground(title, message);
+            }
         }
 
         String stop() {
@@ -443,9 +476,40 @@ public class BackgroundGeolocationService extends Service {
     }
 
     private Notification createBackgroundNotification(String backgroundTitle, String backgroundMessage) {
+        Notification.Builder builder = newNotificationBuilder().setContentTitle(backgroundTitle).setContentText(backgroundMessage);
+        return builder.build();
+    }
+
+    // Xanthus fork: rich variant of createBackgroundNotification() above, showing
+    // distância/ritmo/tempo side by side plus a route thumbnail instead of a single
+    // title/message line. DecoratedCustomViewStyle keeps the system's own chrome (app
+    // icon, app name, timestamp) around the custom content view — same as a plain
+    // notification gets for free, which a bare setCustomContentView() without a style
+    // would otherwise lose.
+    private Notification createRichBackgroundNotification(String distanceLabel, String paceLabel, String timeLabel, String[] routePolylines) {
+        RemoteViews views = new RemoteViews(getApplicationContext().getPackageName(), R.layout.notification_run);
+        views.setTextViewText(R.id.xanthus_stat_distance, distanceLabel != null ? distanceLabel : "--");
+        views.setTextViewText(R.id.xanthus_stat_pace, paceLabel != null ? paceLabel : "--");
+        views.setTextViewText(R.id.xanthus_stat_time, timeLabel != null ? timeLabel : "--");
+
+        Bitmap routeThumb = RouteThumbnail.draw(routePolylines, ROUTE_THUMB_SIZE_PX, resolveThemeColor(android.R.attr.textColorPrimary));
+        if (routeThumb != null) {
+            views.setImageViewBitmap(R.id.xanthus_route_thumb, routeThumb);
+            views.setViewVisibility(R.id.xanthus_route_thumb, View.VISIBLE);
+        } else {
+            views.setViewVisibility(R.id.xanthus_route_thumb, View.GONE);
+        }
+
+        Notification.Builder builder = newNotificationBuilder()
+            .setStyle(new Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(views);
+        return builder.build();
+    }
+
+    // Chrome shared by both the plain and rich notification builders above: app icon,
+    // accent color, tap-to-open intent, ongoing/priority flags, and channel (API 26+).
+    private Notification.Builder newNotificationBuilder() {
         Notification.Builder builder = new Notification.Builder(getApplicationContext())
-            .setContentTitle(backgroundTitle)
-            .setContentText(backgroundMessage)
             .setOngoing(true)
             .setPriority(Notification.PRIORITY_HIGH)
             .setWhen(System.currentTimeMillis());
@@ -490,7 +554,18 @@ public class BackgroundGeolocationService extends Service {
             builder.setChannelId(BackgroundGeolocationService.class.getPackage().getName());
         }
 
-        return builder.build();
+        return builder;
+    }
+
+    // Resolves a theme color attribute (e.g. android.R.attr.textColorPrimary) to an
+    // actual color int at runtime, so the route thumbnail's stroke matches the same
+    // light/dark-shade-aware color the layout's text views already use via ?android:attr
+    // references — a Bitmap has no equivalent of a theme attribute, so this has to be
+    // resolved once in Java and baked into the drawn pixels.
+    private int resolveThemeColor(int attr) {
+        TypedValue value = new TypedValue();
+        getApplicationContext().getTheme().resolveAttribute(attr, value, true);
+        return value.data;
     }
 
     // Gets the identifier of the app's resource by name, returning 0 if not found.

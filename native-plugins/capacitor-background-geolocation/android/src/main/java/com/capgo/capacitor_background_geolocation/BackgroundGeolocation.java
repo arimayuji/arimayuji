@@ -344,11 +344,19 @@ public class BackgroundGeolocation extends Plugin {
     // Xanthus fork: lets the JS layer refresh the notification's title/message while
     // the foreground service is already running (upstream only ever sets it once, in
     // start()) — see BackgroundGeolocationService.LocalBinder#updateNotification.
+    //
+    // distanceLabel/paceLabel/timeLabel (+ optional routePolylines) switch the
+    // notification to the rich 3-column layout instead of the plain title/message one —
+    // see UpdateNotificationOptions in definitions.d.ts for the exact contract.
     @PluginMethod
     public void updateNotification(PluginCall call) {
         String title = call.getString("title");
         String message = call.getString("message");
-        if ((title == null || title.isEmpty()) && (message == null || message.isEmpty())) {
+        String distanceLabel = call.getString("distanceLabel");
+        String paceLabel = call.getString("paceLabel");
+        String timeLabel = call.getString("timeLabel");
+        boolean isRich = distanceLabel != null || paceLabel != null || timeLabel != null;
+        if (!isRich && (title == null || title.isEmpty()) && (message == null || message.isEmpty())) {
             call.reject("title or message is required");
             return;
         }
@@ -356,9 +364,16 @@ public class BackgroundGeolocation extends Plugin {
             call.reject("Service not started, make sure to call start() first", "NOT_STARTED");
             return;
         }
+        String[] routePolylines;
+        try {
+            routePolylines = getJavaStringArray(call.getArray("routePolylines"));
+        } catch (Exception ex) {
+            call.reject("Unable to parse routePolylines");
+            return;
+        }
         serviceConnectionFuture
             .thenAccept((service) -> {
-                service.updateNotification(title, message);
+                service.updateNotification(title, message, distanceLabel, paceLabel, timeLabel, routePolylines);
                 call.resolve();
             })
             .exceptionally((throwable) -> {
@@ -662,6 +677,21 @@ public class BackgroundGeolocation extends Plugin {
             }
         }
         return javaDoubleArray;
+    }
+
+    // Xanthus fork: converts the optional "routePolylines" JS string array (each entry
+    // one polyline in "x,y x,y ..." format — see UpdateNotificationOptions) into a plain
+    // Java array for BackgroundGeolocationService/RouteThumbnail. Unlike
+    // getJavaDoubleArray above, a null/absent array is valid here (routePolylines is
+    // optional) and returns null rather than throwing.
+    private static String[] getJavaStringArray(JSArray jsArray) throws JSONException {
+        if (jsArray == null) return null;
+        int length = jsArray.length();
+        String[] result = new String[length];
+        for (int i = 0; i < length; i++) {
+            result[i] = jsArray.getString(i);
+        }
+        return result;
     }
 
     // Checks if device-wide location services are disabled

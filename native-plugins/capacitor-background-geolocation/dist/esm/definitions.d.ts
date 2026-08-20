@@ -591,14 +591,50 @@ export interface UpdateHeadersOptions {
 export interface UpdateNotificationOptions {
     /**
      * Replacement title for the persistent tracking notification. Omit to
-     * leave the current title as-is.
+     * leave the current title as-is. Ignored on Android once any of
+     * `distanceLabel`/`paceLabel`/`timeLabel` is provided — the rich
+     * 3-column layout replaces the plain title/message view entirely.
      */
     title?: string;
     /**
      * Replacement message for the persistent tracking notification. Omit to
-     * leave the current message as-is.
+     * leave the current message as-is. Same Android caveat as `title`.
      */
     message?: string;
+    /**
+     * Distance readout for the rich notification layout, already formatted
+     * for display (e.g. "5,37 km"). Android only — passing this (or
+     * `paceLabel`/`timeLabel`) switches the notification from the plain
+     * title/message view to the 3-column stat layout. No effect on iOS/web.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    distanceLabel?: string;
+    /**
+     * Pace readout for the rich notification layout (e.g. "5:19/km"). See
+     * `distanceLabel`.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    paceLabel?: string;
+    /**
+     * Elapsed-time readout for the rich notification layout (e.g. "28:33").
+     * See `distanceLabel`.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    timeLabel?: string;
+    /**
+     * The run's route so far, as one or more polylines in the same format
+     * `RouteStrip`/`projectRoute` already use on the web side: each entry is
+     * a `"x,y x,y ..."` string of points normalized to a 0-100 square (one
+     * entry per unbroken GPS stretch — a gap in tracking breaks the line
+     * rather than drawing straight across it). Drawn as a small thumbnail
+     * inside the rich notification layout. Omit for no route thumbnail.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    routePolylines?: string[];
 }
 /**
  * Main plugin interface for background geolocation functionality.
@@ -666,20 +702,27 @@ export interface BackgroundGeolocationPlugin {
      */
     updateHeaders(options: UpdateHeadersOptions): Promise<void>;
     /**
-     * Refreshes the persistent tracking notification's title/message while
-     * the foreground service is already running, instead of only being able
-     * to set it once via {@link StartOptions.backgroundTitle}/{@link
+     * Refreshes the persistent tracking notification while the foreground
+     * service is already running, instead of only being able to set it once
+     * via {@link StartOptions.backgroundTitle}/{@link
      * StartOptions.backgroundMessage} at `start()`. Android only — on iOS
      * (and web) this resolves immediately without effect, since neither
      * platform has an equivalent persistent notification to update.
      *
+     * Passing `distanceLabel`/`paceLabel`/`timeLabel` (optionally with
+     * `routePolylines`) switches Android to a rich 3-column layout with a
+     * route thumbnail instead of the plain title/message view.
+     *
      * Xanthus fork — not part of the upstream plugin.
      *
-     * @param options The replacement title/message
+     * @param options The replacement content for the notification
      * @returns A promise that resolves once the notification is updated
      * @example
      * await BackgroundGeolocation.updateNotification({
-     *   message: "5,2 km · 5:24 /km",
+     *   distanceLabel: "5,37 km",
+     *   paceLabel: "5:19/km",
+     *   timeLabel: "28:33",
+     *   routePolylines: ["12.4,80.1 15.0,74.2 ..."],
      * });
      */
     updateNotification(options: UpdateNotificationOptions): Promise<void>;

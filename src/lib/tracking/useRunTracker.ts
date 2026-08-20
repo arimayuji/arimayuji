@@ -23,6 +23,7 @@ import {
 } from "./geoFilter";
 import { beginGeoWatch, endGeoWatch, updateLiveNotification, type GeoError, type GeoFix } from "./geolocation";
 import { isNativePlatform } from "../platform";
+import { projectRoute } from "./routeProjection";
 import { speak, unlockSpeech } from "./speech";
 import { WakeLockController } from "./wakeLock";
 import {
@@ -226,10 +227,12 @@ export function useRunTracker() {
         // Throttled to every 5s — the lock-screen notification doesn't need
         // second-by-second precision, and each update is a native bridge call.
         if (elapsedSeconds % 5 === 0) {
+          const route = projectRoute(pointsRef.current);
           updateLiveNotification({
-            title: `${formatDistanceKm(distanceRef.current)} km — ${formatElapsed(elapsedSeconds)}`,
-            message:
-              s.currentPaceSecPerKm !== null ? `Pace atual: ${formatPace(s.currentPaceSecPerKm)}/km` : "Gravando sua corrida.",
+            distanceLabel: `${formatDistanceKm(distanceRef.current)} km`,
+            paceLabel: s.currentPaceSecPerKm !== null ? `${formatPace(s.currentPaceSecPerKm)}/km` : "--:--/km",
+            timeLabel: formatElapsed(elapsedSeconds),
+            routePolylines: route?.polylines,
           });
         }
         return { ...s, elapsedSeconds, forecastSecondsRemaining };

@@ -166,16 +166,24 @@ export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoEr
 }
 
 /**
- * Refreshes the persistent tracking notification's title/message while a run
- * is live — e.g. "5,2 km — 5:30/km" instead of the static text it was
- * started with. Android-only: the fork's `updateNotification` native method
- * only exists on the Java side (see `native-plugins/capacitor-background-geolocation`);
+ * Refreshes the persistent tracking notification while a run is live —
+ * either the plain title/message form, or (passing `distanceLabel`/
+ * `paceLabel`/`timeLabel`) the rich 3-column layout with a route thumbnail.
+ * Android-only: the fork's `updateNotification` native method only exists on
+ * the Java side (see `native-plugins/capacitor-background-geolocation`);
  * iOS keeps its original, unpatched Swift implementation. No-ops on iOS/web,
  * or if the background backend isn't the one currently running (e.g. GPS
  * permission was only ever granted foreground-only, so `beginGeoWatch` fell
  * back to `@capacitor/geolocation`).
  */
-export function updateLiveNotification(options: { title?: string; message?: string }): void {
+export function updateLiveNotification(options: {
+  title?: string;
+  message?: string;
+  distanceLabel?: string;
+  paceLabel?: string;
+  timeLabel?: string;
+  routePolylines?: string[];
+}): void {
   if (!isAndroidPlatform() || activeBackend !== "background") return;
   void BackgroundGeolocation.updateNotification(options).catch(() => {
     // Best-effort — the run keeps tracking fine even if the notification text is stale.
