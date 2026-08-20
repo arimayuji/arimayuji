@@ -510,18 +510,26 @@ function ShoeForm({
   );
 }
 
-const SHOE_GLYPH_SRC = "/shoe/shoe-side.png";
+const SHOE_GLYPH_SRC = "/shoe/shoe-glyph-3d.png";
 
 /**
- * Generic shoe silhouette (the same unbranded illustrated asset
- * `shoe-showcase.tsx` uses for the /run selector), tinted to this specific
- * shoe's own colour — same grayscale-then-mix-blend-color recipe, just a
- * plain small swatch instead of the showcase's floating 3D loot item. This
+ * Generic shoe silhouette, tinted to this specific shoe's own colour — same
+ * grayscale-then-mix-blend-color recipe `ShoeHero` uses for its own photo
+ * fallback, just a plain small swatch instead of a floating loot item. This
  * is the fallback for a shoe with no personal photo yet: a real, if
  * generic, running-shoe shape instead of a flat colour dot, without ever
- * trying to depict an actual branded model (the presets are real product
- * names, but this app never draws a real product — see the comment on
- * SHOE_VIDEO_SRC in shoe-showcase.tsx for why that line matters).
+ * trying to depict an actual branded model.
+ *
+ * A flat side-profile render of the same GLB model `ShoeHero`'s 3D viewer
+ * uses (see shoe-3d-viewer.tsx), not the old `shoe-side.png` stock photo —
+ * that photo was a real, different shoe, so the small list icon and the big
+ * 3D hero above it were two unrelated shapes side by side. Rendered once
+ * offline (Three.js + GLTFLoader, orthographic-ish side angle, transparent
+ * background) with the "everything else" luminance band set to a neutral
+ * mid-gray instead of an athlete colour — this <img>'s own `grayscale(1)`
+ * filter below erases any baked-in hue anyway, so the mask/tint recipe here
+ * re-derives the same dark-sole/light-laces/coloured-upper look this file's
+ * `Shoe3DViewer` gets live, just cheaply, without a WebGL context per row.
  */
 function ShoeGlyph({
   color,
