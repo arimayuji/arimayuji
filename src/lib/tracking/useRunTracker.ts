@@ -7,6 +7,9 @@ import {
   Kalman2D,
   accuracyToPositionVarianceM2,
   findGpsGaps,
+  formatDistanceKm,
+  formatElapsed,
+  formatPace,
   haversineMeters,
   isFixUsable,
   isLikelyDrift,
@@ -18,7 +21,7 @@ import {
   type GpsGap,
   type LatLon,
 } from "./geoFilter";
-import { beginGeoWatch, endGeoWatch, type GeoError, type GeoFix } from "./geolocation";
+import { beginGeoWatch, endGeoWatch, updateLiveNotification, type GeoError, type GeoFix } from "./geolocation";
 import { isNativePlatform } from "../platform";
 import { speak, unlockSpeech } from "./speech";
 import { WakeLockController } from "./wakeLock";
@@ -220,6 +223,15 @@ export function useRunTracker() {
           remainingMeters !== null && s.currentPaceSecPerKm
             ? (remainingMeters / 1000) * s.currentPaceSecPerKm
             : null;
+        // Throttled to every 5s — the lock-screen notification doesn't need
+        // second-by-second precision, and each update is a native bridge call.
+        if (elapsedSeconds % 5 === 0) {
+          updateLiveNotification({
+            title: `${formatDistanceKm(distanceRef.current)} km — ${formatElapsed(elapsedSeconds)}`,
+            message:
+              s.currentPaceSecPerKm !== null ? `Pace atual: ${formatPace(s.currentPaceSecPerKm)}/km` : "Gravando sua corrida.",
+          });
+        }
         return { ...s, elapsedSeconds, forecastSecondsRemaining };
       });
     }, TICK_INTERVAL_MS);

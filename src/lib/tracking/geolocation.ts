@@ -24,7 +24,7 @@
  */
 import { Geolocation, type CallbackID } from "@capacitor/geolocation";
 import { BackgroundGeolocation, type CallbackError, type Location } from "@capgo/background-geolocation";
-import { isNativePlatform } from "../platform";
+import { isAndroidPlatform, isNativePlatform } from "../platform";
 
 export interface GeoFix {
   coords: {
@@ -162,6 +162,23 @@ export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoEr
   watchStartPromise.catch(() => {
     // Failing to even start the watch is surfaced to the caller via onError
     // through the watchPosition callback path on native; nothing else to do here.
+  });
+}
+
+/**
+ * Refreshes the persistent tracking notification's title/message while a run
+ * is live — e.g. "5,2 km — 5:30/km" instead of the static text it was
+ * started with. Android-only: the fork's `updateNotification` native method
+ * only exists on the Java side (see `native-plugins/capacitor-background-geolocation`);
+ * iOS keeps its original, unpatched Swift implementation. No-ops on iOS/web,
+ * or if the background backend isn't the one currently running (e.g. GPS
+ * permission was only ever granted foreground-only, so `beginGeoWatch` fell
+ * back to `@capacitor/geolocation`).
+ */
+export function updateLiveNotification(options: { title?: string; message?: string }): void {
+  if (!isAndroidPlatform() || activeBackend !== "background") return;
+  void BackgroundGeolocation.updateNotification(options).catch(() => {
+    // Best-effort — the run keeps tracking fine even if the notification text is stale.
   });
 }
 

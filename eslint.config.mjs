@@ -15,6 +15,9 @@ const eslintConfig = defineConfig([
     // Generated Capacitor native projects — not this tool's business.
     "android/**",
     "ios/**",
+    // Vendored third-party plugin source (forked to patch a native method) —
+    // its compiled dist/ isn't code this project authors or maintains style on.
+    "native-plugins/**",
   ]),
 ]);
 

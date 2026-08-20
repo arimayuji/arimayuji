@@ -19,7 +19,7 @@
     "@capacitor/core": "^8.5.0",
     "@capacitor/geolocation": "^8.2.2",
     "@capacitor/ios": "^8.5.0",
-    "@capgo/background-geolocation": "^8.4.2",
+    "@capgo/background-geolocation": "file:./native-plugins/capacitor-background-geolocation",
     "@protomaps/basemaps": "^5.7.2",
     "appwrite": "^26.2.0",
     "capacitor-health": "^8.1.2",

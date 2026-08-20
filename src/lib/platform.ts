@@ -5,6 +5,11 @@ export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+/** True only inside the native Android shell — false on iOS, web, and PWA. */
+export function isAndroidPlatform(): boolean {
+  return Capacitor.getPlatform() === "android";
+}
+
 /**
  * True when the app is running detached from browser chrome — an installed
  * PWA in standalone display mode, iOS's own "Adicionar à Tela de Início"
