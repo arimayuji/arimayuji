@@ -16,7 +16,7 @@ import {
   type ConstancyWeek,
   type WeeklyTarget,
 } from "@/lib/tracking/constancy";
-import { formatDistance, metersPerUnit, paceLabel, toUnit, unitLabel } from "@/lib/units";
+import { formatAveragePace, formatDistance, metersPerUnit, paceLabel, toUnit, unitLabel } from "@/lib/units";
 import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
@@ -47,10 +47,45 @@ const PACE_TREND_MIN_WEEKS = 4;
 
 const WEEKDAY_LABEL = new Intl.DateTimeFormat("pt-BR", { weekday: "narrow" });
 const MONTH_LABEL = new Intl.DateTimeFormat("pt-BR", { month: "long" });
+const DAY_DETAIL_LABEL = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 
 function weekLabel(weekStart: number): string {
   const d = new Date(weekStart);
   return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+/** Detail panel a bar chart reveals below itself once a bar is tapped — same data the `title` hover already carried, just readable on touch devices too. */
+function BarDetail({
+  dateLabel,
+  distanceMeters,
+  movingSeconds,
+  runCount,
+  unit,
+}: {
+  dateLabel: string;
+  distanceMeters: number;
+  movingSeconds: number;
+  runCount: number;
+  unit: DistanceUnit;
+}) {
+  return (
+    <div className="pr-enter mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 text-xs">
+      <span className="capitalize text-muted">{dateLabel}</span>
+      {runCount > 0 ? (
+        <span className="flex items-baseline gap-3 font-mono tabular-nums">
+          <span className="text-foreground">
+            {formatDistance(distanceMeters, unit)} {unitLabel(unit)}
+          </span>
+          <span className="text-muted">
+            {runCount} {runCount === 1 ? "corrida" : "corridas"}
+          </span>
+          <span className="font-semibold text-accent">{formatAveragePace(distanceMeters, movingSeconds, unit)}</span>
+        </span>
+      ) : (
+        <span className="text-muted">sem corrida</span>
+      )}
+    </div>
+  );
 }
 
 /** `<Card>` shell every section below shares: title, optional delay, empty guard baked into the caller instead of here since the "nothing to show" copy differs per section. */
@@ -341,6 +376,8 @@ function ConstancyCell({ week }: { week: ConstancyWeek }) {
 
 function WeeklyVolumeChart({ weeks, unit }: { weeks: WeekBucket[]; unit: DistanceUnit }) {
   const maxMeters = Math.max(...weeks.map((w) => w.distanceMeters), 1);
+  const [selected, setSelected] = useState<number | null>(null);
+  const selectedWeek = selected !== null ? weeks[selected] : null;
 
   return (
     <Section title={`Rodagem por semana (últimas ${WEEKS_SHOWN})`} delayMs={70}>
@@ -348,11 +385,17 @@ function WeeklyVolumeChart({ weeks, unit }: { weeks: WeekBucket[]; unit: Distanc
         {weeks.map((week, index) => {
           const heightPct = week.distanceMeters > 0 ? Math.max(6, (week.distanceMeters / maxMeters) * 100) : 0;
           const isCurrent = index === weeks.length - 1;
+          const isSelected = selected === index;
           return (
             <div key={week.weekStart} className="flex flex-1 flex-col items-center gap-1.5">
               <div className="flex h-32 w-full items-end">
-                <div
-                  className={`pr-bar w-full rounded-md ${isCurrent ? "bg-accent/50" : "bg-accent"}`}
+                <button
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setSelected(isSelected ? null : index)}
+                  className={`pr-bar w-full rounded-md transition-opacity ${isCurrent ? "bg-accent/50" : "bg-accent"} ${
+                    selected !== null && !isSelected ? "opacity-40" : ""
+                  }`}
                   style={delay(100 + index * 45, { height: `${heightPct}%` } as CSSProperties)}
                   title={`Semana de ${weekLabel(week.weekStart)}: ${formatDistance(week.distanceMeters, unit)} ${unitLabel(unit)}`}
                 />
@@ -362,6 +405,15 @@ function WeeklyVolumeChart({ weeks, unit }: { weeks: WeekBucket[]; unit: Distanc
           );
         })}
       </div>
+      {selectedWeek && (
+        <BarDetail
+          dateLabel={`Semana de ${weekLabel(selectedWeek.weekStart)}`}
+          distanceMeters={selectedWeek.distanceMeters}
+          movingSeconds={selectedWeek.movingSeconds}
+          runCount={selectedWeek.runCount}
+          unit={unit}
+        />
+      )}
     </Section>
   );
 }
@@ -518,6 +570,8 @@ function MonthCard({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit })
 function DailyVolumeChart({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit }) {
   const days = useMemo(() => dailyBuckets(runs, DAYS_SHOWN), [runs]);
   const maxMeters = Math.max(...days.map((d) => d.distanceMeters), 1);
+  const [selected, setSelected] = useState<number | null>(null);
+  const selectedDay = selected !== null ? days[selected] : null;
 
   return (
     <Section title={`Dia a dia (últimos ${DAYS_SHOWN} dias)`} delayMs={160}>
@@ -525,11 +579,17 @@ function DailyVolumeChart({ runs, unit }: { runs: CompletedRun[]; unit: Distance
         {days.map((day, index) => {
           const heightPct = day.distanceMeters > 0 ? Math.max(8, (day.distanceMeters / maxMeters) * 100) : 0;
           const isToday = index === days.length - 1;
+          const isSelected = selected === index;
           return (
             <div key={day.dayStart} className="flex flex-1 flex-col items-center gap-1">
               <div className="flex h-24 w-full items-end">
-                <div
-                  className={`pr-bar w-full rounded-md ${isToday ? "bg-accent/50" : day.distanceMeters > 0 ? "bg-accent" : "bg-border"}`}
+                <button
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setSelected(isSelected ? null : index)}
+                  className={`pr-bar w-full rounded-md transition-opacity ${
+                    isToday ? "bg-accent/50" : day.distanceMeters > 0 ? "bg-accent" : "bg-border"
+                  } ${selected !== null && !isSelected ? "opacity-40" : ""}`}
                   style={delay(180 + index * 25, { height: `${Math.max(heightPct, 4)}%` } as CSSProperties)}
                   title={`${new Date(day.dayStart).toLocaleDateString("pt-BR")}: ${formatDistance(day.distanceMeters, unit)} ${unitLabel(unit)}`}
                 />
@@ -541,6 +601,15 @@ function DailyVolumeChart({ runs, unit }: { runs: CompletedRun[]; unit: Distance
           );
         })}
       </div>
+      {selectedDay && (
+        <BarDetail
+          dateLabel={DAY_DETAIL_LABEL.format(new Date(selectedDay.dayStart))}
+          distanceMeters={selectedDay.distanceMeters}
+          movingSeconds={selectedDay.movingSeconds}
+          runCount={selectedDay.runCount}
+          unit={unit}
+        />
+      )}
     </Section>
   );
 }

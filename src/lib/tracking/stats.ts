@@ -72,6 +72,8 @@ export interface DayBucket {
   /** Midnight of this day, local time. */
   dayStart: number;
   distanceMeters: number;
+  movingSeconds: number;
+  runCount: number;
 }
 
 /** The last `days` calendar days including today, oldest first — same "every slot present, even empty" shape as `weeklyBuckets`. */
@@ -79,12 +81,15 @@ export function dailyBuckets(runs: CompletedRun[], days: number, now = Date.now(
   const today = dayStartOf(now);
   const buckets: DayBucket[] = [];
   for (let i = days - 1; i >= 0; i--) {
-    buckets.push({ dayStart: today - i * 86_400_000, distanceMeters: 0 });
+    buckets.push({ dayStart: today - i * 86_400_000, distanceMeters: 0, movingSeconds: 0, runCount: 0 });
   }
   const byDayStart = new Map(buckets.map((b) => [b.dayStart, b]));
   for (const run of runs) {
     const bucket = byDayStart.get(dayStartOf(run.startedAt));
-    if (bucket) bucket.distanceMeters += run.distanceMeters;
+    if (!bucket) continue;
+    bucket.distanceMeters += run.distanceMeters;
+    bucket.movingSeconds += runMovingSeconds(run);
+    bucket.runCount += 1;
   }
   return buckets;
 }
