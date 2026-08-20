@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Xanthus fork — not part of the upstream plugin.
+
+  Replaces android.R.drawable.ic_media_pause (a stock framework asset with
+  its own, unrelated visual weight/proportions) as the "Pausar" notification
+  action icon, so the action row stops looking like generic system chrome
+  bolted onto our own colorized card. Solid white fill: notification action
+  icons are re-tinted by the system for contrast against whatever background
+  color the notification actually has, so the source asset only needs to
+  supply the right shape/alpha, same convention android.R.drawable.ic_media_pause
+  itself follows.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M6,5h4v14h-4z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M14,5h4v14h-4z" />
+</vector>

@@ -20,7 +20,6 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
-import android.util.TypedValue;
 import android.view.View;
 import android.widget.RemoteViews;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -44,10 +43,10 @@ public class BackgroundGeolocationService extends Service {
     private static final int NOTIFICATION_ID = 28351;
 
     // Xanthus fork: pixel size of the route-thumbnail bitmap drawn by RouteThumbnail for
-    // the rich notification layout — a fixed multiple of the 36dp ImageView it renders
-    // into (notification_run.xml) so it stays sharp on high-density screens without the
-    // system having to upscale it.
-    private static final int ROUTE_THUMB_SIZE_PX = 120;
+    // the rich notification layout — sized well above the 44dp chip ImageView it renders
+    // into (notification_run.xml, minus its own padding) so it stays sharp on
+    // high-density screens without the system having to upscale it.
+    private static final int ROUTE_THUMB_SIZE_PX = 140;
 
     private String callbackId;
 
@@ -492,7 +491,7 @@ public class BackgroundGeolocationService extends Service {
         views.setTextViewText(R.id.xanthus_stat_pace, paceLabel != null ? paceLabel : "--");
         views.setTextViewText(R.id.xanthus_stat_time, timeLabel != null ? timeLabel : "--");
 
-        Bitmap routeThumb = RouteThumbnail.draw(routePolylines, ROUTE_THUMB_SIZE_PX, resolveThemeColor(android.R.attr.textColorPrimary));
+        Bitmap routeThumb = RouteThumbnail.draw(routePolylines, ROUTE_THUMB_SIZE_PX, resolveNotificationAccentColor());
         if (routeThumb != null) {
             views.setImageViewBitmap(R.id.xanthus_route_thumb, routeThumb);
             views.setViewVisibility(R.id.xanthus_route_thumb, View.VISIBLE);
@@ -504,12 +503,12 @@ public class BackgroundGeolocationService extends Service {
             .setStyle(new Notification.DecoratedCustomViewStyle())
             .setCustomContentView(views)
             .addAction(
-                android.R.drawable.ic_media_pause,
+                R.drawable.ic_notif_pause,
                 "Pausar",
                 NotificationActionReceiver.createPendingIntent(getApplicationContext(), NotificationActionReceiver.ACTION_PAUSE)
             )
             .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
+                R.drawable.ic_notif_stop,
                 "Finalizar",
                 NotificationActionReceiver.createPendingIntent(getApplicationContext(), NotificationActionReceiver.ACTION_FINISH)
             );
@@ -578,15 +577,21 @@ public class BackgroundGeolocationService extends Service {
         return builder;
     }
 
-    // Resolves a theme color attribute (e.g. android.R.attr.textColorPrimary) to an
-    // actual color int at runtime, so the route thumbnail's stroke matches the same
-    // light/dark-shade-aware color the layout's text views already use via ?android:attr
-    // references — a Bitmap has no equivalent of a theme attribute, so this has to be
-    // resolved once in Java and baked into the drawn pixels.
-    private int resolveThemeColor(int attr) {
-        TypedValue value = new TypedValue();
-        getApplicationContext().getTheme().resolveAttribute(attr, value, true);
-        return value.data;
+    // Xanthus fork: the route thumbnail's line/"current position" dot color — read from
+    // the app's own strings.xml (capacitor_background_geolocation_notification_accent_color),
+    // same mechanism and same reasoning as the notification's background color just above:
+    // a Bitmap can't reference a theme attribute or app resource directly, so this is
+    // resolved once in Java and baked into the drawn pixels. Falls back to the brand's
+    // actual accent blue if the app never defines the string, rather than failing silently
+    // into an undyed color.
+    private int resolveNotificationAccentColor() {
+        try {
+            String color = getAppString("capacitor_background_geolocation_notification_accent_color", "#5B8DFF", getApplicationContext());
+            return Color.parseColor(color);
+        } catch (Exception e) {
+            Logger.error("Could not resolve notification accent color", e);
+            return Color.parseColor("#5B8DFF");
+        }
     }
 
     // Gets the identifier of the app's resource by name, returning 0 if not found.

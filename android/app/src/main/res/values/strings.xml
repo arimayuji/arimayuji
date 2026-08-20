@@ -18,4 +18,16 @@
       the background outright removes that dependency entirely.
     -->
     <string name="capacitor_background_geolocation_notification_color" translatable="false">#0B0E11</string>
+
+    <!--
+      Read by BackgroundGeolocationService#createRichBackgroundNotification()
+      via getAppString(), same mechanism as the background color above. Tints
+      the route thumbnail's line and "current position" dot — matches the
+      "accent" token in globals.css' dark theme, the same blue every other
+      route/map/chart in the app already draws with (see LIVE_MARKER in
+      route-map.tsx). Before this, the thumbnail drew in a plain theme
+      foreground color, which is why the notification read as generic
+      Android chrome instead of something recognizably Xanthus.
+    -->
+    <string name="capacitor_background_geolocation_notification_accent_color" translatable="false">#5B8DFF</string>
 </resources>

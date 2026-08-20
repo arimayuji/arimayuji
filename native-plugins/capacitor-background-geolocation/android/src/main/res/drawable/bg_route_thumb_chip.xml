@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Xanthus fork — not part of the upstream plugin.
+
+  Background for the rich tracking notification's route-thumbnail
+  ImageView (notification_run.xml, xanthus_route_thumb): the same
+  "surface panel on a border" recipe the web app's own Card component uses
+  (see .card in globals.css), so the thumbnail reads as a small card sitting
+  on top of the notification's own colorized background instead of a bare
+  icon floating with nothing behind it. Colors are the app's fixed "surface"
+  and "border" dark-theme tokens, hardcoded here the same way
+  notification_run.xml's own text colors are — RemoteViews/plugin drawables
+  can't reach the app module's colors.xml at compile time (dependency runs
+  app -> plugin, not the other way), so this can't be a @color reference.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#14181D" />
+    <stroke android:width="1dp" android:color="#262C33" />
+    <corners android:radius="10dp" />
+</shape>
