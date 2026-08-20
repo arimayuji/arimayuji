@@ -44,6 +44,15 @@ no histórico de tasks — mesmo projeto).
   Apple. Os secrets (`APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`,
   `APP_STORE_CONNECT_API_KEY_P8`) já estão configurados no repo — o CI builda
   e sobe automaticamente pro TestFlight a cada push em `main`.
+  **Limite diário de upload (visto em 2026-08-20)**: a Apple aplica um teto
+  diário de quantos builds um app pode subir pro App Store Connect. Numa
+  sessão com muitos pushes seguidos (cada push = 1 tentativa de upload), o
+  job `testflight` do CI bateu nesse teto — `archive`/`export` completam
+  normalmente, só o `altool --upload-app` final falha com
+  `Upload limit reached... (90382)`. Não é bug de código nem do workflow;
+  a própria mensagem da Apple diz que reseta em ~1 dia. Enquanto isso, todo
+  push novo vai continuar mostrando esse job vermelho no Actions — Android e
+  o deploy web (Cloudflare) não são afetados, seguem normais.
 - **Google Play Developer**: conta criada, mas a **verificação ainda não foi
   concluída**. Até isso fechar, a distribuição Android é só via APK direto
   (sideload, link acima) — o fluxo de publicação real na Play Store (`.aab`
