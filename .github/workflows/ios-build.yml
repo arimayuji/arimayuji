@@ -125,11 +125,16 @@ jobs:
 
       - name: Build for iOS Simulator
         working-directory: ios/App
+        # COMPILER_INDEX_STORE_ENABLE=NO: the index store is Xcode's own
+        # local code-intelligence data (search, autocomplete, refactoring)
+        # — meaningless for a one-shot headless CI compile, and generating
+        # it isn't free. Doesn't change the compiled output, just skips
+        # writing data nothing here will ever read.
         run: |
           xcodebuild -project App.xcodeproj -scheme App \
             -sdk iphonesimulator -configuration Debug \
             -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO build
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build
 
       - uses: actions/upload-artifact@v4
         with:
@@ -244,6 +249,7 @@ jobs:
             "${AUTH_FLAGS[@]}" \
             DEVELOPMENT_TEAM=6YJ97VWT8V CODE_SIGN_STYLE=Automatic \
             CODE_SIGN_IDENTITY=- AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
 
           cat > ExportOptions.plist <<EOF
