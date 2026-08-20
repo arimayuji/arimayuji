@@ -246,7 +246,17 @@ export function endGeoWatch(): void {
   watchStartPromise = null;
   activeBackend = null;
   if (backend === "background") {
-    void pending.then(() => BackgroundGeolocation.stop()).catch(() => {});
+    // Not gated on `pending` resolving: unlike the foreground branch below,
+    // `stop()` needs no watch id from it, and this plugin's `start()` call
+    // only ever resolves once the *first* fix arrives — cancelling a watch
+    // that never got one (weak GPS, a quick prewarm cancel) would otherwise
+    // leave `.then()` waiting on a promise that never settles, so `stop()`
+    // never reaches the native side and the Android foreground service
+    // stays marked "started" for the rest of the app session, failing every
+    // later `start()` with ALREADY_STARTED. Calling it straight away is
+    // safe either way — the native side's own connection future already
+    // queues the stop until the service is actually bound.
+    void BackgroundGeolocation.stop().catch(() => {});
   } else {
     void pending.then((id) => Geolocation.clearWatch({ id: id as CallbackID })).catch(() => {});
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { HORSE_BUST_PATHS } from "../horse-mark";
@@ -269,8 +269,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [closeHref, setCloseHref] = useState<string | null>(null);
   const closeValue = useMemo(() => setCloseHref, []);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const chromeVisible = useScrollChromeVisibility(scrollRef);
+  /**
+   * The scroll container as state, not a plain `useRef` — this element is
+   * torn down and recreated every time immersive mode toggles (see
+   * `useScrollChromeVisibility`'s own comment for why a stale ref used to
+   * freeze the header/nav after leaving `/run`), so a callback ref that
+   * pushes into state is what makes `chromeVisible` below re-subscribe to
+   * whichever node is actually mounted right now.
+   */
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  const chromeVisible = useScrollChromeVisibility(scrollEl);
   const pathname = usePathname();
 
   // Next's own "scroll to top on navigate" only targets window scroll — this
@@ -279,8 +287,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // (arriving on a fresh screen already scrolled-away-from would be a bug,
   // not a feature).
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
-  }, [pathname]);
+    scrollEl?.scrollTo({ top: 0 });
+  }, [scrollEl, pathname]);
 
   return (
     <ImmersiveContext.Provider value={immersiveValue}>
@@ -312,7 +320,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               breaks that loop.
             */}
             <div
-              ref={scrollRef}
+              ref={setScrollEl}
               className="h-full overflow-y-auto overscroll-y-contain"
               style={{
                 paddingTop: `calc(${HEADER_HEIGHT} + env(safe-area-inset-top))`,
