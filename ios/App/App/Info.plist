@@ -55,6 +55,13 @@
 	<array>
 		<string>location</string>
 	</array>
+	<!--
+	  Required for the lock-screen/Dynamic Island Live Activity
+	  (RunActivityWidget) — without this, Activity.request() throws at
+	  runtime even with the widget extension correctly embedded.
+	-->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

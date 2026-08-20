@@ -4,6 +4,7 @@ import Foundation
 import UIKit
 import CoreLocation
 import AVFoundation
+import ActivityKit
 
 // Avoids a bewildering type warning.
 let null = Optional<Double>.none as Any
@@ -53,7 +54,14 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
         CAPPluginMethod(name: "getMonitoredGeofences", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "checkPermissions", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise),
+        // Xanthus fork — not part of the upstream plugin. Lock-screen/Dynamic
+        // Island Live Activity, the iOS counterpart to the Android fork's rich
+        // tracking notification. See RunActivityAttributes.swift (App target)
+        // and RunActivityWidget/ (the widget extension target).
+        CAPPluginMethod(name: "startLiveActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "updateLiveActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "endLiveActivity", returnType: CAPPluginReturnPromise)
     ]
     private var locationManager: CLLocationManager?
     private var geofenceLocationManager: CLLocationManager?
@@ -83,6 +91,17 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
     private var geofenceHeaders: [String: String] = [:]
     private var minIntervalMs: Double = 0
     private var lastPostedLocationTime: Date?
+    // Xanthus fork: the running Live Activity, if any. Type-erased to `Any?`
+    // rather than `Activity<RunActivityAttributes>?` — Swift does not allow
+    // an `@available(iOS 16.1, *)` stored property inside a class whose own
+    // deployment target is lower (15.0 here), since that would change the
+    // type's memory layout conditionally at runtime. Cast back to the real
+    // type only inside the `@available`-guarded methods below.
+    private var runActivity: Any?
+
+    private static let appGroupId = "group.com.xanthus.app"
+    private static let pendingActionKey = "pendingNotificationAction"
+    private static let darwinNotificationName = "app.xanthus.notificationAction" as CFString
 
     private let geofenceUrlKey = "CapgoBackgroundGeolocation.geofence.url"
     private let geofenceHeadersKey = "CapgoBackgroundGeolocation.geofence.headers"
@@ -100,6 +119,40 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
         DispatchQueue.main.async {
             _ = self.ensureGeofenceLocationManager()
         }
+        registerNotificationActionObserver()
+    }
+
+    // Xanthus fork: relays Pausar/Finalizar taps from the Live Activity's
+    // App Intents (RunActivityIntents.swift, running in the widget
+    // extension's own process) back to this app as a "notificationAction"
+    // event — the same event name/shape the Android fork's notification
+    // buttons already emit, so useRunTracker.ts/run/page.tsx's single
+    // listener (onNotificationAction in geolocation.ts) covers both
+    // platforms without knowing which one fired it.
+    private func registerNotificationActionObserver() {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        let observer = Unmanaged.passUnretained(self).toOpaque()
+        CFNotificationCenterAddObserver(
+            center,
+            observer,
+            { (_, observerPointer, _, _, _) in
+                guard let observerPointer else { return }
+                let plugin = Unmanaged<BackgroundGeolocation>.fromOpaque(observerPointer).takeUnretainedValue()
+                plugin.handleNotificationActionSignal()
+            },
+            Self.darwinNotificationName,
+            nil,
+            .deliverImmediately
+        )
+    }
+
+    private func handleNotificationActionSignal() {
+        guard let defaults = UserDefaults(suiteName: Self.appGroupId),
+              let action = defaults.string(forKey: Self.pendingActionKey) else {
+            return
+        }
+        defaults.removeObject(forKey: Self.pendingActionKey)
+        notifyListeners("notificationAction", data: ["action": action], retainUntilConsumed: true)
     }
 
     @objc func start(_ call: CAPPluginCall) {
@@ -1075,6 +1128,80 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
 
     @objc func getPluginVersion(_ call: CAPPluginCall) {
         call.resolve(["version": self.pluginVersion])
+    }
+
+    // MARK: - Live Activity (Xanthus fork — not part of the upstream plugin)
+
+    @objc func startLiveActivity(_ call: CAPPluginCall) {
+        guard #available(iOS 16.1, *) else {
+            return call.reject("Live Activities require iOS 16.1+", "NOT_SUPPORTED")
+        }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            return call.reject("Live Activities are disabled for this app (Ajustes > Xanthus > Live Activities)", "NOT_AUTHORIZED")
+        }
+        do {
+            let activity = try Activity<RunActivityAttributes>.request(
+                attributes: RunActivityAttributes(),
+                content: .init(state: Self.contentState(from: call), staleDate: nil)
+            )
+            self.runActivity = activity
+            call.resolve()
+        } catch {
+            call.reject("Failed to start Live Activity: \(error.localizedDescription)")
+        }
+    }
+
+    @objc func updateLiveActivity(_ call: CAPPluginCall) {
+        guard #available(iOS 16.1, *) else {
+            // Below the OS floor there's nothing to update — same
+            // no-effect-not-an-error contract as the web/Android stubs.
+            return call.resolve()
+        }
+        guard let activity = self.runActivity as? Activity<RunActivityAttributes> else {
+            return call.reject("No Live Activity is running, call startLiveActivity() first", "NOT_STARTED")
+        }
+        let content = Self.contentState(from: call)
+        Task {
+            await activity.update(.init(state: content, staleDate: nil))
+            call.resolve()
+        }
+    }
+
+    @objc func endLiveActivity(_ call: CAPPluginCall) {
+        guard #available(iOS 16.1, *) else {
+            return call.resolve()
+        }
+        guard let activity = self.runActivity as? Activity<RunActivityAttributes> else {
+            // Already ended, or never started (e.g. startLiveActivity failed
+            // earlier) — a no-op, not an error, so callers can always call
+            // this unconditionally when a run finishes.
+            return call.resolve()
+        }
+        let content = Self.contentState(from: call)
+        self.runActivity = nil
+        Task {
+            await activity.end(.init(state: content, staleDate: nil), dismissalPolicy: .immediate)
+            call.resolve()
+        }
+    }
+
+    @available(iOS 16.1, *)
+    private static func contentState(from call: CAPPluginCall) -> RunActivityAttributes.ContentState {
+        let rawPoints = call.getArray("routePoints", Any.self) ?? []
+        let points = rawPoints.compactMap { entry -> RunActivityAttributes.RoutePoint? in
+            guard let dict = entry as? [String: Any],
+                  let x = dict["x"] as? Double,
+                  let y = dict["y"] as? Double else {
+                return nil
+            }
+            return RunActivityAttributes.RoutePoint(x: x, y: y)
+        }
+        return RunActivityAttributes.ContentState(
+            distanceLabel: call.getString("distanceLabel") ?? "--",
+            paceLabel: call.getString("paceLabel") ?? "--",
+            timeLabel: call.getString("timeLabel") ?? "--",
+            routePoints: points
+        )
     }
 
 }

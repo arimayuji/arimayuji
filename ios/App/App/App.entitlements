@@ -6,5 +6,18 @@
 	<true/>
 	<key>com.apple.developer.healthkit.access</key>
 	<array/>
+	<!--
+	  Shared with RunActivityWidget.entitlements — the only channel the main
+	  app and the Live Activity widget extension (two separate processes)
+	  have to talk to each other. Used only for relaying the Live Activity's
+	  Pausar/Finalizar button taps back to this app (see
+	  RunActivityIntents.swift and CapgoCapacitorBackgroundGeolocationPlugin's
+	  Darwin notification observer) — the run's real state (distance, GPS
+	  points, persistence) never leaves useRunTracker.ts.
+	-->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.xanthus.app</string>
+	</array>
 </dict>
 </plist>

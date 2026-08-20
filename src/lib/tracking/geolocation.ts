@@ -24,7 +24,7 @@
  */
 import { Geolocation, type CallbackID } from "@capacitor/geolocation";
 import { BackgroundGeolocation, type CallbackError, type Location } from "@capgo/background-geolocation";
-import { isAndroidPlatform, isNativePlatform } from "../platform";
+import { isAndroidPlatform, isIOSPlatform, isNativePlatform } from "../platform";
 
 export interface GeoFix {
   coords: {
@@ -193,17 +193,50 @@ export function updateLiveNotification(options: {
 export type NotificationAction = "pause" | "finish";
 
 /**
- * Subscribes to taps on the rich notification's Pausar/Finalizar buttons
- * (see `updateLiveNotification` above). Android only — on iOS/web this is a
- * no-op that never calls `callback`, since neither platform has this
- * notification style to tap. Returns an unsubscribe function.
+ * Subscribes to taps on a Pausar/Finalizar action button — Android's rich
+ * notification (see `updateLiveNotification` above) or iOS's Live Activity
+ * (see `beginLiveActivity` below), same event either way. No-op on web,
+ * which has neither. Returns an unsubscribe function.
  */
 export function onNotificationAction(callback: (action: NotificationAction) => void): () => void {
-  if (!isAndroidPlatform()) return () => {};
+  if (!isNativePlatform()) return () => {};
   const handlePromise = BackgroundGeolocation.addListener("notificationAction", (event) => callback(event.action));
   return () => {
     void handlePromise.then((handle) => handle.remove()).catch(() => {});
   };
+}
+
+export interface LiveActivityContent {
+  distanceLabel: string;
+  paceLabel: string;
+  timeLabel: string;
+  /** Omit for no route drawn in the Live Activity. Normalized to a 0-100 square — same convention `projectRoute()` already produces. */
+  routePoints?: { x: number; y: number }[];
+}
+
+/**
+ * Starts the iOS lock-screen/Dynamic Island Live Activity for the current
+ * run — the iOS counterpart to Android's rich notification. iOS only; no-op
+ * on Android/web. Best-effort: a rejected start (OS below 16.1, Live
+ * Activities disabled by the user, or any other native error) is swallowed
+ * rather than surfaced, same as `updateLiveNotification` — the run keeps
+ * tracking fine either way, this is purely a glanceable extra.
+ */
+export function beginLiveActivity(content: LiveActivityContent): void {
+  if (!isIOSPlatform()) return;
+  void BackgroundGeolocation.startLiveActivity(content).catch(() => {});
+}
+
+/** Refreshes the running Live Activity's content. iOS only; no-op on Android/web or if `beginLiveActivity` was never called (or already ended) — see `startLiveActivity`. */
+export function updateLiveActivityContent(content: LiveActivityContent): void {
+  if (!isIOSPlatform()) return;
+  void BackgroundGeolocation.updateLiveActivity(content).catch(() => {});
+}
+
+/** Ends the running Live Activity, showing `content` as its final state before dismissal. iOS only; safe to call unconditionally when a run finishes or is discarded. */
+export function endLiveActivity(content: LiveActivityContent): void {
+  if (!isIOSPlatform()) return;
+  void BackgroundGeolocation.endLiveActivity(content).catch(() => {});
 }
 
 export function endGeoWatch(): void {

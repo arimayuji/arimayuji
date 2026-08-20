@@ -637,9 +637,10 @@ export interface UpdateNotificationOptions {
     routePolylines?: string[];
 }
 /**
- * Event emitted when the athlete taps the rich tracking notification's
- * Pausar/Finalizar action button (see {@link UpdateNotificationOptions}).
- * Android only.
+ * Event emitted when the athlete taps a Pausar/Finalizar action button —
+ * Android's rich tracking notification (see {@link UpdateNotificationOptions})
+ * or iOS's Live Activity (see {@link LiveActivityContent}). Same event shape
+ * on both platforms so a single JS listener covers either one.
  *
  * Xanthus fork — not part of the upstream plugin.
  */
@@ -650,6 +651,31 @@ export interface NotificationActionEvent {
      * Xanthus fork — not part of the upstream plugin.
      */
     action: 'pause' | 'finish';
+}
+/**
+ * A point on the run's route so far, normalized to a 0-100 square — the
+ * same convention `projectRoute()` already produces on the web side
+ * (src/lib/tracking/routeProjection.ts).
+ *
+ * Xanthus fork — not part of the upstream plugin.
+ */
+export interface LiveActivityRoutePoint {
+    x: number;
+    y: number;
+}
+/**
+ * Content for the iOS lock-screen/Dynamic Island Live Activity — the iOS
+ * counterpart to Android's rich notification (see
+ * {@link UpdateNotificationOptions}). iOS only.
+ *
+ * Xanthus fork — not part of the upstream plugin.
+ */
+export interface LiveActivityContent {
+    distanceLabel: string;
+    paceLabel: string;
+    timeLabel: string;
+    /** Omit for no route drawn in the Live Activity. */
+    routePoints?: LiveActivityRoutePoint[];
 }
 /**
  * Main plugin interface for background geolocation functionality.
@@ -860,9 +886,9 @@ export interface BackgroundGeolocationPlugin {
      */
     addListener(eventName: 'geofenceError', listenerFunc: (event: GeofenceErrorEvent) => void): Promise<PluginListenerHandle>;
     /**
-     * Listens for taps on the rich tracking notification's Pausar/Finalizar
-     * buttons while the WebView is alive. Android only — never fires on
-     * iOS/web, since neither has this notification style.
+     * Listens for taps on a Pausar/Finalizar action button while the WebView
+     * is alive — Android's rich notification buttons or iOS's Live Activity
+     * buttons, same event either way. Never fires on web, which has neither.
      *
      * Xanthus fork — not part of the upstream plugin.
      *
@@ -873,6 +899,39 @@ export interface BackgroundGeolocationPlugin {
      * );
      */
     addListener(eventName: 'notificationAction', listenerFunc: (event: NotificationActionEvent) => void): Promise<PluginListenerHandle>;
+    /**
+     * Starts the lock-screen/Dynamic Island Live Activity for the current
+     * run. iOS only (16.1+) — resolves without effect on Android/web, and
+     * rejects on iOS below 16.1 or if the user disabled Live Activities for
+     * this app.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     *
+     * @example
+     * await BackgroundGeolocation.startLiveActivity({
+     *   distanceLabel: "0,00 km",
+     *   paceLabel: "--:--/km",
+     *   timeLabel: "00:00",
+     * });
+     */
+    startLiveActivity(content: LiveActivityContent): Promise<void>;
+    /**
+     * Refreshes the running Live Activity's content. iOS only — rejects if
+     * {@link BackgroundGeolocationPlugin.startLiveActivity} wasn't called
+     * first (or already ended).
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    updateLiveActivity(content: LiveActivityContent): Promise<void>;
+    /**
+     * Ends the running Live Activity, showing `content` as its final state
+     * before dismissal. iOS only — resolves without effect if no Live
+     * Activity is running (safe to call unconditionally when a run
+     * finishes/is discarded).
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    endLiveActivity(content: LiveActivityContent): Promise<void>;
     /**
      * Read current location authorization without prompting or side effects.
      *

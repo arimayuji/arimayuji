@@ -1,5 +1,5 @@
 import { WebPlugin } from '@capacitor/core';
-import type { BackgroundGeolocationPlugin, StartOptions, Location, CallbackError, SetPlannedRouteOptions, GeofenceSetupOptions, AddGeofenceOptions, RemoveGeofenceOptions, MonitoredGeofencesResult, BackgroundGeolocationPermissionStatus, UpdateHeadersOptions, UpdateNotificationOptions } from './definitions';
+import type { BackgroundGeolocationPlugin, StartOptions, Location, CallbackError, SetPlannedRouteOptions, GeofenceSetupOptions, AddGeofenceOptions, RemoveGeofenceOptions, MonitoredGeofencesResult, BackgroundGeolocationPermissionStatus, UpdateHeadersOptions, UpdateNotificationOptions, LiveActivityContent } from './definitions';
 export declare class BackgroundGeolocationWeb extends WebPlugin implements BackgroundGeolocationPlugin {
     private static readonly EARTH_RADIUS_M;
     private watchId;
@@ -21,6 +21,9 @@ export declare class BackgroundGeolocationWeb extends WebPlugin implements Backg
     setupGeofencing(options: GeofenceSetupOptions): Promise<void>;
     updateHeaders(options: UpdateHeadersOptions): Promise<void>;
     updateNotification(options: UpdateNotificationOptions): Promise<void>;
+    startLiveActivity(content: LiveActivityContent): Promise<void>;
+    updateLiveActivity(content: LiveActivityContent): Promise<void>;
+    endLiveActivity(content: LiveActivityContent): Promise<void>;
     addGeofence(options: AddGeofenceOptions): Promise<void>;
     removeGeofence(options: RemoveGeofenceOptions): Promise<void>;
     removeAllGeofences(): Promise<void>;

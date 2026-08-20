@@ -103,6 +103,10 @@ export class BackgroundGeolocationWeb extends WebPlugin {
     }
     // Xanthus fork: no-op — the web fallback has no persistent notification to update.
     async updateNotification(_options) {}
+    // Xanthus fork: no-op — the web fallback has no Live Activity to run.
+    async startLiveActivity(_content) {}
+    async updateLiveActivity(_content) {}
+    async endLiveActivity(_content) {}
     async addGeofence(options) {
         var _a, _b, _c, _d;
         if (!navigator.geolocation) {

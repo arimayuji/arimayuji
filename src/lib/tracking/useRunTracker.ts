@@ -21,7 +21,16 @@ import {
   type GpsGap,
   type LatLon,
 } from "./geoFilter";
-import { beginGeoWatch, endGeoWatch, updateLiveNotification, type GeoError, type GeoFix } from "./geolocation";
+import {
+  beginGeoWatch,
+  beginLiveActivity,
+  endGeoWatch,
+  endLiveActivity,
+  updateLiveActivityContent,
+  updateLiveNotification,
+  type GeoError,
+  type GeoFix,
+} from "./geolocation";
 import { isNativePlatform } from "../platform";
 import { projectRoute } from "./routeProjection";
 import { speak, unlockSpeech } from "./speech";
@@ -228,12 +237,11 @@ export function useRunTracker() {
         // second-by-second precision, and each update is a native bridge call.
         if (elapsedSeconds % 5 === 0) {
           const route = projectRoute(pointsRef.current);
-          updateLiveNotification({
-            distanceLabel: `${formatDistanceKm(distanceRef.current)} km`,
-            paceLabel: s.currentPaceSecPerKm !== null ? `${formatPace(s.currentPaceSecPerKm)}/km` : "--:--/km",
-            timeLabel: formatElapsed(elapsedSeconds),
-            routePolylines: route?.polylines,
-          });
+          const distanceLabel = `${formatDistanceKm(distanceRef.current)} km`;
+          const paceLabel = s.currentPaceSecPerKm !== null ? `${formatPace(s.currentPaceSecPerKm)}/km` : "--:--/km";
+          const timeLabel = formatElapsed(elapsedSeconds);
+          updateLiveNotification({ distanceLabel, paceLabel, timeLabel, routePolylines: route?.polylines });
+          updateLiveActivityContent({ distanceLabel, paceLabel, timeLabel, routePoints: route?.projected });
         }
         return { ...s, elapsedSeconds, forecastSecondsRemaining };
       });
@@ -659,6 +667,17 @@ export function useRunTracker() {
 
       void wakeLockRef.current.acquire();
       if (!hadPrewarm) beginWatch();
+      // Unconditional (not gated on `!hadPrewarm`) — the Live Activity is a
+      // very visible, user-facing lock-screen widget, so it should appear
+      // exactly when the athlete taps "Iniciar corrida", not silently during
+      // a `prewarm()` GPS lock before they've committed to a run. No
+      // matching call in `resume()`: unlike the GPS watch itself, the Live
+      // Activity's request/update/end lifecycle is independent of
+      // `beginGeoWatch`/`endGeoWatch` — a pause just stops it from being
+      // updated (same tick-loop gate as `updateLiveNotification`), it stays
+      // on screen showing the last real numbers instead of disappearing and
+      // reappearing across every pause/resume.
+      beginLiveActivity({ distanceLabel: "0,00 km", paceLabel: "--:--/km", timeLabel: "00:00" });
 
       setState((s) => ({
         status: "warming",
@@ -843,6 +862,13 @@ export function useRunTracker() {
       void saveCompletedRun(run);
       void clearActiveRun();
 
+      const avgPaceSecPerKm = distanceRef.current > 0 ? movingSeconds / (distanceRef.current / 1000) : null;
+      endLiveActivity({
+        distanceLabel: `${formatDistanceKm(distanceRef.current)} km`,
+        paceLabel: `${formatPace(avgPaceSecPerKm)}/km`,
+        timeLabel: formatElapsed(movingSeconds),
+      });
+
       const finishedGhostDelta = ghostSeriesRef.current
         ? ghostDeltaSeconds(ghostSeriesRef.current, distanceRef.current, movingSeconds)
         : null;
@@ -873,6 +899,16 @@ export function useRunTracker() {
     clearWatch();
     stopTicking();
     void wakeLockRef.current.release();
+    // Ends any Live Activity still showing — `finish()` already did this on
+    // its own path, this only matters for "descartar corrida"/"Cancelar",
+    // which skip finish() entirely and would otherwise leave the lock-screen
+    // widget stuck open forever. Harmless no-op (see endLiveActivity) when
+    // there's nothing running, e.g. after a normal finish() already ended it.
+    endLiveActivity({
+      distanceLabel: `${formatDistanceKm(distanceRef.current)} km`,
+      paceLabel: "--:--/km",
+      timeLabel: formatElapsed(computeElapsedSeconds()),
+    });
 
     setState({
       status: "idle",
@@ -893,7 +929,7 @@ export function useRunTracker() {
       points: [],
       pauseEvents: [],
     });
-  }, [clearWatch, stopTicking]);
+  }, [clearWatch, stopTicking, computeElapsedSeconds]);
 
   useEffect(() => {
     const wakeLock = wakeLockRef.current;
