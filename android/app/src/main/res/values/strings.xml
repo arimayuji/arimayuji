@@ -4,4 +4,18 @@
     <string name="title_activity_main">Xanthus</string>
     <string name="package_name">com.xanthus.app</string>
     <string name="custom_url_scheme">com.xanthus.app</string>
+
+    <!--
+      Read by BackgroundGeolocationService#newNotificationBuilder() via
+      getAppString(). Paired with setColorized(true) there, this makes the
+      tracking notification's *entire* background our own dark brand color
+      (matches the "background" token in globals.css' dark theme / the
+      background_color entry in manifest.ts) instead of whatever translucent
+      scrim the OS/OEM lock screen renders behind ?android:attr/textColor* —
+      see notification_run.xml for why that mattered: those attrs read fine
+      against a solid Material notification-drawer background, but nearly
+      vanished against some lock screens' wallpaper-bleeding scrim. Owning
+      the background outright removes that dependency entirely.
+    -->
+    <string name="capacitor_background_geolocation_notification_color" translatable="false">#0B0E11</string>
 </resources>

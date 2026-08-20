@@ -522,7 +522,18 @@ public class BackgroundGeolocationService extends Service {
         Notification.Builder builder = new Notification.Builder(getApplicationContext())
             .setOngoing(true)
             .setPriority(Notification.PRIORITY_HIGH)
-            .setWhen(System.currentTimeMillis());
+            .setWhen(System.currentTimeMillis())
+            // Paired with the setColor() call below: colorized fills the
+            // *entire* notification (including the system-drawn app name/
+            // timestamp, auto-picking a legible text color for those against
+            // whatever we set as the background) instead of setColor() alone,
+            // which on modern Android only tints small accents like the icon
+            // background — not enough to stop reading against an unrelated
+            // lock-screen scrim. Android restricts colorized to ongoing
+            // foreground-service notifications outside a few built-in styles
+            // (media/call); this always is one, since it's what
+            // startForeground() posts, so it's honored unconditionally here.
+            .setColorized(true);
 
         try {
             String name = getAppString("capacitor_background_geolocation_notification_icon", "mipmap/ic_launcher", getApplicationContext());

@@ -6,17 +6,22 @@
   mode (distância/ritmo/tempo + route thumbnail), set via
   Notification.Builder#setCustomContentView + DecoratedCustomViewStyle so
   the system still draws its own chrome (app icon, app name, timestamp)
-  around this. Text colors use the theme attrs (?android:attr/...) rather
-  than hardcoded colors so this reads correctly on both a light and a dark
-  notification shade — the shade's own theme, not the app's.
+  around this.
 
-  Both the small caps labels (DISTÂNCIA/RITMO/TEMPO) and the values below
-  them use textColorPrimary, not textColorSecondary — label/value
-  hierarchy comes from size+letterSpacing alone. textColorSecondary's
-  built-in ~54% alpha is fine on a solid notification-drawer background,
-  but on the lock screen's translucent scrim (wallpaper bleeding through)
-  it loses almost all contrast against an arbitrary wallpaper; primary's
-  near-opaque color stays legible regardless of what's behind it.
+  Text colors are our own fixed dark-theme tokens (#EEF1F3 foreground,
+  #8B949C muted — matching the "foreground"/"muted" tokens in globals.css'
+  dark theme), not ?android:attr/textColor* theme attrs. Those attrs read fine
+  against a solid Material notification-drawer background, but on a lock
+  screen whose OS/OEM renders a translucent scrim with wallpaper bleeding
+  through, textColorSecondary's built-in ~54% alpha nearly vanished, and
+  even textColorPrimary only reads correctly by coincidence — depending on
+  system theme for contrast means an arbitrary wallpaper decides whether
+  this is legible, and never carries the app's own colors either way.
+  BackgroundGeolocationService#newNotificationBuilder() now pins the
+  notification's actual background to our own dark brand color via
+  setColor() + setColorized(true) (see capacitor_background_geolocation_
+  notification_color in the app's strings.xml), so these fixed colors are
+  guaranteed to land on the background they were actually designed for.
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -39,7 +44,7 @@
             android:text="DISTÂNCIA"
             android:textSize="10sp"
             android:letterSpacing="0.05"
-            android:textColor="?android:attr/textColorPrimary" />
+            android:textColor="#8B949C" />
 
         <TextView
             android:id="@+id/xanthus_stat_distance"
@@ -47,7 +52,7 @@
             android:layout_height="wrap_content"
             android:textSize="15sp"
             android:textStyle="bold"
-            android:textColor="?android:attr/textColorPrimary" />
+            android:textColor="#EEF1F3" />
     </LinearLayout>
 
     <LinearLayout
@@ -62,7 +67,7 @@
             android:text="RITMO"
             android:textSize="10sp"
             android:letterSpacing="0.05"
-            android:textColor="?android:attr/textColorPrimary" />
+            android:textColor="#8B949C" />
 
         <TextView
             android:id="@+id/xanthus_stat_pace"
@@ -70,7 +75,7 @@
             android:layout_height="wrap_content"
             android:textSize="15sp"
             android:textStyle="bold"
-            android:textColor="?android:attr/textColorPrimary" />
+            android:textColor="#EEF1F3" />
     </LinearLayout>
 
     <ImageView
@@ -94,7 +99,7 @@
             android:text="TEMPO"
             android:textSize="10sp"
             android:letterSpacing="0.05"
-            android:textColor="?android:attr/textColorPrimary" />
+            android:textColor="#8B949C" />
 
         <TextView
             android:id="@+id/xanthus_stat_time"
@@ -102,6 +107,6 @@
             android:layout_height="wrap_content"
             android:textSize="15sp"
             android:textStyle="bold"
-            android:textColor="?android:attr/textColorPrimary" />
+            android:textColor="#EEF1F3" />
     </LinearLayout>
 </LinearLayout>
