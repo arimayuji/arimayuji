@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Reveal } from "./reveal";
+import { HeroScrollCue, LandingScrollSnap, ScrollProgressBar, SectionRail } from "./landing-scroll-ux";
 import { HORSE_BUST_PATHS } from "./horse-mark";
 import { DistanceCountUp, DurationCountUp } from "./run-preview-stats";
 import { StandaloneGate } from "./standalone-gate";
@@ -875,6 +876,10 @@ export default function Home() {
         <style>{`[data-reveal]{opacity:1!important;animation:none!important}.pr-draw{stroke-dashoffset:0!important}.pr-pop{opacity:1!important}.pr-bar{transform:none!important}`}</style>
       </noscript>
 
+      <ScrollProgressBar />
+      <SectionRail />
+      <LandingScrollSnap />
+
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-3 sm:px-8">
           <span className="flex items-center gap-2.5 font-mono text-sm font-semibold tracking-wide">
@@ -909,7 +914,7 @@ export default function Home() {
 
       <main className="flex flex-1 flex-col">
         {/* ---------------- Hero ---------------- */}
-        <section className="relative overflow-hidden border-b border-border">
+        <section className="relative snap-start overflow-hidden border-b border-border">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-accent/12 blur-3xl sm:left-1/4"
@@ -1172,13 +1177,14 @@ export default function Home() {
               </div>
             </div>
           </div>
+          <HeroScrollCue />
           <SeamGlow />
         </section>
 
         {/* ---------------- 01 · Evolução ---------------- */}
         <section
           id="evolucao"
-          className="relative scroll-mt-16 border-b border-border bg-surface/40"
+          className="relative scroll-mt-16 snap-start border-b border-border bg-surface/40"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-12 lg:items-center lg:gap-16">
             <div className="lg:col-span-5">
@@ -1270,7 +1276,7 @@ export default function Home() {
         </section>
 
         {/* ---------------- 02 · Comunidade ---------------- */}
-        <section id="comunidade" className="relative scroll-mt-16 border-b border-border">
+        <section id="comunidade" className="relative scroll-mt-16 snap-start border-b border-border">
           <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-12 lg:items-center lg:gap-16">
             <div className="order-2 lg:order-1 lg:col-span-6">
               <div
@@ -1345,7 +1351,7 @@ export default function Home() {
         {/* ---------------- 03 · Pilares ---------------- */}
         <section
           id="pilares"
-          className="relative scroll-mt-16 border-b border-border bg-surface/40"
+          className="relative scroll-mt-16 snap-start border-b border-border bg-surface/40"
         >
           <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
             <p
@@ -1394,7 +1400,7 @@ export default function Home() {
         </section>
 
         {/* ---------------- CTA final ---------------- */}
-        <section className="relative overflow-hidden">
+        <section className="relative snap-start overflow-hidden">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/10 blur-3xl"

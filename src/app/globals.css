@@ -96,6 +96,16 @@ body {
   overscroll-behavior-y: contain;
 }
 
+/*
+ * Landing page only — toggled on <html> by LandingScrollSnap
+ * (landing-scroll-ux.tsx) while that page is mounted, not a permanent rule,
+ * since no other screen in the app (tracking a run, scrolling histórico...)
+ * wants its sections snapping into place.
+ */
+.pr-landing-snap {
+  scroll-snap-type: y proximity;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -265,6 +275,17 @@ input[type="number"]::-webkit-inner-spin-button {
   }
   to {
     transform: scaleY(1);
+  }
+}
+
+/* The hero's "role para explorar" cue — see landing-scroll-ux.tsx. */
+@keyframes pr-scroll-cue {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
   }
 }
 
@@ -592,6 +613,10 @@ input[type="number"]::-webkit-inner-spin-button {
 
   .pr-drift {
     animation: pr-drift 6s ease-in-out infinite;
+  }
+
+  .pr-scroll-cue {
+    animation: pr-scroll-cue 1.6s ease-in-out infinite;
   }
 
   .pr-float-zerog {
