@@ -93,7 +93,7 @@ public class BackgroundGeolocation extends Plugin {
             call.setKeepAlive(true);
             requestLocationPermissions(call)
                 .thenRun(() -> {
-                    proceedWithStart(call);
+                    ensureNotificationPermissionThenStart(call);
                 })
                 .exceptionally((throwable) -> {
                     call.reject("User denied location permission", "NOT_AUTHORIZED");
@@ -110,6 +110,26 @@ public class BackgroundGeolocation extends Plugin {
 
         // Everything is OK, continuing to adding a watcher
         call.setKeepAlive(true);
+        ensureNotificationPermissionThenStart(call);
+    }
+
+    /**
+     * Requests POST_NOTIFICATIONS if not yet granted, then proceeds — always
+     * called only after location is already resolved (either branch of
+     * start() above), so this is the single place that ever asks for it,
+     * never concurrently with the location request. A returning user who
+     * already granted location used to skip the notification ask entirely
+     * (it was only fired as a side effect of the location-not-yet-granted
+     * callback) — without it, Android 13+ silently suppresses every
+     * notification from the app, including this foreground service's
+     * persistent tracking one: GPS still tracks fine, the notification (and
+     * anything it would show on the lock screen) just never appears.
+     */
+    private void ensureNotificationPermissionThenStart(PluginCall call) {
+        if (getPermissionState("notification") != PermissionState.GRANTED && call.getBoolean("requestPermissions", true)) {
+            requestPermissionForAlias("notification", call, "notificationPermissionsCallback");
+            return;
+        }
         proceedWithStart(call);
     }
 
@@ -176,7 +196,9 @@ public class BackgroundGeolocation extends Plugin {
             return;
         }
 
-        requestPermissionForAlias("notification", call, "notificationPermissionsCallback");
+        // Notification permission is requested from ensureNotificationPermissionThenStart()
+        // once location resolves below, not here — keeps the two permission
+        // requests chained instead of both pending on this call at once.
 
         if (getPermissionState("location") != PermissionState.GRANTED) {
             locationPermissionFuture.completeExceptionally(new SecurityException("User denied location permission"));
@@ -190,7 +212,11 @@ public class BackgroundGeolocation extends Plugin {
 
     @PermissionCallback
     private void notificationPermissionsCallback(PluginCall call) {
+        // Proceed either way — a denied notification permission only means
+        // the persistent tracking notification won't be visible; it
+        // shouldn't stop GPS recording from starting.
         Logger.debug("notification permission callback");
+        proceedWithStart(call);
     }
 
     @PluginMethod
