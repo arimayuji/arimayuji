@@ -5,10 +5,10 @@ import Link from "next/link";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { listCompletedRuns, runMovingSeconds, type CompletedRun } from "@/lib/tracking/storage";
 import { groupRunsByRoute, type MatchedRunGroup } from "@/lib/tracking/routeMatching";
-import { projectRoute } from "@/lib/tracking/routeProjection";
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, metersPerUnit, paceLabel, unitLabel } from "@/lib/units";
 import type { DistanceUnit } from "@/lib/preferences";
+import { RouteMap } from "../../route-map";
 import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -18,33 +18,6 @@ type LoadState =
   | { status: "loading" }
   | { status: "not-found" }
   | { status: "ready"; group: MatchedRunGroup };
-
-/** Bigger sibling of matched-runs-card's teaser thumbnail — the anchor run's own trace, since that's the shape every repeat in the group was matched against. */
-function BigRouteThumb({ points }: { points: CompletedRun["points"] }) {
-  const projected = projectRoute(points, { viewBoxSize: 100, paddingFraction: 0.1 });
-  if (!projected) return null;
-
-  return (
-    <svg
-      viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
-      className="mx-auto h-40 w-40 text-accent"
-      role="img"
-      aria-label="Traçado do trajeto"
-    >
-      {projected.polylines.map((points, i) => (
-        <polyline
-          key={i}
-          points={points}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ))}
-    </svg>
-  );
-}
 
 /** Same cubic-bezier-line-with-gradient-area recipe as /progresso's PaceTrendChart, x-axis swapped for repeats of this one route instead of calendar weeks. */
 const CHART = { width: 320, height: 150, padLeft: 40, padRight: 10, padTop: 16, padBottom: 26 };
@@ -236,7 +209,7 @@ export function RouteGroupDetail({ anchorRunId }: { anchorRunId: string }) {
       />
       <Screen>
         <Card className="pr-enter" style={delay(30)}>
-          <BigRouteThumb points={anchorRun.points} />
+          <RouteMap points={anchorRun.points} />
         </Card>
 
         <Card className="pr-enter" style={delay(60)}>

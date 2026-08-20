@@ -2078,7 +2078,8 @@ export default function RunPage() {
             </p>
           </div>
 
-          <RouteMap points={state.finishedRun.points} className="max-w-xs" />
+          {/* Breaks out of the screen's own px-6 to run edge-to-edge — square aspect ratio means this also grows the map's height, not just its width. RouteMap's own className already sets w-full, so the negative margin alone is what pulls it past the padding. */}
+          <RouteMap points={state.finishedRun.points} className="-mx-6" />
 
           <div className="grid w-full max-w-xs grid-cols-2 gap-4">
             <div className="rounded-xl border border-border bg-surface p-4">
