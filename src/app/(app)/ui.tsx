@@ -110,13 +110,12 @@ export function ScreenHeader({
   return (
     <header
       className="pr-enter px-5 pb-5"
-      // The top safe-area inset is handled once, by AppShell's own wrapper
-      // — every screen that uses ScreenHeader renders inside it, so adding
-      // it again here would double the gap under the iOS status bar. The
-      // BrandMark/NotificationBell row (app-shell.tsx) is its own sibling
-      // above this now, in normal flow rather than floating over it, so
-      // this only needs its own breathing room, not a gap sized to clear
-      // anything.
+      // The top safe-area inset AND the gradient AppHeader's own height
+      // (app-shell.tsx) are both handled once, as padding on the shell's
+      // scroll container — every screen that uses ScreenHeader renders
+      // inside it, so adding either gap again here would double up. This
+      // only needs its own breathing room below that, not a gap sized to
+      // clear anything.
       style={delay(0, { paddingTop: "1.25rem" })}
     >
       <div className="mx-auto w-full max-w-md">

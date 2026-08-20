@@ -8,6 +8,7 @@ import { useGroupLiveRuns, buildGroupMarkers, GROUP_LIVE_STALE_MS } from "@/lib/
 import { useAuth } from "@/lib/useAuth";
 import { formatDistanceKm, formatPace } from "@/lib/tracking/geoFilter";
 import { GroupLiveMap } from "../../group-live-map";
+import { useHeaderClose } from "../../app-shell";
 import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
 
 export default function LongaoMapaPage() {
@@ -34,6 +35,7 @@ function agoLabel(updatedAtMs: number, now: number): string {
  * `useRunTracker` being page-local state rules out sending them here.
  */
 function LongaoMapaContent() {
+  useHeaderClose("/longao");
   const codeParam = useSearchParams().get("c");
   const code = codeParam ? normalizeJoinCode(codeParam) : null;
   const { account } = useAuth();

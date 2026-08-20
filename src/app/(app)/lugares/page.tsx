@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CITIES_WITH_PLACES, getPlacesByCity } from "@/lib/places";
+import { useHeaderClose } from "../app-shell";
 import { delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { PlaceCard } from "./place-card";
 
@@ -42,6 +43,7 @@ const SORTS: { id: SortId; label: string; icon: (className: string) => React.Rea
 ];
 
 export default function LugaresPage() {
+  useHeaderClose("/perfil");
   const [city, setCity] = useState<string>(CITIES_WITH_PLACES[0]);
   const [sort, setSort] = useState<SortId>("recomendados");
   const placesForCity = getPlacesByCity(city);

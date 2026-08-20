@@ -11,6 +11,7 @@ import { formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
 import { LiveMap } from "../../live-map";
+import { useHeaderClose } from "../../app-shell";
 import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
 
 /** A ping older than this reads as "not really live anymore" rather than a frozen dot pretending to be current — most likely the app closed without a clean end. */
@@ -41,6 +42,7 @@ export default function AlunoPage() {
 }
 
 function AlunoContent() {
+  useHeaderClose("/treinador");
   const studentId = useSearchParams().get("id");
   const [{ distanceUnit: unit }] = usePreferences();
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);

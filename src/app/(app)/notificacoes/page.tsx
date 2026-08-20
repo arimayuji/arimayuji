@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useHeaderClose } from "../app-shell";
 import { delay, Screen, ScreenHeader } from "../ui";
 import { useNotificationSummary } from "@/lib/notifications";
 import { markUpdateRead, wasDismissed, wasRead } from "../notifications-read-state";
@@ -133,6 +134,7 @@ function coachInviteDetail(connection: CoachConnection): string {
 }
 
 export default function NotificacoesPage() {
+  useHeaderClose("/perfil");
   const { update, friendRequests, coachInvites } = useNotificationSummary();
   const [, setTick] = useState(0);
 

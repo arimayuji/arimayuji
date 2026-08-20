@@ -13,6 +13,7 @@ import {
 } from "@/lib/placeRatings";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
+import { useHeaderClose } from "../app-shell";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { CircuitMap } from "./circuit-map";
 import { CriteriaRow } from "./criteria";
@@ -37,6 +38,7 @@ function hostnameOf(url: string): string {
 }
 
 export function PlaceDetail({ place }: { place: RunningPlace }) {
+  useHeaderClose("/lugares");
   const { status, account, refresh } = useAuth();
   const [ratings, setRatings] = useState<PlaceRating[] | null>(null);
   const [raterProfiles, setRaterProfiles] = useState<Record<string, Profile>>({});

@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useHeaderClose } from "../../app-shell";
 import { Card, CardTitle, Screen } from "../../ui";
 import { RouteGroupDetail } from "./route-group-detail";
 
@@ -21,6 +22,7 @@ export default function TrajetoPage() {
 }
 
 function TrajetoContent() {
+  useHeaderClose("/progresso");
   const params = useSearchParams();
   const anchor = params.get("anchor");
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useHeaderClose } from "../../app-shell";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../../ui";
 
 /**
@@ -92,6 +93,7 @@ const INFO_ITEMS = [
 ];
 
 export default function DadosRelogioPage() {
+  useHeaderClose("/perfil");
   return (
     <>
       <ScreenHeader

@@ -1,11 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BrandMark } from "./brand-mark";
+import { usePathname, useRouter } from "next/navigation";
+import { HORSE_BUST_PATHS } from "../horse-mark";
 import { InstallPrompt } from "./install-prompt";
 import { NotificationBell } from "./notification-bell";
+import { useScrollChromeVisibility } from "./use-scroll-chrome";
 
 /**
  * App shell: the logged-in surface of Xanthus.
@@ -32,6 +33,28 @@ export function useImmersiveMode(active: boolean): void {
     setImmersive(active);
     return () => setImmersive(false);
   }, [active, setImmersive]);
+}
+
+/**
+ * The header's "X" only makes sense on a screen you can actually close back
+ * out of — a flow/detail screen reached FROM one of the 5 tabs (run detail,
+ * a friend's place page, notification inbox, plan setup fields...). The 5
+ * tab roots themselves have nowhere to "close" to, so they render the same
+ * header without it. A route string rather than a callback: every caller
+ * here wants "go to this fixed parent route," never a one-off closure, and
+ * a string is stable across re-renders the same way `useImmersiveMode`'s
+ * boolean already is — no risk of re-registering every render the way a
+ * fresh inline function would.
+ */
+const HeaderCloseContext = createContext<(href: string | null) => void>(() => {});
+
+/** Shows the header's "X" button while mounted, navigating to `closeHref` when tapped. Cleared on unmount, same shape as `useImmersiveMode`. */
+export function useHeaderClose(closeHref: string): void {
+  const setCloseHref = useContext(HeaderCloseContext);
+  useEffect(() => {
+    setCloseHref(closeHref);
+    return () => setCloseHref(null);
+  }, [closeHref, setCloseHref]);
 }
 
 interface TabDefinition {
@@ -112,16 +135,21 @@ function isActive(pathname: string, tab: TabDefinition): boolean {
   );
 }
 
+/** Reserved space at the top/bottom of the scroll container for the header/nav bars, plus the safe-area inset on top of that — both bars size themselves to match. */
+const HEADER_HEIGHT = "4.5rem";
+const BOTTOMNAV_HEIGHT = "4.5rem";
+
 /** Fired when a tab already active gets tapped again — `Link` to the same URL is a router no-op, so a page sitting in some non-idle state (the run summary, mid-scroll) needs its own way to hear "take me back to start" from that tap. See `useTabReclick` in run/page.tsx for the one listener that currently cares. */
 const TAB_RECLICK_EVENT = "xanthus:tab-reclick";
 
-function BottomNav() {
+function BottomNav({ hidden }: { hidden: boolean }) {
   const pathname = usePathname() ?? "";
 
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 backdrop-blur-md"
+      className="chrome-gradient-nav absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-transform duration-200 ease-out"
+      style={{ transform: hidden ? "translateY(100%)" : "translateY(0)" }}
     >
       <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)]">
         {TABS.map((tab) => {
@@ -135,18 +163,18 @@ function BottomNav() {
                   if (active) window.dispatchEvent(new CustomEvent(TAB_RECLICK_EVENT, { detail: tab.href }));
                 }}
                 /* 64px+ tall target: this gets tapped mid-exercise. */
-                className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 pt-2 pb-1.5 text-[11px] font-medium transition-colors ${
-                  active ? "text-accent" : "text-muted hover:text-foreground"
+                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors ${
+                  active ? "font-bold text-white" : "font-medium text-white/50"
                 }`}
               >
-                <span
-                  className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${
-                    active ? "bg-accent/12" : ""
-                  }`}
-                >
-                  <tab.icon className="h-[22px] w-[22px]" />
-                </span>
+                <tab.icon className="h-[22px] w-[22px]" />
                 {tab.label}
+                {/* Selection indicator: a thin underline, not a pill behind the icon — tested, a background pill there read as visually busy. Width transitions in/out instead of a hard cut. */}
+                <span
+                  className="h-[3px] rounded-full bg-white transition-[width] duration-200 ease-out"
+                  style={{ width: active ? "16px" : "0px" }}
+                  aria-hidden="true"
+                />
               </Link>
             </li>
           );
@@ -167,48 +195,138 @@ export function useTabReclick(href: string, onReclick: () => void): void {
   }, [href, onReclick]);
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
-  const [immersive, setImmersive] = useState(false);
-  const setter = useCallback((active: boolean) => setImmersive(active), []);
-  const value = useMemo(() => setter, [setter]);
+function CloseIcon({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
+/**
+ * The one header every non-immersive screen shares — brand mark + wordmark
+ * on the left, notification bell (+ a "close" button on flow/detail screens
+ * only, see `useHeaderClose`) on the right, on the app's own accent
+ * gradient instead of a flat/transparent bar. Scrolls away with the rest of
+ * the screen on scroll-down and returns on scroll-up (`hidden` prop, driven
+ * by `useScrollChromeVisibility` in the shell below) — never `position:
+ * sticky`, which used to read as "stuck on top of my content" instead of a
+ * header.
+ */
+function AppHeader({ hidden, closeHref }: { hidden: boolean; closeHref: string | null }) {
+  const router = useRouter();
 
   return (
-    <ImmersiveContext.Provider value={value}>
-      {/*
-        Safe-area insets live here, once, instead of on every screen's own
-        header — `ScreenHeader` (ui.tsx) used to add its own top inset, and
-        every screen paid for it individually; a screen that renders
-        something ABOVE its own header (InstallPrompt) still needed the
-        same inset applied even earlier than that. `/run` is the one screen
-        that opts out (`immersive`) — it wants an edge-to-edge map
-        background during a live recording, and handles the top inset on
-        its own single header instead (see run/page.tsx), since the shell
-        skipping it here is what makes the map full-bleed in the first
-        place.
-      */}
+    <header
+      className="chrome-gradient-header absolute inset-x-0 top-0 z-40 overflow-hidden rounded-b-[36px] shadow-[0_12px_28px_-8px_rgba(74,120,224,0.4)] transition-transform duration-200 ease-out"
+      style={{
+        transform: hidden ? "translateY(-100%)" : "translateY(0)",
+        paddingTop: "env(safe-area-inset-top)",
+        boxShadow: hidden
+          ? undefined
+          : "0 12px 28px -8px rgba(74,120,224,0.4), inset 0 1px 0 rgba(255,255,255,0.12)",
+      }}
+    >
+      {/* Purely decorative — partially clipped by the header's own rounded/opaque bounds via overflow-hidden above. */}
       <div
-        className={`flex flex-1 flex-col ${
-          immersive
-            ? ""
-            : "pt-[env(safe-area-inset-top)] pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
-        }`}
-      >
-        {/* In normal flow, not `position: fixed` — they used to float
-            pinned to the viewport for the whole scroll, which read as
-            stuck on top of whatever content had scrolled up underneath
-            rather than a header. Scrolling away with the rest of the
-            screen is the point now, so this is just the first row inside
-            the same padded column as everything else. */}
-        {!immersive && (
-          <div className="flex items-center justify-between px-4 pt-3">
-            <BrandMark />
-            <NotificationBell />
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/8"
+      />
+
+      <div className="relative flex h-16 items-center justify-between px-4">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16">
+            <svg viewBox="0 0 100 100" className="h-5 w-5" aria-hidden="true">
+              <path d={HORSE_BUST_PATHS[0]} fill="none" stroke="#fff" strokeWidth="4.5" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <span className="font-mono text-lg font-semibold tracking-wide text-white">Xanthus</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          {closeHref && (
+            <button
+              type="button"
+              onClick={() => router.push(closeHref)}
+              aria-label="Fechar"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16 text-white"
+            >
+              <CloseIcon className="h-4.5 w-4.5" />
+            </button>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const [immersive, setImmersive] = useState(false);
+  const immersiveSetter = useCallback((active: boolean) => setImmersive(active), []);
+  const immersiveValue = useMemo(() => immersiveSetter, [immersiveSetter]);
+
+  const [closeHref, setCloseHref] = useState<string | null>(null);
+  const closeValue = useMemo(() => setCloseHref, []);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const chromeVisible = useScrollChromeVisibility(scrollRef);
+  const pathname = usePathname();
+
+  // Next's own "scroll to top on navigate" only targets window scroll — this
+  // container is its own scroller (see the comment on it below), so a route
+  // change needs to reset it explicitly, and bring the bars back with it
+  // (arriving on a fresh screen already scrolled-away-from would be a bug,
+  // not a feature).
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
+
+  return (
+    <ImmersiveContext.Provider value={immersiveValue}>
+      <HeaderCloseContext.Provider value={closeValue}>
+        {immersive ? (
+          <div className="flex h-dvh flex-col">{children}</div>
+        ) : (
+          // `h-dvh` on its own, deliberately not paired with `flex-1`: this
+          // sits directly in body's flex column, which itself is only
+          // `min-h-full` (no definite height of its own) — `flex-1` sets
+          // `flex-basis: 0%`, which wins over an explicit height as the
+          // sizing basis, and grow then has nothing definite to distribute
+          // against, so the div silently reverts to shrinking to fit its
+          // content instead of being capped to the viewport. `h-dvh` alone,
+          // outside the flex sizing algorithm entirely, is what actually
+          // caps it — confirmed the hard way: without this, scrollHeight
+          // and clientHeight matched here (nothing to scroll), because the
+          // *window* had quietly become the real scroller again underneath.
+          <div className="relative h-dvh overflow-hidden">
+            {/*
+              The only scroll container on non-immersive screens. Header and
+              BottomNav below are `position: absolute` siblings of this, not
+              children — hiding either one on scroll must never change this
+              element's own scrollHeight, or hiding a bar shortens the
+              scrollable area, which fires another scroll event, which can
+              hide/show the bar again: a jitter loop. Keeping them as
+              absolutely-positioned overlays with their own fixed height
+              instead of `position: sticky`/`fixed` in-flow siblings is what
+              breaks that loop.
+            */}
+            <div
+              ref={scrollRef}
+              className="h-full overflow-y-auto overscroll-y-contain"
+              style={{
+                paddingTop: `calc(${HEADER_HEIGHT} + env(safe-area-inset-top))`,
+                paddingBottom: `calc(${BOTTOMNAV_HEIGHT} + env(safe-area-inset-bottom))`,
+              }}
+            >
+              <InstallPrompt />
+              {children}
+            </div>
+            <AppHeader hidden={!chromeVisible} closeHref={closeHref} />
+            <BottomNav hidden={!chromeVisible} />
           </div>
         )}
-        {!immersive && <InstallPrompt />}
-        {children}
-      </div>
-      {!immersive && <BottomNav />}
+      </HeaderCloseContext.Provider>
     </ImmersiveContext.Provider>
   );
 }

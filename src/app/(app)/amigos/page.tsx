@@ -12,6 +12,7 @@ import {
 } from "@/lib/friendships";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
+import { useHeaderClose } from "../app-shell";
 import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/amigos";
@@ -57,6 +58,7 @@ const FRIEND_TABS = [
 ] as const;
 
 export default function AmigosPage() {
+  useHeaderClose("/perfil");
   const { status } = useAuth();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [connections, setConnections] = useState<FriendConnection[] | null>(null);

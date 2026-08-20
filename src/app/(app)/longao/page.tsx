@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/lib/useAuth";
 import { useShareSupport } from "@/lib/share";
 import { AccountPrompt } from "../account-prompt";
+import { useHeaderClose } from "../app-shell";
 import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/longao";
@@ -112,6 +113,7 @@ export default function LongaoPage() {
  * someone spectating without running themselves.
  */
 function LongaoContent() {
+  useHeaderClose("/perfil");
   const { status: authStatus } = useAuth();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const codeParam = useSearchParams().get("c");

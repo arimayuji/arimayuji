@@ -1,3 +1,6 @@
+"use client";
+
+import { useHeaderClose } from "../app-shell";
 import { Card, CardTitle, delay, Screen, ScreenHeader } from "../ui";
 
 /**
@@ -8,6 +11,7 @@ import { Card, CardTitle, delay, Screen, ScreenHeader } from "../ui";
  * scripts/appwrite-setup.ts (dados remotos), não uma lista genérica.
  */
 export default function PrivacidadePage() {
+  useHeaderClose("/perfil");
   return (
     <>
       <ScreenHeader

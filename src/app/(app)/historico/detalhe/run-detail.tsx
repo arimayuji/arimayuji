@@ -34,6 +34,7 @@ import {
 import { usePreferences } from "@/lib/usePreferences";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { formatAveragePace, formatDistance, metersPerUnit, paceLabel, unitLabel } from "@/lib/units";
+import { useHeaderClose } from "../../app-shell";
 import { AchievementReveal } from "../../achievement-reveal";
 import { PrBadge } from "../../pr-badge";
 import { RouteReplay } from "../../route-replay";
@@ -476,6 +477,7 @@ function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
 }
 
 export function RunDetail({ id }: { id: string }) {
+  useHeaderClose("/historico");
   const router = useRouter();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [{ distanceUnit: unit }] = usePreferences();

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useHeaderClose } from "../app-shell";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
 import { EvidenceFactRow } from "../evidence-row";
 import { TopicIcon } from "../topic-icons";
@@ -10,17 +13,19 @@ import {
 } from "@/lib/evidence";
 
 /**
- * Every citation the plan engine can point to, browsable directly — not a
- * client component, not a hook in sight: the whole page is a pure render of
- * `EVIDENCE_FACTS`, so it ships without JS. The rest of the app only ever
- * shows the one or two facts relevant to whatever decision is on screen;
- * this is the place that proves the other 20-odd aren't hiding.
+ * Every citation the plan engine can point to, browsable directly — the page
+ * itself is still a pure render of `EVIDENCE_FACTS` with no state of its
+ * own; `"use client"` above is only there for `useHeaderClose`, registering
+ * this screen's header "X" (see app-shell.tsx). The rest of the app only
+ * ever shows the one or two facts relevant to whatever decision is on
+ * screen; this is the place that proves the other 20-odd aren't hiding.
  */
 
 const STRENGTH_COUNTS = { forte: 0, moderada: 0, consenso: 0, mito: 0 };
 for (const fact of EVIDENCE_FACTS) STRENGTH_COUNTS[fact.strength] += 1;
 
 export default function EstudosPage() {
+  useHeaderClose("/plano");
   return (
     <>
       <ScreenHeader

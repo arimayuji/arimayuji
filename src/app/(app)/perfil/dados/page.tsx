@@ -21,6 +21,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { useHeaderClose } from "../../app-shell";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../../ui";
 import { PillSlider } from "../../pill-slider";
 import { ModalPortal } from "../../modal-portal";
@@ -581,6 +582,7 @@ function WeightCard({
 }
 
 export default function DadosPessoaisPage() {
+  useHeaderClose("/perfil");
   const [profile, updateProfile] = useRunnerProfile();
 
   return (

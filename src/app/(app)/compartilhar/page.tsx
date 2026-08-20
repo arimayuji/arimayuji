@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useHeaderClose } from "../app-shell";
 import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
 import { ShareCardPreview } from "../share-card-preview";
@@ -250,6 +251,7 @@ export default function CompartilharPage() {
 }
 
 function CompartilharContent() {
+  useHeaderClose("/perfil");
   const requestedRunId = useSearchParams().get("run");
   const [scenario, setScenario] = useState<ScenarioId | null>(null);
   /**

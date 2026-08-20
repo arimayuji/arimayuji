@@ -30,6 +30,17 @@
   --bad: #dc2626;
 
   /*
+   * Header/bottom-nav gradient stops — same hue as --accent, just lightened
+   * (~22% toward white) and darkened (~34% toward black) by the same ratio
+   * the reference design's own light/dark stops sit at relative to its
+   * primary, so the bars stay the app's actual accent rather than
+   * introducing a second, slightly different blue. --accent itself is the
+   * middle stop.
+   */
+  --header-gradient-light: #5d8ff1;
+  --header-gradient-dark: #1f499c;
+
+  /*
    * Sequential ramp (low → high volume) for the history heat calendar. Each
    * step is picked per theme rather than derived from the light one, so the
    * dark set runs light-on-dark instead of fading into the near-black ground.
@@ -75,6 +86,9 @@
   --warn: #e6a13f;
   --bad: #f04a4a;
 
+  --header-gradient-light: #7fa6ff;
+  --header-gradient-dark: #3c5da8;
+
   --pr-heat-1: #184f95;
   --pr-heat-2: #2a78d6;
   --pr-heat-3: #5598e7;
@@ -82,12 +96,36 @@
 }
 
 /*
- * Without this, pulling down past the top of a screen triggers the
- * browser's own elastic rubber-band bounce — and on mobile Chrome that
- * bounce drags `position: fixed` elements (BrandMark, NotificationBell,
- * BottomNav) down with it instead of leaving them pinned to the viewport,
- * since the bounce translates the whole rendering surface rather than just
- * the document's own scroll offset. `contain` (not `none`) stops that
+ * Header and bottom-nav backgrounds: the same 3-stop accent gradient,
+ * mirrored in angle (155°/20°) so the light edge of one faces the light
+ * edge of the other — a "frame" around the scrollable content between them
+ * — rather than two bars that happen to share a palette.
+ */
+.chrome-gradient-header {
+  background: linear-gradient(
+    155deg,
+    var(--header-gradient-light),
+    var(--accent) 55%,
+    var(--header-gradient-dark)
+  );
+}
+.chrome-gradient-nav {
+  background: linear-gradient(
+    20deg,
+    var(--header-gradient-light),
+    var(--accent) 55%,
+    var(--header-gradient-dark)
+  );
+}
+
+/*
+ * Without this, pulling down past the top of a page triggers the browser's
+ * own elastic rubber-band bounce on the document itself. The (app) group's
+ * own screens don't actually scroll the document anymore — AppShell's own
+ * contained scroll panel (app-shell.tsx) sets the same `overscroll-y-
+ * contain` directly on itself, since that's the element that actually
+ * scrolls there — but the marketing landing page at `/` still does, so this
+ * document-level rule stays for that. `contain` (not `none`) stops the
  * bounce at this document's own edges without also disabling a nested
  * scroller's overscroll behaviour (e.g. a modal's own scrollable body).
  */

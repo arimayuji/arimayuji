@@ -30,6 +30,7 @@ import {
 } from "@/lib/tracking/storage";
 import { EmblemBadge } from "../emblem-badge";
 import { EmblemReveal } from "../emblem-reveal";
+import { useHeaderClose } from "../app-shell";
 import { Card, CardTitle, delay, Screen, ScreenHeader } from "../ui";
 
 /**
@@ -87,6 +88,7 @@ function CollectionGrid({
 }
 
 export default function EmblemasPage() {
+  useHeaderClose("/progresso");
   const [runs, setRuns] = useState<CompletedRun[] | null>(null);
   const [openedByCategory, setOpenedByCategory] = useState<Record<EmblemCategory, number[]>>({
     distancia: [],
