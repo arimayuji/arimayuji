@@ -66,7 +66,15 @@ async function fetchElevationBatch(coords: Pick<StoredPoint, "lat" | "lon">[]): 
 export async function computeElevationProfile(
   points: Pick<StoredPoint, "lat" | "lon">[],
 ): Promise<ElevationSample[] | null> {
-  if (!MAPTILER_KEY || points.length < 2) return null;
+  if (points.length < 2) return null;
+  if (!MAPTILER_KEY) {
+    // Silent otherwise: no elevation quadrant, no error, nothing to go on —
+    // this line is the only trace that the *cause* was a missing key
+    // (NEXT_PUBLIC_MAPTILER_KEY unset in the build environment) rather than
+    // every run's route genuinely having no elevation data.
+    console.warn("[elevation] NEXT_PUBLIC_MAPTILER_KEY not set at build time — elevation gain disabled.");
+    return null;
+  }
 
   const sampled = downsample(points);
   try {
@@ -75,7 +83,12 @@ export async function computeElevationProfile(
       elevations.push(...(await fetchElevationBatch(sampled.slice(i, i + BATCH_SIZE).map((s) => s.point))));
     }
     return sampled.map((s, i) => ({ distanceMeters: s.distanceMeters, elevationMeters: elevations[i] }));
-  } catch {
+  } catch (error) {
+    // Same silence otherwise: a DEM lookup failure (rate limit, network,
+    // wrong plan/product on the key) looked identical to "no key configured"
+    // and to "genuinely flat route" — all three showed as the elevation
+    // quadrant just not being there, with zero way to tell them apart.
+    console.warn("[elevation] MapTiler elevation lookup failed — elevation gain unavailable for this run.", error);
     return null;
   }
 }
