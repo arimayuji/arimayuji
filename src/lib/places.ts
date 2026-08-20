@@ -248,6 +248,54 @@ export const RUNNING_PLACES: RunningPlace[] = [
     bestTime: "Dia de semana, 5h30–7h, logo na abertura",
     loopDistanceMeters: 3500,
     sources: ["https://pt.wikipedia.org/wiki/Parque_Estadual_Villa-Lobos"],
+    circuits: [
+      // Anel principal: rastreado de 6 trechos reais do OpenStreetMap (Overpass
+      // API) tagueados "Ciclovia Parque Villa-Lobos" — inclui o pequeno viaduto
+      // cicloviário que conecta duas pontas do anel. Fecha em loop exato, sem
+      // gap. 3.436m traçados contra os ~3,5km da descrição oficial — a
+      // correspondência mais próxima desta lista.
+      {
+        name: "Anel principal",
+        distanceMeters: 3436,
+        points: [
+          { lat: -23.5451016, lon: -46.7210741 }, { lat: -23.5449339, lon: -46.7208308 }, { lat: -23.5448675, lon: -46.7207798 }, { lat: -23.5449192, lon: -46.7206189 },
+          { lat: -23.5454208, lon: -46.719487 }, { lat: -23.5456888, lon: -46.7190605 }, { lat: -23.5460219, lon: -46.7187545 }, { lat: -23.5460584, lon: -46.718725 },
+          { lat: -23.5465087, lon: -46.7184757 }, { lat: -23.5468786, lon: -46.7182335 }, { lat: -23.5471669, lon: -46.7180386 }, { lat: -23.5474519, lon: -46.717939 },
+          { lat: -23.5479549, lon: -46.7178266 }, { lat: -23.548029, lon: -46.7178096 }, { lat: -23.5482049, lon: -46.7177693 }, { lat: -23.5483286, lon: -46.7177913 },
+          { lat: -23.5484833, lon: -46.7178919 }, { lat: -23.5486154, lon: -46.7181027 }, { lat: -23.5486539, lon: -46.7183506 }, { lat: -23.5486378, lon: -46.7184227 },
+          { lat: -23.5484855, lon: -46.7185827 }, { lat: -23.5483173, lon: -46.718677 }, { lat: -23.5482583, lon: -46.7187869 }, { lat: -23.5482214, lon: -46.7188996 },
+          { lat: -23.5482042, lon: -46.7190632 }, { lat: -23.5482042, lon: -46.7192027 }, { lat: -23.5482288, lon: -46.7193368 }, { lat: -23.5482805, lon: -46.7195138 },
+          { lat: -23.5482903, lon: -46.7196184 }, { lat: -23.5482583, lon: -46.7198518 }, { lat: -23.5481993, lon: -46.7200985 }, { lat: -23.5480838, lon: -46.7203372 },
+          { lat: -23.5480002, lon: -46.7204553 }, { lat: -23.5479584, lon: -46.7205652 }, { lat: -23.5479239, lon: -46.7206886 }, { lat: -23.5478619, lon: -46.7208347 },
+          { lat: -23.5478574, lon: -46.7210224 }, { lat: -23.5478939, lon: -46.7212355 }, { lat: -23.5479746, lon: -46.7214236 }, { lat: -23.5481401, lon: -46.7216456 },
+          { lat: -23.5482598, lon: -46.7217457 }, { lat: -23.5485707, lon: -46.7218818 }, { lat: -23.5489991, lon: -46.7222747 }, { lat: -23.5491871, lon: -46.7224516 },
+          { lat: -23.5498859, lon: -46.7228396 }, { lat: -23.5502127, lon: -46.7230104 }, { lat: -23.550407, lon: -46.7231646 }, { lat: -23.5505004, lon: -46.7232436 },
+          { lat: -23.5505755, lon: -46.7233518 }, { lat: -23.5506391, lon: -46.7234797 }, { lat: -23.5506705, lon: -46.7235809 }, { lat: -23.5506826, lon: -46.7237023 },
+          { lat: -23.5506915, lon: -46.7238211 }, { lat: -23.550653, lon: -46.7241131 }, { lat: -23.5501304, lon: -46.7251964 }, { lat: -23.5495436, lon: -46.7263068 },
+          { lat: -23.5494003, lon: -46.7265087 }, { lat: -23.5493161, lon: -46.7266112 }, { lat: -23.5492239, lon: -46.7266979 }, { lat: -23.5488136, lon: -46.7270134 },
+          { lat: -23.548591, lon: -46.7274798 }, { lat: -23.5485723, lon: -46.7276813 }, { lat: -23.5485576, lon: -46.7277708 }, { lat: -23.5485177, lon: -46.7278735 },
+          { lat: -23.5479826, lon: -46.7288027 }, { lat: -23.5478209, lon: -46.7290608 }, { lat: -23.5477529, lon: -46.7291608 }, { lat: -23.5476941, lon: -46.7292134 },
+          { lat: -23.5475926, lon: -46.729283 }, { lat: -23.547466, lon: -46.7293386 }, { lat: -23.5473568, lon: -46.72937 }, { lat: -23.5472845, lon: -46.7293799 },
+          { lat: -23.5471734, lon: -46.7293811 }, { lat: -23.5470958, lon: -46.7293752 }, { lat: -23.5469913, lon: -46.729355 }, { lat: -23.5469364, lon: -46.7293296 },
+          { lat: -23.5469063, lon: -46.7293113 }, { lat: -23.5466487, lon: -46.7291453 }, { lat: -23.5464834, lon: -46.7290453 }, { lat: -23.546254, lon: -46.7288791 },
+          { lat: -23.5460968, lon: -46.7287498 }, { lat: -23.545773, lon: -46.7284995 }, { lat: -23.5456065, lon: -46.7283721 }, { lat: -23.5455159, lon: -46.7283175 },
+          { lat: -23.545435, lon: -46.7282813 }, { lat: -23.5452469, lon: -46.7282161 }, { lat: -23.5451322, lon: -46.7281977 }, { lat: -23.5449278, lon: -46.7281979 },
+          { lat: -23.5448259, lon: -46.7282122 }, { lat: -23.5445969, lon: -46.7282443 }, { lat: -23.5444746, lon: -46.7282614 }, { lat: -23.5439359, lon: -46.7284411 },
+          { lat: -23.5437716, lon: -46.7285 }, { lat: -23.5436005, lon: -46.7285613 }, { lat: -23.5435537, lon: -46.7285558 }, { lat: -23.5434946, lon: -46.728525 },
+          { lat: -23.5434643, lon: -46.7284707 }, { lat: -23.5434161, lon: -46.7283844 }, { lat: -23.543403, lon: -46.7283276 }, { lat: -23.5433945, lon: -46.7282906 },
+          { lat: -23.5433962, lon: -46.728168 }, { lat: -23.5433989, lon: -46.7279724 }, { lat: -23.5434128, lon: -46.7276974 }, { lat: -23.5434174, lon: -46.7275692 },
+          { lat: -23.5434513, lon: -46.7274597 }, { lat: -23.5435195, lon: -46.7273374 }, { lat: -23.543538, lon: -46.7273103 }, { lat: -23.5437198, lon: -46.7271181 },
+          { lat: -23.5438527, lon: -46.7269777 }, { lat: -23.5439707, lon: -46.7269402 }, { lat: -23.544074, lon: -46.7269777 }, { lat: -23.5441822, lon: -46.7269884 },
+          { lat: -23.5442904, lon: -46.7269616 }, { lat: -23.5443299, lon: -46.726896 }, { lat: -23.5443887, lon: -46.7265745 }, { lat: -23.544401, lon: -46.7265075 },
+          { lat: -23.5444047, lon: -46.7264268 }, { lat: -23.544436, lon: -46.7263168 }, { lat: -23.5444436, lon: -46.7262571 }, { lat: -23.5444249, lon: -46.7260924 },
+          { lat: -23.5444011, lon: -46.7259437 }, { lat: -23.5443938, lon: -46.7258631 }, { lat: -23.5443905, lon: -46.7257719 }, { lat: -23.5443948, lon: -46.7250938 },
+          { lat: -23.5443947, lon: -46.7250426 }, { lat: -23.5443932, lon: -46.7244403 }, { lat: -23.5443943, lon: -46.7244168 }, { lat: -23.5444126, lon: -46.7240253 },
+          { lat: -23.5445159, lon: -46.7229739 }, { lat: -23.5445798, lon: -46.7224911 }, { lat: -23.5446782, lon: -46.7223945 }, { lat: -23.5448356, lon: -46.7223516 },
+          { lat: -23.5449782, lon: -46.7223301 }, { lat: -23.5450421, lon: -46.7222926 }, { lat: -23.5451552, lon: -46.7220941 }, { lat: -23.5452536, lon: -46.721842 },
+          { lat: -23.5452978, lon: -46.721681 }, { lat: -23.5452519, lon: -46.7215328 }, { lat: -23.545173, lon: -46.7213291 }, { lat: -23.5451016, lon: -46.7210741 },
+        ],
+      },
+    ],
   },
   {
     id: "parque-do-povo",
@@ -360,6 +408,35 @@ export const RUNNING_PLACES: RunningPlace[] = [
     sources: [
       "https://prefeitura.sp.gov.br/w/noticia/prefeitura-padroniza-horario-do-ruas-abertas-das-9h-as-16h-na-paulista-e-liberdade",
     ],
+    circuits: [
+      // Ciclovia central: um único trecho real do OpenStreetMap (Overpass API),
+      // tagueado "Ciclovia da Avenida Paulista" — via inteira, sem stitching.
+      // Linear (a avenida não fecha em loop), de perto da Praça Oswaldo Cruz
+      // até perto da Praça Mal. Cordeiro de Farias. 2.591m traçados contra os
+      // ~2,8km da descrição — o OSM não tem o trecho final mapeado como
+      // ciclovia contínua nas duas pontas.
+      {
+        name: "Ciclovia central",
+        distanceMeters: 2591,
+        points: [
+          { lat: -23.5713136, lon: -46.6442589 }, { lat: -23.5712487, lon: -46.6443283 }, { lat: -23.5710683, lon: -46.6445463 }, { lat: -23.5709762, lon: -46.6446643 },
+          { lat: -23.5706113, lon: -46.6451399 }, { lat: -23.5697606, lon: -46.646256 }, { lat: -23.569583, lon: -46.6464841 }, { lat: -23.5691873, lon: -46.6470064 },
+          { lat: -23.5689111, lon: -46.6473633 }, { lat: -23.5688359, lon: -46.6474658 }, { lat: -23.5686544, lon: -46.6477017 }, { lat: -23.5677531, lon: -46.6488827 },
+          { lat: -23.5676507, lon: -46.6490193 }, { lat: -23.5676035, lon: -46.6490834 }, { lat: -23.5674557, lon: -46.6492603 }, { lat: -23.5663593, lon: -46.6505715 },
+          { lat: -23.5661442, lon: -46.6508323 }, { lat: -23.5657742, lon: -46.6512747 }, { lat: -23.5651915, lon: -46.6519707 }, { lat: -23.5649343, lon: -46.6522838 },
+          { lat: -23.5645585, lon: -46.6527333 }, { lat: -23.5640304, lon: -46.6533673 }, { lat: -23.5637032, lon: -46.6537606 }, { lat: -23.5635093, lon: -46.6539962 },
+          { lat: -23.5627842, lon: -46.6548813 }, { lat: -23.5623374, lon: -46.6554312 }, { lat: -23.5620129, lon: -46.6558245 }, { lat: -23.5617675, lon: -46.6561146 },
+          { lat: -23.5611704, lon: -46.6567868 }, { lat: -23.5608957, lon: -46.6570937 }, { lat: -23.5607106, lon: -46.6573008 }, { lat: -23.5602386, lon: -46.65782 },
+          { lat: -23.5600549, lon: -46.6580207 }, { lat: -23.5596947, lon: -46.6584051 }, { lat: -23.5590966, lon: -46.6590864 }, { lat: -23.5583498, lon: -46.6599264 },
+          { lat: -23.55812, lon: -46.6602017 }, { lat: -23.5578313, lon: -46.660536 }, { lat: -23.5573556, lon: -46.661097 }, { lat: -23.557242, lon: -46.6612782 },
+          { lat: -23.5566728, lon: -46.6619417 }, { lat: -23.5566347, lon: -46.661984 }, { lat: -23.5565688, lon: -46.6620608 }, { lat: -23.5565393, lon: -46.662089 },
+          { lat: -23.5565212, lon: -46.6621073 }, { lat: -23.5565005, lon: -46.6621387 }, { lat: -23.5560085, lon: -46.6626814 }, { lat: -23.5559716, lon: -46.6627106 },
+          { lat: -23.5559406, lon: -46.6627111 }, { lat: -23.5559138, lon: -46.6627115 }, { lat: -23.5558708, lon: -46.6627121 }, { lat: -23.5558021, lon: -46.6627874 },
+          { lat: -23.5557268, lon: -46.6628667 }, { lat: -23.5557107, lon: -46.6628857 }, { lat: -23.5556992, lon: -46.6628993 }, { lat: -23.5556674, lon: -46.6629365 },
+          { lat: -23.5556262, lon: -46.6629848 },
+        ],
+      },
+    ],
   },
   {
     id: "parque-agua-branca",
@@ -454,6 +531,28 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag:
       "163 ocorrências de furto/roubo/sequestro no campus entre jan-out de 2023. Vá em grupo, evite trechos isolados e horário noturno.",
     sources: ["https://cepe.usp.br/infraestrutura/13-raia-olimpica/"],
+    circuits: [
+      // Margem da Raia: rastreado de um único trecho real do OpenStreetMap
+      // (Overpass API), way tagueada "Pista da Raia". Esse way do OSM está
+      // marcado como um loop fechado (primeiro nó = último nó), mas o "fecho"
+      // de fato é um segmento reto de ~2.152m que salta direto de uma ponta a
+      // outra da raia — não é geometria real de caminho, é um artefato de
+      // quem mapeou. Por isso este circuito usa só a parte curva e real (19
+      // pontos, 2.299m ao longo de uma margem da raia de 2.200m), como um
+      // trajeto linear — não um loop completo. A outra margem não está
+      // mapeada como caminho no OSM.
+      {
+        name: "Margem da Raia",
+        distanceMeters: 2299,
+        points: [
+          { lat: -23.5596084, lon: -46.7135076 }, { lat: -23.5595033, lon: -46.7139477 }, { lat: -23.5587208, lon: -46.7156137 }, { lat: -23.5565218, lon: -46.7200135 },
+          { lat: -23.5559642, lon: -46.7211735 }, { lat: -23.555466, lon: -46.7222099 }, { lat: -23.5554057, lon: -46.7224514 }, { lat: -23.5548844, lon: -46.7234736 },
+          { lat: -23.5549333, lon: -46.7235184 }, { lat: -23.5548296, lon: -46.7237148 }, { lat: -23.5547787, lon: -46.7236901 }, { lat: -23.5540469, lon: -46.7251894 },
+          { lat: -23.551717, lon: -46.7299189 }, { lat: -23.5509083, lon: -46.7315617 }, { lat: -23.5505553, lon: -46.7322787 }, { lat: -23.5504225, lon: -46.7323615 },
+          { lat: -23.5502849, lon: -46.7323484 }, { lat: -23.5496158, lon: -46.7320505 }, { lat: -23.5495601, lon: -46.7319652 },
+        ],
+      },
+    ],
   },
   {
     id: "marginal-pinheiros-bruno-covas",
@@ -490,6 +589,52 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag:
       "Assaltos reportados em jan/2025 na ciclopassarela do Parque do Povo e entre Granja Julieta e a Ponte Octavio Frias, sobretudo no fim de tarde. Corra em grupo.",
     sources: ["https://www.acre.com.br/ciclistas-reclamam-de-roubos-na-ciclovia-do-rio-pinheiros-31-01-2025-cotidiano/"],
+    circuits: [
+      // Ciclovia Parque Bruno Covas: rastreado de 2 trechos reais do
+      // OpenStreetMap (Overpass API), ambos tagueados "Ciclovia Parque Bruno
+      // Covas" — encostam ponta a ponta sem gap. Linear (o parque é uma faixa
+      // ao longo do rio, sem loop natural). 7.752m traçados contra os ~8,2km
+      // da descrição.
+      {
+        name: "Ciclovia Parque Bruno Covas",
+        distanceMeters: 7752,
+        points: [
+          { lat: -23.586961, lon: -46.6918923 }, { lat: -23.5871444, lon: -46.6919379 }, { lat: -23.5881208, lon: -46.6922874 }, { lat: -23.5890588, lon: -46.6925641 },
+          { lat: -23.5896971, lon: -46.6928281 }, { lat: -23.5903537, lon: -46.6931119 }, { lat: -23.5915041, lon: -46.6934767 }, { lat: -23.5932041, lon: -46.6940923 },
+          { lat: -23.5937035, lon: -46.694088 }, { lat: -23.5945212, lon: -46.6944064 }, { lat: -23.5945411, lon: -46.6944257 }, { lat: -23.5945564, lon: -46.6944474 },
+          { lat: -23.5946088, lon: -46.694599 }, { lat: -23.5946478, lon: -46.6946671 }, { lat: -23.5954672, lon: -46.6950833 }, { lat: -23.5956332, lon: -46.6951627 },
+          { lat: -23.5959204, lon: -46.6953001 }, { lat: -23.5964311, lon: -46.6955048 }, { lat: -23.5968573, lon: -46.6956788 }, { lat: -23.5972063, lon: -46.695749 },
+          { lat: -23.5974865, lon: -46.6957153 }, { lat: -23.5977106, lon: -46.6956962 }, { lat: -23.5978774, lon: -46.6957391 }, { lat: -23.5980141, lon: -46.6958309 },
+          { lat: -23.5981661, lon: -46.6959365 }, { lat: -23.598268, lon: -46.6959797 }, { lat: -23.5985639, lon: -46.6961027 }, { lat: -23.5987055, lon: -46.6961298 },
+          { lat: -23.5988282, lon: -46.6961652 }, { lat: -23.5990899, lon: -46.6963021 }, { lat: -23.5992014, lon: -46.6963561 }, { lat: -23.599302, lon: -46.6963781 },
+          { lat: -23.5994991, lon: -46.6964138 }, { lat: -23.5998712, lon: -46.6965483 }, { lat: -23.5999625, lon: -46.6965789 }, { lat: -23.6000286, lon: -46.6965935 },
+          { lat: -23.600112, lon: -46.6966015 }, { lat: -23.6002605, lon: -46.6965881 }, { lat: -23.6003604, lon: -46.6965814 }, { lat: -23.600445, lon: -46.6965806 },
+          { lat: -23.6005246, lon: -46.6965921 }, { lat: -23.6008995, lon: -46.6967375 }, { lat: -23.6017079, lon: -46.6970472 }, { lat: -23.6019569, lon: -46.6971801 },
+          { lat: -23.6025087, lon: -46.6973321 }, { lat: -23.6026602, lon: -46.6973697 }, { lat: -23.6030476, lon: -46.6974946 }, { lat: -23.6045673, lon: -46.6980277 },
+          { lat: -23.6067293, lon: -46.6987368 }, { lat: -23.6071006, lon: -46.6988662 }, { lat: -23.6087827, lon: -46.6992716 }, { lat: -23.6095173, lon: -46.6994187 },
+          { lat: -23.6100514, lon: -46.6995256 }, { lat: -23.6103565, lon: -46.6995918 }, { lat: -23.6106222, lon: -46.6996434 }, { lat: -23.6106679, lon: -46.6996517 },
+          { lat: -23.6108142, lon: -46.6996783 }, { lat: -23.611407, lon: -46.6998185 }, { lat: -23.6116813, lon: -46.6999914 }, { lat: -23.6120603, lon: -46.7000848 },
+          { lat: -23.6123016, lon: -46.7001298 }, { lat: -23.6124333, lon: -46.7001564 }, { lat: -23.6124905, lon: -46.7001835 }, { lat: -23.6125592, lon: -46.7002171 },
+          { lat: -23.6126302, lon: -46.7002395 }, { lat: -23.6132719, lon: -46.7003572 }, { lat: -23.6140656, lon: -46.7005071 }, { lat: -23.6144475, lon: -46.7005648 },
+          { lat: -23.6147194, lon: -46.7005366 }, { lat: -23.6162543, lon: -46.7008906 }, { lat: -23.6165912, lon: -46.7009301 }, { lat: -23.6178282, lon: -46.7010091 },
+          { lat: -23.6184252, lon: -46.701167 }, { lat: -23.6192371, lon: -46.7015089 }, { lat: -23.6194351, lon: -46.70162 }, { lat: -23.6200165, lon: -46.7019605 },
+          { lat: -23.6204299, lon: -46.7021532 }, { lat: -23.6212582, lon: -46.702925 }, { lat: -23.6218268, lon: -46.703562 }, { lat: -23.6219708, lon: -46.7037437 },
+          { lat: -23.6221655, lon: -46.703994 }, { lat: -23.6224098, lon: -46.7044563 }, { lat: -23.6226325, lon: -46.7049912 }, { lat: -23.6228156, lon: -46.7054734 },
+          { lat: -23.6229929, lon: -46.7060833 }, { lat: -23.6237147, lon: -46.7083781 }, { lat: -23.6241054, lon: -46.7093806 }, { lat: -23.6247205, lon: -46.7105356 },
+          { lat: -23.6253173, lon: -46.7113242 }, { lat: -23.6255797, lon: -46.7116709 }, { lat: -23.626665, lon: -46.7127865 }, { lat: -23.6279905, lon: -46.7140397 },
+          { lat: -23.6282207, lon: -46.7142574 }, { lat: -23.6285558, lon: -46.714558 }, { lat: -23.6288082, lon: -46.7147923 }, { lat: -23.6296939, lon: -46.7155584 },
+          { lat: -23.6312159, lon: -46.7169222 }, { lat: -23.6321791, lon: -46.7178126 }, { lat: -23.6326909, lon: -46.7182812 }, { lat: -23.6329244, lon: -46.7185561 },
+          { lat: -23.6329467, lon: -46.7187105 }, { lat: -23.6329928, lon: -46.7187707 }, { lat: -23.6331017, lon: -46.7188666 }, { lat: -23.6333681, lon: -46.719012 },
+          { lat: -23.6334641, lon: -46.7190403 }, { lat: -23.6336232, lon: -46.7192328 }, { lat: -23.6346799, lon: -46.7202173 }, { lat: -23.6370552, lon: -46.7224693 },
+          { lat: -23.6390364, lon: -46.7242722 }, { lat: -23.6392931, lon: -46.7246363 }, { lat: -23.6393303, lon: -46.724687 }, { lat: -23.6394154, lon: -46.7247669 },
+          { lat: -23.6398714, lon: -46.7250768 }, { lat: -23.6413784, lon: -46.7259456 }, { lat: -23.6414393, lon: -46.7260015 }, { lat: -23.6414726, lon: -46.726059 },
+          { lat: -23.6415675, lon: -46.7263789 }, { lat: -23.6416303, lon: -46.7265574 }, { lat: -23.641674, lon: -46.7266251 }, { lat: -23.641744, lon: -46.726668 },
+          { lat: -23.6420733, lon: -46.7268021 }, { lat: -23.6423781, lon: -46.7268772 }, { lat: -23.6431188, lon: -46.7269677 }, { lat: -23.643431, lon: -46.727013 },
+          { lat: -23.64376, lon: -46.7270395 }, { lat: -23.6441826, lon: -46.727128 }, { lat: -23.6442502, lon: -46.7271267 }, { lat: -23.644292, lon: -46.7271052 },
+          { lat: -23.644315, lon: -46.7270714 }, { lat: -23.6443267, lon: -46.7270128 }, { lat: -23.6443512, lon: -46.7268086 },
+        ],
+      },
+    ],
   },
   {
     id: "parque-aclimacao",
@@ -660,6 +805,221 @@ export const RUNNING_PLACES: RunningPlace[] = [
           { lat: -23.560759, lon: -46.556498 },
         ],
       },
+    ],
+  },
+  {
+    id: "parque-do-carmo",
+    name: "Parque do Carmo – Olavo Egydio Setúbal",
+    city: "São Paulo",
+    neighborhood: "Itaquera · Zona Leste",
+    description:
+      "O maior parque da Zona Leste, com lago, planetário, museu ambiental e uma pista que contorna praticamente toda a extensão do lugar — terra batida em parte, asfalto em outra. Aberto das 5h30 às 20h. Passa por reforma de R$83 milhões iniciada em 2025, com monitoramento Smart Sampa.",
+    criteria: {
+      seguranca: {
+        score: 2,
+        note: "Avaliações de visitantes descrevem o parque como bonito mas com relatos de assalto e pouca segurança nos trechos mais afastados. A reforma em curso desde 2025 inclui GCM em pontos estratégicos e câmeras do programa Smart Sampa, mas o efeito real ainda não está consolidado — nota reflete o histórico documentado, não a promessa da reforma.",
+      },
+      percurso: {
+        score: 4,
+        note: "Pista que circunda quase toda a extensão do parque, ~4km, alternando terra batida e asfalto — um dos poucos trajetos longos da Zona Leste. A volta menor em torno do lago (a que este arquivo consegue rastrear com precisão) é mais curta, ~1,5km.",
+      },
+      estrutura: {
+        score: 3,
+        note: "Estacionamento gratuito, planetário, museu ambiental, quiosques, playgrounds. Reforma em andamento (iniciada em 2025) inclui melhorias de estrutura — parte do parque pode estar em obras.",
+      },
+      iluminacao: {
+        score: 2,
+        note: "Fecha às 20h — sem corrida noturna de verdade. A reforma em curso promete melhorias de iluminação, ainda não confirmadas concluídas.",
+      },
+      fluxo: {
+        score: 4,
+        note: "Parque muito grande para a Zona Leste — mesmo em fins de semana de movimento, o espaço amplo evita a sensação de aglomeração dos parques menores.",
+      },
+    },
+    bestTime: "Manhã de dia útil, logo após a abertura às 5h30 — evite trechos isolados e o fim de tarde",
+    loopDistanceMeters: 4000,
+    safetyFlag:
+      "Relatos de assalto em avaliações de visitantes, sobretudo em trechos afastados do miolo do parque. Prefira ir em grupo e evitar áreas isoladas.",
+    sources: [
+      "https://prefeitura.sp.gov.br/web/meio_ambiente/w/parques/regiao_leste/5734",
+      "https://desenvolveitaquera.com.br/2025/06/20/reforma-do-parque-do-carmo/",
+      "https://cidadedesaopaulo.com/lugares-para-treinar-corrida-em-sao-paulo-prepare-se-para-as-maratonas/",
+    ],
+    circuits: [
+      // Volta do Lago: rastreado de um único trecho real do OpenStreetMap
+      // (Overpass API) — já vem como way fechada no próprio OSM (primeiro nó
+      // = último nó), sem precisar de stitching nem linha de fechamento.
+      // 1.545m — é a volta menor em torno do lago, não o perímetro completo
+      // de ~4km citado na descrição (esse perímetro maior não está mapeado
+      // como um caminho contínuo único no OSM).
+      {
+        name: "Volta do Lago",
+        distanceMeters: 1545,
+        points: [
+          { lat: -23.5738169, lon: -46.4680987 }, { lat: -23.5719682, lon: -46.4684493 }, { lat: -23.5714685, lon: -46.4680663 }, { lat: -23.5712687, lon: -46.4678852 },
+          { lat: -23.5711145, lon: -46.4675663 }, { lat: -23.5710634, lon: -46.4670936 }, { lat: -23.571073, lon: -46.4669563 }, { lat: -23.5711085, lon: -46.466863 },
+          { lat: -23.5711877, lon: -46.4667361 }, { lat: -23.57125, lon: -46.466672 }, { lat: -23.5714278, lon: -46.4665293 }, { lat: -23.571531, lon: -46.4664897 },
+          { lat: -23.5716785, lon: -46.4664441 }, { lat: -23.5719612, lon: -46.4664012 }, { lat: -23.5722758, lon: -46.4663685 }, { lat: -23.5725104, lon: -46.4663211 },
+          { lat: -23.5728014, lon: -46.4661804 }, { lat: -23.5729757, lon: -46.466035 }, { lat: -23.5731859, lon: -46.4658225 }, { lat: -23.5733858, lon: -46.4654869 },
+          { lat: -23.573555, lon: -46.4651346 }, { lat: -23.5736114, lon: -46.4646536 }, { lat: -23.5736831, lon: -46.4641502 }, { lat: -23.5737241, lon: -46.4637364 },
+          { lat: -23.5738728, lon: -46.4636469 }, { lat: -23.5740471, lon: -46.463714 }, { lat: -23.5741613, lon: -46.4637626 }, { lat: -23.5741617, lon: -46.4639604 },
+          { lat: -23.5741547, lon: -46.4641558 }, { lat: -23.5741752, lon: -46.4646871 }, { lat: -23.5742111, lon: -46.4650115 }, { lat: -23.5743444, lon: -46.4654366 },
+          { lat: -23.5746009, lon: -46.4658703 }, { lat: -23.5751978, lon: -46.4661079 }, { lat: -23.5753586, lon: -46.4664075 }, { lat: -23.5753892, lon: -46.4664963 },
+          { lat: -23.5753812, lon: -46.4665852 }, { lat: -23.5751851, lon: -46.4667174 }, { lat: -23.5750262, lon: -46.4668516 }, { lat: -23.5748519, lon: -46.4670026 },
+          { lat: -23.5746315, lon: -46.4671368 }, { lat: -23.5743752, lon: -46.4673102 }, { lat: -23.5741957, lon: -46.4675619 }, { lat: -23.5740061, lon: -46.46778 },
+          { lat: -23.5739343, lon: -46.4678695 }, { lat: -23.5738439, lon: -46.4679948 }, { lat: -23.5738169, lon: -46.4680987 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "parque-trianon",
+    name: "Parque Trianon (Tenente Siqueira Campos)",
+    city: "São Paulo",
+    neighborhood: "Cerqueira César · Centro-Oeste, dentro da própria Avenida Paulista",
+    description:
+      "Fragmento de Mata Atlântica centenária no meio da Avenida Paulista, projetado por Burle Marx. Pequeno (36.614 m²) e sem pista oficial marcada, mas guias locais descrevem uma volta de cooper de cerca de 1,5km pelos caminhos internos — ideal para uma pausa rápida no meio de um treino na Paulista. Fecha às 18h, sem corrida noturna.",
+    criteria: {
+      seguranca: {
+        score: 3,
+        note: "Posto da Polícia Militar na entrada pela Avenida Paulista, além de guarda-parques — mas a região do entorno (proximidades do MASP) concentra 42,3% dos roubos e furtos registrados na Paulista em raio de até 350m, segundo levantamento de 2022.",
+      },
+      percurso: {
+        score: 2,
+        note: "Sem pista oficial marcada — os caminhos internos são estreitos e sinuosos, típicos de um bosque, não de um circuito desenhado para corrida. Guias locais estimam cerca de 1,5km de caminhos somados, mas essa é uma estimativa informal, não uma medição oficial.",
+      },
+      estrutura: {
+        score: 2,
+        note: "Aparelhos de ginástica, sanitários, rampa de acesso. Sem bebedouro nem chuveiro confirmados.",
+      },
+      iluminacao: {
+        score: 1,
+        note: "Fecha às 18h — sem corrida noturna, ponto final.",
+      },
+      fluxo: {
+        score: 3,
+        note: "Parque pequeno, então mesmo um movimento moderado pode parecer cheio nos caminhos mais estreitos. Aos domingos, o entorno na Paulista fica tomado pelo Ruas Abertas.",
+      },
+    },
+    bestTime: "Dia de semana, logo na abertura às 6h — antes do calor e do movimento da Paulista",
+    loopDistanceMeters: 1500,
+    sources: [
+      "https://prefeitura.sp.gov.br/web/meio_ambiente/w/parques/regiao_centrooeste/5773",
+      "https://viajarcorrendo.com.br/2025/04/parques-da-avenida-paulista.html",
+      "https://www.terra.com.br/noticias/brasil/cidades/roubos-e-furtos-na-avenida-paulista-qual-e-o-ponto-mais-perigoso,f9f8a51a12e5ca9d92f86be012955a37mytn8a7r.html",
+    ],
+  },
+  {
+    id: "parque-burle-marx",
+    name: "Parque Burle Marx",
+    city: "São Paulo",
+    neighborhood: "Vila Andrade / Morumbi · Zona Sul",
+    description:
+      "Antiga Chácara Tangará, quase virou complexo comercial antes de virar parque ecológico em 1995. Tem pista de cooper e caminhada além de trilhas de mata — mas fontes divergem sobre a distância exata (de 750m a um conjunto de trilhas de 350m/850m/1.050m, dependendo da fonte). Fica a poucos metros de Paraisópolis, e a região registrou um tiroteio em jan/2025.",
+    criteria: {
+      seguranca: {
+        score: 2,
+        note: "Tiroteio registrado em jan/2025 na Av. Dona Helena Pereira de Moraes, ao lado do parque, entre um adolescente armado e um policial penal à paisana. Moradores da Vila Andrade relatam aumento de roubos, com dado da SSP de +30% de criminalidade no 89º DP (Portal do Morumbi).",
+      },
+      percurso: {
+        score: 3,
+        note: "Pista de cooper e caminhada confirmada oficialmente, mais trilha de mata — mas a extensão exata diverge entre fontes (750m segundo alguns guias, ou um conjunto de 3 trilhas de 350/850/1.050m segundo a Wikipédia). Por isso a distância deste lugar fica como não confirmada.",
+      },
+      estrutura: {
+        score: 4,
+        note: "Aparelhos de ginástica, playground, lanchonete, pergolados, sanitários acessíveis, estacionamento, orquidário e nascentes — um dos parques mais completos desta lista fora dos grandes clássicos.",
+      },
+      iluminacao: {
+        score: 2,
+        note: "Funciona das 7h às 19h — sem corrida noturna, mas o horário diurno é mais generoso que muitos parques menores.",
+      },
+      fluxo: {
+        score: 3,
+        note: "Uso majoritariamente contemplativo — bicicleta, skate e jogos de bola são proibidos dentro do parque, o que mantém o fluxo mais previsível que em parques voltados a esporte.",
+      },
+    },
+    bestTime: "Manhã, logo após a abertura às 7h — evite o fim de tarde/noite dado o histórico de ocorrências no entorno",
+    loopDistanceMeters: null,
+    safetyFlag:
+      "Tiroteio registrado em jan/2025 na avenida de acesso ao parque; moradores da Vila Andrade relatam aumento de roubos na região. Evite horários de menor movimento.",
+    sources: [
+      "https://prefeitura.sp.gov.br/web/meio_ambiente/w/parques/regiao_sul/5733",
+      "https://pt.wikipedia.org/wiki/Parque_Burle_Marx",
+      "https://www.terra.com.br/noticias/brasil/cidades/troca-de-tiros-assusta-moradores-perto-do-parque-burle-marx,5e5a019f8f4e1296c57fc3f43c64670ahlxow0rd.html",
+      "https://www.gazetasp.com.br/cotidiano/moradores-da-vila-andrade-relatam-aumento-de-crimes-e-baixo-policiamen/1088909/",
+    ],
+    circuits: [
+      // Pista de cooper (trecho rastreado): 2 trechos reais do OpenStreetMap
+      // (Overpass API, ambos surface=ground/trilha de terra) encostados ponta
+      // a ponta sem gap, formando um quase-loop que fecha a 81m de distância
+      // entre a última e a primeira coordenada — essa junção final é uma
+      // linha reta documentada aqui, não uma curva chutada. 1.265m no total.
+      // Não dá pra confirmar se esse é exatamente o trecho de 750m ou uma das
+      // trilhas de 350/850/1.050m citadas por fontes diferentes — é real e
+      // rastreado, mas o nome oficial do trecho é incerto.
+      {
+        name: "Pista de cooper (trecho rastreado)",
+        distanceMeters: 1265,
+        points: [
+          { lat: -23.6314239, lon: -46.7209169 }, { lat: -23.6313634, lon: -46.7208689 }, { lat: -23.6313436, lon: -46.7207641 }, { lat: -23.631337, lon: -46.7206521 },
+          { lat: -23.6313039, lon: -46.72054 }, { lat: -23.631231, lon: -46.7204714 }, { lat: -23.6311549, lon: -46.7205003 }, { lat: -23.6310787, lon: -46.7206159 },
+          { lat: -23.6310556, lon: -46.7208508 }, { lat: -23.6310423, lon: -46.7209737 }, { lat: -23.6310251, lon: -46.7210773 }, { lat: -23.6309761, lon: -46.7211182 },
+          { lat: -23.6309496, lon: -46.7210965 }, { lat: -23.6309364, lon: -46.720999 }, { lat: -23.6309364, lon: -46.7208147 }, { lat: -23.6309596, lon: -46.7204605 },
+          { lat: -23.6309728, lon: -46.7203124 }, { lat: -23.6309662, lon: -46.7202257 }, { lat: -23.6309, lon: -46.7201751 }, { lat: -23.6307576, lon: -46.7202762 },
+          { lat: -23.6306748, lon: -46.7204605 }, { lat: -23.630655, lon: -46.720681 }, { lat: -23.6306815, lon: -46.7210062 }, { lat: -23.6307179, lon: -46.7211507 },
+          { lat: -23.6307278, lon: -46.7213675 }, { lat: -23.6307311, lon: -46.7216205 }, { lat: -23.6306351, lon: -46.7219457 }, { lat: -23.6304861, lon: -46.7222203 },
+          { lat: -23.6302643, lon: -46.7226034 }, { lat: -23.6301942, lon: -46.7228 }, { lat: -23.6301618, lon: -46.7227751 }, { lat: -23.6301238, lon: -46.7227688 },
+          { lat: -23.6300756, lon: -46.722831 }, { lat: -23.6300789, lon: -46.7229611 }, { lat: -23.630165, lon: -46.7231852 }, { lat: -23.6302511, lon: -46.7233514 },
+          { lat: -23.6303637, lon: -46.7233803 }, { lat: -23.6305516, lon: -46.7233832 }, { lat: -23.6308602, lon: -46.7233695 }, { lat: -23.6310622, lon: -46.723355 },
+          { lat: -23.6312012, lon: -46.7233152 }, { lat: -23.6313568, lon: -46.72329 }, { lat: -23.6315422, lon: -46.7233116 }, { lat: -23.6316813, lon: -46.7234128 },
+          { lat: -23.6318037, lon: -46.7235863 }, { lat: -23.6318389, lon: -46.7236073 }, { lat: -23.6318799, lon: -46.7236079 }, { lat: -23.6318951, lon: -46.7235723 },
+          { lat: -23.6318964, lon: -46.723514 }, { lat: -23.6318799, lon: -46.7233984 }, { lat: -23.631774, lon: -46.7232141 }, { lat: -23.6316515, lon: -46.7230515 },
+          { lat: -23.6315058, lon: -46.7229864 }, { lat: -23.6313521, lon: -46.7228954 }, { lat: -23.6312894, lon: -46.7228249 }, { lat: -23.6311979, lon: -46.7227949 },
+          { lat: -23.6310992, lon: -46.7227626 }, { lat: -23.6310479, lon: -46.722692 }, { lat: -23.6310721, lon: -46.7226359 }, { lat: -23.6311278, lon: -46.7225903 },
+          { lat: -23.6311658, lon: -46.7225509 }, { lat: -23.6311449, lon: -46.7225198 }, { lat: -23.6310897, lon: -46.7225094 }, { lat: -23.631065, lon: -46.7224907 },
+          { lat: -23.631084, lon: -46.7224534 }, { lat: -23.6311185, lon: -46.7224119 }, { lat: -23.6312012, lon: -46.7222998 }, { lat: -23.6312509, lon: -46.7221481 },
+          { lat: -23.6312972, lon: -46.7220216 }, { lat: -23.6313634, lon: -46.7219276 }, { lat: -23.6314462, lon: -46.7219096 }, { lat: -23.6315753, lon: -46.7218662 },
+          { lat: -23.6316779, lon: -46.7218481 }, { lat: -23.6318313, lon: -46.7217804 }, { lat: -23.6318216, lon: -46.7215492 }, { lat: -23.6318735, lon: -46.7213699 },
+          { lat: -23.6319974, lon: -46.7211654 }, { lat: -23.6321444, lon: -46.7210238 }, { lat: -23.6314239, lon: -46.7209169 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "parque-da-juventude",
+    name: "Parque da Juventude Dom Paulo Evaristo Arns",
+    city: "São Paulo",
+    neighborhood: "Santana · Zona Norte, no antigo terreno do Complexo Penitenciário do Carandiru",
+    description:
+      "Construído no lugar do extinto Carandiru, com 240 mil m² divididos em área verde, área central e área esportiva. A área esportiva tem pista de corrida de terra batida e funciona até mais tarde que a maioria dos parques da lista — uma das poucas opções de corrida noturna em dia útil na Zona Norte.",
+    criteria: {
+      seguranca: {
+        score: 3,
+        note: "Guardas espalhados pelo parque, boa impressão geral de segurança segundo relatos de visitantes — mas há relato pontual de arrombamento de carro no estacionamento. Sem dado sistemático de ocorrências contra pedestres/corredores.",
+      },
+      percurso: {
+        score: 3,
+        note: "Pista de terra batida dedicada à corrida na área esportiva, mais ciclofaixa — mas não encontrei a quilometragem oficial da pista em nenhuma fonte confiável.",
+      },
+      estrutura: {
+        score: 4,
+        note: "Aparelhos de ginástica, playground, bicicletário, quadras, lanchonetes, bebedouros, sanitários, ambulatório e estacionamento — um dos parques mais completos da Zona Norte.",
+      },
+      iluminacao: {
+        score: 4,
+        note: "Área esportiva funciona até 22h em dias úteis e sábado (até 20h/22h aos domingos, conforme a fonte) — janela noturna real, incomum nesta lista fora do Ibirapuera e do CERET.",
+      },
+      fluxo: {
+        score: 3,
+        note: "Parque grande e dividido em áreas distintas, o que ajuda a distribuir o movimento — mas a área esportiva concentra quem treina, podendo ficar cheia no fim de tarde.",
+      },
+    },
+    bestTime: "Fim de tarde/início de noite em dia útil, quando a área esportiva ainda está aberta e o calor já passou",
+    loopDistanceMeters: null,
+    sources: [
+      "https://www.saopaulo.sp.gov.br/conhecasp/parques-e-reservas-naturais/parque-da-juventude/",
+      "https://www.areasverdesdascidades.com.br/2016/04/parque-da-juventude-em-sao-paulo.html",
+      "https://guiadeareasprotegidas.sp.gov.br/ap/parque-da-juventude-dom-paulo-evaristo-arns-pjuv/",
     ],
   },
 ];
