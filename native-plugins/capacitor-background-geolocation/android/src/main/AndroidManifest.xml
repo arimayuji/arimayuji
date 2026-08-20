@@ -12,6 +12,11 @@
             android:exported="false" />
 
         <receiver
+            android:name="com.capgo.capacitor_background_geolocation.NotificationActionReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
             android:name="com.capgo.capacitor_background_geolocation.GeofenceBootReceiver"
             android:enabled="true"
             android:exported="false">

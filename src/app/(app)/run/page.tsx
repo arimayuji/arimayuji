@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useRunTracker, type GpsQuality } from "@/lib/tracking/useRunTracker";
 import { isStandaloneDisplay } from "@/lib/platform";
+import { onNotificationAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
@@ -1182,6 +1183,30 @@ export default function RunPage() {
 
   /** Narrowing on `state.finishedRun` doesn't survive into the record callbacks below. */
   const finishedRun = state.finishedRun;
+
+  /**
+   * Pausar/Finalizar tapped from the Android lock-screen notification (see
+   * `updateLiveNotification` in useRunTracker.ts) — reaches JS as a plugin
+   * event only while this screen's WebView is alive. Calls the exact same
+   * `pause()`/`finish()` the on-screen buttons already use, so there's no
+   * second copy of that logic. `finish()` here mirrors `HoldToFinishButton`'s
+   * `onConfirm` below (same `shoeName`, same `setManualTracks` follow-up) —
+   * the notification's own "Finalizar" is a single tap rather than a hold,
+   * since reaching the notification, expanding it, and hitting the right
+   * button is already deliberate enough.
+   */
+  useEffect(
+    () =>
+      onNotificationAction((action) => {
+        if (action === "pause") {
+          pause();
+        } else {
+          const run = finish({ shoeName });
+          setManualTracks(run.tracks ?? []);
+        }
+      }),
+    [pause, finish, shoeName],
+  );
 
   const handleMusicSearch = async (e: FormEvent) => {
     e.preventDefault();

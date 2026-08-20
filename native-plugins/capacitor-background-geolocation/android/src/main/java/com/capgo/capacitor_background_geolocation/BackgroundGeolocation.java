@@ -63,6 +63,7 @@ public class BackgroundGeolocation extends Plugin {
     private CompletableFuture<Void> geofencePermissionFuture;
     private BroadcastReceiver serviceReceiver;
     private BroadcastReceiver geofenceEventReceiver;
+    private BroadcastReceiver notificationActionReceiver;
 
     private void fetchLastLocation(PluginCall call) {
         try {
@@ -797,6 +798,25 @@ public class BackgroundGeolocation extends Plugin {
         }
     }
 
+    // Xanthus fork: relays taps on the rich notification's Pausar/Finalizar buttons to
+    // JS as a "notificationAction" event, so useRunTracker.ts can call the exact same
+    // pause()/finish() it already uses for the on-screen buttons — no native duplicate
+    // of that state logic. See NotificationActionReceiver for why the tap itself is
+    // handled there (a real manifest-declared receiver) rather than here directly.
+    private class NotificationActionEventReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getStringExtra(NotificationActionReceiver.EXTRA_ACTION);
+            if (action == null || action.isEmpty()) {
+                return;
+            }
+            JSObject data = new JSObject();
+            data.put("action", action);
+            notifyListeners("notificationAction", data, true);
+        }
+    }
+
     @Override
     public void load() {
         super.load();
@@ -829,6 +849,12 @@ public class BackgroundGeolocation extends Plugin {
         IntentFilter geofenceFilter = new IntentFilter(GeofenceStore.ACTION_GEOFENCE_EVENT);
         geofenceFilter.addAction(GeofenceStore.ACTION_GEOFENCE_ERROR);
         LocalBroadcastManager.getInstance(this.getContext()).registerReceiver(geofenceEventReceiver, geofenceFilter);
+
+        notificationActionReceiver = new NotificationActionEventReceiver();
+        LocalBroadcastManager.getInstance(this.getContext()).registerReceiver(
+            notificationActionReceiver,
+            new IntentFilter(NotificationActionReceiver.ACTION_NOTIFICATION_ACTION)
+        );
     }
 
     private CompletableFuture<BackgroundGeolocationService.LocalBinder> getServiceConnection() {
@@ -969,6 +995,10 @@ public class BackgroundGeolocation extends Plugin {
         if (geofenceEventReceiver != null) {
             LocalBroadcastManager.getInstance(this.getContext()).unregisterReceiver(geofenceEventReceiver);
             geofenceEventReceiver = null;
+        }
+        if (notificationActionReceiver != null) {
+            LocalBroadcastManager.getInstance(this.getContext()).unregisterReceiver(notificationActionReceiver);
+            notificationActionReceiver = null;
         }
         super.handleOnDestroy();
     }

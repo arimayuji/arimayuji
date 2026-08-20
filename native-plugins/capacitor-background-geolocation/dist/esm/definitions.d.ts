@@ -637,6 +637,21 @@ export interface UpdateNotificationOptions {
     routePolylines?: string[];
 }
 /**
+ * Event emitted when the athlete taps the rich tracking notification's
+ * Pausar/Finalizar action button (see {@link UpdateNotificationOptions}).
+ * Android only.
+ *
+ * Xanthus fork — not part of the upstream plugin.
+ */
+export interface NotificationActionEvent {
+    /**
+     * Which button was tapped.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    action: 'pause' | 'finish';
+}
+/**
  * Main plugin interface for background geolocation functionality.
  * Provides methods to manage location updates and access device settings.
  *
@@ -844,6 +859,20 @@ export interface BackgroundGeolocationPlugin {
      * );
      */
     addListener(eventName: 'geofenceError', listenerFunc: (event: GeofenceErrorEvent) => void): Promise<PluginListenerHandle>;
+    /**
+     * Listens for taps on the rich tracking notification's Pausar/Finalizar
+     * buttons while the WebView is alive. Android only — never fires on
+     * iOS/web, since neither has this notification style.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     *
+     * @example
+     * const handle = await BackgroundGeolocation.addListener(
+     *   "notificationAction",
+     *   (event) => console.log(event.action), // "pause" | "finish"
+     * );
+     */
+    addListener(eventName: 'notificationAction', listenerFunc: (event: NotificationActionEvent) => void): Promise<PluginListenerHandle>;
     /**
      * Read current location authorization without prompting or side effects.
      *

@@ -190,6 +190,22 @@ export function updateLiveNotification(options: {
   });
 }
 
+export type NotificationAction = "pause" | "finish";
+
+/**
+ * Subscribes to taps on the rich notification's Pausar/Finalizar buttons
+ * (see `updateLiveNotification` above). Android only — on iOS/web this is a
+ * no-op that never calls `callback`, since neither platform has this
+ * notification style to tap. Returns an unsubscribe function.
+ */
+export function onNotificationAction(callback: (action: NotificationAction) => void): () => void {
+  if (!isAndroidPlatform()) return () => {};
+  const handlePromise = BackgroundGeolocation.addListener("notificationAction", (event) => callback(event.action));
+  return () => {
+    void handlePromise.then((handle) => handle.remove()).catch(() => {});
+  };
+}
+
 export function endGeoWatch(): void {
   if (watchStartPromise === null) return;
   const pending = watchStartPromise;

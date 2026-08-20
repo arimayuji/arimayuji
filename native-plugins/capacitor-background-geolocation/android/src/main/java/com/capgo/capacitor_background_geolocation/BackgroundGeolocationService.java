@@ -502,7 +502,17 @@ public class BackgroundGeolocationService extends Service {
 
         Notification.Builder builder = newNotificationBuilder()
             .setStyle(new Notification.DecoratedCustomViewStyle())
-            .setCustomContentView(views);
+            .setCustomContentView(views)
+            .addAction(
+                android.R.drawable.ic_media_pause,
+                "Pausar",
+                NotificationActionReceiver.createPendingIntent(getApplicationContext(), NotificationActionReceiver.ACTION_PAUSE)
+            )
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Finalizar",
+                NotificationActionReceiver.createPendingIntent(getApplicationContext(), NotificationActionReceiver.ACTION_FINISH)
+            );
         return builder.build();
     }
 
