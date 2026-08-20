@@ -662,7 +662,7 @@ function MetricCard({
         <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">{label}</span>
         <MetricIcon id={icon} className="h-4 w-4 text-accent" />
       </div>
-      <p className="text-metal font-mono text-[26px] leading-none tabular-nums">
+      <p className="text-metal-run text-[26px] leading-none tabular-nums">
         {value}
         {unit && <span className="ml-1 text-[13px] font-sans font-medium text-muted">{unit}</span>}
       </p>
@@ -1917,7 +1917,7 @@ export default function RunPage() {
               </div>
 
               <div className="flex flex-col items-center px-3 py-6">
-                <span className="text-metal font-mono text-[4.75rem] leading-none font-extrabold tabular-nums whitespace-nowrap">
+                <span className="text-metal-run text-metal-run-giant text-[4.75rem] leading-none tabular-nums whitespace-nowrap">
                   {metricValues[featured.id]}
                 </span>
                 <span className="mt-2.5 text-xs font-semibold tracking-[0.1em] text-accent uppercase">

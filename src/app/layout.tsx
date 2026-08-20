@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Oswald } from "next/font/google";
+import { Inter, Oswald, Rajdhani } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { OAuthCallbackListener } from "./oauth-callback-listener";
@@ -40,6 +40,18 @@ const oswald = Oswald({
   weight: ["500", "600", "700"],
 });
 
+/**
+ * Angular, technical-feeling digits for the active-tracking screen only (the
+ * giant focus number + its 4 metric cards, via `.text-metal-run` in
+ * globals.css) — every other numeric readout in the app stays on Oswald
+ * above. Single static weight since that's the only one that screen asks for.
+ */
+const rajdhani = Rajdhani({
+  variable: "--font-rajdhani",
+  subsets: ["latin"],
+  weight: ["700"],
+});
+
 export const metadata: Metadata = {
   title: "Xanthus",
   description:
@@ -70,7 +82,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       // The theme-init script (below) adds/removes "dark" before hydration,
       // ahead of what the server rendered — an intentional mismatch, not a bug.
       suppressHydrationWarning
-      className={`${inter.variable} ${oswald.variable} h-full antialiased`}
+      className={`${inter.variable} ${oswald.variable} ${rajdhani.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

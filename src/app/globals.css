@@ -171,6 +171,35 @@ body {
 }
 
 /**
+ * Same background-clip-text trick as `.text-metal`, scoped to the active
+ * tracking screen's numbers only (giant focus metric + the 4 metric cards,
+ * see run/page.tsx) — deliberately a separate class rather than widening
+ * `.text-metal` itself, since every other numeric readout in the app
+ * (histórico, perfil, post-run summary) keeps its existing Oswald look.
+ * `.text-metal-run-giant` layers a heavier drop-shadow for the one giant
+ * number; the 4 smaller cards use `.text-metal-run` alone.
+ */
+.text-metal-run {
+  font-family: var(--font-rajdhani), sans-serif;
+  font-weight: 700;
+  background-image: linear-gradient(180deg, #2b2f36 0%, #4a4f58 35%, #1c1f24 70%, #3a3f47 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
+}
+
+.dark .text-metal-run {
+  background-image: linear-gradient(180deg, #ffffff 0%, #e4e6ea 35%, #9aa0ab 55%, #cdd1d8 70%, #7a808c 100%);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.35)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4));
+}
+
+.dark .text-metal-run-giant {
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.4)) drop-shadow(0 3px 2px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4));
+}
+
+/**
  * A number that reads as burning, for the one stat that's literally a
  * measure of energy spent (calorias) — same `background-clip: text` trick
  * `.text-metal` uses, fire-coloured stops instead of chrome, with the
