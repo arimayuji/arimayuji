@@ -1133,8 +1133,12 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
     // MARK: - Live Activity (Xanthus fork — not part of the upstream plugin)
 
     @objc func startLiveActivity(_ call: CAPPluginCall) {
-        guard #available(iOS 16.1, *) else {
-            return call.reject("Live Activities require iOS 16.1+", "NOT_SUPPORTED")
+        // The `content:` initializer used below (and `update`/`end` further
+        // down) is ActivityKit's iOS 16.2 API, not the 16.1 one — the type
+        // itself (ActivityAttributes) is available since 16.1, but these
+        // specific request/update/end overloads need the higher floor.
+        guard #available(iOS 16.2, *) else {
+            return call.reject("Live Activities require iOS 16.2+", "NOT_SUPPORTED")
         }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             return call.reject("Live Activities are disabled for this app (Ajustes > Xanthus > Live Activities)", "NOT_AUTHORIZED")
@@ -1152,7 +1156,7 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
     }
 
     @objc func updateLiveActivity(_ call: CAPPluginCall) {
-        guard #available(iOS 16.1, *) else {
+        guard #available(iOS 16.2, *) else {
             // Below the OS floor there's nothing to update — same
             // no-effect-not-an-error contract as the web/Android stubs.
             return call.resolve()
@@ -1168,7 +1172,7 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
     }
 
     @objc func endLiveActivity(_ call: CAPPluginCall) {
-        guard #available(iOS 16.1, *) else {
+        guard #available(iOS 16.2, *) else {
             return call.resolve()
         }
         guard let activity = self.runActivity as? Activity<RunActivityAttributes> else {
