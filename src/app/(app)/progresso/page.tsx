@@ -24,6 +24,7 @@ import type { WeeklyTargetKind } from "@/lib/runnerProfile";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
 import { PillSlider } from "../pill-slider";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
+import { MatchedRunsCard } from "../matched-runs-card";
 
 /**
  * The dashboard `/historico`'s own summary card has been promising since it
@@ -612,6 +613,7 @@ export default function EstatisticasPage() {
             <WeeklyVolumeChart weeks={weeks} unit={unit} />
             <RunFrequencyHeatmap runs={runs} unit={unit} delayMs={85} />
             <PaceTrendChart weeks={weeks} unit={unit} />
+            <MatchedRunsCard runs={runs} unit={unit} delayMs={115} />
             <MonthCard runs={runs} unit={unit} />
             <DailyVolumeChart runs={runs} unit={unit} />
           </>
