@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Same #0b0e11 as the splash artwork (drawable*/splash.png, confirmed by sampling
+         the PNG's corner pixel) and the PWA manifest's background_color
+         (src/app/manifest.ts) — keeps the window background continuous through the gap
+         between the native splash dismissing and the WebView's first paint, instead of
+         flashing AppCompat's default white (see AppTheme.NoActionBar in styles.xml). -->
+    <color name="splash_background">#0B0E11</color>
+</resources>
