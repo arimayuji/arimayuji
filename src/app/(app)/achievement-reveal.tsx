@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { formatDeltaDuration } from "@/lib/tracking/geoFilter";
-import { TIER_LABEL, type Achievement } from "@/lib/tracking/achievements";
+import { TIER_LABEL, type Achievement, type RarityTier } from "@/lib/tracking/achievements";
 import type { RunRecord } from "@/lib/tracking/personalRecords";
 import { TIER_PAINT, tintedStops } from "@/lib/plateMetal";
 import { AchievementPlate } from "./achievement-plate";
@@ -222,6 +222,15 @@ function BoxShell({ uid, achievement }: { uid: string; achievement: Achievement 
  * genuinely occluded by the box front while it is still inside — and still use
  * the shared 3D tumble divs.
  */
+/** One hand-drawn starburst per tier (generated once, tinted to each tier's `glow`), not a single asset recolored at runtime — a gem/crystal tier (diamante) and a metal tier (bronze) don't just differ in hue, the ray shape and sparkle style read differently too. See `.pr-unbox-burst` in globals.css for the reveal timing this drops into. */
+const EMBLEM_BURST_SRC: Record<RarityTier, string> = {
+  bronze: "/emblem-burst-bronze.png",
+  prata: "/emblem-burst-prata.png",
+  ouro: "/emblem-burst-ouro.png",
+  diamante: "/emblem-burst-diamante.png",
+  platina: "/emblem-burst-platina.png",
+};
+
 function Stage({
   achievement,
   label,
@@ -241,8 +250,13 @@ function Stage({
       <BoxInterior uid={uid} glow={glow} />
       {/* One-shot flash right as the lid pops — see `.pr-unbox-burst` in globals.css. */}
       <div
-        className="pr-unbox-burst pointer-events-none absolute top-[38%] left-1/2 h-[70%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-lg"
-        style={{ background: `radial-gradient(closest-side, #ffffff, ${glow} 55%, transparent 78%)` }}
+        className="pr-unbox-burst pointer-events-none absolute top-[38%] left-1/2 h-full w-full -translate-x-1/2 -translate-y-1/2"
+        style={{
+          backgroundImage: `url(${EMBLEM_BURST_SRC[achievement.tier]})`,
+          backgroundSize: "contain",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center",
+        }}
         aria-hidden="true"
       />
       <div
