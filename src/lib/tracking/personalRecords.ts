@@ -26,11 +26,13 @@ export const STANDARD_DISTANCES: readonly {
   milesLabel?: string;
   unit: "km" | "mi" | "both";
 }[] = [
+  { meters: 400, label: "400 m", unit: "km" },
   { meters: 1000, label: "1 km", unit: "km" },
   { meters: 5000, label: "5 km", unit: "km" },
   { meters: 10000, label: "10 km", unit: "km" },
   { meters: 804.672, label: "1/2 milha", unit: "mi" },
   { meters: 1609.344, label: "1 milha", unit: "mi" },
+  { meters: 3218.688, label: "2 milhas", unit: "mi" },
   { meters: 21097.5, label: "21 km", milesLabel: "13,1 milhas", unit: "both" },
   { meters: 42195, label: "42 km", milesLabel: "26,2 milhas", unit: "both" },
 ];
