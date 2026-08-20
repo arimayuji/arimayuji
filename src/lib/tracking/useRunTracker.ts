@@ -47,6 +47,8 @@ export interface LivePauseEvent {
 export interface RunGoal {
   distanceMeters?: number;
   durationSeconds?: number;
+  /** A pace to hold, not a finish line — independent of the other two fields (a distance/duration goal is "get there by X"; this is "stay around this pace the whole time"). */
+  targetPaceSecPerKm?: number;
 }
 
 export interface StartOptions {
@@ -73,6 +75,8 @@ export interface RunTrackerState {
   finishedRun: CompletedRun | null;
   /** Positive = ahead of the ghost, negative = behind. See `ghostDeltaSeconds` for the convention. Null with no ghost, or past its max distance. */
   ghostDeltaSeconds: number | null;
+  /** `currentPaceSecPerKm - goal.targetPaceSecPerKm` — positive means running slower than the target, negative means faster. Null with no pace goal, or before pace itself has a reading. */
+  paceDeltaSecPerKm: number | null;
   /** The delta at the moment the run was finished, kept alongside `finishedRun` for the summary — not persisted into the saved record. */
   finishedGhostDeltaSeconds: number | null;
   /** The trace so far, for drawing the live route map — same points that end up in `finishedRun.points`. */
@@ -103,6 +107,7 @@ export function useRunTracker() {
     error: null,
     finishedRun: null,
     ghostDeltaSeconds: null,
+    paceDeltaSecPerKm: null,
     finishedGhostDeltaSeconds: null,
     points: [],
     pauseEvents: [],
@@ -518,6 +523,10 @@ export function useRunTracker() {
         const ghostDelta = ghostSeriesRef.current
           ? ghostDeltaSeconds(ghostSeriesRef.current, distanceRef.current, computeElapsedSeconds())
           : null;
+        const paceDeltaSecPerKm =
+          s.goal?.targetPaceSecPerKm && currentPaceSecPerKm
+            ? currentPaceSecPerKm - s.goal.targetPaceSecPerKm
+            : null;
         return {
           ...s,
           distanceMeters: distanceRef.current,
@@ -526,6 +535,7 @@ export function useRunTracker() {
           forecastSecondsRemaining,
           paceNeededSecPerKm,
           ghostDeltaSeconds: ghostDelta,
+          paceDeltaSecPerKm,
           points: pointsRef.current,
         };
       });
@@ -553,6 +563,42 @@ export function useRunTracker() {
     beginGeoWatch(handleFix, handleError);
   }, [handleError, handleFix]);
 
+  /**
+   * True between `prewarm()` and either `cancelPrewarm()` or `start()`
+   * taking the already-running watch over for a real run — lets `start()`
+   * know not to call `beginGeoWatch()` a second time (see that function's
+   * own "callers only ever call this once at a time" note; two live
+   * watches would corrupt the next run's warmup/points) and, symmetrically,
+   * lets `cancelPrewarm()` know it's safe to tear the watch down instead of
+   * yanking one a real run has since taken ownership of.
+   */
+  const prewarmingRef = useRef(false);
+
+  /**
+   * Starts the same GPS watch a real run uses, before there's a run to
+   * attach it to — while `status` stays `"idle"`, `handleFix`'s own gate
+   * (`if (s.status !== "warming") return s`) keeps every fix from touching
+   * the Kalman filter/distance accumulation, but the `gpsQuality` update at
+   * the top of `handleFix` runs unconditionally, so this is enough on its
+   * own to give the idle screen a real "GPS pronto"/"buscando" reading
+   * instead of no reading at all. A no-op if already prewarming, or once a
+   * real run has taken over the watch.
+   */
+  const prewarm = useCallback(() => {
+    if (prewarmingRef.current) return;
+    if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) return;
+    prewarmingRef.current = true;
+    beginWatch();
+  }, [beginWatch]);
+
+  /** Stops a prewarm watch that never turned into a real run — e.g. the athlete backed out of Preparar Corrida. Harmless no-op once `start()` has taken ownership (see `prewarmingRef`). */
+  const cancelPrewarm = useCallback(() => {
+    if (!prewarmingRef.current) return;
+    prewarmingRef.current = false;
+    clearWatch();
+    setState((s) => (s.status === "idle" && s.gpsQuality !== "searching" ? { ...s, gpsQuality: "searching" } : s));
+  }, [clearWatch]);
+
   const start = useCallback(
     (options?: StartOptions) => {
       if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
@@ -561,6 +607,18 @@ export function useRunTracker() {
       }
 
       unlockSpeech(); // must run synchronously inside this user-gesture handler for iOS
+
+      // A prewarm watch already flowing fixes hands straight over to the
+      // real run instead of being torn down and restarted — the whole
+      // point of prewarming is not losing the GPS/permission lock it
+      // already has. `warmupCountRef` still resets below either way: a
+      // fresh run always needs its own `FILTER_CONFIG.warmupFixesRequired`
+      // consecutive good fixes before `handleFix` seeds the Kalman filter,
+      // same as ever — prewarming just means those fixes were often
+      // already arriving, so that gate clears in a couple of seconds
+      // instead of however long a cold GPS lock takes.
+      const hadPrewarm = prewarmingRef.current;
+      prewarmingRef.current = false;
 
       runIdRef.current = newRunId();
       warmupCountRef.current = 0;
@@ -585,12 +643,15 @@ export function useRunTracker() {
       ghostSeriesRef.current = options?.ghostRun ? buildDistanceTimeSeries(options.ghostRun) : null;
 
       void wakeLockRef.current.acquire();
-      beginWatch();
+      if (!hadPrewarm) beginWatch();
 
-      setState({
+      setState((s) => ({
         status: "warming",
         runId: runIdRef.current,
-        gpsQuality: "searching",
+        // Keeps whatever reading the prewarm watch already had instead of
+        // flashing back to "searching" the instant Iniciar is tapped —
+        // the watch itself never stopped, so the reading is still current.
+        gpsQuality: hadPrewarm ? s.gpsQuality : "searching",
         distanceMeters: 0,
         elapsedSeconds: 0,
         currentPaceSecPerKm: null,
@@ -601,10 +662,11 @@ export function useRunTracker() {
         error: null,
         finishedRun: null,
         ghostDeltaSeconds: null,
+        paceDeltaSecPerKm: null,
         finishedGhostDeltaSeconds: null,
         points: [],
         pauseEvents: [],
-      });
+      }));
     },
     [beginWatch],
   );
@@ -665,6 +727,7 @@ export function useRunTracker() {
         error: null,
         finishedRun: null,
         ghostDeltaSeconds: null,
+        paceDeltaSecPerKm: null,
         finishedGhostDeltaSeconds: null,
         points: snapshot.points,
         pauseEvents: [],
@@ -791,6 +854,7 @@ export function useRunTracker() {
     // corrupting the next run's warmup/points. Idempotent either way — all
     // three no-op harmlessly when there's nothing left to tear down (a
     // reset that follows a normal finish(), which already cleared them).
+    prewarmingRef.current = false;
     clearWatch();
     stopTicking();
     void wakeLockRef.current.release();
@@ -809,6 +873,7 @@ export function useRunTracker() {
       error: null,
       finishedRun: null,
       ghostDeltaSeconds: null,
+      paceDeltaSecPerKm: null,
       finishedGhostDeltaSeconds: null,
       points: [],
       pauseEvents: [],
@@ -825,5 +890,5 @@ export function useRunTracker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { state, start, pause, resume, finish, reset, setPauseReason, recover };
+  return { state, start, pause, resume, finish, reset, setPauseReason, recover, prewarm, cancelPrewarm };
 }

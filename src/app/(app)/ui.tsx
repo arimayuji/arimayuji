@@ -41,7 +41,7 @@ export function SegmentedButton({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`min-h-12 flex-1 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
+      className={`min-h-12 min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
         selected
           ? "border-accent bg-accent text-accent-foreground"
           : "border-border bg-background text-foreground hover:border-accent"

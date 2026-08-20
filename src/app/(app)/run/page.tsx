@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { useRunTracker } from "@/lib/tracking/useRunTracker";
+import { useRunTracker, type GpsQuality } from "@/lib/tracking/useRunTracker";
 import { isStandaloneDisplay } from "@/lib/platform";
 import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
@@ -166,6 +166,12 @@ function formatPauseDuration(startedAt: number, endedAt: number | null): string 
 /** How long a hold has to last before it counts — long enough that a stray tap or a bump mid-stride can't trigger it, short enough that a deliberate hold doesn't feel like it's stuck. */
 const HOLD_TO_FINISH_MS = 850;
 
+/** Preset chip values for the four pickers on Preparar Corrida — same shape as Xanthus Preparar Corrida.dc.html's GOAL_OPTS/VOICE_OPTS, adapted where a mock preset would fall outside a range this app already validates elsewhere (voice interval stays within `ANNOUNCE_MIN_METERS`–`ANNOUNCE_MAX_METERS`). */
+const DISTANCE_PRESETS_KM = [1, 3, 5, 10, 21];
+const TIME_PRESETS_MIN = [20, 30, 45, 60, 90];
+const PACE_PRESETS_SEC = [270, 300, 330, 360, 390]; // 4:30–6:30 /km
+const VOICE_PRESETS_M = [250, 500, 1000, 2000, 5000];
+
 /**
  * Ending a run is the one action here with no undo — the summary screen is
  * already built from whatever `finish()` freezes into `finishedRun`, and
@@ -237,6 +243,20 @@ function GhostDeltaPill({ deltaSeconds }: { deltaSeconds: number }) {
       }`}
     >
       {formatDeltaDuration(deltaSeconds)} {ahead ? "à frente do fantasma" : "atrás do fantasma"}
+    </span>
+  );
+}
+
+/** Same shell as `GhostDeltaPill`, for the "Ritmo" goal instead of a ghost race — `deltaSecPerKm` is `current pace - target pace`, so ≤0 means holding the target pace or faster. */
+function PaceDeltaPill({ deltaSecPerKm }: { deltaSecPerKm: number }) {
+  const ahead = deltaSecPerKm <= 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+        ahead ? "border-good/40 bg-good/10 text-good" : "border-warn/40 bg-warn/10 text-warn"
+      }`}
+    >
+      {formatDeltaDuration(deltaSecPerKm)}/km {ahead ? "mais rápido que a meta" : "mais lento que a meta"}
     </span>
   );
 }
@@ -360,13 +380,14 @@ function GpsDot({ quality }: { quality: string }) {
   );
 }
 
-/**
- * The "Tipo de meta" tab icons (Xanthus Preparar Corrida.dc.html) — just
- * `distancia`/`tempo`/`livre`. The mock's fourth tab, `ritmo` (a target
- * pace to hold), isn't included: `RunGoal` has no pace-goal field at all,
- * so it'd be a tab that looks selectable but does nothing once tapped.
- */
-function GoalTypeIcon({ id, className }: { id: "distancia" | "tempo" | "livre"; className?: string }) {
+/** The "Tipo de meta" tab icons (Xanthus Preparar Corrida.dc.html) — `distancia`/`tempo`/`ritmo`/`livre`. */
+function GoalTypeIcon({
+  id,
+  className,
+}: {
+  id: "distancia" | "tempo" | "ritmo" | "livre";
+  className?: string;
+}) {
   const common = { viewBox: "0 0 24 24", className, "aria-hidden": true } as const;
   if (id === "distancia") {
     return (
@@ -384,6 +405,13 @@ function GoalTypeIcon({ id, className }: { id: "distancia" | "tempo" | "livre"; 
       </svg>
     );
   }
+  if (id === "ritmo") {
+    return (
+      <svg {...common} fill="currentColor" stroke="none">
+        <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />
+      </svg>
+    );
+  }
   return (
     <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
       <path d="M7 12a3 3 0 1 0 5-2 3 3 0 1 0-5 2 3 3 0 1 0 5 2 3 3 0 1 0-5-2z" />
@@ -391,9 +419,172 @@ function GoalTypeIcon({ id, className }: { id: "distancia" | "tempo" | "livre"; 
   );
 }
 
+function RepeatIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 4v5h5" />
+      <path d="M4.5 9A8 8 0 1 1 4 15" />
+    </svg>
+  );
+}
+
 function formatGoalEta(totalSeconds: number | null): string {
   if (totalSeconds === null || !Number.isFinite(totalSeconds)) return "--:--";
   return formatElapsed(Math.round(totalSeconds));
+}
+
+/**
+ * A row of preset chips plus a trailing "Custom" chip that opens a
+ * bottom-sheet stepper — the picker pattern Xanthus Preparar Corrida.dc.html
+ * uses for every value on this screen (distância, tempo, ritmo, aviso por
+ * voz). "Custom" itself displays the live custom value once one is set,
+ * instead of just the word "Custom" — same as the mock.
+ */
+function PresetChipRow({
+  presets,
+  value,
+  onSelect,
+  onOpenCustom,
+  customLabel,
+}: {
+  presets: { value: number; label: string }[];
+  value: number;
+  onSelect: (value: number) => void;
+  onOpenCustom: () => void;
+  /** Non-null once the active value doesn't match any preset — shown on the "Custom" chip in place of the word itself. */
+  customLabel: string | null;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {presets.map((preset) => (
+        <button
+          key={preset.value}
+          type="button"
+          onClick={() => onSelect(preset.value)}
+          aria-pressed={value === preset.value}
+          className={`min-h-11 rounded-xl border px-2 py-2.5 text-sm font-semibold transition-colors ${
+            value === preset.value
+              ? "border-accent bg-accent text-accent-foreground"
+              : "border-border bg-background text-foreground hover:border-accent"
+          }`}
+        >
+          {preset.label}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={onOpenCustom}
+        aria-pressed={customLabel !== null}
+        className={`min-h-11 rounded-xl border px-2 py-2.5 text-sm font-semibold transition-colors ${
+          customLabel !== null
+            ? "border-accent bg-accent text-accent-foreground"
+            : "border-dashed border-border bg-background text-muted hover:border-accent"
+        }`}
+      >
+        {customLabel ?? "Custom"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The bottom sheet a "Custom" chip opens — same shell (`ModalPortal`,
+ * stepper -/+, big number) `/perfil/dados`'s weight picker already
+ * established, parameterized here for whichever of the four values on this
+ * screen opened it.
+ */
+function CustomValueSheet({
+  title,
+  value,
+  min,
+  max,
+  step,
+  formatValue,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  formatValue: (value: number) => string;
+  onConfirm: (value: number) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  return (
+    <ModalPortal>
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+        onClick={onClose}
+      >
+        <div
+          role="dialog"
+          aria-label={title}
+          onClick={(event) => event.stopPropagation()}
+          className="w-full max-w-sm rounded-t-3xl bg-background p-5 pb-8 text-foreground sm:rounded-3xl"
+        >
+          <div className="mx-auto mb-5 h-1 w-9 rounded-full bg-border" />
+          <p className="mb-6 text-center text-base font-bold">{title}</p>
+          <div className="mb-7 flex items-center justify-center gap-6">
+            <button
+              type="button"
+              onClick={() => setDraft((d) => Math.max(min, d - step))}
+              aria-label="Diminuir"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xl font-bold hover:border-accent"
+            >
+              –
+            </button>
+            <p className="min-w-28 text-center font-mono text-4xl font-extrabold tabular-nums">
+              {formatValue(draft)}
+            </p>
+            <button
+              type="button"
+              onClick={() => setDraft((d) => Math.min(max, d + step))}
+              aria-label="Aumentar"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xl font-bold hover:border-accent"
+            >
+              +
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => onConfirm(draft)}
+            className="min-h-12 w-full rounded-full bg-accent px-4 py-3 text-sm font-bold text-accent-foreground"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}
+
+/** "GPS pronto"/"Buscando GPS…" right under the title — real, driven by `state.gpsQuality` from the prewarm watch `useRunTracker.prewarm()` starts as soon as this screen mounts. Collapses `weak`+`searching` into one "buscando" reading: the idle screen just needs a yes/no, the 3-tier detail is for the live tracking screen's own indicator. */
+function IdleGpsStatus({ quality }: { quality: GpsQuality }) {
+  const ready = quality === "good";
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        aria-hidden="true"
+        className={`h-2 w-2 rounded-full ${ready ? "bg-good" : "bg-warn animate-pulse"}`}
+      />
+      <span className={`text-xs font-semibold ${ready ? "text-good" : "text-warn"}`}>
+        {ready ? "GPS pronto" : "Buscando GPS…"}
+      </span>
+    </div>
+  );
 }
 
 type MetricId = "ritmo" | "distancia" | "tempo" | "medio" | "parcial";
@@ -590,7 +781,8 @@ function computeEmblemProgress(run: CompletedRun, allRuns: CompletedRun[]): Embl
 }
 
 export default function RunPage() {
-  const { state, start, pause, resume, finish, reset, setPauseReason, recover } = useRunTracker();
+  const { state, start, pause, resume, finish, reset, setPauseReason, recover, prewarm, cancelPrewarm } =
+    useRunTracker();
   const [discarding, setDiscarding] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [warmingMessageIndex, setWarmingMessageIndex] = useState(0);
@@ -603,10 +795,14 @@ export default function RunPage() {
    * snapshot the moment the new run's own persistence kicks in.
    */
   const [recoverableRun, setRecoverableRun] = useState<ActiveRunSnapshot | null>(null);
-  /** Which of `goalKm`/`goalMinutes` actually becomes the run's goal on start — the two sliders stay mutually exclusive in the UI (Xanthus Preparar Corrida.dc.html's "Tipo de meta" tabs) even though `RunGoal` itself supports both at once, since showing both permanently-visible sliders read as "set them both" when only one was ever meant to gate the run. */
-  const [goalType, setGoalType] = useState<"distancia" | "tempo" | "livre">("distancia");
-  const [goalKm, setGoalKm] = useState("5");
-  const [goalMinutes, setGoalMinutes] = useState("30");
+  /** Which of `goalKm`/`goalMinutes`/`goalPaceSec` actually becomes the run's goal on start — mutually exclusive in the UI (Xanthus Preparar Corrida.dc.html's "Tipo de meta" tabs) even though `RunGoal` itself supports distância+tempo together, since showing every value permanently read as "set them all" when only one was ever meant to gate the run. */
+  const [goalType, setGoalType] = useState<"distancia" | "tempo" | "ritmo" | "livre">("distancia");
+  const [goalKm, setGoalKm] = useState(5);
+  const [goalMinutes, setGoalMinutes] = useState(30);
+  /** Target pace to hold, seconds/km — 330 = 5:30/km, a typical easy-run pace. */
+  const [goalPaceSec, setGoalPaceSec] = useState(330);
+  /** Which "Custom" chip's sheet is currently open — at most one at a time, across all four pickers on this screen. */
+  const [customSheet, setCustomSheet] = useState<"distancia" | "tempo" | "ritmo" | "voz" | null>(null);
   const [shoeName, setShoeName] = useState("");
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
@@ -742,6 +938,23 @@ export default function RunPage() {
     });
   }, [state.status]);
 
+  /**
+   * Real "GPS pronto"/"Buscando GPS…" on Preparar Corrida (Xanthus Preparar
+   * Corrida.dc.html) instead of no status at all — begins the same watch a
+   * real run uses while this screen is up, so there's an actual reading to
+   * show rather than one invented ahead of ever asking the OS for a fix.
+   * `recoverableRun` gates this off: that screen is "resume or discard a
+   * dead run", not Preparar Corrida, and has no use for a GPS reading.
+   * Cleanup stops the watch on unmount (navigated to another tab without
+   * starting) — a no-op if `start()` already took ownership of it (see
+   * `cancelPrewarm`'s own guard).
+   */
+  useEffect(() => {
+    if (state.status !== "idle" || recoverableRun) return;
+    prewarm();
+    return () => cancelPrewarm();
+  }, [state.status, recoverableRun, prewarm, cancelPrewarm]);
+
   /** Same re-fetch-on-return-to-idle reasoning as the effect above — a coach accepted mid-session should be pickable for the very next run. */
   useEffect(() => {
     if (state.status !== "idle") return;
@@ -776,6 +989,8 @@ export default function RunPage() {
   }, [state.status]);
 
   const selectedGhost = recentRuns.find((r) => r.id === selectedGhostId) ?? null;
+  /** Most recent real run with actual distance — powers the "Repetir última corrida" chip (Xanthus Preparar Corrida.dc.html). `recentRuns` is already sorted newest-first. */
+  const lastRealRun = recentRuns.find((r) => r.distanceMeters > 0) ?? null;
 
   /**
    * The announcement interval comes from the preference set on /perfil, and
@@ -979,6 +1194,7 @@ export default function RunPage() {
     }
   };
 
+  /* eslint-disable react-hooks/preserve-manual-memoization -- compiler's own dependency inference disagrees with these arrays on a component this large; functionally identical either way, just opts these two callbacks out of auto-memoization. */
   const handleAddManualTrack = useCallback(
     async (candidate: TrackCandidate) => {
       if (!state.finishedRun) return;
@@ -1006,6 +1222,7 @@ export default function RunPage() {
     },
     [state.finishedRun, manualTracks],
   );
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   const [showRunTips, setShowRunTips] = useState(false);
   /** True when the checklist was opened from the idle screen's "Rever dicas" link rather than as the gate before starting — completing it should just close it, not also start a run. */
@@ -1018,12 +1235,16 @@ export default function RunPage() {
     setManualTracks([]);
     setMusicQuery("");
     setMusicResults(null);
-    const distanceMeters = goalType === "distancia" && Number(goalKm) > 0 ? Number(goalKm) * 1000 : undefined;
-    const durationSeconds = goalType === "tempo" && Number(goalMinutes) > 0 ? Number(goalMinutes) * 60 : undefined;
+    const distanceMeters = goalType === "distancia" && goalKm > 0 ? goalKm * 1000 : undefined;
+    const durationSeconds = goalType === "tempo" && goalMinutes > 0 ? goalMinutes * 60 : undefined;
+    const targetPaceSecPerKm = goalType === "ritmo" && goalPaceSec > 0 ? goalPaceSec : undefined;
     setActiveGhost(selectedGhost);
     start({
       announceIntervalMeters: announceMeters,
-      goal: distanceMeters || durationSeconds ? { distanceMeters, durationSeconds } : undefined,
+      goal:
+        distanceMeters || durationSeconds || targetPaceSecPerKm
+          ? { distanceMeters, durationSeconds, targetPaceSecPerKm }
+          : undefined,
       ghostRun: selectedGhost ?? undefined,
     });
   };
@@ -1267,9 +1488,12 @@ export default function RunPage() {
         <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
           <div className="mx-auto w-full max-w-sm space-y-6">
             <div>
-              <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
-                Preparar corrida
-              </h1>
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
+                  Preparar corrida
+                </h1>
+                <IdleGpsStatus quality={state.gpsQuality} />
+              </div>
               <p className="mt-1 text-sm text-muted">
                 A tela precisa ficar ligada durante o treino para o GPS se manter preciso. Se possível,
                 deixe o tempo até bloquear a tela no máximo antes de sair —{" "}
@@ -1282,13 +1506,26 @@ export default function RunPage() {
                 </button>
                 .
               </p>
+              {lastRealRun && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGoalType("distancia");
+                    setGoalKm(Math.round((lastRealRun.distanceMeters / 1000) * 10) / 10);
+                  }}
+                  className="mt-3 flex items-center gap-2 self-start rounded-full border border-border bg-surface px-3.5 py-2 text-xs font-semibold text-muted hover:border-accent hover:text-foreground"
+                >
+                  <RepeatIcon className="h-3.5 w-3.5" />
+                  Repetir última corrida · {formatDistanceKm(lastRealRun.distanceMeters)} km
+                </button>
+              )}
             </div>
 
             <Card>
               <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
                 Tipo de meta
               </span>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
                 <SegmentedButton selected={goalType === "distancia"} onClick={() => setGoalType("distancia")}>
                   <span className="flex items-center justify-center gap-1.5">
                     <GoalTypeIcon id="distancia" className="h-4 w-4" />
@@ -1301,6 +1538,12 @@ export default function RunPage() {
                     Tempo
                   </span>
                 </SegmentedButton>
+                <SegmentedButton selected={goalType === "ritmo"} onClick={() => setGoalType("ritmo")}>
+                  <span className="flex items-center justify-center gap-1.5">
+                    <GoalTypeIcon id="ritmo" className="h-4 w-4" />
+                    Ritmo
+                  </span>
+                </SegmentedButton>
                 <SegmentedButton selected={goalType === "livre"} onClick={() => setGoalType("livre")}>
                   <span className="flex items-center justify-center gap-1.5">
                     <GoalTypeIcon id="livre" className="h-4 w-4" />
@@ -1310,29 +1553,34 @@ export default function RunPage() {
               </div>
 
               {goalType === "distancia" && (
-                <PillSlider
-                  className="mt-4"
-                  min={1}
-                  max={42}
-                  step={1}
-                  value={Number(goalKm) || 1}
-                  onChange={(km) => setGoalKm(String(km))}
-                  formatValue={(km) => `${km} km`}
+                <PresetChipRow
+                  presets={DISTANCE_PRESETS_KM.map((km) => ({ value: km, label: `${km} km` }))}
+                  value={goalKm}
+                  onSelect={setGoalKm}
+                  onOpenCustom={() => setCustomSheet("distancia")}
+                  customLabel={DISTANCE_PRESETS_KM.includes(goalKm) ? null : `${goalKm} km`}
                 />
               )}
               {goalType === "tempo" && (
-                <PillSlider
-                  className="mt-4"
-                  min={5}
-                  max={180}
-                  step={5}
-                  value={Number(goalMinutes) || 5}
-                  onChange={(minutes) => setGoalMinutes(String(minutes))}
-                  formatValue={(minutes) => `${minutes} min`}
+                <PresetChipRow
+                  presets={TIME_PRESETS_MIN.map((min) => ({ value: min, label: `${min} min` }))}
+                  value={goalMinutes}
+                  onSelect={setGoalMinutes}
+                  onOpenCustom={() => setCustomSheet("tempo")}
+                  customLabel={TIME_PRESETS_MIN.includes(goalMinutes) ? null : `${goalMinutes} min`}
+                />
+              )}
+              {goalType === "ritmo" && (
+                <PresetChipRow
+                  presets={PACE_PRESETS_SEC.map((sec) => ({ value: sec, label: `${formatPace(sec)}/km` }))}
+                  value={goalPaceSec}
+                  onSelect={setGoalPaceSec}
+                  onOpenCustom={() => setCustomSheet("ritmo")}
+                  customLabel={PACE_PRESETS_SEC.includes(goalPaceSec) ? null : `${formatPace(goalPaceSec)}/km`}
                 />
               )}
               {goalType === "livre" && (
-                <p className="mt-4 text-xs leading-relaxed text-muted">
+                <p className="mt-1 text-xs leading-relaxed text-muted">
                   Sem meta — só cronômetro, mapa e pace ao vivo.
                 </p>
               )}
@@ -1340,16 +1588,75 @@ export default function RunPage() {
 
             <div className="space-y-1.5">
               <span className="text-sm font-medium">Aviso por voz a cada</span>
-              <PillSlider
-                className="mt-2"
+              <PresetChipRow
+                presets={VOICE_PRESETS_M.map((m) => ({ value: m, label: announceLabel(m) }))}
+                value={announceMeters}
+                onSelect={(meters) => updatePreferences({ announceIntervalMeters: meters })}
+                onOpenCustom={() => setCustomSheet("voz")}
+                customLabel={VOICE_PRESETS_M.includes(announceMeters) ? null : announceLabel(announceMeters)}
+              />
+            </div>
+
+            {customSheet === "distancia" && (
+              <CustomValueSheet
+                title="Distância personalizada"
+                value={goalKm}
+                min={1}
+                max={42}
+                step={1}
+                formatValue={(km) => `${km} km`}
+                onConfirm={(km) => {
+                  setGoalKm(km);
+                  setCustomSheet(null);
+                }}
+                onClose={() => setCustomSheet(null)}
+              />
+            )}
+            {customSheet === "tempo" && (
+              <CustomValueSheet
+                title="Tempo personalizado"
+                value={goalMinutes}
+                min={5}
+                max={180}
+                step={5}
+                formatValue={(min) => `${min} min`}
+                onConfirm={(min) => {
+                  setGoalMinutes(min);
+                  setCustomSheet(null);
+                }}
+                onClose={() => setCustomSheet(null)}
+              />
+            )}
+            {customSheet === "ritmo" && (
+              <CustomValueSheet
+                title="Ritmo personalizado"
+                value={goalPaceSec}
+                min={180}
+                max={600}
+                step={5}
+                formatValue={(sec) => `${formatPace(sec)}/km`}
+                onConfirm={(sec) => {
+                  setGoalPaceSec(sec);
+                  setCustomSheet(null);
+                }}
+                onClose={() => setCustomSheet(null)}
+              />
+            )}
+            {customSheet === "voz" && (
+              <CustomValueSheet
+                title="Aviso por voz personalizado"
+                value={announceMeters}
                 min={ANNOUNCE_MIN_METERS}
                 max={ANNOUNCE_MAX_METERS}
                 step={ANNOUNCE_STEP_METERS}
-                value={announceMeters}
-                onChange={(meters) => updatePreferences({ announceIntervalMeters: meters })}
                 formatValue={announceLabel}
+                onConfirm={(meters) => {
+                  updatePreferences({ announceIntervalMeters: meters });
+                  setCustomSheet(null);
+                }}
+                onClose={() => setCustomSheet(null)}
               />
-            </div>
+            )}
 
             <div className="block space-y-1.5">
               <span className="text-sm font-medium">Tênis (opcional)</span>
@@ -1401,44 +1708,6 @@ export default function RunPage() {
                 </p>
               )}
             </div>
-
-            {recentRuns.length > 0 && (
-              <div className="block space-y-1.5">
-                <span className="text-sm font-medium">Corrida fantasma</span>
-                <p className="text-xs text-muted">
-                  Desligado por padrão. Escolha uma corrida abaixo pra comparar — tempo até a
-                  mesma distância percorrida, não o trajeto.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGhostId(null)}
-                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                      selectedGhostId === null
-                        ? "border-accent bg-accent text-accent-foreground"
-                        : "border-border bg-surface text-foreground hover:border-accent"
-                    }`}
-                  >
-                    Sem fantasma
-                  </button>
-                  {recentRuns.map((run) => (
-                    <button
-                      key={run.id}
-                      type="button"
-                      onClick={() => setSelectedGhostId(run.id)}
-                      className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                        selectedGhostId === run.id
-                          ? "border-accent bg-accent text-accent-foreground"
-                          : "border-border bg-surface text-foreground hover:border-accent"
-                      }`}
-                    >
-                      {formatDistanceKm(run.distanceMeters)} km ·{" "}
-                      {new Date(run.startedAt).toLocaleDateString("pt-BR")}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {longaoSession && (
               <div className="block space-y-1.5">
@@ -1647,10 +1916,16 @@ export default function RunPage() {
                   {featured.label}
                   {featured.unit ? ` · ${featured.unit}` : ""}
                 </span>
-                {state.ghostDeltaSeconds !== null && (
+                {state.paceDeltaSecPerKm !== null ? (
                   <div className="mt-3">
-                    <GhostDeltaPill deltaSeconds={state.ghostDeltaSeconds} />
+                    <PaceDeltaPill deltaSecPerKm={state.paceDeltaSecPerKm} />
                   </div>
+                ) : (
+                  state.ghostDeltaSeconds !== null && (
+                    <div className="mt-3">
+                      <GhostDeltaPill deltaSeconds={state.ghostDeltaSeconds} />
+                    </div>
+                  )
                 )}
               </div>
 
@@ -1802,6 +2077,20 @@ export default function RunPage() {
               );
             })()}
           </div>
+
+          {state.goal?.targetPaceSecPerKm && state.finishedRun.distanceMeters > 0 && (
+            <div className="flex flex-col items-center gap-1.5">
+              <span className="text-xs uppercase tracking-wide text-muted">
+                Meta de ritmo · {formatPace(state.goal.targetPaceSecPerKm)}/km
+              </span>
+              <PaceDeltaPill
+                deltaSecPerKm={
+                  (runMovingSeconds(state.finishedRun) / state.finishedRun.distanceMeters) * 1000 -
+                  state.goal.targetPaceSecPerKm
+                }
+              />
+            </div>
+          )}
 
           {finishedRun && (
             <RpeCard
