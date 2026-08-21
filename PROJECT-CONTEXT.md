@@ -53,13 +53,46 @@ no histórico de tasks — mesmo projeto).
   a própria mensagem da Apple diz que reseta em ~1 dia. Enquanto isso, todo
   push novo vai continuar mostrando esse job vermelho no Actions — Android e
   o deploy web (Cloudflare) não são afetados, seguem normais.
-- **Google Play Developer**: conta **verificada e aprovada em 2026-08-21**
-  (era o único bloqueio pra publicação de verdade na Play Store). Falta só
-  configurar o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no repo — o fluxo
-  de publicação (`.aab` assinado, track "internal" do Play Console) já
-  está todo documentado e pronto no `README.md`. Distribuição Android
-  continua por APK direto (sideload, link acima) até esse secret ser
-  configurado e o primeiro upload pro Play Console acontecer.
+- **Google Play Developer**: conta **verificada e aprovada em 2026-08-21**.
+  **Primeiro upload manual feito em 2026-08-21** — ficha do app "Xanthus"
+  (`com.xanthus.app`) criada no Play Console, `.aab` publicado na faixa
+  **Teste interno**. Falta configurar o secret
+  `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no repo (conta de serviço
+  `xanthus-play-publisher@deft-chariot-496320-v9.iam.gserviceaccount.com`
+  já criada no Google Cloud, falta só convidar no Play Console com
+  permissão de "Editar e publicar versões" e colar o JSON no secret) pra
+  os próximos uploads saírem automáticos a cada push em `main` — o fluxo
+  já está documentado no `README.md`. Distribuição Android pro público
+  geral continua por APK direto (sideload, link acima) até isso avançar
+  pra teste fechado/produção.
+  **Bug real achado nessa primeira tentativa de upload**: `gradlew
+  bundleRelease` builda com sucesso e sem nenhum warning, mas o `.aab`
+  saía **sem nenhuma assinatura jar embutida** mesmo com
+  `signingConfigs.release` corretamente configurado (confirmado: o mesmo
+  signingConfig assina o `.apk` perfeitamente via `assembleRelease`, e o
+  keystore/alias decodificados no CI são válidos — `keytool -list`
+  confirmou 1 entry PKCS12 sob o alias `xanthus`). Play Console rejeitava
+  com `"todos os pacotes enviados precisam ser assinados"`. Duas causas
+  raiz diferentes, corrigidas em sequência:
+  1. `export FOO=bar` num step do `android-build.yml` só dura o processo
+     de shell daquele step — não propaga pro step seguinte (só
+     `$GITHUB_ENV` propaga). O `gradlew bundleRelease` (step separado do
+     `assembleRelease`) rodava sem as env vars da keystore, caindo no
+     branch "sem assinatura" que o `build.gradle` já trata sem erro.
+  2. Mesmo depois de corrigir isso — e confirmado via log do CI que as
+     env vars chegavam certinho no processo do `bundleRelease` — a task
+     `signReleaseBundle` da Android Gradle Plugin (8.13.0) continuava
+     produzindo um `.aab` sem assinatura, sem warning nenhum. Causa raiz
+     do lado da AGP não identificada (`enableV1Signing`/V2/V3 explícitos
+     no signingConfig não mudaram nada). Workaround aplicado: assinar o
+     `.aab` manualmente com `jarsigner` logo depois do `bundleRelease`,
+     reusando a mesma keystore/senha — confirmado funcionando (upload no
+     Play Console passou, só com avisos genéricos, sem erro de
+     assinatura). Ferramenta certa pra verificar isso é `jarsigner
+     -verify` ou o `bundletool` do Google com `--ks` explícito — rodar
+     `bundletool build-apks` **sem** `--ks` sempre cai pro keystore de
+     debug, então isso NÃO serve como teste de "o .aab tem assinatura
+     própria" (armadilha em que caí investigando isso).
 
 ## Onde cada plataforma está no funil de lançamento
 
