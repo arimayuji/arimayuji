@@ -145,6 +145,19 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
      `bundletool build-apks` **sem** `--ks` sempre cai pro keystore de
      debug, então isso NÃO serve como teste de "o .aab tem assinatura
      própria" (armadilha em que caí investigando isso).
+  **Bug de CI achado e corrigido em 2026-08-21**: até esse dia, o step de
+  publicação no Play Store **não tinha `continue-on-error`** — uma falha
+  nele (como a da API desabilitada, acima) fazia o GitHub Actions pular
+  **todas** as etapas seguintes daquele job por padrão, inclusive o
+  `wrangler deploy` que publica o site e o link fixo do APK. Ou seja: o
+  primeiro push em `main` depois do secret configurado buildou tudo
+  certinho mas **não publicou nada** — nem o site, nem o APK — porque a
+  falha do Play Store travou o resto do job silenciosamente. Corrigido
+  adicionando `continue-on-error: true` nesse step, mesmo padrão
+  best-effort que os steps de deploy do Cloudflare já usavam pra secret
+  ausente. Confirmar de vez em quando que `Publish AAB to Google Play`
+  aparece riscado/amarelo (falhou mas não bloqueou) em vez de vermelho
+  sólido (bloqueou o job) nos runs do Actions.
 
 ## Onde cada plataforma está no funil de lançamento
 
@@ -361,6 +374,32 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 - Instagram: **[@xanthus.oficial](https://instagram.com/xanthus.oficial)** —
   linkado em `/perfil` (card "Instagram"). A bio do Instagram é o lugar
   combinado pra colocar os links de download (APK/TestFlight), não o app.
+
+## Submissão pro Beta App Review — branch `testflight` (2026-08-21)
+
+Toda push em `main` já sobe automático pro TestFlight (Internal Testing,
+sem revisão da Apple). Mas **submeter esse build pra revisão externa**
+(o que libera o link público pra novos testadores) virou uma decisão à
+parte, não automática — decidido porque automatizar em cima de todo push
+gastaria uma revisão de verdade da Apple a cada commit, com risco real de
+rejeição por nota "o que testar" genérica.
+
+Mecanismo: branch `testflight`, que só existe pra isso. Fluxo:
+```
+git checkout testflight && git merge main && git push
+```
+Isso dispara o job `submit_for_review` em `ios-build.yml`, que roda
+`scripts/ci/submit-testflight-review.mjs` — usa as mesmas três secrets
+`APP_STORE_CONNECT_*` já configuradas (via JWT ES256 assinado com o
+`.p8`), espera o build mais recente terminar de processar no App Store
+Connect, adiciona ao grupo externo "Beta" e cria a submissão de revisão.
+Não builda nada novo — só age sobre o que `main` já subiu.
+
+**Ainda não testado contra a conta real** — implementado e com `tsc`/lint
+limpos, mas o primeiro push de verdade pra essa branch é que vai confirmar
+se os endpoints da App Store Connect API se comportam como documentado
+(nomes de campo exatos, código de erro se o build ainda tiver "PROCESSING",
+etc.). Primeira tentativa real é o teste de verdade.
 
 ## Perguntas em aberto (preencher quando puder)
 

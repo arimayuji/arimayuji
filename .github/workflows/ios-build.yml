@@ -8,7 +8,12 @@ name: iOS build
 # parallel job (see below), not a follow-on step of the simulator build.
 on:
   push:
-    branches: [main]
+    # `main` builds + uploads to TestFlight, same as always. `testflight` is
+    # a separate, deliberate trigger: merging main into it (nothing else
+    # should ever land there) submits the build main just uploaded for
+    # Apple's Beta App Review — see the `submit_for_review` job below for
+    # why that's not just folded into every push to main.
+    branches: [main, testflight]
   pull_request:
   workflow_dispatch:
 
@@ -36,6 +41,11 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # A push to `testflight` only ever exists to trigger `submit_for_review`
+    # below, against a build `main` already uploaded — skipping straight
+    # past this (and `simulator`, which depends on it and skips along with
+    # it) avoids rebuilding/re-checking anything that push doesn't change.
+    if: github.ref != 'refs/heads/testflight'
     steps:
       - uses: actions/checkout@v4
 
@@ -277,3 +287,39 @@ jobs:
             --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
 
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
+
+  # Deliberately separate from `testflight` above and from every push to
+  # `main`: submitting a build for Apple's Beta App Review is its own
+  # decision, not something that should happen automatically on every
+  # commit (Apple reviews take hours-to-days, and a submission with nothing
+  # meaningful changed since the last one is a common rejection reason).
+  # This job only runs when someone deliberately merges `main` into the
+  # `testflight` branch and pushes it — nothing else should ever land on
+  # that branch. It doesn't rebuild anything; it finds the most recent
+  # build `main`'s own `testflight` job already uploaded and submits that.
+  submit_for_review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: github.ref == 'refs/heads/testflight' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Submit latest TestFlight build for Beta App Review
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          if [ -z "$KEY_ID" ] || [ -z "$ISSUER_ID" ] || [ -z "$KEY_P8_BASE64" ]; then
+            echo "::warning::APP_STORE_CONNECT_KEY_ID/ISSUER_ID/API_KEY_P8 não configurados — pulando a submissão pra revisão."
+            exit 0
+          fi
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+          echo "$KEY_P8_BASE64" | base64 -d > "$KEY_PATH"
+          KEY_ID="$KEY_ID" ISSUER_ID="$ISSUER_ID" KEY_PATH="$KEY_PATH" \
+            node scripts/ci/submit-testflight-review.mjs
