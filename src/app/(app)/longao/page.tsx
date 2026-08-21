@@ -21,6 +21,7 @@ import { useAuth } from "@/lib/useAuth";
 import { useShareSupport } from "@/lib/share";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
+import { Avatar } from "../avatar";
 import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/longao";
@@ -40,14 +41,6 @@ const JOIN_ERRORS: Record<string, string> = {
   unavailable: "Os recursos de conta estão indisponíveis agora.",
   failed: "Não deu pra entrar agora — tenta de novo em instantes.",
 };
-
-function Avatar({ name }: { name: string }) {
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent/40 text-xs font-bold text-accent-foreground">
-      {name.charAt(0).toUpperCase() || "?"}
-    </span>
-  );
-}
 
 /**
  * Renders the join link as a scannable code — same URL `handleShare` sends
@@ -85,7 +78,7 @@ function ParticipantRow({ connection }: { connection: GroupRunParticipantConnect
   const { profile } = connection;
   return (
     <li className="flex items-center gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <Avatar name={profile?.displayName ?? "?"} />
+      <Avatar name={profile?.displayName ?? "?"} avatarUrl={profile?.avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{profile?.displayName ?? "Corredor(a)"}</p>
         <p className="truncate font-mono text-xs text-muted">

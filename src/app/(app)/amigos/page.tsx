@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
+import { Avatar } from "../avatar";
 import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/amigos";
@@ -25,20 +26,12 @@ const SEND_ERRORS: Record<string, string> = {
   failed: "Não deu pra enviar agora — tenta de novo em instantes.",
 };
 
-function Avatar({ name }: { name: string }) {
-  return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent/40 text-sm font-bold text-accent-foreground">
-      {name.charAt(0).toUpperCase() || "?"}
-    </span>
-  );
-}
-
 /** Name + @ for one person, with whatever profile we could resolve. */
 function PersonRow({ connection, children }: { connection: FriendConnection; children: React.ReactNode }) {
   const { profile } = connection;
   return (
     <li className="flex items-center gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <Avatar name={profile?.displayName ?? "?"} />
+      <Avatar name={profile?.displayName ?? "?"} avatarUrl={profile?.avatarUrl} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{profile?.displayName ?? "Corredor(a)"}</p>
         <p className="truncate font-mono text-xs text-muted">

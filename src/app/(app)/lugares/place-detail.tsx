@@ -11,13 +11,110 @@ import {
   getRatingsForPlace,
   type PlaceRating,
 } from "@/lib/placeRatings";
+import { getLeaderboardForPlace, type PlaceLeaderboardEntry } from "@/lib/placeLeaderboard";
+import { listFriendConnections } from "@/lib/friendships";
+import { formatDistanceKm } from "@/lib/tracking/geoFilter";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
 import { CircuitMap } from "./circuit-map";
 import { CriteriaRow } from "./criteria";
 import { RatePlaceModal } from "./rate-place-modal";
+
+type LeaderboardScope = "public" | "friends";
+
+/**
+ * Top-N by cumulative km at this place, two views sharing one dataset: the
+ * "amigos" tab is a client-side filter over the same public rows
+ * `getLeaderboardForPlace` returns, cross-referenced against the caller's
+ * own accepted friends — see `placeLeaderboard.ts`'s own header comment
+ * for why there's no separately-gated friends dataset. Name shown per
+ * scope: `publicDisplayName` (falling back to `handle`) in "público", the
+ * real `displayName` in "amigos" — same split the opt-in card in /perfil
+ * explains to the athlete before they ever turn this on.
+ */
+function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
+  const { status, account } = useAuth();
+  const [entries, setEntries] = useState<PlaceLeaderboardEntry[] | null>(null);
+  const [friendIds, setFriendIds] = useState<Set<string> | null>(null);
+  const [scope, setScope] = useState<LeaderboardScope>("public");
+
+  useEffect(() => {
+    let cancelled = false;
+    getLeaderboardForPlace(placeId).then((rows) => {
+      if (!cancelled) setEntries(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [placeId]);
+
+  useEffect(() => {
+    if (status !== "signed-in") return;
+    let cancelled = false;
+    listFriendConnections("accepted").then((rows) => {
+      if (!cancelled) setFriendIds(new Set(rows.map((row) => row.otherId)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
+  const visible =
+    scope === "public"
+      ? entries
+      : entries?.filter((entry) => entry.userId === account?.id || friendIds?.has(entry.userId));
+
+  return (
+    <Card className="pr-enter" style={delay(145)}>
+      <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Ranking</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Km total corrido aqui, entre quem ligou o ranking em Perfil e confirmou pelo menos uma
+        corrida neste lugar.
+      </p>
+
+      <div className="mb-3 flex gap-2">
+        <SegmentedButton selected={scope === "public"} onClick={() => setScope("public")}>
+          Público
+        </SegmentedButton>
+        <SegmentedButton selected={scope === "friends"} onClick={() => setScope("friends")}>
+          Amigos
+        </SegmentedButton>
+      </div>
+
+      {scope === "friends" && status !== "signed-in" ? (
+        <p className="text-sm leading-relaxed text-muted">Entre com sua conta pra ver o ranking entre amigos.</p>
+      ) : visible === undefined || visible === null ? (
+        <p className="text-sm leading-relaxed text-muted">Carregando ranking…</p>
+      ) : visible.length === 0 ? (
+        <p className="text-sm leading-relaxed text-muted text-pretty">
+          {scope === "public"
+            ? "Ninguém participando ainda — seja a primeira pessoa a contar uma corrida aqui."
+            : "Nenhum amigo seu participa do ranking neste lugar ainda."}
+        </p>
+      ) : (
+        <ol className="flex flex-col gap-2.5">
+          {visible.map((entry, i) => {
+            const name =
+              scope === "public"
+                ? entry.profile?.publicDisplayName || (entry.profile ? `@${entry.profile.handle}` : "corredor(a)")
+                : entry.profile?.displayName ?? (entry.profile ? `@${entry.profile.handle}` : "corredor(a)");
+            return (
+              <li key={entry.userId} className="flex items-center gap-3 border-t border-border pt-2.5 first:border-t-0 first:pt-0">
+                <span className="w-5 shrink-0 text-center font-mono text-xs text-muted">{i + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+                <span className="shrink-0 font-mono text-sm tabular-nums">
+                  {formatDistanceKm(entry.totalMeters)} <span className="text-xs text-muted">km</span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Card>
+  );
+}
 
 const RETURN_TO = "/lugares";
 
@@ -218,6 +315,8 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
             </ul>
           )}
         </Card>
+
+        <PlaceLeaderboardSection placeId={place.id} />
 
         <Link
           href="/lugares"

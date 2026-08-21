@@ -48,6 +48,10 @@ import {
   type StoredPoint,
 } from "@/lib/tracking/storage";
 import { computeElevationGain } from "@/lib/elevation";
+import { matchPlaceForRoute } from "@/lib/placeMatch";
+import { recordRunAtPlace } from "@/lib/placeLeaderboard";
+import { updateProfile } from "@/lib/auth";
+import type { RunningPlace } from "@/lib/places";
 import { projectRoute } from "@/lib/tracking/routeProjection";
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
@@ -889,8 +893,8 @@ export default function RunPage() {
   const [coaches, setCoaches] = useState<CoachConnection[]>([]);
   /** Which coach (if any) this run is being shared live with — chosen before starting, null means "not live". */
   const [liveCoachId, setLiveCoachId] = useState<string | null>(null);
-  /** Own account id, needed only to keep this athlete's own id out of the live-viewer permission list computed from the longão's participants below. */
-  const { account } = useAuth();
+  /** Own account id (needed to keep this athlete's own id out of the live-viewer permission list computed from the longão's participants below), plus `profile`/`refresh` for the post-run "ranking de lugares" confirmation below. */
+  const { account, profile, refresh: refreshAuth } = useAuth();
   /** The "longão" this device currently remembers being part of, if any and still open — resolved from `getActiveGroupRunCode()`'s localStorage pointer, same re-check-on-return-to-idle timing as `coaches` above. */
   const [longaoSession, setLongaoSession] = useState<GroupRun | null>(null);
   /** Pre-selected on by default when there's an active longão — same reasoning `install-prompt.tsx` uses for defaults that should be visible but always a tap away from off. */
@@ -979,6 +983,53 @@ export default function RunPage() {
       cancelled = true;
     };
   }, [state.status, state.finishedRun]);
+
+  /**
+   * "Ranking de lugares" match — same run-once-per-finish timing as the
+   * elevation lookup above, just local geometry instead of a network call
+   * (see `matchPlaceForRoute`'s own comment for why most runs match
+   * nothing). `placeConfirmed`/`placeDismissed` reset alongside the match
+   * itself so a *previous* run's confirmation state can never leak onto
+   * this one's prompt.
+   */
+  const [placeMatch, setPlaceMatch] = useState<RunningPlace | null>(null);
+  const [placeConfirming, setPlaceConfirming] = useState(false);
+  const [placeConfirmed, setPlaceConfirmed] = useState(false);
+  const [placeDismissed, setPlaceDismissed] = useState(false);
+
+  useEffect(() => {
+    if (state.status !== "finished" || !state.finishedRun) return;
+    const points = state.finishedRun.points;
+    // Deferred a tick — same reasoning documented elsewhere in this file
+    // (the coach/session idle-refresh effects above) for why a synchronous
+    // `setState` right in the effect body trips the cascading-render lint
+    // rule; resolving through a microtask first is enough to satisfy it.
+    void Promise.resolve().then(() => {
+      setPlaceMatch(matchPlaceForRoute(points));
+      setPlaceConfirmed(false);
+      setPlaceDismissed(false);
+    });
+  }, [state.status, state.finishedRun]);
+
+  /**
+   * "Sim" here does double duty for someone who's never touched the
+   * /perfil toggle: it turns `leaderboardOptIn` on *and* records this run
+   * in the same tap, rather than making a first-time confirm a dead end
+   * that quietly does nothing until the athlete separately finds the
+   * setting. Every later confirm on an already-opted-in account just
+   * skips straight to `recordRunAtPlace`.
+   */
+  const handleConfirmPlace = useCallback(async () => {
+    if (!placeMatch || !state.finishedRun || placeConfirming) return;
+    setPlaceConfirming(true);
+    if (account && !profile?.leaderboardOptIn) {
+      await updateProfile(account.id, { leaderboardOptIn: true });
+      await refreshAuth();
+    }
+    await recordRunAtPlace(placeMatch.id, state.finishedRun.distanceMeters);
+    setPlaceConfirming(false);
+    setPlaceConfirmed(true);
+  }, [placeMatch, state.finishedRun, placeConfirming, account, profile, refreshAuth]);
 
   /**
    * Shoe names for the datalist below, and the runner's most recent completed
@@ -2293,6 +2344,36 @@ export default function RunPage() {
               <span className="text-xs uppercase tracking-wide text-muted">Tênis</span>
               <p className="mt-1 text-sm font-medium">{state.finishedRun.shoeName}</p>
             </div>
+          )}
+
+          {placeMatch && !placeConfirmed && !placeDismissed && (
+            <div className="w-full max-w-xs rounded-xl border border-accent/40 bg-surface p-4 text-left">
+              <span className="text-xs uppercase tracking-wide text-muted">Ranking de lugares</span>
+              <p className="mt-1 text-sm font-medium">Essa corrida foi em {placeMatch.name}?</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                Confirma pra contar esse km no ranking desse lugar.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmPlace}
+                  disabled={placeConfirming}
+                  className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {placeConfirming ? "Contando…" : "Sim, contar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlaceDismissed(true)}
+                  className="rounded-full border border-border px-4 py-2 text-xs font-medium"
+                >
+                  Não
+                </button>
+              </div>
+            </div>
+          )}
+          {placeConfirmed && placeMatch && (
+            <p className="text-xs text-muted">Contado pro ranking de {placeMatch.name}.</p>
           )}
 
           {activeGhost && (

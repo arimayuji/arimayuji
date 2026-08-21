@@ -18,7 +18,7 @@
  * row at all" permission and the shape of the data.
  */
 import { readFileSync } from "node:fs";
-import { Client, Permission, Role, TablesDB, TablesDBIndexType } from "node-appwrite";
+import { Client, Permission, Role, Storage, TablesDB, TablesDBIndexType } from "node-appwrite";
 
 function loadEnvLocal(): void {
   let raw: string;
@@ -53,6 +53,7 @@ if (!ENDPOINT || !PROJECT_ID || !API_KEY) {
 
 const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const tablesDB = new TablesDB(client);
+const storage = new Storage(client);
 
 // Appwrite Cloud's free plan pre-provisions exactly one database per
 // project and doesn't allow creating a second — use the one that's
@@ -111,6 +112,20 @@ async function main() {
   );
   await ensure("profiles.avatarUrl", () =>
     tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "avatarUrl", size: 500, required: false }),
+  );
+  // Master switch for the "ranking de lugares" leaderboard — off/absent by
+  // default, flipped explicitly from /perfil. While false, this account's
+  // km never appears on any place's leaderboard, public or friends-only.
+  await ensure("profiles.leaderboardOptIn", () =>
+    tablesDB.createBooleanColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "leaderboardOptIn", required: false }),
+  );
+  // Only meaningful once opted in above. The *public* leaderboard view
+  // shows this (falling back to `handle`) instead of `displayName`, so a
+  // stranger never sees a real name just from participating — the friends
+  // view still uses the real `displayName`, same as everywhere else in
+  // the app friends already see each other's real name.
+  await ensure("profiles.publicDisplayName", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "publicDisplayName", size: 60, required: false }),
   );
   await waitForColumn("profiles", "handle");
   await ensure("profiles index: unique handle", () =>
@@ -269,6 +284,55 @@ async function main() {
     tablesDB.createIndex({
       databaseId: DATABASE_ID,
       tableId: "place_ratings",
+      key: "unique_place_user",
+      type: TablesDBIndexType.Unique,
+      columns: ["placeId", "userId"],
+    }),
+  );
+
+  // ------------------------------------------------------- place_run_stats
+  console.log("\nplace_run_stats");
+  await ensure("table place_run_stats", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "place_run_stats",
+      name: "place_run_stats",
+      // Same split as every other table: this only grants "may create a
+      // row at all". Read is granted broadly (any signed-in user) per row
+      // at creation time — the leaderboard is meant to be visible once an
+      // athlete opts in, and the real gate is the opt-in itself
+      // (`profiles.leaderboardOptIn`), not a per-row ACL. The "friends
+      // only" view is a client-side filter over these same public rows,
+      // same limitation `place_ratings`'s "friends" visibility already
+      // has (no Appwrite Team exists per friend pair to enforce that
+      // server-side).
+      permissions: [Permission.create(Role.users())],
+      rowSecurity: true,
+    }),
+  );
+  // Matches an id in RUNNING_PLACES (src/lib/places.ts) — not a foreign
+  // key, same convention as place_ratings.placeId above.
+  await ensure("place_run_stats.placeId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "place_run_stats", key: "placeId", size: 60, required: true }),
+  );
+  await ensure("place_run_stats.userId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "place_run_stats", key: "userId", size: 36, required: true }),
+  );
+  await ensure("place_run_stats.totalMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "place_run_stats", key: "totalMeters", required: true, min: 0 }),
+  );
+  await ensure("place_run_stats.runCount", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "place_run_stats", key: "runCount", required: true, min: 0 }),
+  );
+  await ensure("place_run_stats.lastRunAt", () =>
+    tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "place_run_stats", key: "lastRunAt", required: true }),
+  );
+  await waitForColumn("place_run_stats", "placeId");
+  await waitForColumn("place_run_stats", "userId");
+  await ensure("place_run_stats index: unique (placeId, userId)", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "place_run_stats",
       key: "unique_place_user",
       type: TablesDBIndexType.Unique,
       columns: ["placeId", "userId"],
@@ -513,6 +577,25 @@ async function main() {
       key: "by_run",
       type: TablesDBIndexType.Key,
       columns: ["runRowId"],
+    }),
+  );
+
+  // ------------------------------------------------------------- avatars
+  console.log("\navatars (Storage bucket)");
+  await ensure("bucket avatars", () =>
+    storage.createBucket({
+      bucketId: "avatars",
+      name: "avatars",
+      // Bucket-level read for anyone (a profile photo is meant to be seen
+      // by friends/coaches, same public-by-default spirit as `profiles`
+      // itself) plus create for any signed-in user; `fileSecurity: true`
+      // lets the app additionally scope update/delete on each uploaded
+      // file to its owner at upload time, same row-permission pattern
+      // every table above already uses.
+      permissions: [Permission.read(Role.any()), Permission.create(Role.users())],
+      fileSecurity: true,
+      maximumFileSize: 5 * 1024 * 1024,
+      allowedFileExtensions: ["jpg", "jpeg", "png", "webp"],
     }),
   );
 
