@@ -339,7 +339,16 @@ public class BackgroundGeolocationService extends Service {
     // it appears that 'startForeground' is idempotent, so we just call it repeatedly
     // each time a background watcher is added.
     private void promoteToForeground(String notificationTitle, String notificationMessage) {
-        promoteToForeground(createBackgroundNotification(notificationTitle, notificationMessage));
+        try {
+            promoteToForeground(createBackgroundNotification(notificationTitle, notificationMessage));
+        } catch (Exception exception) {
+            // Building the notification itself (as opposed to startForeground(),
+            // guarded inside promoteToForeground(Notification) below) was
+            // previously unguarded — an exception here used to propagate all the
+            // way up and crash the whole app mid-run. Never worth that over a
+            // stale lock-screen card.
+            Logger.error("Failed to build tracking notification", exception);
+        }
     }
 
     // Xanthus fork: rich variant of promoteToForeground(title, message) above — same
@@ -347,7 +356,19 @@ public class BackgroundGeolocationService extends Service {
     // notification built by createRichBackgroundNotification() instead of the plain
     // title/message one.
     private void promoteToForegroundRich(String distanceLabel, String paceLabel, String timeLabel, String[] routePolylines) {
-        promoteToForeground(createRichBackgroundNotification(distanceLabel, paceLabel, timeLabel, routePolylines));
+        try {
+            promoteToForeground(createRichBackgroundNotification(distanceLabel, paceLabel, timeLabel, routePolylines));
+        } catch (Exception exception) {
+            // Same reasoning as the plain variant above — createRichBackgroundNotification()
+            // touches RemoteViews/Bitmap/resource plumbing well beyond what
+            // promoteToForeground(Notification)'s own try/catch covers (that one
+            // only wraps startForeground() itself, called after this notification
+            // is already fully built). This is the tick-loop path that runs every
+            // 5s during a live run, first firing at exactly the 5s mark — a crash
+            // here reads as "the run always dies at 5 seconds", which is exactly
+            // what was reported.
+            Logger.error("Failed to build rich tracking notification", exception);
+        }
     }
 
     private void promoteToForeground(Notification notification) {
