@@ -145,6 +145,19 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
      `bundletool build-apks` **sem** `--ks` sempre cai pro keystore de
      debug, então isso NÃO serve como teste de "o .aab tem assinatura
      própria" (armadilha em que caí investigando isso).
+  **Bug de CI achado e corrigido em 2026-08-21**: até esse dia, o step de
+  publicação no Play Store **não tinha `continue-on-error`** — uma falha
+  nele (como a da API desabilitada, acima) fazia o GitHub Actions pular
+  **todas** as etapas seguintes daquele job por padrão, inclusive o
+  `wrangler deploy` que publica o site e o link fixo do APK. Ou seja: o
+  primeiro push em `main` depois do secret configurado buildou tudo
+  certinho mas **não publicou nada** — nem o site, nem o APK — porque a
+  falha do Play Store travou o resto do job silenciosamente. Corrigido
+  adicionando `continue-on-error: true` nesse step, mesmo padrão
+  best-effort que os steps de deploy do Cloudflare já usavam pra secret
+  ausente. Confirmar de vez em quando que `Publish AAB to Google Play`
+  aparece riscado/amarelo (falhou mas não bloqueou) em vez de vermelho
+  sólido (bloqueou o job) nos runs do Actions.
 
 ## Onde cada plataforma está no funil de lançamento
 
