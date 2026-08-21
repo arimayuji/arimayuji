@@ -104,10 +104,13 @@ uma opção escondendo as outras:
 2. **Android** — botão "Baixar APK", direto pro link fixo do Cloudflare.
    App instalado de verdade, GPS não pausa com tela travada.
 3. **iPhone** — **sem botão de download**, só um badge "Em teste fechado".
-   Hoje só quem já foi convidado pro **TestFlight Internal Testing**
-   consegue instalar. **Ainda não foi submetido pra revisão da App Store**
-   nem aberto External Testing — é upload automático pro TestFlight a cada
-   push, promoção pra teste/produção continua manual.
+   Convidados do TestFlight Internal Testing já conseguem instalar. O
+   **External Testing foi submetido pra Beta App Review em 2026-08-21**
+   (build 107, grupo "Beta") — o link público
+   (`https://testflight.apple.com/join/RMqtChWj`) só libera instalação de
+   verdade depois que a Apple aprovar; até lá continua "em teste fechado"
+   de fato. Upload automático pro TestFlight a cada push continua normal;
+   promoção pra produção continua sem prazo definido.
 
 ## OAuth / Login social
 
@@ -314,14 +317,20 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       verificada. Falta só configurar o secret
       `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` e fazer o primeiro upload pro
       Play Console (fluxo já documentado no `README.md`).
-- [x] **2026-08-19: decidido** — próximo passo do iOS não é revisão completa
-      da App Store, é abrir **TestFlight External Testing** (grupo +
-      Beta App Review, mais leve que revisão completa) pra poder gerar um
-      **link público** e colocar na bio do Instagram — Internal Testing não
-      serve pra isso porque só aceita quem já é usuário do time na conta de
-      dev, sem link compartilhável. Ainda não submetido; ver checklist na
-      sessão que fez essa pesquisa. Revisão completa da App Store (produção)
-      continua sem prazo definido.
+- [x] **2026-08-19: decidido, 2026-08-21: executado** — TestFlight External
+      Testing. Grupo "Beta" já existia no App Store Connect com link público
+      pronto (`https://testflight.apple.com/join/RMqtChWj`), mas sem nenhum
+      build associado (0 builds). Adicionado o build 107 ao grupo, preenchido
+      "What to Test" e **submetido pra Beta App Review em 2026-08-21** —
+      aguardando aprovação da Apple (geralmente horas a 1-2 dias). **O link
+      público só libera instalação de verdade depois que esse build for
+      aprovado** — até lá, ele existe mas não deixa ninguém entrar. Não
+      colocar na bio do Instagram antes da aprovação. Revisão de build
+      externo é por build, não por grupo: depois de aprovado, dá pra
+      adicionar/remover testadores e até criar grupos novos com esse mesmo
+      build sem precisar de nova revisão — só builds novos exigem revisão de
+      novo. Revisão completa da App Store (produção) continua sem prazo
+      definido.
 - [ ] A corrida compartilhada / modo treinador tem trabalho combinado que
       ainda não está no código (além do que já está listado acima)?
 - [ ] Alguma decisão de produto/negócio recente que vale registrar aqui
