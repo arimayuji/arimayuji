@@ -228,6 +228,7 @@ export function useRunTracker() {
       setState((s) => {
         if (s.status !== "tracking") return s;
         const elapsedSeconds = computeElapsedSeconds();
+        logDiag(`tick fired, elapsedSeconds=${elapsedSeconds}`);
         const remainingMeters = s.goal?.distanceMeters
           ? Math.max(0, s.goal.distanceMeters - distanceRef.current)
           : null;
@@ -238,12 +239,15 @@ export function useRunTracker() {
         // Throttled to every 5s — the lock-screen notification doesn't need
         // second-by-second precision, and each update is a native bridge call.
         if (elapsedSeconds % 5 === 0) {
+          logDiag(`tick @${elapsedSeconds}s: about to updateLiveNotification`);
           const route = projectRoute(pointsRef.current);
           const distanceLabel = `${formatDistanceKm(distanceRef.current)} km`;
           const paceLabel = s.currentPaceSecPerKm !== null ? `${formatPace(s.currentPaceSecPerKm)}/km` : "--:--/km";
           const timeLabel = formatElapsed(elapsedSeconds);
           updateLiveNotification({ distanceLabel, paceLabel, timeLabel, routePolylines: route?.polylines });
+          logDiag(`tick @${elapsedSeconds}s: updateLiveNotification done, about to updateLiveActivityContent`);
           updateLiveActivityContent({ distanceLabel, paceLabel, timeLabel, routePoints: route?.projected });
+          logDiag(`tick @${elapsedSeconds}s: updateLiveActivityContent done`);
         }
         return { ...s, elapsedSeconds, forecastSecondsRemaining };
       });
@@ -278,6 +282,7 @@ export function useRunTracker() {
           accuracy <= FILTER_CONFIG.warmupAccuracyThreshold ? warmupCountRef.current + 1 : 0;
         if (warmupCountRef.current < FILTER_CONFIG.warmupFixesRequired) return s;
 
+        logDiag("handleFix: warmup complete, about to seed filter + startTicking");
         // Warmup complete: the run clock starts now.
         originRef.current = { lat, lon };
         kalmanRef.current = new Kalman2D({ e: 0, n: 0, ve: 0, vn: 0 });
@@ -306,7 +311,9 @@ export function useRunTracker() {
         kmMarkDistanceRef.current = Math.floor(distanceRef.current / 1000) * 1000;
         kmMarkTimeRef.current = timestamp;
         pendingDriftMetersRef.current = 0;
+        logDiag("handleFix: filter seeded, calling startTicking()");
         startTicking();
+        logDiag("handleFix: startTicking() returned, setting status=tracking");
         return { ...s, status: "tracking" };
       });
 
