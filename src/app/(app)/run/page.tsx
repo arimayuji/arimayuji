@@ -1639,6 +1639,14 @@ export default function RunPage() {
                   Preparar corrida
                 </h1>
                 <IdleGpsStatus quality={state.gpsQuality} />
+                {/* Temporary build marker (2026-08-21) — confirms at a glance
+                    whether the device is actually running this build, since
+                    diagnostic alert()s placed in handleStartClick weren't
+                    firing when tapping the real start button. Remove once
+                    that's resolved. */}
+                <span className="fixed top-2 left-2 z-[999] rounded bg-red-600 px-2 py-1 font-mono text-xs text-white">
+                  BUILD-DIAG-3
+                </span>
               </div>
               <p className="mt-1 text-sm text-muted">
                 A tela precisa ficar ligada durante o treino para o GPS se manter preciso. Se possível,
