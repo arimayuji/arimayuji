@@ -252,6 +252,15 @@ jobs:
       - name: Publish AAB to Google Play (teste interno)
         uses: r0adkll/upload-google-play@v1
         if: steps.release_signing.outputs.signed == 'true' && steps.play_secret_check.outputs.configured == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        # Best-effort, same as the Cloudflare publish steps below: a failure
+        # here (wrong API scope, API not enabled yet, quota, whatever) must
+        # never block the steps after it in this job — GitHub Actions skips
+        # every later step in a job by default once one fails, and that
+        # would silently take down the site/APK-link deploy along with it.
+        # Confirmed this actually happened once already (2026-08-21): the
+        # very first automated Play Store push failed here and the site
+        # never got the update that same push was supposed to ship.
+        continue-on-error: true
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.xanthus.app
