@@ -847,6 +847,15 @@ function computeEmblemProgress(run: CompletedRun, allRuns: CompletedRun[]): Embl
 export default function RunPage() {
   const { state, start, pause, resume, finish, reset, setPauseReason, recover, prewarm, cancelPrewarm } =
     useRunTracker();
+
+  // Temporary diagnostic (2026-08-21): pinpoints where "Iniciar corrida"
+  // stalls — alerts on every status change and on the click handler's key
+  // checkpoints, so each step of the flow is directly visible even on a
+  // device with no remote devtools. Remove once the native "nothing
+  // happens" report is root-caused.
+  useEffect(() => {
+    alert(`[diag] status -> ${state.status} (hasSeenRunTips=${hasSeenRunTips()})`);
+  }, [state.status]);
   const [discarding, setDiscarding] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [warmingMessageIndex, setWarmingMessageIndex] = useState(0);
@@ -1386,8 +1395,10 @@ export default function RunPage() {
 
   /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
   const handleStartClick = () => {
+    alert("[diag] handleStartClick fired");
     setStarting(true);
     window.setTimeout(() => {
+      alert(`[diag] animation timeout fired, hasSeenRunTips=${hasSeenRunTips()}`);
       if (hasSeenRunTips()) {
         handleStart();
         return;
