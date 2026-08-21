@@ -15,7 +15,7 @@
  * in each collection's permissions (see scripts/appwrite-setup.ts), not
  * in hiding these two values.
  */
-import { Account, Client, Functions, type OAuthProvider, TablesDB, Teams } from "appwrite";
+import { Account, Client, Functions, type OAuthProvider, Storage, TablesDB, Teams } from "appwrite";
 
 const ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
@@ -44,6 +44,7 @@ export const TABLES = {
   friendships: "friendships",
   coachRelationships: "coach_relationships",
   placeRatings: "place_ratings",
+  placeRunStats: "place_run_stats",
   runs: "runs",
   liveRuns: "live_runs",
   runComments: "run_comments",
@@ -68,12 +69,17 @@ export const SEND_WELCOME_EMAIL_FUNCTION_ID = "send-welcome-email";
 // `createRow`, see that function's own comment for why.
 export const JOIN_GROUP_RUN_FUNCTION_ID = "join-group-run";
 
+// Matches the Storage bucket ID created in scripts/appwrite-setup.ts —
+// same fixed-ID convention as the table/function IDs above.
+export const AVATARS_BUCKET_ID = "avatars";
+
 interface AppwriteServices {
   client: Client;
   account: Account;
   tablesDB: TablesDB;
   teams: Teams;
   functions: Functions;
+  storage: Storage;
 }
 
 let services: AppwriteServices | null = null;
@@ -94,6 +100,7 @@ export function getAppwrite(): AppwriteServices | null {
       tablesDB: new TablesDB(client),
       teams: new Teams(client),
       functions: new Functions(client),
+      storage: new Storage(client),
     };
   }
   return services;

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { signOut } from "@/lib/auth";
+import { uploadAvatar } from "@/lib/avatar";
 import { useAuth } from "@/lib/useAuth";
+import { Avatar } from "./avatar";
 import { Card, CardTitle, NoticeBadge } from "./ui";
 import { AccountPrompt } from "./account-prompt";
 import { DeleteAccountConfirm } from "./delete-account-confirm";
@@ -24,6 +26,8 @@ export function AccountCard() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   /** True while `signOut` (a real Appwrite call) is in flight — this button has no text label to swap to a busy verb like the rest of the app does, so the icon itself spins instead. */
   const [signingOut, setSigningOut] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -31,6 +35,16 @@ export function AccountCard() {
     await refresh();
     setSigningOut(false);
   };
+
+  async function handleAvatarChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setUploadingAvatar(true);
+    await uploadAvatar(file);
+    await refresh();
+    setUploadingAvatar(false);
+  }
 
   return (
     <Card className="pr-enter">
@@ -62,9 +76,28 @@ export function AccountCard() {
       {status === "signed-in" && profile && (
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent/40 text-sm font-bold text-accent-foreground">
-              {profile.displayName.charAt(0).toUpperCase()}
-            </span>
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              aria-label="Trocar foto de perfil"
+              className="relative rounded-full disabled:opacity-60"
+            >
+              <Avatar name={profile.displayName} avatarUrl={profile.avatarUrl} />
+              <span className="absolute -right-0.5 -bottom-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 border-background bg-accent text-accent-foreground">
+                <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7h3.5l1.5-2h8l1.5 2H21v13H3z" />
+                  <circle cx="12" cy="13.5" r="3.5" />
+                </svg>
+              </span>
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
             <div>
               <p className="text-sm font-semibold">{profile.displayName}</p>
               <p className="font-mono text-xs text-muted">@{profile.handle}</p>

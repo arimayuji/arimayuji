@@ -24,10 +24,16 @@ import {
   listShoes,
   summarizeShoes,
   updateShoe,
+  type CompletedRun,
   type Shoe,
   type ShoeSummary,
 } from "@/lib/tracking/storage";
 import { formatDistance, unitLabel } from "@/lib/units";
+import { updateProfile } from "@/lib/auth";
+import { useAuth } from "@/lib/useAuth";
+import { matchPlaceForRoute } from "@/lib/placeMatch";
+import { recordRunAtPlace } from "@/lib/placeLeaderboard";
+import type { RunningPlace } from "@/lib/places";
 
 /**
  * Profile: two halves, kept visually distinct on purpose.
@@ -510,18 +516,26 @@ function ShoeForm({
   );
 }
 
-const SHOE_GLYPH_SRC = "/shoe/shoe-side.png";
+const SHOE_GLYPH_SRC = "/shoe/shoe-glyph-3d.png";
 
 /**
- * Generic shoe silhouette (the same unbranded illustrated asset
- * `shoe-showcase.tsx` uses for the /run selector), tinted to this specific
- * shoe's own colour — same grayscale-then-mix-blend-color recipe, just a
- * plain small swatch instead of the showcase's floating 3D loot item. This
+ * Generic shoe silhouette, tinted to this specific shoe's own colour — same
+ * grayscale-then-mix-blend-color recipe `ShoeHero` uses for its own photo
+ * fallback, just a plain small swatch instead of a floating loot item. This
  * is the fallback for a shoe with no personal photo yet: a real, if
  * generic, running-shoe shape instead of a flat colour dot, without ever
- * trying to depict an actual branded model (the presets are real product
- * names, but this app never draws a real product — see the comment on
- * SHOE_VIDEO_SRC in shoe-showcase.tsx for why that line matters).
+ * trying to depict an actual branded model.
+ *
+ * A flat side-profile render of the same GLB model `ShoeHero`'s 3D viewer
+ * uses (see shoe-3d-viewer.tsx), not the old `shoe-side.png` stock photo —
+ * that photo was a real, different shoe, so the small list icon and the big
+ * 3D hero above it were two unrelated shapes side by side. Rendered once
+ * offline (Three.js + GLTFLoader, orthographic-ish side angle, transparent
+ * background) with the "everything else" luminance band set to a neutral
+ * mid-gray instead of an athlete colour — this <img>'s own `grayscale(1)`
+ * filter below erases any baked-in hue anyway, so the mask/tint recipe here
+ * re-derives the same dark-sole/light-laces/coloured-upper look this file's
+ * `Shoe3DViewer` gets live, just cheaply, without a WebGL context per row.
  */
 function ShoeGlyph({
   color,
@@ -825,6 +839,162 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
   );
 }
 
+/**
+ * Opt-in card for the "ranking de lugares" leaderboard — off by default,
+ * one master toggle (`Profile.leaderboardOptIn`) that gates whether this
+ * account's km ever shows on any place's leaderboard at all. The actual
+ * per-run confirmation prompt lives in `/run` (right after a run that
+ * matches a known place finishes); this card only handles the toggle
+ * itself, the optional public name, and retroactively scanning runs
+ * recorded before the toggle was ever turned on.
+ */
+function PlaceLeaderboardCard() {
+  const { status, account, profile, refresh } = useAuth();
+  const [savingToggle, setSavingToggle] = useState(false);
+  const [publicName, setPublicName] = useState(profile?.publicDisplayName ?? "");
+  const [savingName, setSavingName] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<{ place: RunningPlace; runs: CompletedRun[] }[] | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [scanDone, setScanDone] = useState(false);
+
+  const optedIn = profile?.leaderboardOptIn ?? false;
+
+  async function handleToggle(next: boolean) {
+    if (!account || savingToggle) return;
+    setSavingToggle(true);
+    await updateProfile(account.id, { leaderboardOptIn: next });
+    await refresh();
+    setSavingToggle(false);
+  }
+
+  async function handleNameBlur() {
+    if (!account || savingName) return;
+    const trimmed = publicName.trim();
+    if (trimmed === (profile?.publicDisplayName ?? "")) return;
+    setSavingName(true);
+    await updateProfile(account.id, { publicDisplayName: trimmed });
+    await refresh();
+    setSavingName(false);
+  }
+
+  async function handleScan() {
+    setScanning(true);
+    setScanDone(false);
+    const runs = await listCompletedRuns();
+    const grouped = new Map<string, { place: RunningPlace; runs: CompletedRun[] }>();
+    for (const run of runs) {
+      const place = matchPlaceForRoute(run.points);
+      if (!place) continue;
+      const entry = grouped.get(place.id) ?? { place, runs: [] };
+      entry.runs.push(run);
+      grouped.set(place.id, entry);
+    }
+    setScanResult(Array.from(grouped.values()));
+    setScanning(false);
+  }
+
+  async function handleConfirmScan() {
+    if (!scanResult) return;
+    setConfirming(true);
+    for (const group of scanResult) {
+      for (const run of group.runs) {
+        await recordRunAtPlace(group.place.id, run.distanceMeters);
+      }
+    }
+    setConfirming(false);
+    setScanResult(null);
+    setScanDone(true);
+  }
+
+  return (
+    <Card className="pr-enter" style={delay(85)}>
+      <CardTitle aside={<NoticeBadge>desligado por padrão</NoticeBadge>}>Ranking de lugares</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Quanto de km você já correu em cada lugar cadastrado, num ranking público e um só entre
+        amigos. Fica desligado até você ligar — e mesmo ligado, cada corrida só entra depois de
+        você confirmar que foi ali.
+      </p>
+
+      {status !== "signed-in" ? (
+        <p className="text-xs text-muted">Precisa de conta pra participar (Google ou Apple, em Conta acima).</p>
+      ) : (
+        <>
+          <PreferenceToggle
+            label="Participar do ranking"
+            hint="seu km total por lugar fica visível pra quem você deixar"
+            checked={optedIn}
+            onChange={handleToggle}
+          />
+
+          {optedIn && (
+            <div className="mt-4 border-t border-border pt-4">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium">Nome público (opcional)</span>
+                <input
+                  type="text"
+                  value={publicName}
+                  onChange={(e) => setPublicName(e.target.value)}
+                  onBlur={handleNameBlur}
+                  placeholder="Como aparecer pra quem não é seu amigo"
+                  maxLength={60}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                />
+              </label>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                No ranking público, aparece esse nome (ou seu @, se deixar em branco) — nunca seu
+                nome de conta. Pra amigos, sempre mostra seu nome de verdade.
+              </p>
+
+              <div className="mt-4 border-t border-border pt-4">
+                {scanResult ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs leading-relaxed text-muted">
+                      {scanResult.length === 0
+                        ? "Nenhuma corrida antiga bateu com um lugar cadastrado."
+                        : `Encontramos corrida em ${scanResult.length} lugar${scanResult.length > 1 ? "es" : ""}: ${scanResult
+                            .map((g) => `${g.place.name} (${g.runs.length})`)
+                            .join(", ")}.`}
+                    </p>
+                    <div className="flex gap-2">
+                      {scanResult.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleConfirmScan}
+                          disabled={confirming}
+                          className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                        >
+                          {confirming ? "Contando…" : "Confirmar e contar"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setScanResult(null)}
+                        className="rounded-full border border-border px-4 py-2 text-xs font-medium"
+                      >
+                        Fechar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleScan}
+                    disabled={scanning}
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-semibold disabled:opacity-60"
+                  >
+                    {scanning ? "Escaneando…" : scanDone ? "Escanear de novo" : "Escanear corridas antigas"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
@@ -897,6 +1067,8 @@ export default function PerfilPage() {
             tag="conectar"
           />
         </Card>
+
+        <PlaceLeaderboardCard />
 
         <SectionLabel delayMs={110}>Treino</SectionLabel>
         <Card className="pr-enter" style={delay(120)}>
