@@ -106,6 +106,20 @@ uma opção escondendo as outras:
   hosts respondem em paralelo. Todo link novo voltado pro usuário
   (`updateCheck.ts`, `version.json` publicado pelo CI, e-mail de
   boas-vindas, README) já usa `xanthus.app.br`.
+  **Pegadinha achada em 2026-08-21**: os dois hosts respondem o mesmo
+  conteúdo, mas só `xanthus.app.br` está cadastrado como Web Platform no
+  Appwrite Console — abrir `xanthus.yujiarima.workers.dev` direto faz
+  **toda** chamada de conta (login, perfil, ranking, etc.) falhar
+  silenciosamente com CORS 403 (`Origin ... is not allowed by
+  Access-Control-Allow-Origin`), já que o navegador bloqueia antes da
+  resposta chegar no app. `getCurrentAccount()` engole esse erro com
+  graça (volta `null`, mesmo comportamento de "sem conta"), mas ainda
+  assim gerou um relato confuso de bug ("iniciar corrida não faz nada")
+  que na real era só estar testando no host errado. **Sempre testar o
+  PWA web em `xanthus.app.br`, nunca no `.workers.dev` direto** — se algum
+  dia isso precisar funcionar nos dois hosts, a correção é cadastrar o
+  `.workers.dev` como uma segunda Web Platform no Appwrite Console, não
+  mexer em código.
   **Regressão de 2026-08-18, já resolvida**: usuário reportou `xanthus.app.br`
   devolvendo `DNS_PROBE_FINISHED_NXDOMAIN` no navegador (o binding de Custom
   Domain do Worker tinha caído do lado da Cloudflare — a zona continuava
