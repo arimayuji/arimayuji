@@ -395,11 +395,25 @@ Isso dispara o job `submit_for_review` em `ios-build.yml`, que roda
 Connect, adiciona ao grupo externo "Beta" e cria a submissão de revisão.
 Não builda nada novo — só age sobre o que `main` já subiu.
 
-**Ainda não testado contra a conta real** — implementado e com `tsc`/lint
-limpos, mas o primeiro push de verdade pra essa branch é que vai confirmar
-se os endpoints da App Store Connect API se comportam como documentado
-(nomes de campo exatos, código de erro se o build ainda tiver "PROCESSING",
-etc.). Primeira tentativa real é o teste de verdade.
+**Testado contra a conta real em 2026-08-21, run bem-sucedido em termos de
+mecanismo**: JWT ES256, autenticação, achar o app por bundle id, achar o
+build mais recente processado, e adicionar ao grupo "Beta" — tudo
+funcionou exatamente como documentado, sem nenhum ajuste de código
+necessário. A chamada final (`POST /betaAppReviewSubmissions`) falhou,
+mas com um erro **esperado de regra de negócio da Apple**, não um bug do
+script:
+```
+422 ENTITY_UNPROCESSABLE.ANOTHER_BUILD_IN_REVIEW
+"Another build in the same train is already in beta review.
+Please submit it again once it gets completed."
+```
+A Apple só permite **um build em revisão por vez** por app — o build 107
+(submetido em 2026-08-21, ver seção "Submissão pro Beta App Review" acima
+nas perguntas em aberto) ainda estava pendente de aprovação quando esse
+teste rodou. Assim que a Apple resolver essa revisão (aprovar ou rejeitar),
+um novo push pra `testflight` deve completar a submissão normalmente —
+não precisa de nenhuma mudança de código, só esperar o build anterior
+sair da fila.
 
 ## Perguntas em aberto (preencher quando puder)
 
