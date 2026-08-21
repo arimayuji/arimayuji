@@ -624,83 +624,100 @@ export function useRunTracker() {
 
   const start = useCallback(
     (options?: StartOptions) => {
-      if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
-        setState((s) => ({ ...s, error: "Geolocalização não é suportada neste navegador." }));
-        return;
+      // Wrapped in try/catch (added after a report of "the button plays its
+      // tap animation and then nothing happens, no error either") — every
+      // setState in this function only ever ran at the very end, so
+      // anything thrown before it landed silently: `status` never left
+      // "idle", nothing on screen changed, and there was nothing to tell a
+      // report apart from "the button just didn't work." This at least
+      // turns that into a visible message plus a real stack trace to work
+      // from — same reasoning `handleError` already applies to GPS errors
+      // reported through the watch itself.
+      try {
+        if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
+          setState((s) => ({ ...s, error: "Geolocalização não é suportada neste navegador." }));
+          return;
+        }
+
+        unlockSpeech(); // must run synchronously inside this user-gesture handler for iOS
+
+        // A prewarm watch already flowing fixes hands straight over to the
+        // real run instead of being torn down and restarted — the whole
+        // point of prewarming is not losing the GPS/permission lock it
+        // already has. `warmupCountRef` still resets below either way: a
+        // fresh run always needs its own `FILTER_CONFIG.warmupFixesRequired`
+        // consecutive good fixes before `handleFix` seeds the Kalman filter,
+        // same as ever — prewarming just means those fixes were often
+        // already arriving, so that gate clears in a couple of seconds
+        // instead of however long a cold GPS lock takes.
+        const hadPrewarm = prewarmingRef.current;
+        prewarmingRef.current = false;
+
+        runIdRef.current = newRunId();
+        warmupCountRef.current = 0;
+        lastRawRef.current = null;
+        lastFilteredRef.current = null;
+        lastFixTimestampRef.current = null;
+        lastFixWallClockRef.current = null;
+        startedAtRef.current = null;
+        pausedAccumMsRef.current = 0;
+        pauseStartedAtRef.current = null;
+        distanceRef.current = 0;
+        pointsRef.current = [];
+        pendingDriftMetersRef.current = 0;
+        pauseEventsRef.current = [];
+        lastAnnounceDistanceRef.current = 0;
+        lastAnnounceTimeRef.current = null;
+        announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
+        // kmMarkDistanceRef/kmMarkTimeRef aren't reset here — the
+        // warmup-completion block always recomputes both fresh from
+        // `distanceRef.current` (0 for a new run, the recovered distance for
+        // `recover()`), so there's no separate value to set per entry point.
+        ghostSeriesRef.current = options?.ghostRun ? buildDistanceTimeSeries(options.ghostRun) : null;
+
+        void wakeLockRef.current.acquire();
+        if (!hadPrewarm) beginWatch();
+        // Unconditional (not gated on `!hadPrewarm`) — the Live Activity is a
+        // very visible, user-facing lock-screen widget, so it should appear
+        // exactly when the athlete taps "Iniciar corrida", not silently during
+        // a `prewarm()` GPS lock before they've committed to a run. No
+        // matching call in `resume()`: unlike the GPS watch itself, the Live
+        // Activity's request/update/end lifecycle is independent of
+        // `beginGeoWatch`/`endGeoWatch` — a pause just stops it from being
+        // updated (same tick-loop gate as `updateLiveNotification`), it stays
+        // on screen showing the last real numbers instead of disappearing and
+        // reappearing across every pause/resume.
+        beginLiveActivity({ distanceLabel: "0,00 km", paceLabel: "--:--/km", timeLabel: "00:00" });
+
+        setState((s) => ({
+          status: "warming",
+          runId: runIdRef.current,
+          // Keeps whatever reading the prewarm watch already had instead of
+          // flashing back to "searching" the instant Iniciar is tapped —
+          // the watch itself never stopped, so the reading is still current.
+          gpsQuality: hadPrewarm ? s.gpsQuality : "searching",
+          distanceMeters: 0,
+          elapsedSeconds: 0,
+          currentPaceSecPerKm: null,
+          currentKmPaceSecPerKm: null,
+          goal: options?.goal ?? null,
+          forecastSecondsRemaining: null,
+          paceNeededSecPerKm: null,
+          error: null,
+          finishedRun: null,
+          ghostDeltaSeconds: null,
+          paceDeltaSecPerKm: null,
+          finishedGhostDeltaSeconds: null,
+          points: [],
+          pauseEvents: [],
+        }));
+      } catch (err) {
+        console.error("[run] start() threw", err);
+        setState((s) => ({
+          ...s,
+          error: err instanceof Error ? `Erro ao iniciar: ${err.message}` : "Erro ao iniciar a corrida.",
+        }));
       }
-
-      unlockSpeech(); // must run synchronously inside this user-gesture handler for iOS
-
-      // A prewarm watch already flowing fixes hands straight over to the
-      // real run instead of being torn down and restarted — the whole
-      // point of prewarming is not losing the GPS/permission lock it
-      // already has. `warmupCountRef` still resets below either way: a
-      // fresh run always needs its own `FILTER_CONFIG.warmupFixesRequired`
-      // consecutive good fixes before `handleFix` seeds the Kalman filter,
-      // same as ever — prewarming just means those fixes were often
-      // already arriving, so that gate clears in a couple of seconds
-      // instead of however long a cold GPS lock takes.
-      const hadPrewarm = prewarmingRef.current;
-      prewarmingRef.current = false;
-
-      runIdRef.current = newRunId();
-      warmupCountRef.current = 0;
-      lastRawRef.current = null;
-      lastFilteredRef.current = null;
-      lastFixTimestampRef.current = null;
-      lastFixWallClockRef.current = null;
-      startedAtRef.current = null;
-      pausedAccumMsRef.current = 0;
-      pauseStartedAtRef.current = null;
-      distanceRef.current = 0;
-      pointsRef.current = [];
-      pendingDriftMetersRef.current = 0;
-      pauseEventsRef.current = [];
-      lastAnnounceDistanceRef.current = 0;
-      lastAnnounceTimeRef.current = null;
-      announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
-      // kmMarkDistanceRef/kmMarkTimeRef aren't reset here — the
-      // warmup-completion block always recomputes both fresh from
-      // `distanceRef.current` (0 for a new run, the recovered distance for
-      // `recover()`), so there's no separate value to set per entry point.
-      ghostSeriesRef.current = options?.ghostRun ? buildDistanceTimeSeries(options.ghostRun) : null;
-
-      void wakeLockRef.current.acquire();
-      if (!hadPrewarm) beginWatch();
-      // Unconditional (not gated on `!hadPrewarm`) — the Live Activity is a
-      // very visible, user-facing lock-screen widget, so it should appear
-      // exactly when the athlete taps "Iniciar corrida", not silently during
-      // a `prewarm()` GPS lock before they've committed to a run. No
-      // matching call in `resume()`: unlike the GPS watch itself, the Live
-      // Activity's request/update/end lifecycle is independent of
-      // `beginGeoWatch`/`endGeoWatch` — a pause just stops it from being
-      // updated (same tick-loop gate as `updateLiveNotification`), it stays
-      // on screen showing the last real numbers instead of disappearing and
-      // reappearing across every pause/resume.
-      beginLiveActivity({ distanceLabel: "0,00 km", paceLabel: "--:--/km", timeLabel: "00:00" });
-
-      setState((s) => ({
-        status: "warming",
-        runId: runIdRef.current,
-        // Keeps whatever reading the prewarm watch already had instead of
-        // flashing back to "searching" the instant Iniciar is tapped —
-        // the watch itself never stopped, so the reading is still current.
-        gpsQuality: hadPrewarm ? s.gpsQuality : "searching",
-        distanceMeters: 0,
-        elapsedSeconds: 0,
-        currentPaceSecPerKm: null,
-        currentKmPaceSecPerKm: null,
-        goal: options?.goal ?? null,
-        forecastSecondsRemaining: null,
-        paceNeededSecPerKm: null,
-        error: null,
-        finishedRun: null,
-        ghostDeltaSeconds: null,
-        paceDeltaSecPerKm: null,
-        finishedGhostDeltaSeconds: null,
-        points: [],
-        pauseEvents: [],
-      }));
     },
     [beginWatch],
   );
