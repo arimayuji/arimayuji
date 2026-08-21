@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import type { GpsQuality } from "@/lib/tracking/useRunTracker";
 import { HORSE_BUST_PATHS } from "../horse-mark";
 import { InstallPrompt } from "./install-prompt";
 import { NotificationBell } from "./notification-bell";
@@ -55,6 +56,23 @@ export function useHeaderClose(closeHref: string): void {
     setCloseHref(closeHref);
     return () => setCloseHref(null);
   }, [closeHref, setCloseHref]);
+}
+
+/**
+ * A small GPS-quality dot in the header, replacing the "Buscando GPS…"/"GPS
+ * pronto" text pill Preparar Corrida used to show under its own title — same
+ * idea as `useHeaderClose` above (context setter + cleanup-on-unmount), just
+ * carrying a reading instead of a route. `null` hides the dot entirely
+ * (nothing GPS-related to show — most screens never call this at all).
+ */
+const HeaderGpsContext = createContext<(quality: GpsQuality | null) => void>(() => {});
+
+export function useHeaderGpsStatus(quality: GpsQuality | null): void {
+  const setQuality = useContext(HeaderGpsContext);
+  useEffect(() => {
+    setQuality(quality);
+    return () => setQuality(null);
+  }, [quality, setQuality]);
 }
 
 interface TabDefinition {
@@ -204,6 +222,29 @@ function CloseIcon({ className }: { className: string }) {
 }
 
 /**
+ * Header counterpart to Preparar Corrida's old "Buscando GPS…"/"GPS pronto"
+ * text pill — a dot instead of a sentence, same circular-badge treatment as
+ * the bell/close buttons either side of it so it reads as one family of
+ * header controls rather than a bolted-on label. `title` covers desktop
+ * hover; `role="status"` + `aria-label` carry the same "ready or not" read
+ * for screen readers, which a bare colored dot can't.
+ */
+function GpsStatusBadge({ quality }: { quality: GpsQuality }) {
+  const ready = quality === "good";
+  const label = ready ? "GPS pronto" : "Buscando sinal de GPS…";
+  return (
+    <span
+      role="status"
+      aria-label={label}
+      title={label}
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16"
+    >
+      <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${ready ? "bg-good" : "bg-warn animate-pulse"}`} />
+    </span>
+  );
+}
+
+/**
  * The one header every non-immersive screen shares — brand mark + wordmark
  * on the left, notification bell (+ a "close" button on flow/detail screens
  * only, see `useHeaderClose`) on the right, on the app's own accent
@@ -213,7 +254,15 @@ function CloseIcon({ className }: { className: string }) {
  * sticky`, which used to read as "stuck on top of my content" instead of a
  * header.
  */
-function AppHeader({ hidden, closeHref }: { hidden: boolean; closeHref: string | null }) {
+function AppHeader({
+  hidden,
+  closeHref,
+  gpsQuality,
+}: {
+  hidden: boolean;
+  closeHref: string | null;
+  gpsQuality: GpsQuality | null;
+}) {
   const router = useRouter();
 
   return (
@@ -244,6 +293,7 @@ function AppHeader({ hidden, closeHref }: { hidden: boolean; closeHref: string |
         </div>
 
         <div className="flex items-center gap-2">
+          {gpsQuality && <GpsStatusBadge quality={gpsQuality} />}
           <NotificationBell />
           {closeHref && (
             <button
@@ -268,6 +318,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const [closeHref, setCloseHref] = useState<string | null>(null);
   const closeValue = useMemo(() => setCloseHref, []);
+
+  const [gpsQuality, setGpsQuality] = useState<GpsQuality | null>(null);
+  const gpsValue = useMemo(() => setGpsQuality, []);
 
   /**
    * The scroll container as state, not a plain `useRef` — see
@@ -294,6 +347,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <ImmersiveContext.Provider value={immersiveValue}>
       <HeaderCloseContext.Provider value={closeValue}>
+      <HeaderGpsContext.Provider value={gpsValue}>
         {/*
           `{children}` must sit at the exact same position in this tree in
           both immersive states — a fixed root div wrapping a fixed scroll
@@ -352,11 +406,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           {!immersive && (
             <>
-              <AppHeader hidden={!chromeVisible} closeHref={closeHref} />
+              <AppHeader hidden={!chromeVisible} closeHref={closeHref} gpsQuality={gpsQuality} />
               <BottomNav hidden={!chromeVisible} />
             </>
           )}
         </div>
+      </HeaderGpsContext.Provider>
       </HeaderCloseContext.Provider>
     </ImmersiveContext.Provider>
   );
