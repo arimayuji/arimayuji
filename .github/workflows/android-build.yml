@@ -176,6 +176,19 @@ jobs:
         working-directory: android
         run: ./gradlew bundleRelease --no-daemon
 
+      # Google Play requires the very first release to be uploaded by hand
+      # through the Play Console (the API only publishes new versions of an
+      # app that already exists there) — this artifact is that first .aab,
+      # downloadable from the Actions run. Once GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+      # is configured and that manual upload has happened once, every
+      # future .aab ships automatically via the step below instead.
+      - uses: actions/upload-artifact@v4
+        if: steps.release_signing.outputs.signed == 'true'
+        with:
+          name: xanthus-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
       - name: Check Google Play service account secret
         # Same secrets-can't-appear-in-`if`-expressions workaround used
         # elsewhere in this file: compute the yes/no in a run: step's own
