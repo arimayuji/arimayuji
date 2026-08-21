@@ -76,6 +76,7 @@ import { EmblemProgressBar } from "../emblem-progress-bar";
 import { EmblemReveal } from "../emblem-reveal";
 import { PrBadge } from "../pr-badge";
 import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboarding";
+import { drainDiagTrail, logDiag } from "@/lib/tracking/diagLog";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
@@ -856,6 +857,20 @@ export default function RunPage() {
   useEffect(() => {
     alert(`[diag] status -> ${state.status} (hasSeenRunTips=${hasSeenRunTips()})`);
   }, [state.status]);
+  // Runs once, on the very first mount of this screen — drains whatever
+  // breadcrumb trail the *previous* attempt left in localStorage before
+  // this component (re)mounted. alert()s placed inline in the click
+  // handler weren't reliably showing up, and the leading hypothesis is the
+  // WebView/Activity getting torn down mid-click (e.g. by the native
+  // permission flow) before an in-memory alert() can render — localStorage
+  // survives that, so this is what finally shows how far the *last*
+  // attempt actually got.
+  useEffect(() => {
+    const trail = drainDiagTrail();
+    if (trail.length > 0) {
+      alert(`[diag trail from previous attempt]\n${trail.join("\n")}`);
+    }
+  }, []);
   const [discarding, setDiscarding] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [warmingMessageIndex, setWarmingMessageIndex] = useState(0);
@@ -1376,6 +1391,7 @@ export default function RunPage() {
   const START_ANIMATION_MS = 420;
 
   const handleStart = () => {
+    logDiag("handleStart() entered");
     setManualTracks([]);
     setMusicQuery("");
     setMusicResults(null);
@@ -1395,20 +1411,25 @@ export default function RunPage() {
 
   /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
   const handleStartClick = () => {
+    logDiag("handleStartClick fired");
     alert("[diag] handleStartClick fired");
     setStarting(true);
     window.setTimeout(() => {
+      logDiag(`animation timeout fired, hasSeenRunTips=${hasSeenRunTips()}`);
       alert(`[diag] animation timeout fired, hasSeenRunTips=${hasSeenRunTips()}`);
       if (hasSeenRunTips()) {
+        logDiag("calling handleStart() (tips already seen)");
         handleStart();
         return;
       }
+      logDiag("showing run tips (first time)");
       setShowRunTips(true);
       setStarting(false);
     }, START_ANIMATION_MS);
   };
 
   const handleRunTipsDone = () => {
+    logDiag(`handleRunTipsDone() entered, reviewingTips=${reviewingTips}`);
     markRunTipsSeen();
     setShowRunTips(false);
     if (reviewingTips) {

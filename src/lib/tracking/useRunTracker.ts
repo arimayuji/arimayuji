@@ -32,6 +32,7 @@ import {
   type GeoFix,
 } from "./geolocation";
 import { isNativePlatform } from "../platform";
+import { drainDiagTrail, logDiag } from "./diagLog";
 import { projectRoute } from "./routeProjection";
 import { unlockSpeech } from "./speech";
 import { announceDistancePace, unlockVoiceBank } from "./voiceBank";
@@ -633,14 +634,17 @@ export function useRunTracker() {
       // turns that into a visible message plus a real stack trace to work
       // from — same reasoning `handleError` already applies to GPS errors
       // reported through the watch itself.
+      logDiag("useRunTracker.start() called");
       try {
         if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
+          logDiag("start() early-return: geolocation unsupported branch");
           setState((s) => ({ ...s, error: "Geolocalização não é suportada neste navegador." }));
           return;
         }
 
         unlockSpeech(); // must run synchronously inside this user-gesture handler for iOS
         unlockVoiceBank();
+        logDiag("start(): unlockSpeech/unlockVoiceBank done");
 
         // A prewarm watch already flowing fixes hands straight over to the
         // real run instead of being torn down and restarted — the whole
@@ -676,8 +680,10 @@ export function useRunTracker() {
         // `recover()`), so there's no separate value to set per entry point.
         ghostSeriesRef.current = options?.ghostRun ? buildDistanceTimeSeries(options.ghostRun) : null;
 
+        logDiag(`start(): about to acquire wakeLock, hadPrewarm=${hadPrewarm}`);
         void wakeLockRef.current.acquire();
         if (!hadPrewarm) beginWatch();
+        logDiag("start(): beginWatch step done");
         // Unconditional (not gated on `!hadPrewarm`) — the Live Activity is a
         // very visible, user-facing lock-screen widget, so it should appear
         // exactly when the athlete taps "Iniciar corrida", not silently during
@@ -689,6 +695,7 @@ export function useRunTracker() {
         // on screen showing the last real numbers instead of disappearing and
         // reappearing across every pause/resume.
         beginLiveActivity({ distanceLabel: "0,00 km", paceLabel: "--:--/km", timeLabel: "00:00" });
+        logDiag("start(): beginLiveActivity done, about to setState(warming)");
 
         setState((s) => ({
           status: "warming",
@@ -712,7 +719,14 @@ export function useRunTracker() {
           points: [],
           pauseEvents: [],
         }));
+        logDiag("start(): setState(warming) done — start() finished normally");
       } catch (err) {
+        const message = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
+        logDiag(`start() THREW: ${message}`);
+        // start() throwing leaves `status` at "idle" — the mount-time trail
+        // drain (run/page.tsx) won't fire again without a remount, so this
+        // is shown immediately, in the same tick, instead of waiting on that.
+        alert(`[diag trail] start() threw:\n${drainDiagTrail().join("\n")}`);
         console.error("[run] start() threw", err);
         setState((s) => ({
           ...s,
