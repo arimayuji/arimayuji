@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { GpsQuality } from "@/lib/tracking/useRunTracker";
 import { HORSE_BUST_PATHS } from "../horse-mark";
-import { InstallPrompt } from "./install-prompt";
 import { NotificationBell } from "./notification-bell";
 import { useScrollChromeVisibility } from "./use-scroll-chrome";
 
@@ -401,7 +400,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   }
             }
           >
-            {!immersive && <InstallPrompt />}
             {children}
           </div>
           {!immersive && (
