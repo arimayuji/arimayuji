@@ -32,7 +32,6 @@ import {
   type GeoFix,
 } from "./geolocation";
 import { isNativePlatform } from "../platform";
-import { drainDiagTrail, logDiag } from "./diagLog";
 import { projectRoute } from "./routeProjection";
 import { unlockSpeech } from "./speech";
 import { announceDistancePace, unlockVoiceBank } from "./voiceBank";
@@ -204,7 +203,6 @@ export function useRunTracker() {
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearWatch = useCallback(() => {
-    console.trace("[diag] useRunTracker.clearWatch() called");
     endGeoWatch();
   }, []);
 
@@ -229,7 +227,6 @@ export function useRunTracker() {
       setState((s) => {
         if (s.status !== "tracking") return s;
         const elapsedSeconds = computeElapsedSeconds();
-        logDiag(`tick fired, elapsedSeconds=${elapsedSeconds}`);
         const remainingMeters = s.goal?.distanceMeters
           ? Math.max(0, s.goal.distanceMeters - distanceRef.current)
           : null;
@@ -240,15 +237,12 @@ export function useRunTracker() {
         // Throttled to every 5s — the lock-screen notification doesn't need
         // second-by-second precision, and each update is a native bridge call.
         if (elapsedSeconds % 5 === 0) {
-          logDiag(`tick @${elapsedSeconds}s: about to updateLiveNotification`);
           const route = projectRoute(pointsRef.current);
           const distanceLabel = `${formatDistanceKm(distanceRef.current)} km`;
           const paceLabel = s.currentPaceSecPerKm !== null ? `${formatPace(s.currentPaceSecPerKm)}/km` : "--:--/km";
           const timeLabel = formatElapsed(elapsedSeconds);
           updateLiveNotification({ distanceLabel, paceLabel, timeLabel, routePolylines: route?.polylines });
-          logDiag(`tick @${elapsedSeconds}s: updateLiveNotification done, about to updateLiveActivityContent`);
           updateLiveActivityContent({ distanceLabel, paceLabel, timeLabel, routePoints: route?.projected });
-          logDiag(`tick @${elapsedSeconds}s: updateLiveActivityContent done`);
         }
         return { ...s, elapsedSeconds, forecastSecondsRemaining };
       });
@@ -273,7 +267,6 @@ export function useRunTracker() {
       const timestamp = fix.timestamp;
 
       const quality: GpsQuality = accuracy <= 10 ? "good" : accuracy <= 25 ? "weak" : "searching";
-      logDiag(`handleFix called, accuracy=${accuracy}, quality=${quality}`);
       setState((s) => (s.gpsQuality === quality ? s : { ...s, gpsQuality: quality }));
 
       if (!isFixUsable(accuracy)) return;
@@ -284,7 +277,6 @@ export function useRunTracker() {
           accuracy <= FILTER_CONFIG.warmupAccuracyThreshold ? warmupCountRef.current + 1 : 0;
         if (warmupCountRef.current < FILTER_CONFIG.warmupFixesRequired) return s;
 
-        logDiag("handleFix: warmup complete, about to seed filter + startTicking");
         // Warmup complete: the run clock starts now.
         originRef.current = { lat, lon };
         kalmanRef.current = new Kalman2D({ e: 0, n: 0, ve: 0, vn: 0 });
@@ -313,9 +305,7 @@ export function useRunTracker() {
         kmMarkDistanceRef.current = Math.floor(distanceRef.current / 1000) * 1000;
         kmMarkTimeRef.current = timestamp;
         pendingDriftMetersRef.current = 0;
-        logDiag("handleFix: filter seeded, calling startTicking()");
         startTicking();
-        logDiag("handleFix: startTicking() returned, setting status=tracking");
         return { ...s, status: "tracking" };
       });
 
@@ -593,7 +583,6 @@ export function useRunTracker() {
   }, []);
 
   const beginWatch = useCallback(() => {
-    console.trace("[diag] useRunTracker.beginWatch() called");
     beginGeoWatch(handleFix, handleError);
   }, [handleError, handleFix]);
 
@@ -619,7 +608,6 @@ export function useRunTracker() {
    * real run has taken over the watch.
    */
   const prewarm = useCallback(() => {
-    console.trace(`[diag] useRunTracker.prewarm() called, prewarmingRef=${prewarmingRef.current}`);
     if (prewarmingRef.current) return;
     if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) return;
     prewarmingRef.current = true;
@@ -628,7 +616,6 @@ export function useRunTracker() {
 
   /** Stops a prewarm watch that never turned into a real run — e.g. the athlete backed out of Preparar Corrida. Harmless no-op once `start()` has taken ownership (see `prewarmingRef`). */
   const cancelPrewarm = useCallback(() => {
-    console.trace(`[diag] useRunTracker.cancelPrewarm() called, prewarmingRef=${prewarmingRef.current}`);
     if (!prewarmingRef.current) return;
     prewarmingRef.current = false;
     clearWatch();
@@ -646,18 +633,14 @@ export function useRunTracker() {
       // turns that into a visible message plus a real stack trace to work
       // from — same reasoning `handleError` already applies to GPS errors
       // reported through the watch itself.
-      logDiag("useRunTracker.start() called");
-      console.trace("[diag] useRunTracker.start() called");
       try {
         if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
-          logDiag("start() early-return: geolocation unsupported branch");
           setState((s) => ({ ...s, error: "Geolocalização não é suportada neste navegador." }));
           return;
         }
 
         unlockSpeech(); // must run synchronously inside this user-gesture handler for iOS
         unlockVoiceBank();
-        logDiag("start(): unlockSpeech/unlockVoiceBank done");
 
         // A prewarm watch already flowing fixes hands straight over to the
         // real run instead of being torn down and restarted — the whole
@@ -693,10 +676,8 @@ export function useRunTracker() {
         // `recover()`), so there's no separate value to set per entry point.
         ghostSeriesRef.current = options?.ghostRun ? buildDistanceTimeSeries(options.ghostRun) : null;
 
-        logDiag(`start(): about to acquire wakeLock, hadPrewarm=${hadPrewarm}`);
         void wakeLockRef.current.acquire();
         if (!hadPrewarm) beginWatch();
-        logDiag("start(): beginWatch step done");
         // Unconditional (not gated on `!hadPrewarm`) — the Live Activity is a
         // very visible, user-facing lock-screen widget, so it should appear
         // exactly when the athlete taps "Iniciar corrida", not silently during
@@ -708,7 +689,6 @@ export function useRunTracker() {
         // on screen showing the last real numbers instead of disappearing and
         // reappearing across every pause/resume.
         beginLiveActivity({ distanceLabel: "0,00 km", paceLabel: "--:--/km", timeLabel: "00:00" });
-        logDiag("start(): beginLiveActivity done, about to setState(warming)");
 
         setState((s) => ({
           status: "warming",
@@ -732,17 +712,7 @@ export function useRunTracker() {
           points: [],
           pauseEvents: [],
         }));
-        logDiag("start(): setState(warming) done — start() finished normally");
       } catch (err) {
-        const message = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
-        logDiag(`start() THREW: ${message}`);
-        // start() throwing leaves `status` at "idle" — the mount-time trail
-        // drain (run/page.tsx) won't fire again without a remount, so this
-        // is logged immediately, in the same tick, instead of waiting on
-        // that. console.log, not alert(): a blocking dialog here queues up
-        // whatever taps land on the screen underneath while it's up, and
-        // replays them all the instant it closes.
-        console.log(`[diag trail] start() threw:\n${drainDiagTrail().join("\n")}`);
         console.error("[run] start() threw", err);
         setState((s) => ({
           ...s,
@@ -820,7 +790,6 @@ export function useRunTracker() {
   );
 
   const pause = useCallback(() => {
-    console.trace("[diag] useRunTracker.pause() called");
     clearWatch();
     stopTicking();
     void wakeLockRef.current.release();
@@ -846,7 +815,6 @@ export function useRunTracker() {
   }, []);
 
   const resume = useCallback(() => {
-    console.trace("[diag] useRunTracker.resume() called");
     if (pauseStartedAtRef.current !== null) {
       pausedAccumMsRef.current += Date.now() - pauseStartedAtRef.current;
       pauseStartedAtRef.current = null;
@@ -865,7 +833,6 @@ export function useRunTracker() {
 
   const finish = useCallback(
     (extra?: { tracks?: RunTrack[]; shoeName?: string }) => {
-      console.trace("[diag] useRunTracker.finish() called");
       clearWatch();
       stopTicking();
       void wakeLockRef.current.release();
@@ -937,7 +904,6 @@ export function useRunTracker() {
   );
 
   const reset = useCallback(() => {
-    console.trace("[diag] useRunTracker.reset() called");
     // Same teardown `finish()` does, and for the same reason: without it, a
     // "Cancelar" tap during "warming" (or "descartar corrida" during
     // "tracking"/"paused") left the GPS watch running with nowhere for its

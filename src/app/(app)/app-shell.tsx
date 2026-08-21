@@ -270,12 +270,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const closeValue = useMemo(() => setCloseHref, []);
 
   /**
-   * The scroll container as state, not a plain `useRef` — this element is
-   * torn down and recreated every time immersive mode toggles (see
+   * The scroll container as state, not a plain `useRef` — see
    * `useScrollChromeVisibility`'s own comment for why a stale ref used to
-   * freeze the header/nav after leaving `/run`), so a callback ref that
-   * pushes into state is what makes `chromeVisible` below re-subscribe to
-   * whichever node is actually mounted right now.
+   * freeze the header/nav after leaving `/run`. This element itself is now
+   * the *same* DOM node across an immersive-mode toggle (see the render
+   * below — restyled in place, never unmounted), so this only actually
+   * fires once, at mount; the callback-ref-as-state pattern is kept anyway
+   * since it's what `chromeVisible` needs to subscribe to it at all.
    */
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const chromeVisible = useScrollChromeVisibility(scrollEl);
@@ -293,47 +294,69 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <ImmersiveContext.Provider value={immersiveValue}>
       <HeaderCloseContext.Provider value={closeValue}>
-        {immersive ? (
-          <div className="flex h-dvh flex-col">{children}</div>
-        ) : (
-          // `h-dvh` on its own, deliberately not paired with `flex-1`: this
-          // sits directly in body's flex column, which itself is only
-          // `min-h-full` (no definite height of its own) — `flex-1` sets
-          // `flex-basis: 0%`, which wins over an explicit height as the
-          // sizing basis, and grow then has nothing definite to distribute
-          // against, so the div silently reverts to shrinking to fit its
-          // content instead of being capped to the viewport. `h-dvh` alone,
-          // outside the flex sizing algorithm entirely, is what actually
-          // caps it — confirmed the hard way: without this, scrollHeight
-          // and clientHeight matched here (nothing to scroll), because the
-          // *window* had quietly become the real scroller again underneath.
-          <div className="relative h-dvh overflow-hidden">
-            {/*
-              The only scroll container on non-immersive screens. Header and
-              BottomNav below are `position: absolute` siblings of this, not
-              children — hiding either one on scroll must never change this
-              element's own scrollHeight, or hiding a bar shortens the
-              scrollable area, which fires another scroll event, which can
-              hide/show the bar again: a jitter loop. Keeping them as
-              absolutely-positioned overlays with their own fixed height
-              instead of `position: sticky`/`fixed` in-flow siblings is what
-              breaks that loop.
-            */}
-            <div
-              ref={setScrollEl}
-              className="h-full overflow-y-auto overscroll-y-contain"
-              style={{
-                paddingTop: `calc(${HEADER_HEIGHT} + env(safe-area-inset-top))`,
-                paddingBottom: `calc(${BOTTOMNAV_HEIGHT} + env(safe-area-inset-bottom))`,
-              }}
-            >
-              <InstallPrompt />
-              {children}
-            </div>
-            <AppHeader hidden={!chromeVisible} closeHref={closeHref} />
-            <BottomNav hidden={!chromeVisible} />
+        {/*
+          `{children}` must sit at the exact same position in this tree in
+          both immersive states — a fixed root div wrapping a fixed scroll
+          div, always. Toggling `immersive` used to swap between two
+          differently-shaped subtrees (a bare flex div vs. this same
+          structure), and since React reconciles by tree shape/position, not
+          by the identity of the `children` element, that swap unmounted and
+          remounted the *entire page* underneath: whatever screen sat below
+          AppShell — `useRunTracker`'s state included — got torn down and
+          rebuilt from scratch. `/run` calls `useImmersiveMode` the instant a
+          run starts (`status → "warming"`), which made this fire mid-start:
+          the run tracker reset back to "idle" a frame after starting,
+          reading as "Iniciar corrida" silently doing nothing. Restyling one
+          stable div instead of branching the tree is what keeps the child
+          alive across the toggle.
+
+          `h-dvh` on the outer div, deliberately not paired with `flex-1`:
+          this sits directly in body's flex column, which itself is only
+          `min-h-full` (no definite height of its own) — `flex-1` sets
+          `flex-basis: 0%`, which wins over an explicit height as the
+          sizing basis, and grow then has nothing definite to distribute
+          against, so the div silently reverts to shrinking to fit its
+          content instead of being capped to the viewport. `h-dvh` alone,
+          outside the flex sizing algorithm entirely, is what actually
+          caps it — confirmed the hard way: without this, scrollHeight
+          and clientHeight matched here (nothing to scroll), because the
+          *window* had quietly become the real scroller again underneath.
+        */}
+        <div className="relative h-dvh overflow-hidden">
+          {/*
+            The only scroll container on non-immersive screens; plain flex
+            column with nothing to scroll on immersive ones (the map screen
+            sizes itself to fill it). Header and BottomNav below are
+            `position: absolute` siblings of this, not children — hiding
+            either one on scroll must never change this element's own
+            scrollHeight, or hiding a bar shortens the scrollable area,
+            which fires another scroll event, which can hide/show the bar
+            again: a jitter loop. Keeping them as absolutely-positioned
+            overlays with their own fixed height instead of `position:
+            sticky`/`fixed` in-flow siblings is what breaks that loop.
+          */}
+          <div
+            ref={setScrollEl}
+            className={immersive ? "flex h-full flex-col" : "h-full overflow-y-auto overscroll-y-contain"}
+            style={
+              immersive
+                ? undefined
+                : {
+                    paddingTop: `calc(${HEADER_HEIGHT} + env(safe-area-inset-top))`,
+                    paddingBottom: `calc(${BOTTOMNAV_HEIGHT} + env(safe-area-inset-bottom))`,
+                  }
+            }
+          >
+            {!immersive && <InstallPrompt />}
+            {children}
           </div>
-        )}
+          {!immersive && (
+            <>
+              <AppHeader hidden={!chromeVisible} closeHref={closeHref} />
+              <BottomNav hidden={!chromeVisible} />
+            </>
+          )}
+        </div>
       </HeaderCloseContext.Provider>
     </ImmersiveContext.Provider>
   );

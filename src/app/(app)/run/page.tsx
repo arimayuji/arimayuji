@@ -76,7 +76,6 @@ import { EmblemProgressBar } from "../emblem-progress-bar";
 import { EmblemReveal } from "../emblem-reveal";
 import { PrBadge } from "../pr-badge";
 import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboarding";
-import { drainDiagTrail, logDiag } from "@/lib/tracking/diagLog";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
@@ -849,32 +848,6 @@ export default function RunPage() {
   const { state, start, pause, resume, finish, reset, setPauseReason, recover, prewarm, cancelPrewarm } =
     useRunTracker();
 
-  // Temporary diagnostic (2026-08-21): pinpoints where "Iniciar corrida"
-  // stalls — logs every status change and the click handler's key
-  // checkpoints to the persistent trail (src/lib/tracking/diagLog.ts), so
-  // each step of the flow is visible even on a device with no remote
-  // devtools. Logs only, no alert() — a blocking native dialog here was
-  // itself queuing up the athlete's frustrated taps on whatever was
-  // underneath (e.g. "Cancelar") and replaying them the instant the dialog
-  // closed, which explains at least some of the "screen resets on its own"
-  // reports. Remove once the native "nothing happens" report is root-caused.
-  useEffect(() => {
-    logDiag(`status -> ${state.status} (hasSeenRunTips=${hasSeenRunTips()})`);
-  }, [state.status]);
-  // Runs once, on the very first mount of this screen — drains whatever
-  // breadcrumb trail the *previous* attempt left in localStorage before
-  // this component (re)mounted, straight to console.log instead of an
-  // alert(): a blocking dialog here queues up whatever taps the athlete
-  // makes on the screen underneath while it's up, which then all replay the
-  // instant it closes — a real, self-inflicted cause of at least some of
-  // the "screen resets on its own" reports. console.log shows up in
-  // `adb logcat` (tag "Capacitor/Console") without blocking anything.
-  useEffect(() => {
-    const trail = drainDiagTrail();
-    if (trail.length > 0) {
-      console.log(`[diag trail from previous attempt]\n${trail.join("\n")}`);
-    }
-  }, []);
   const [discarding, setDiscarding] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [warmingMessageIndex, setWarmingMessageIndex] = useState(0);
@@ -1090,10 +1063,8 @@ export default function RunPage() {
    */
   useEffect(() => {
     if (state.status !== "idle" || recoverableRun) return;
-    console.trace(`[diag] idle-prewarm effect running, status=${state.status}`);
     prewarm();
     return () => {
-      console.trace(`[diag] idle-prewarm effect CLEANUP firing (status was ${state.status})`);
       cancelPrewarm();
     };
   }, [state.status, recoverableRun, prewarm, cancelPrewarm]);
@@ -1399,8 +1370,6 @@ export default function RunPage() {
   const START_ANIMATION_MS = 420;
 
   const handleStart = () => {
-    logDiag("handleStart() entered");
-    console.trace("[diag] handleStart() entered");
     setManualTracks([]);
     setMusicQuery("");
     setMusicResults(null);
@@ -1420,24 +1389,18 @@ export default function RunPage() {
 
   /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
   const handleStartClick = () => {
-    logDiag("handleStartClick fired");
-    console.trace("[diag] handleStartClick() fired");
     setStarting(true);
     window.setTimeout(() => {
-      logDiag(`animation timeout fired, hasSeenRunTips=${hasSeenRunTips()}`);
       if (hasSeenRunTips()) {
-        logDiag("calling handleStart() (tips already seen)");
         handleStart();
         return;
       }
-      logDiag("showing run tips (first time)");
       setShowRunTips(true);
       setStarting(false);
     }, START_ANIMATION_MS);
   };
 
   const handleRunTipsDone = () => {
-    logDiag(`handleRunTipsDone() entered, reviewingTips=${reviewingTips}`);
     markRunTipsSeen();
     setShowRunTips(false);
     if (reviewingTips) {
@@ -1459,7 +1422,6 @@ export default function RunPage() {
   };
 
   const handleReset = () => {
-    console.trace("[diag] handleReset() called");
     setSelectedGhostId(null);
     setActiveGhost(null);
     setManualTracks([]);
@@ -1669,14 +1631,6 @@ export default function RunPage() {
                   Preparar corrida
                 </h1>
                 <IdleGpsStatus quality={state.gpsQuality} />
-                {/* Temporary build marker (2026-08-21) — confirms at a glance
-                    whether the device is actually running this build, since
-                    diagnostic alert()s placed in handleStartClick weren't
-                    firing when tapping the real start button. Remove once
-                    that's resolved. */}
-                <span className="fixed top-2 left-2 z-[999] rounded bg-red-600 px-2 py-1 font-mono text-xs text-white">
-                  BUILD-DIAG-3
-                </span>
               </div>
               <p className="mt-1 text-sm text-muted">
                 A tela precisa ficar ligada durante o treino para o GPS se manter preciso. Se possível,
