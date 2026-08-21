@@ -855,17 +855,6 @@ function AppleGlyphIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-function BrowserIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="16" rx="2.5" />
-      <path d="M3 9h18" />
-      <circle cx="6.2" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
-      <circle cx="8.4" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 
 export default function Home() {
@@ -904,7 +893,7 @@ export default function Home() {
             Xanthus
           </span>
           <Link
-            href="/run"
+            href="/download"
             className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold transition-colors hover:border-accent hover:text-accent"
           >
             Começar
@@ -1051,7 +1040,7 @@ export default function Home() {
                 style={delay(290)}
               >
                 <Link
-                  href="/run"
+                  href="/download"
                   className="group relative inline-block rounded-full pb-2 focus-visible:outline-none"
                 >
                   <span
@@ -1417,43 +1406,21 @@ export default function Home() {
               style={delay(80)}
               className="max-w-md text-pretty leading-relaxed text-muted"
             >
-              Três jeitos de correr com o Xanthus — a diferença real entre eles é só
-              uma: o que acontece com o GPS se a tela travar no meio do treino.
+              App nativo, Android ou iPhone — o GPS continua registrando rota e
+              pace mesmo com a tela travada, o motivo real de existir fora do
+              navegador.
             </p>
 
             {/*
-              Três opções de peso igual, não uma dominante com duas
-              secundárias penduradas embaixo — clicar direto pro navegador
-              sem mostrar as alternativas nativas foi o problema que motivou
-              este bloco existir. iOS não tem botão (só o badge de estado):
-              hoje só quem já foi convidado pro TestFlight Internal Testing
-              consegue instalar, um link "baixar" aqui enganaria quem clicasse.
+              Duas opções de peso igual. iOS não tem botão (só o badge de
+              estado): hoje só quem já foi convidado pro TestFlight Internal
+              Testing consegue instalar, um link "baixar" aqui enganaria quem
+              clicasse.
             */}
-            <div className="mt-6 grid w-full gap-4 sm:grid-cols-3">
+            <div className="mt-6 grid w-full gap-4 sm:grid-cols-2">
               <article
                 data-reveal=""
                 style={delay(160)}
-                className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-background p-6 text-center"
-              >
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/12 text-accent">
-                  <BrowserIcon />
-                </span>
-                <h3 className="font-mono text-base font-semibold">No navegador</h3>
-                <p className="flex-1 text-sm leading-relaxed text-muted">
-                  Abre na hora, sem instalar nada. Se a tela travar durante a
-                  corrida, o GPS pausa até você desbloquear de novo.
-                </p>
-                <Link
-                  href="/run"
-                  className="mt-1 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
-                >
-                  Abrir agora
-                </Link>
-              </article>
-
-              <article
-                data-reveal=""
-                style={delay(220)}
                 className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-background p-6 text-center"
               >
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/12 text-accent">
@@ -1466,7 +1433,7 @@ export default function Home() {
                 </p>
                 <Link
                   href="/download"
-                  className="mt-1 inline-flex w-full items-center justify-center rounded-full border border-border px-5 py-3 text-sm font-semibold transition-colors hover:border-accent hover:text-accent"
+                  className="mt-1 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
                 >
                   Baixar APK
                 </Link>
@@ -1474,7 +1441,7 @@ export default function Home() {
 
               <article
                 data-reveal=""
-                style={delay(280)}
+                style={delay(220)}
                 className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-background p-6 text-center"
               >
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/12 text-accent">
@@ -1490,14 +1457,6 @@ export default function Home() {
                 </span>
               </article>
             </div>
-
-            <p
-              data-reveal=""
-              style={delay(340)}
-              className="mt-4 font-mono text-xs text-muted"
-            >
-              no navegador, depois da primeira visita, funciona sem internet
-            </p>
           </div>
         </section>
       </main>

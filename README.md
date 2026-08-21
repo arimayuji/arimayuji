@@ -5,14 +5,16 @@ segmento (Strava, Nike Run Club, Runkeeper, Adidas Running, Komoot,
 MapMyRun, Garmin Connect): preço que muda o combinado depois, GPS em que
 ninguém confia, dados presos, suporte ausente.
 
-## PWA + app nativo (Capacitor)
+## App nativo (Capacitor)
 
-O produto nasceu como PWA pura e continua sendo servido assim
-(`npm run build` → Cloudflare Workers). Quando o tracking em segundo plano
-(tela apagada) virou um problema real — GPS que para ou perde precisão com
-a tela bloqueada, que nenhuma PWA resolve — o app ganhou também um shell
-nativo via [Capacitor](https://capacitorjs.com/) nas pastas `android/` e
-`ios/`.
+O produto nasceu como PWA pura, mas isso foi abandonado: o tracking em
+segundo plano (tela apagada) é um problema real — GPS que para ou perde
+precisão com a tela bloqueada — que nenhuma PWA resolve. Hoje só existem
+os apps nativos via [Capacitor](https://capacitorjs.com/) nas pastas
+`android/` e `ios/`; não há manifest, service worker, nem instalação pelo
+navegador. `xanthus.app.br` (`npm run build` → Cloudflare Workers) segue no
+ar só como landing page de marketing/download — nunca serve o app rodando
+de verdade no navegador.
 
 Importante: **não dá pra "envolver só a tela de corrida"** como a ideia
 original imaginava — o Capacitor carrega o app inteiro numa WebView nativa
@@ -329,7 +331,8 @@ O núcleo fica em `src/lib/tracking/`:
 
 ## Stack
 
-Next.js (App Router) + TypeScript + Tailwind CSS v4, PWA instalável
-(manifest + service worker de app-shell). Mapa (MapLibre) e backend
+Next.js (App Router) + TypeScript + Tailwind CSS v4, embarcado nos apps
+nativos via Capacitor (sem manifest/service worker — não é mais PWA).
+Mapa (MapLibre) e backend
 (Supabase: auth, Postgres, storage) entram no passo 2, quando o histórico
 de corridas precisar de mapa e sincronização entre dispositivos.

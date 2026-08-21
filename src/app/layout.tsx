@@ -3,7 +3,6 @@ import { Inter, Oswald, Rajdhani } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { OAuthCallbackListener } from "./oauth-callback-listener";
-import { ServiceWorkerRegistration } from "./service-worker-registration";
 import { Splash } from "./splash";
 import { ThemeSync } from "./theme-sync";
 
@@ -56,12 +55,6 @@ export const metadata: Metadata = {
   title: "Xanthus",
   description:
     "Corra com pace estável, aviso por voz a cada trecho e previsão de chegada em tempo real.",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Xanthus",
-  },
 };
 
 export const viewport: Viewport = {
@@ -89,7 +82,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeSync />
         <Splash />
         {children}
-        <ServiceWorkerRegistration />
         <OAuthCallbackListener />
       </body>
     </html>

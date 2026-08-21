@@ -12,7 +12,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
-import { isStandaloneDisplay } from "@/lib/platform";
+import { isNativePlatform } from "@/lib/platform";
 import { onNotificationAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
@@ -93,8 +93,8 @@ const RECENT_GHOST_CANDIDATES = 6;
 const noopSubscribe = () => () => {};
 
 /** Same `useSyncExternalStore` shape as `usePrefersReducedMotion` elsewhere — a browser-only read decided once, with no hydration mismatch. */
-function useIsStandalone(): boolean {
-  return useSyncExternalStore(noopSubscribe, isStandaloneDisplay, () => false);
+function useIsNative(): boolean {
+  return useSyncExternalStore(noopSubscribe, isNativePlatform, () => false);
 }
 
 
@@ -1531,7 +1531,7 @@ export default function RunPage() {
   };
 
   const isLiveRun = state.status === "tracking" || state.status === "paused";
-  const standalone = useIsStandalone();
+  const native = useIsNative();
   // The user's own resolved theme (Preferences.theme, /perfil) — not a raw
   // `matchMedia` read of the OS setting, which used to pick the wrong clip
   // whenever someone had explicitly overridden the app to light or dark
@@ -1547,18 +1547,18 @@ export default function RunPage() {
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       {/*
-        The "← Xanthus" link is skipped in standalone context (native app,
-        installed PWA): it targets "/", the marketing landing page, but
-        StandaloneGate redirects any standalone launch straight back to
-        /run before the landing page ever paints — so the link would just
-        bounce right back here, while still costing space right where the
-        OS draws its own status bar (clock, battery, signal).
+        The "← Xanthus" link is skipped in the native app: it targets "/",
+        the marketing landing page, but StandaloneGate redirects any native
+        launch straight back to /run before the landing page ever paints —
+        so the link would just bounce right back here, while still costing
+        space right where the OS draws its own status bar (clock, battery,
+        signal).
       */}
       <header
         className="relative z-10 flex items-center justify-between px-5 py-4"
         style={immersive ? { paddingTop: "calc(1rem + env(safe-area-inset-top))" } : undefined}
       >
-        {!standalone && (
+        {!native && (
           <Link href="/" className="text-sm text-muted hover:text-foreground">
             &larr; Xanthus
           </Link>

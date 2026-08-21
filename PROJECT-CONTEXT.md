@@ -18,10 +18,15 @@
 
 App de corrida (concorrente do Strava/Nike Run Club/Runkeeper) construído
 em cima das dores mais reclamadas do segmento: preço que muda depois, GPS
-em que ninguém confia, dados presos, suporte ausente. Nasceu PWA pura,
-hoje é PWA + apps nativos (Android e iOS via Capacitor) — a ida pra nativo
-foi motivada por um problema real e não resolvível em PWA pura: o GPS
-perde precisão ou para de vez com a tela travada.
+em que ninguém confia, dados presos, suporte ausente. Nasceu PWA pura; a
+ida pra nativo foi motivada por um problema real e não resolvível em PWA
+pura (GPS perde precisão ou para de vez com a tela travada) e, em
+2026-08-21, o PWA foi **desligado por completo** — sem manifest, sem
+service worker, sem instalação pelo navegador. Hoje é **só** apps nativos
+(Android e iOS via Capacitor); o mesmo código-fonte Next.js continua
+servindo os dois (o app inteiro embarcado na WebView do Capacitor), mas
+`xanthus.app.br` virou landing page pura de marketing/download — nunca
+mais serve o app rodando de verdade no navegador.
 
 Nome de código no repo: `xanthus` / "Pegasus Run" (aparece nas duas formas
 no histórico de tasks — mesmo projeto).
@@ -30,7 +35,7 @@ no histórico de tasks — mesmo projeto).
 
 | Camada | Onde |
 |---|---|
-| Landing page + PWA | Cloudflare Workers — domínio próprio `xanthus.app.br` já no ar como Custom Domain (2026-08-17), `xanthus.yujiarima.workers.dev` continua respondendo em paralelo (é o subdomínio padrão do Worker, nunca desliga) |
+| Landing page (marketing/download, sem PWA) | Cloudflare Workers — domínio próprio `xanthus.app.br` já no ar como Custom Domain (2026-08-17), `xanthus.yujiarima.workers.dev` continua respondendo em paralelo (é o subdomínio padrão do Worker, nunca desliga) |
 | Backend | Appwrite Cloud (auth, banco: `runs`, `live_runs`, `friendships`, `coach_relationships`, `place_ratings`, `run_comments`) |
 | Download Android (APK) | `https://xanthus.app.br/download` — página de instruções (não mais o link cru do `.apk`), publicada automático a cada push em `main` |
 | App nativo Android | `android/` (Capacitor), CI em `.github/workflows/android-build.yml` |
@@ -99,15 +104,19 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
 - **Google Play Developer**: conta **verificada e aprovada em 2026-08-21**.
   **Primeiro upload manual feito em 2026-08-21** — ficha do app "Xanthus"
   (`com.xanthus.app`) criada no Play Console, `.aab` publicado na faixa
-  **Teste interno**. Falta configurar o secret
-  `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no repo (conta de serviço
-  `xanthus-play-publisher@deft-chariot-496320-v9.iam.gserviceaccount.com`
-  já criada no Google Cloud, falta só convidar no Play Console com
-  permissão de "Editar e publicar versões" e colar o JSON no secret) pra
-  os próximos uploads saírem automáticos a cada push em `main` — o fluxo
-  já está documentado no `README.md`. Distribuição Android pro público
-  geral continua por APK direto (sideload, link acima) até isso avançar
-  pra teste fechado/produção.
+  **Teste interno**. O secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` já foi
+  configurado no repo (2026-08-21) — mas o primeiro push automático em
+  `main` com o secret configurado **falhou** no step de publicação com:
+  `"Google Play Android Developer API has not been used in project
+  448192688045 before or it is disabled."` Não é bug de código nem do
+  workflow — a API `androidpublisher.googleapis.com` precisa ser
+  habilitada manualmente nesse projeto do Google Cloud antes de qualquer
+  chamada funcionar: https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/overview?project=448192688045
+  → "Ativar" → esperar alguns minutos propagar → tentar de novo. Enquanto
+  isso não for feito, todo push em `main` mostra esse job vermelho
+  (Android/web não são afetados, só a publicação automática no Play).
+  Distribuição Android pro público geral continua por APK direto
+  (sideload, link acima) até isso avançar pra teste fechado/produção.
   **Bug real achado nessa primeira tentativa de upload**: `gradlew
   bundleRelease` builda com sucesso e sem nenhum warning, mas o `.aab`
   saía **sem nenhuma assinatura jar embutida** mesmo com
@@ -139,14 +148,13 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
 
 ## Onde cada plataforma está no funil de lançamento
 
-A landing page (`src/app/page.tsx`) oferece três caminhos, peso igual, sem
-uma opção escondendo as outras:
+A landing page (`src/app/page.tsx`) oferece dois caminhos, peso igual —
+desde 2026-08-21 **não existe mais opção de rodar no navegador** (PWA
+desligado por completo, ver "O produto, em uma frase" acima):
 
-1. **Navegador (PWA)** — "Abrir agora", direto pro `/run`. Funciona sem
-   instalar nada; GPS pausa se a tela travar.
-2. **Android** — botão "Baixar APK", direto pro link fixo do Cloudflare.
+1. **Android** — botão "Baixar APK", direto pro link fixo do Cloudflare.
    App instalado de verdade, GPS não pausa com tela travada.
-3. **iPhone** — **sem botão de download**, só um badge "Em teste fechado".
+2. **iPhone** — **sem botão de download**, só um badge "Em teste fechado".
    Convidados do TestFlight Internal Testing já conseguem instalar. O
    **External Testing foi submetido pra Beta App Review em 2026-08-21**
    (build 107, grupo "Beta") — o link público
