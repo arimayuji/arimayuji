@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import type { GpsQuality } from "@/lib/tracking/useRunTracker";
 import { HORSE_BUST_PATHS } from "../horse-mark";
 import { InstallPrompt } from "./install-prompt";
 import { NotificationBell } from "./notification-bell";
@@ -55,6 +56,23 @@ export function useHeaderClose(closeHref: string): void {
     setCloseHref(closeHref);
     return () => setCloseHref(null);
   }, [closeHref, setCloseHref]);
+}
+
+/**
+ * A small GPS-quality dot in the header, replacing the "Buscando GPS…"/"GPS
+ * pronto" text pill Preparar Corrida used to show under its own title — same
+ * idea as `useHeaderClose` above (context setter + cleanup-on-unmount), just
+ * carrying a reading instead of a route. `null` hides the dot entirely
+ * (nothing GPS-related to show — most screens never call this at all).
+ */
+const HeaderGpsContext = createContext<(quality: GpsQuality | null) => void>(() => {});
+
+export function useHeaderGpsStatus(quality: GpsQuality | null): void {
+  const setQuality = useContext(HeaderGpsContext);
+  useEffect(() => {
+    setQuality(quality);
+    return () => setQuality(null);
+  }, [quality, setQuality]);
 }
 
 interface TabDefinition {
@@ -204,6 +222,29 @@ function CloseIcon({ className }: { className: string }) {
 }
 
 /**
+ * Header counterpart to Preparar Corrida's old "Buscando GPS…"/"GPS pronto"
+ * text pill — a dot instead of a sentence, same circular-badge treatment as
+ * the bell/close buttons either side of it so it reads as one family of
+ * header controls rather than a bolted-on label. `title` covers desktop
+ * hover; `role="status"` + `aria-label` carry the same "ready or not" read
+ * for screen readers, which a bare colored dot can't.
+ */
+function GpsStatusBadge({ quality }: { quality: GpsQuality }) {
+  const ready = quality === "good";
+  const label = ready ? "GPS pronto" : "Buscando sinal de GPS…";
+  return (
+    <span
+      role="status"
+      aria-label={label}
+      title={label}
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16"
+    >
+      <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${ready ? "bg-good" : "bg-warn animate-pulse"}`} />
+    </span>
+  );
+}
+
+/**
  * The one header every non-immersive screen shares — brand mark + wordmark
  * on the left, notification bell (+ a "close" button on flow/detail screens
  * only, see `useHeaderClose`) on the right, on the app's own accent
@@ -213,7 +254,15 @@ function CloseIcon({ className }: { className: string }) {
  * sticky`, which used to read as "stuck on top of my content" instead of a
  * header.
  */
-function AppHeader({ hidden, closeHref }: { hidden: boolean; closeHref: string | null }) {
+function AppHeader({
+  hidden,
+  closeHref,
+  gpsQuality,
+}: {
+  hidden: boolean;
+  closeHref: string | null;
+  gpsQuality: GpsQuality | null;
+}) {
   const router = useRouter();
 
   return (
@@ -244,6 +293,7 @@ function AppHeader({ hidden, closeHref }: { hidden: boolean; closeHref: string |
         </div>
 
         <div className="flex items-center gap-2">
+          {gpsQuality && <GpsStatusBadge quality={gpsQuality} />}
           <NotificationBell />
           {closeHref && (
             <button
@@ -269,13 +319,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [closeHref, setCloseHref] = useState<string | null>(null);
   const closeValue = useMemo(() => setCloseHref, []);
 
+  const [gpsQuality, setGpsQuality] = useState<GpsQuality | null>(null);
+  const gpsValue = useMemo(() => setGpsQuality, []);
+
   /**
-   * The scroll container as state, not a plain `useRef` — this element is
-   * torn down and recreated every time immersive mode toggles (see
+   * The scroll container as state, not a plain `useRef` — see
    * `useScrollChromeVisibility`'s own comment for why a stale ref used to
-   * freeze the header/nav after leaving `/run`), so a callback ref that
-   * pushes into state is what makes `chromeVisible` below re-subscribe to
-   * whichever node is actually mounted right now.
+   * freeze the header/nav after leaving `/run`. This element itself is now
+   * the *same* DOM node across an immersive-mode toggle (see the render
+   * below — restyled in place, never unmounted), so this only actually
+   * fires once, at mount; the callback-ref-as-state pattern is kept anyway
+   * since it's what `chromeVisible` needs to subscribe to it at all.
    */
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const chromeVisible = useScrollChromeVisibility(scrollEl);
@@ -293,47 +347,71 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <ImmersiveContext.Provider value={immersiveValue}>
       <HeaderCloseContext.Provider value={closeValue}>
-        {immersive ? (
-          <div className="flex h-dvh flex-col">{children}</div>
-        ) : (
-          // `h-dvh` on its own, deliberately not paired with `flex-1`: this
-          // sits directly in body's flex column, which itself is only
-          // `min-h-full` (no definite height of its own) — `flex-1` sets
-          // `flex-basis: 0%`, which wins over an explicit height as the
-          // sizing basis, and grow then has nothing definite to distribute
-          // against, so the div silently reverts to shrinking to fit its
-          // content instead of being capped to the viewport. `h-dvh` alone,
-          // outside the flex sizing algorithm entirely, is what actually
-          // caps it — confirmed the hard way: without this, scrollHeight
-          // and clientHeight matched here (nothing to scroll), because the
-          // *window* had quietly become the real scroller again underneath.
-          <div className="relative h-dvh overflow-hidden">
-            {/*
-              The only scroll container on non-immersive screens. Header and
-              BottomNav below are `position: absolute` siblings of this, not
-              children — hiding either one on scroll must never change this
-              element's own scrollHeight, or hiding a bar shortens the
-              scrollable area, which fires another scroll event, which can
-              hide/show the bar again: a jitter loop. Keeping them as
-              absolutely-positioned overlays with their own fixed height
-              instead of `position: sticky`/`fixed` in-flow siblings is what
-              breaks that loop.
-            */}
-            <div
-              ref={setScrollEl}
-              className="h-full overflow-y-auto overscroll-y-contain"
-              style={{
-                paddingTop: `calc(${HEADER_HEIGHT} + env(safe-area-inset-top))`,
-                paddingBottom: `calc(${BOTTOMNAV_HEIGHT} + env(safe-area-inset-bottom))`,
-              }}
-            >
-              <InstallPrompt />
-              {children}
-            </div>
-            <AppHeader hidden={!chromeVisible} closeHref={closeHref} />
-            <BottomNav hidden={!chromeVisible} />
+      <HeaderGpsContext.Provider value={gpsValue}>
+        {/*
+          `{children}` must sit at the exact same position in this tree in
+          both immersive states — a fixed root div wrapping a fixed scroll
+          div, always. Toggling `immersive` used to swap between two
+          differently-shaped subtrees (a bare flex div vs. this same
+          structure), and since React reconciles by tree shape/position, not
+          by the identity of the `children` element, that swap unmounted and
+          remounted the *entire page* underneath: whatever screen sat below
+          AppShell — `useRunTracker`'s state included — got torn down and
+          rebuilt from scratch. `/run` calls `useImmersiveMode` the instant a
+          run starts (`status → "warming"`), which made this fire mid-start:
+          the run tracker reset back to "idle" a frame after starting,
+          reading as "Iniciar corrida" silently doing nothing. Restyling one
+          stable div instead of branching the tree is what keeps the child
+          alive across the toggle.
+
+          `h-dvh` on the outer div, deliberately not paired with `flex-1`:
+          this sits directly in body's flex column, which itself is only
+          `min-h-full` (no definite height of its own) — `flex-1` sets
+          `flex-basis: 0%`, which wins over an explicit height as the
+          sizing basis, and grow then has nothing definite to distribute
+          against, so the div silently reverts to shrinking to fit its
+          content instead of being capped to the viewport. `h-dvh` alone,
+          outside the flex sizing algorithm entirely, is what actually
+          caps it — confirmed the hard way: without this, scrollHeight
+          and clientHeight matched here (nothing to scroll), because the
+          *window* had quietly become the real scroller again underneath.
+        */}
+        <div className="relative h-dvh overflow-hidden">
+          {/*
+            The only scroll container on non-immersive screens; plain flex
+            column with nothing to scroll on immersive ones (the map screen
+            sizes itself to fill it). Header and BottomNav below are
+            `position: absolute` siblings of this, not children — hiding
+            either one on scroll must never change this element's own
+            scrollHeight, or hiding a bar shortens the scrollable area,
+            which fires another scroll event, which can hide/show the bar
+            again: a jitter loop. Keeping them as absolutely-positioned
+            overlays with their own fixed height instead of `position:
+            sticky`/`fixed` in-flow siblings is what breaks that loop.
+          */}
+          <div
+            ref={setScrollEl}
+            className={immersive ? "flex h-full flex-col" : "h-full overflow-y-auto overscroll-y-contain"}
+            style={
+              immersive
+                ? undefined
+                : {
+                    paddingTop: `calc(${HEADER_HEIGHT} + env(safe-area-inset-top))`,
+                    paddingBottom: `calc(${BOTTOMNAV_HEIGHT} + env(safe-area-inset-bottom))`,
+                  }
+            }
+          >
+            {!immersive && <InstallPrompt />}
+            {children}
           </div>
-        )}
+          {!immersive && (
+            <>
+              <AppHeader hidden={!chromeVisible} closeHref={closeHref} gpsQuality={gpsQuality} />
+              <BottomNav hidden={!chromeVisible} />
+            </>
+          )}
+        </div>
+      </HeaderGpsContext.Provider>
       </HeaderCloseContext.Provider>
     </ImmersiveContext.Provider>
   );

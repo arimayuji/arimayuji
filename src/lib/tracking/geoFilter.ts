@@ -278,8 +278,8 @@ export const FILTER_CONFIG = {
   /** Discard fixes worse than this (meters). Anything looser is not usable for pace. */
   maxAcceptableAccuracy: 25,
   /** Fixes must be at least this good, `warmupFixesRequired` times in a row, to start the clock. */
-  warmupAccuracyThreshold: 20,
-  warmupFixesRequired: 3,
+  warmupAccuracyThreshold: 25,
+  warmupFixesRequired: 2,
   /** A human cannot plausibly move faster than this between two fixes (m/s, ~43km/h w/ margin) — a cheap hard ceiling, independent of the Kalman filter's own internal state, so a filter whose covariance has drifted wide open (e.g. after a long gap) can never be talked into accepting an outright GPS teleport. */
   maxPlausibleSpeedMps: 12,
   /** Below this speed we treat the athlete as stopped, to avoid stationary GPS drift inflating distance. */

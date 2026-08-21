@@ -35,7 +35,50 @@ no histórico de tasks — mesmo projeto).
 | Download Android (APK) | `https://xanthus.app.br/download` — página de instruções (não mais o link cru do `.apk`), publicada automático a cada push em `main` |
 | App nativo Android | `android/` (Capacitor), CI em `.github/workflows/android-build.yml` |
 | App nativo iOS | `ios/` (Capacitor), CI em `.github/workflows/ios-build.yml` |
-| Repositório | `arimayuji/arimayuji` no GitHub |
+| Repositório | `arimayuji/xanthus` no GitHub — **não** `arimayuji/arimayuji` (repo separado, `main` vazia, sem relação com o projeto; ver "Bug crítico resolvido" abaixo) |
+
+## Bug crítico resolvido: "Iniciar corrida" não fazia nada (nativo)
+
+**Sintoma (relatado 2026-08-21):** no app Android nativo, tocar em "Iniciar
+corrida" → tutorial de dicas → tutorial termina → volta pra mesma tela de
+"Preparar corrida", nunca chega na tela de corrida ao vivo.
+
+**Diagnóstico:** ~8 builds seguidos com `console.trace`/log persistido em
+`localStorage` (`src/lib/tracking/diagLog.ts`, já removido) + captura via
+`adb logcat` com o aparelho (Galaxy) plugado num Mac via USB. O log mostrou
+que `useRunTracker.start()` roda limpo e chama `setState(status: "warming")`
+— mas ~28ms depois `status` já está de volta em `"idle"`, e a tela de
+"Preparar corrida" inteira monta do zero de novo (o efeito "drena o log do
+mount anterior", que só roda uma vez por mount, disparou duas vezes em 2ms).
+
+**Causa raiz:** `src/app/(app)/app-shell.tsx` renderizava `{children}` (a
+página inteira) em duas árvores JSX estruturalmente diferentes,
+alternando por um `if (immersive) {...} else {...}` — um `<div>` a mais,
+mais `InstallPrompt`/header/nav como irmãos, num branch e não no outro.
+`/run` chama `useImmersiveMode(status === "warming" || ...)`, que vira
+`true` no instante exato em que `start()` roda. Como o React reconcilia
+por *formato da árvore*, não pela identidade do elemento `children`, essa
+troca de branch desmontava a subárvore inteira e montava uma nova do
+zero — resetando `useRunTracker` (um hook local à página) de volta pro
+estado inicial `"idle"`. Não era GPS, não era o plugin nativo, não era
+Service Worker (já descartado antes) — era puramente um bug de
+reconciliação do React no shell.
+
+**Fix:** `AppShell` agora mantém `{children}` numa única posição fixa da
+árvore (o mesmo `<div>` sempre), só trocando `className`/`style` e os
+irmãos (header/nav/InstallPrompt) conforme `immersive` — nunca a
+estrutura ao redor de `children`. A página nunca mais desmonta nesse
+toggle. Fix + limpeza de toda a instrumentação de diagnóstico
+(`console.trace`, `logDiag`, `global-error-alert.tsx`, `diagLog.ts`) no
+commit `fe776a9`, branch `claude/strava-competitor-feedback-cyvop8`.
+
+**Pegadinha de infra descoberta nessa mesma sessão:** o repo
+`arimayuji/arimayuji` (pra onde os pushes deste Claude Code on the web
+iam por padrão) tem a `main` vazia — 41 commits de "Update README.md",
+nada do projeto de verdade. **O repo real é `arimayuji/xanthus`** —
+tabela "Onde cada coisa mora" acima já corrigida pra refletir isso; era
+`arimayuji/arimayuji` antes por engano. Toda branch/push relacionado ao
+projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
 
 ## Status das contas de desenvolvedor (na data deste documento)
 

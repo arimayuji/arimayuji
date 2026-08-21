@@ -147,7 +147,7 @@ function EmptyState() {
 
       <Link
         href="/run"
-        className="mx-auto mt-7 w-full max-w-xs rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+        className="mx-auto mt-7 block w-full max-w-xs rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
       >
         Gravar primeira corrida
       </Link>

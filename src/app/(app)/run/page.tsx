@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { useRunTracker, type GpsQuality } from "@/lib/tracking/useRunTracker";
+import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { isStandaloneDisplay } from "@/lib/platform";
 import { onNotificationAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
@@ -84,7 +84,7 @@ import {
   announceLabel,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
-import { useImmersiveMode, useTabReclick } from "../app-shell";
+import { useHeaderGpsStatus, useImmersiveMode, useTabReclick } from "../app-shell";
 import { Card, NoticeBadge } from "../ui";
 import { PillSlider } from "../pill-slider";
 
@@ -635,22 +635,6 @@ function CustomValueSheet({
   );
 }
 
-/** "GPS pronto"/"Buscando GPS…" right under the title — real, driven by `state.gpsQuality` from the prewarm watch `useRunTracker.prewarm()` starts as soon as this screen mounts. Collapses `weak`+`searching` into one "buscando" reading: the idle screen just needs a yes/no, the 3-tier detail is for the live tracking screen's own indicator. */
-function IdleGpsStatus({ quality }: { quality: GpsQuality }) {
-  const ready = quality === "good";
-  return (
-    <div className="flex items-center gap-1.5">
-      <span
-        aria-hidden="true"
-        className={`h-2 w-2 rounded-full ${ready ? "bg-good" : "bg-warn animate-pulse"}`}
-      />
-      <span className={`text-xs font-semibold ${ready ? "text-good" : "text-warn"}`}>
-        {ready ? "GPS pronto" : "Buscando GPS…"}
-      </span>
-    </div>
-  );
-}
-
 type MetricId = "ritmo" | "distancia" | "tempo" | "medio" | "parcial";
 
 /** The five always-available readouts the athlete can pick between for the giant focus number (see `metricTemplate` state) — the goal-dependent extras (chegada prevista, pace necessário, pace do km atual) stay outside this set since they only exist for some runs, and always render as extra grid cells instead of being pickable as the featured number. */
@@ -847,6 +831,7 @@ function computeEmblemProgress(run: CompletedRun, allRuns: CompletedRun[]): Embl
 export default function RunPage() {
   const { state, start, pause, resume, finish, reset, setPauseReason, recover, prewarm, cancelPrewarm } =
     useRunTracker();
+
   const [discarding, setDiscarding] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [warmingMessageIndex, setWarmingMessageIndex] = useState(0);
@@ -1063,7 +1048,9 @@ export default function RunPage() {
   useEffect(() => {
     if (state.status !== "idle" || recoverableRun) return;
     prewarm();
-    return () => cancelPrewarm();
+    return () => {
+      cancelPrewarm();
+    };
   }, [state.status, recoverableRun, prewarm, cancelPrewarm]);
 
   /** Same re-fetch-on-return-to-idle reasoning as the effect above — a coach accepted mid-session should be pickable for the very next run. */
@@ -1238,6 +1225,17 @@ export default function RunPage() {
   useImmersiveMode(
     state.status === "warming" || state.status === "tracking" || state.status === "paused",
   );
+
+  /**
+   * Header GPS dot (see `useHeaderGpsStatus` in app-shell.tsx) — the
+   * replacement for the old "Buscando GPS…"/"GPS pronto" text pill this
+   * screen used to render under its own title. Only meaningful while the
+   * header is actually on screen: "warming" briefly overlaps with
+   * `useImmersiveMode(true)` above (which hides the header entirely), so
+   * this covers "idle" only in practice — kept simple rather than trying to
+   * track which of the two is currently winning.
+   */
+  useHeaderGpsStatus(state.status === "idle" ? state.gpsQuality : null);
 
   /**
    * A signal that's merely weak for a few seconds is normal (tree cover, a
@@ -1623,12 +1621,9 @@ export default function RunPage() {
         <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
           <div className="mx-auto w-full max-w-sm space-y-6">
             <div>
-              <div className="flex items-center justify-between gap-3">
-                <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
-                  Preparar corrida
-                </h1>
-                <IdleGpsStatus quality={state.gpsQuality} />
-              </div>
+              <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
+                Preparar corrida
+              </h1>
               <p className="mt-1 text-sm text-muted">
                 A tela precisa ficar ligada durante o treino para o GPS se manter preciso. Se possível,
                 deixe o tempo até bloquear a tela no máximo antes de sair —{" "}
