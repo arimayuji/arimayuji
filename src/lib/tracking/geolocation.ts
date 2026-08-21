@@ -109,6 +109,7 @@ let activeBackend: "background" | "foreground" | null = null;
 
 /** Starts a watch. Any previous watch is left alone — callers already only ever call this once at a time. */
 export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoError) => void): void {
+  console.trace("[diag] beginGeoWatch() called");
   if (isNativePlatform()) {
     activeBackend = "background";
     watchStartPromise = BackgroundGeolocation.start(
@@ -240,6 +241,12 @@ export function endLiveActivity(content: LiveActivityContent): void {
 }
 
 export function endGeoWatch(): void {
+  // Temporary diagnostic (2026-08-21): logcat showed BackgroundGeolocation
+  // stop()+start() firing twice back-to-back, ~20ms apart, with no alert()
+  // or user interaction anywhere near that window — something in JS is
+  // calling this. console.trace's stack (visible in `adb logcat` under
+  // "Capacitor/Console") names the exact caller instead of guessing further.
+  console.trace(`[diag] endGeoWatch() called, watchStartPromise=${watchStartPromise !== null}`);
   if (watchStartPromise === null) return;
   const pending = watchStartPromise;
   const backend = activeBackend;

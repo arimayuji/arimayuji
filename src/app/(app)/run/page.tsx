@@ -1090,8 +1090,12 @@ export default function RunPage() {
    */
   useEffect(() => {
     if (state.status !== "idle" || recoverableRun) return;
+    console.trace(`[diag] idle-prewarm effect running, status=${state.status}`);
     prewarm();
-    return () => cancelPrewarm();
+    return () => {
+      console.trace(`[diag] idle-prewarm effect CLEANUP firing (status was ${state.status})`);
+      cancelPrewarm();
+    };
   }, [state.status, recoverableRun, prewarm, cancelPrewarm]);
 
   /** Same re-fetch-on-return-to-idle reasoning as the effect above — a coach accepted mid-session should be pickable for the very next run. */
@@ -1396,6 +1400,7 @@ export default function RunPage() {
 
   const handleStart = () => {
     logDiag("handleStart() entered");
+    console.trace("[diag] handleStart() entered");
     setManualTracks([]);
     setMusicQuery("");
     setMusicResults(null);
@@ -1416,6 +1421,7 @@ export default function RunPage() {
   /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
   const handleStartClick = () => {
     logDiag("handleStartClick fired");
+    console.trace("[diag] handleStartClick() fired");
     setStarting(true);
     window.setTimeout(() => {
       logDiag(`animation timeout fired, hasSeenRunTips=${hasSeenRunTips()}`);
@@ -1453,6 +1459,7 @@ export default function RunPage() {
   };
 
   const handleReset = () => {
+    console.trace("[diag] handleReset() called");
     setSelectedGhostId(null);
     setActiveGhost(null);
     setManualTracks([]);

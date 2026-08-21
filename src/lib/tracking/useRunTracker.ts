@@ -204,6 +204,7 @@ export function useRunTracker() {
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearWatch = useCallback(() => {
+    console.trace("[diag] useRunTracker.clearWatch() called");
     endGeoWatch();
   }, []);
 
@@ -592,6 +593,7 @@ export function useRunTracker() {
   }, []);
 
   const beginWatch = useCallback(() => {
+    console.trace("[diag] useRunTracker.beginWatch() called");
     beginGeoWatch(handleFix, handleError);
   }, [handleError, handleFix]);
 
@@ -617,6 +619,7 @@ export function useRunTracker() {
    * real run has taken over the watch.
    */
   const prewarm = useCallback(() => {
+    console.trace(`[diag] useRunTracker.prewarm() called, prewarmingRef=${prewarmingRef.current}`);
     if (prewarmingRef.current) return;
     if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) return;
     prewarmingRef.current = true;
@@ -625,6 +628,7 @@ export function useRunTracker() {
 
   /** Stops a prewarm watch that never turned into a real run — e.g. the athlete backed out of Preparar Corrida. Harmless no-op once `start()` has taken ownership (see `prewarmingRef`). */
   const cancelPrewarm = useCallback(() => {
+    console.trace(`[diag] useRunTracker.cancelPrewarm() called, prewarmingRef=${prewarmingRef.current}`);
     if (!prewarmingRef.current) return;
     prewarmingRef.current = false;
     clearWatch();
@@ -643,6 +647,7 @@ export function useRunTracker() {
       // from — same reasoning `handleError` already applies to GPS errors
       // reported through the watch itself.
       logDiag("useRunTracker.start() called");
+      console.trace("[diag] useRunTracker.start() called");
       try {
         if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
           logDiag("start() early-return: geolocation unsupported branch");
@@ -815,6 +820,7 @@ export function useRunTracker() {
   );
 
   const pause = useCallback(() => {
+    console.trace("[diag] useRunTracker.pause() called");
     clearWatch();
     stopTicking();
     void wakeLockRef.current.release();
@@ -840,6 +846,7 @@ export function useRunTracker() {
   }, []);
 
   const resume = useCallback(() => {
+    console.trace("[diag] useRunTracker.resume() called");
     if (pauseStartedAtRef.current !== null) {
       pausedAccumMsRef.current += Date.now() - pauseStartedAtRef.current;
       pauseStartedAtRef.current = null;
@@ -858,6 +865,7 @@ export function useRunTracker() {
 
   const finish = useCallback(
     (extra?: { tracks?: RunTrack[]; shoeName?: string }) => {
+      console.trace("[diag] useRunTracker.finish() called");
       clearWatch();
       stopTicking();
       void wakeLockRef.current.release();
@@ -929,6 +937,7 @@ export function useRunTracker() {
   );
 
   const reset = useCallback(() => {
+    console.trace("[diag] useRunTracker.reset() called");
     // Same teardown `finish()` does, and for the same reason: without it, a
     // "Cancelar" tap during "warming" (or "descartar corrida" during
     // "tracking"/"paused") left the GPS watch running with nowhere for its
