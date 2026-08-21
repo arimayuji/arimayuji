@@ -33,7 +33,8 @@ import {
 } from "./geolocation";
 import { isNativePlatform } from "../platform";
 import { projectRoute } from "./routeProjection";
-import { speak, unlockSpeech } from "./speech";
+import { unlockSpeech } from "./speech";
+import { announceDistancePace, unlockVoiceBank } from "./voiceBank";
 import { WakeLockController } from "./wakeLock";
 import {
   clearActiveRun,
@@ -514,11 +515,10 @@ export function useRunTracker() {
         const splitDistance = distanceRef.current - lastAnnounceDistanceRef.current;
         const splitSeconds = (timestamp - lastAnnounceTimeRef.current) / 1000;
         const splitPaceSecPerKm = splitSeconds > 0 ? (splitSeconds / splitDistance) * 1000 : null;
-        const km = distanceRef.current / 1000;
         if (splitPaceSecPerKm) {
           const m = Math.floor(splitPaceSecPerKm / 60);
           const s = Math.round(splitPaceSecPerKm % 60);
-          speak(`${km.toFixed(1)} quilômetros. Pace ${m} e ${s.toString().padStart(2, "0")}.`);
+          announceDistancePace(distanceRef.current, m, s);
         }
         lastAnnounceDistanceRef.current = distanceRef.current;
         lastAnnounceTimeRef.current = timestamp;
@@ -640,6 +640,7 @@ export function useRunTracker() {
         }
 
         unlockSpeech(); // must run synchronously inside this user-gesture handler for iOS
+        unlockVoiceBank();
 
         // A prewarm watch already flowing fixes hands straight over to the
         // real run instead of being torn down and restarted — the whole
@@ -739,6 +740,7 @@ export function useRunTracker() {
       }
 
       unlockSpeech();
+      unlockVoiceBank();
 
       runIdRef.current = snapshot.id;
       warmupCountRef.current = 0;

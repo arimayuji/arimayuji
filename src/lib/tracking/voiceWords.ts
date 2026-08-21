@@ -26,6 +26,7 @@ const TEENS: Record<number, string> = {
 };
 
 const TENS: Record<number, string> = {
+  20: "vinte",
   30: "trinta",
   40: "quarenta",
   50: "cinquenta",
