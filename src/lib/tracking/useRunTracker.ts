@@ -272,6 +272,7 @@ export function useRunTracker() {
       const timestamp = fix.timestamp;
 
       const quality: GpsQuality = accuracy <= 10 ? "good" : accuracy <= 25 ? "weak" : "searching";
+      logDiag(`handleFix called, accuracy=${accuracy}, quality=${quality}`);
       setState((s) => (s.gpsQuality === quality ? s : { ...s, gpsQuality: quality }));
 
       if (!isFixUsable(accuracy)) return;
