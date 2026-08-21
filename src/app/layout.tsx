@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Oswald, Rajdhani } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { GlobalErrorAlert } from "./global-error-alert";
 import { OAuthCallbackListener } from "./oauth-callback-listener";
 import { ServiceWorkerRegistration } from "./service-worker-registration";
 import { Splash } from "./splash";
@@ -87,6 +88,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <ThemeSync />
+        <GlobalErrorAlert />
         <Splash />
         {children}
         <ServiceWorkerRegistration />
