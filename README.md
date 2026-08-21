@@ -118,6 +118,26 @@ cada upload novo da mesma versão. O Team ID (`6YJ97VWT8V`) tá fixo direto
 no workflow — não é secreto, é o mesmo prefixo que já aparece em qualquer
 provisioning profile da conta.
 
+**Submeter pro Beta App Review (External Testing)**: deliberadamente
+separado do upload — toda push em `main` já sobe pro TestFlight sozinha,
+mas submeter esse build pra revisão externa da Apple é uma decisão à
+parte (cada submissão consome uma revisão de verdade, com risco de
+rejeição por nota "o que testar" genérica se isso virasse automático a
+cada commit). Pra disparar:
+
+```
+git checkout testflight
+git merge main
+git push
+```
+
+Isso roda `scripts/ci/submit-testflight-review.mjs` (job `submit_for_review`
+em `ios-build.yml`): espera o build mais recente terminar de processar no
+App Store Connect, adiciona ao grupo externo "Beta" e submete pra revisão
+— usando as mesmas três secrets `APP_STORE_CONNECT_*` de cima, via a App
+Store Connect API (JWT assinado ES256). Não builda nada de novo, só age
+sobre o build que `main` já subiu.
+
 ## Prontidão pra revisão das lojas
 
 **Sign in with Apple** (`src/lib/auth.ts`): obrigatório pela guideline 4.8
