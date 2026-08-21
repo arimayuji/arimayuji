@@ -753,6 +753,20 @@ export function RunDetail({ id }: { id: string }) {
           </Card>
         )}
 
+        <Card className="pr-enter" style={delay(175)}>
+          <CardTitle>Vídeo sincronizado</CardTitle>
+          <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+            Gravou essa corrida por fora (óculos, câmera no peito)? Sobrepõe ritmo, distância e tempo
+            em cima do vídeo, sincronizado com o que o GPS registrou.
+          </p>
+          <Link
+            href={`/historico/video?run=${run.id}`}
+            className="flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-semibold hover:border-accent"
+          >
+            Sincronizar vídeo
+          </Link>
+        </Card>
+
         <Card className="pr-enter" style={delay(180)}>
           {confirmingDelete ? (
             <div className="flex items-center justify-between gap-3">

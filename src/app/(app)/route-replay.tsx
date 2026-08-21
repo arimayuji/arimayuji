@@ -66,7 +66,8 @@ function CollapseIcon() {
   );
 }
 
-function Readout({ label, value, unit }: { label: string; value: string; unit?: string }) {
+/** Exported for `historico/video/page.tsx`'s external-video HUD — same label/value look, just fed by a video's own playback clock instead of this replay's synthetic one. */
+export function Readout({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
     <div className="min-w-0">
       <span className="block text-[9px] uppercase tracking-[0.12em] text-white/55">{label}</span>
