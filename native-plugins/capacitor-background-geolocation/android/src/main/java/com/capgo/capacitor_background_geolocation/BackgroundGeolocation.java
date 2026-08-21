@@ -337,13 +337,27 @@ public class BackgroundGeolocation extends Plugin {
         }
     }
 
+    // Xanthus fork: stop() used to null serviceConnectionFuture only inside the
+    // thenAccept() callback below — i.e. only once bindService()'s own async
+    // connect/disconnect round-trip finished. start()'s own guard
+    // (serviceConnectionFuture != null -> reject ALREADY_STARTED) checks the
+    // field synchronously, so a start() issued while a stop() was still
+    // mid-teardown saw a stale non-null value and rejected a perfectly legal
+    // restart — reproducible just by pausing and quickly resuming a run, or
+    // finishing one and opening /run again a moment later. Capturing the old
+    // future locally and nulling the field immediately (before the async
+    // unbind even begins) closes that window: a concurrent start() sees null
+    // right away, while the captured future still finishes its own teardown
+    // independently.
     @PluginMethod
     public void stop(PluginCall call) {
         if (serviceConnectionFuture == null) {
             call.resolve();
             return;
         }
-        getServiceConnection()
+        CompletableFuture<BackgroundGeolocationService.LocalBinder> connectionToStop = serviceConnectionFuture;
+        serviceConnectionFuture = null;
+        connectionToStop
             .thenAccept((service) -> {
                 var callbackId = service.stop();
                 PluginCall savedCall = getBridge().getSavedCall(callbackId);
@@ -351,7 +365,6 @@ public class BackgroundGeolocation extends Plugin {
                     savedCall.release(getBridge());
                 }
                 call.resolve();
-                serviceConnectionFuture = null;
             })
             .exceptionally((throwable) -> {
                 call.reject("Service connection failed: " + throwable.getMessage());
