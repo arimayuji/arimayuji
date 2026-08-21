@@ -153,6 +153,12 @@ jobs:
             exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > /tmp/xanthus-release.keystore
+          # Diagnostic only, temporary: confirms the decoded keystore is
+          # readable and that the "xanthus" alias genuinely exists in it —
+          # rules out a bad secret / alias mismatch as the reason the .aab
+          # keeps coming out of bundleRelease unsigned despite no build
+          # error. Safe to remove once that's root-caused.
+          keytool -list -keystore /tmp/xanthus-release.keystore -storepass "$ANDROID_RELEASE_KEYSTORE_PASSWORD" || true
           # `export` here only lasts for this step's own shell process — it
           # does NOT carry over to the later "Build signed release AAB" step
           # (each `run:` block is a fresh shell). Writing to $GITHUB_ENV is
