@@ -850,25 +850,29 @@ export default function RunPage() {
     useRunTracker();
 
   // Temporary diagnostic (2026-08-21): pinpoints where "Iniciar corrida"
-  // stalls — alerts on every status change and on the click handler's key
-  // checkpoints, so each step of the flow is directly visible even on a
-  // device with no remote devtools. Remove once the native "nothing
-  // happens" report is root-caused.
+  // stalls — logs every status change and the click handler's key
+  // checkpoints to the persistent trail (src/lib/tracking/diagLog.ts), so
+  // each step of the flow is visible even on a device with no remote
+  // devtools. Logs only, no alert() — a blocking native dialog here was
+  // itself queuing up the athlete's frustrated taps on whatever was
+  // underneath (e.g. "Cancelar") and replaying them the instant the dialog
+  // closed, which explains at least some of the "screen resets on its own"
+  // reports. Remove once the native "nothing happens" report is root-caused.
   useEffect(() => {
-    alert(`[diag] status -> ${state.status} (hasSeenRunTips=${hasSeenRunTips()})`);
+    logDiag(`status -> ${state.status} (hasSeenRunTips=${hasSeenRunTips()})`);
   }, [state.status]);
   // Runs once, on the very first mount of this screen — drains whatever
   // breadcrumb trail the *previous* attempt left in localStorage before
-  // this component (re)mounted. alert()s placed inline in the click
-  // handler weren't reliably showing up, and the leading hypothesis is the
-  // WebView/Activity getting torn down mid-click (e.g. by the native
-  // permission flow) before an in-memory alert() can render — localStorage
-  // survives that, so this is what finally shows how far the *last*
-  // attempt actually got.
+  // this component (re)mounted, straight to console.log instead of an
+  // alert(): a blocking dialog here queues up whatever taps the athlete
+  // makes on the screen underneath while it's up, which then all replay the
+  // instant it closes — a real, self-inflicted cause of at least some of
+  // the "screen resets on its own" reports. console.log shows up in
+  // `adb logcat` (tag "Capacitor/Console") without blocking anything.
   useEffect(() => {
     const trail = drainDiagTrail();
     if (trail.length > 0) {
-      alert(`[diag trail from previous attempt]\n${trail.join("\n")}`);
+      console.log(`[diag trail from previous attempt]\n${trail.join("\n")}`);
     }
   }, []);
   const [discarding, setDiscarding] = useState(false);
@@ -1412,11 +1416,9 @@ export default function RunPage() {
   /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
   const handleStartClick = () => {
     logDiag("handleStartClick fired");
-    alert("[diag] handleStartClick fired");
     setStarting(true);
     window.setTimeout(() => {
       logDiag(`animation timeout fired, hasSeenRunTips=${hasSeenRunTips()}`);
-      alert(`[diag] animation timeout fired, hasSeenRunTips=${hasSeenRunTips()}`);
       if (hasSeenRunTips()) {
         logDiag("calling handleStart() (tips already seen)");
         handleStart();

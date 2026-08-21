@@ -4,22 +4,26 @@ import { useEffect } from "react";
 import { logDiag } from "@/lib/tracking/diagLog";
 
 /**
- * Temporary diagnostic: shows any uncaught error or unhandled promise
- * rejection as a plain alert(), app-wide. Installed while debugging the
- * "Iniciar corrida faz nada" report on the native Android build, where
- * there's no remote devtools access — alert() blocks and is impossible to
- * miss, unlike console.error which needs USB debugging to see. Remove once
- * that's root-caused; this is not meant to ship long-term.
+ * Temporary diagnostic: logs any uncaught error or unhandled promise
+ * rejection, app-wide. Installed while debugging the "Iniciar corrida faz
+ * nada" report on the native Android build. Originally used alert() (no
+ * remote devtools access at the time), but a blocking native dialog queues
+ * up whatever taps land on the screen underneath while it's up and replays
+ * them all the instant it closes — a real, self-inflicted cause of some of
+ * the "screen resets on its own" reports. Now that `adb logcat` access is
+ * available, console.error (tag "Capacitor/Console") shows the same thing
+ * without that side effect. Remove once root-caused; not meant to ship
+ * long-term.
  */
 export function GlobalErrorAlert() {
   useEffect(() => {
     const onError = (event: ErrorEvent) => {
-      alert(`Erro: ${event.message}\n${event.error?.stack ?? ""}`);
+      console.error(`[diag] Erro: ${event.message}\n${event.error?.stack ?? ""}`);
     };
     const onRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
       const message = reason instanceof Error ? `${reason.message}\n${reason.stack ?? ""}` : String(reason);
-      alert(`Promise rejeitada: ${message}`);
+      console.error(`[diag] Promise rejeitada: ${message}`);
     };
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);

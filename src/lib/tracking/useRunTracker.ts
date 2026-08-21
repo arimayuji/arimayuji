@@ -733,8 +733,11 @@ export function useRunTracker() {
         logDiag(`start() THREW: ${message}`);
         // start() throwing leaves `status` at "idle" — the mount-time trail
         // drain (run/page.tsx) won't fire again without a remount, so this
-        // is shown immediately, in the same tick, instead of waiting on that.
-        alert(`[diag trail] start() threw:\n${drainDiagTrail().join("\n")}`);
+        // is logged immediately, in the same tick, instead of waiting on
+        // that. console.log, not alert(): a blocking dialog here queues up
+        // whatever taps land on the screen underneath while it's up, and
+        // replays them all the instant it closes.
+        console.log(`[diag trail] start() threw:\n${drainDiagTrail().join("\n")}`);
         console.error("[run] start() threw", err);
         setState((s) => ({
           ...s,
