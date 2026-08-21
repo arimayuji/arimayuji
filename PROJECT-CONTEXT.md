@@ -53,12 +53,13 @@ no histórico de tasks — mesmo projeto).
   a própria mensagem da Apple diz que reseta em ~1 dia. Enquanto isso, todo
   push novo vai continuar mostrando esse job vermelho no Actions — Android e
   o deploy web (Cloudflare) não são afetados, seguem normais.
-- **Google Play Developer**: conta criada, mas a **verificação ainda não foi
-  concluída**. Até isso fechar, a distribuição Android é só via APK direto
-  (sideload, link acima) — o fluxo de publicação real na Play Store (`.aab`
-  assinado, track "internal" do Play Console) já está todo documentado e
-  pronto no `README.md`, só falta a conta terminar de verificar e o secret
-  `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` ser configurado.
+- **Google Play Developer**: conta **verificada e aprovada em 2026-08-21**
+  (era o único bloqueio pra publicação de verdade na Play Store). Falta só
+  configurar o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no repo — o fluxo
+  de publicação (`.aab` assinado, track "internal" do Play Console) já
+  está todo documentado e pronto no `README.md`. Distribuição Android
+  continua por APK direto (sideload, link acima) até esse secret ser
+  configurado e o primeiro upload pro Play Console acontecer.
 
 ## Onde cada plataforma está no funil de lançamento
 
@@ -276,8 +277,10 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 
 ## Perguntas em aberto (preencher quando puder)
 
-- [ ] A conta de desenvolvedor do Google Play já terminou a verificação?
-      Se sim, falta só configurar o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
+- [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
+      verificada. Falta só configurar o secret
+      `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` e fazer o primeiro upload pro
+      Play Console (fluxo já documentado no `README.md`).
 - [x] **2026-08-19: decidido** — próximo passo do iOS não é revisão completa
       da App Store, é abrir **TestFlight External Testing** (grupo +
       Beta App Review, mais leve que revisão completa) pra poder gerar um
