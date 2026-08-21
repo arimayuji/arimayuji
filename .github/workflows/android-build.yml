@@ -153,6 +153,19 @@ jobs:
             exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > /tmp/xanthus-release.keystore
+          # `export` here only lasts for this step's own shell process — it
+          # does NOT carry over to the later "Build signed release AAB" step
+          # (each `run:` block is a fresh shell). Writing to $GITHUB_ENV is
+          # what actually persists these for the rest of the job; without
+          # this, bundleRelease silently falls back to build.gradle's
+          # unsigned branch (hasReleaseSigning = false) and produces an
+          # .aab that Google Play then rejects with "todos os pacotes
+          # enviados precisam ser assinados" — no build failure, no warning.
+          {
+            echo "ANDROID_RELEASE_KEYSTORE_PATH=/tmp/xanthus-release.keystore"
+            echo "ANDROID_RELEASE_KEY_ALIAS=xanthus"
+            echo "ANDROID_RELEASE_KEY_PASSWORD=$ANDROID_RELEASE_KEYSTORE_PASSWORD"
+          } >> "$GITHUB_ENV"
           export ANDROID_RELEASE_KEYSTORE_PATH=/tmp/xanthus-release.keystore
           export ANDROID_RELEASE_KEY_ALIAS=xanthus
           export ANDROID_RELEASE_KEY_PASSWORD="$ANDROID_RELEASE_KEYSTORE_PASSWORD"
@@ -175,6 +188,26 @@ jobs:
         if: steps.release_signing.outputs.signed == 'true'
         working-directory: android
         run: ./gradlew bundleRelease --no-daemon
+
+      # bundleRelease's own signReleaseBundle task runs with the exact same
+      # signingConfig that correctly signs the APK above (confirmed via the
+      # decoded keystore having a valid PKCS12 entry under the "xanthus"
+      # alias) and reports BUILD SUCCESSFUL, but the .aab it produces has no
+      # embedded signature at all — verified with Google's own bundletool
+      # (`build-apks` without --ks falls back to a debug keystore, meaning
+      # it found nothing to use), not just jarsigner. Root cause not
+      # pinned down; jar-signing the .aab explicitly here is the documented
+      # workaround for this exact AGP symptom and doesn't depend on
+      # understanding why bundleRelease itself won't do it.
+      - name: Jar-sign the AAB (bundleRelease produces an unsigned one)
+        if: steps.release_signing.outputs.signed == 'true'
+        run: |
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore "$ANDROID_RELEASE_KEYSTORE_PATH" \
+            -storepass "$ANDROID_RELEASE_KEY_PASSWORD" \
+            android/app/build/outputs/bundle/release/app-release.aab \
+            "$ANDROID_RELEASE_KEY_ALIAS"
+          jarsigner -verify android/app/build/outputs/bundle/release/app-release.aab
 
       # Google Play requires the very first release to be uploaded by hand
       # through the Play Console (the API only publishes new versions of an

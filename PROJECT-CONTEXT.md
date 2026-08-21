@@ -53,13 +53,46 @@ no histórico de tasks — mesmo projeto).
   a própria mensagem da Apple diz que reseta em ~1 dia. Enquanto isso, todo
   push novo vai continuar mostrando esse job vermelho no Actions — Android e
   o deploy web (Cloudflare) não são afetados, seguem normais.
-- **Google Play Developer**: conta **verificada e aprovada em 2026-08-21**
-  (era o único bloqueio pra publicação de verdade na Play Store). Falta só
-  configurar o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no repo — o fluxo
-  de publicação (`.aab` assinado, track "internal" do Play Console) já
-  está todo documentado e pronto no `README.md`. Distribuição Android
-  continua por APK direto (sideload, link acima) até esse secret ser
-  configurado e o primeiro upload pro Play Console acontecer.
+- **Google Play Developer**: conta **verificada e aprovada em 2026-08-21**.
+  **Primeiro upload manual feito em 2026-08-21** — ficha do app "Xanthus"
+  (`com.xanthus.app`) criada no Play Console, `.aab` publicado na faixa
+  **Teste interno**. Falta configurar o secret
+  `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no repo (conta de serviço
+  `xanthus-play-publisher@deft-chariot-496320-v9.iam.gserviceaccount.com`
+  já criada no Google Cloud, falta só convidar no Play Console com
+  permissão de "Editar e publicar versões" e colar o JSON no secret) pra
+  os próximos uploads saírem automáticos a cada push em `main` — o fluxo
+  já está documentado no `README.md`. Distribuição Android pro público
+  geral continua por APK direto (sideload, link acima) até isso avançar
+  pra teste fechado/produção.
+  **Bug real achado nessa primeira tentativa de upload**: `gradlew
+  bundleRelease` builda com sucesso e sem nenhum warning, mas o `.aab`
+  saía **sem nenhuma assinatura jar embutida** mesmo com
+  `signingConfigs.release` corretamente configurado (confirmado: o mesmo
+  signingConfig assina o `.apk` perfeitamente via `assembleRelease`, e o
+  keystore/alias decodificados no CI são válidos — `keytool -list`
+  confirmou 1 entry PKCS12 sob o alias `xanthus`). Play Console rejeitava
+  com `"todos os pacotes enviados precisam ser assinados"`. Duas causas
+  raiz diferentes, corrigidas em sequência:
+  1. `export FOO=bar` num step do `android-build.yml` só dura o processo
+     de shell daquele step — não propaga pro step seguinte (só
+     `$GITHUB_ENV` propaga). O `gradlew bundleRelease` (step separado do
+     `assembleRelease`) rodava sem as env vars da keystore, caindo no
+     branch "sem assinatura" que o `build.gradle` já trata sem erro.
+  2. Mesmo depois de corrigir isso — e confirmado via log do CI que as
+     env vars chegavam certinho no processo do `bundleRelease` — a task
+     `signReleaseBundle` da Android Gradle Plugin (8.13.0) continuava
+     produzindo um `.aab` sem assinatura, sem warning nenhum. Causa raiz
+     do lado da AGP não identificada (`enableV1Signing`/V2/V3 explícitos
+     no signingConfig não mudaram nada). Workaround aplicado: assinar o
+     `.aab` manualmente com `jarsigner` logo depois do `bundleRelease`,
+     reusando a mesma keystore/senha — confirmado funcionando (upload no
+     Play Console passou, só com avisos genéricos, sem erro de
+     assinatura). Ferramenta certa pra verificar isso é `jarsigner
+     -verify` ou o `bundletool` do Google com `--ks` explícito — rodar
+     `bundletool build-apks` **sem** `--ks` sempre cai pro keystore de
+     debug, então isso NÃO serve como teste de "o .aab tem assinatura
+     própria" (armadilha em que caí investigando isso).
 
 ## Onde cada plataforma está no funil de lançamento
 
@@ -71,10 +104,13 @@ uma opção escondendo as outras:
 2. **Android** — botão "Baixar APK", direto pro link fixo do Cloudflare.
    App instalado de verdade, GPS não pausa com tela travada.
 3. **iPhone** — **sem botão de download**, só um badge "Em teste fechado".
-   Hoje só quem já foi convidado pro **TestFlight Internal Testing**
-   consegue instalar. **Ainda não foi submetido pra revisão da App Store**
-   nem aberto External Testing — é upload automático pro TestFlight a cada
-   push, promoção pra teste/produção continua manual.
+   Convidados do TestFlight Internal Testing já conseguem instalar. O
+   **External Testing foi submetido pra Beta App Review em 2026-08-21**
+   (build 107, grupo "Beta") — o link público
+   (`https://testflight.apple.com/join/RMqtChWj`) só libera instalação de
+   verdade depois que a Apple aprovar; até lá continua "em teste fechado"
+   de fato. Upload automático pro TestFlight a cada push continua normal;
+   promoção pra produção continua sem prazo definido.
 
 ## OAuth / Login social
 
@@ -281,14 +317,20 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       verificada. Falta só configurar o secret
       `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` e fazer o primeiro upload pro
       Play Console (fluxo já documentado no `README.md`).
-- [x] **2026-08-19: decidido** — próximo passo do iOS não é revisão completa
-      da App Store, é abrir **TestFlight External Testing** (grupo +
-      Beta App Review, mais leve que revisão completa) pra poder gerar um
-      **link público** e colocar na bio do Instagram — Internal Testing não
-      serve pra isso porque só aceita quem já é usuário do time na conta de
-      dev, sem link compartilhável. Ainda não submetido; ver checklist na
-      sessão que fez essa pesquisa. Revisão completa da App Store (produção)
-      continua sem prazo definido.
+- [x] **2026-08-19: decidido, 2026-08-21: executado** — TestFlight External
+      Testing. Grupo "Beta" já existia no App Store Connect com link público
+      pronto (`https://testflight.apple.com/join/RMqtChWj`), mas sem nenhum
+      build associado (0 builds). Adicionado o build 107 ao grupo, preenchido
+      "What to Test" e **submetido pra Beta App Review em 2026-08-21** —
+      aguardando aprovação da Apple (geralmente horas a 1-2 dias). **O link
+      público só libera instalação de verdade depois que esse build for
+      aprovado** — até lá, ele existe mas não deixa ninguém entrar. Não
+      colocar na bio do Instagram antes da aprovação. Revisão de build
+      externo é por build, não por grupo: depois de aprovado, dá pra
+      adicionar/remover testadores e até criar grupos novos com esse mesmo
+      build sem precisar de nova revisão — só builds novos exigem revisão de
+      novo. Revisão completa da App Store (produção) continua sem prazo
+      definido.
 - [ ] A corrida compartilhada / modo treinador tem trabalho combinado que
       ainda não está no código (além do que já está listado acima)?
 - [ ] Alguma decisão de produto/negócio recente que vale registrar aqui

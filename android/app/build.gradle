@@ -48,6 +48,16 @@ android {
                 storePassword releaseStorePassword
                 keyAlias releaseKeyAlias
                 keyPassword releaseKeyPassword
+                // Bundles need the classic jar-signing (v1) scheme — Play
+                // Console rejects an .aab that only carries v2/v3 signing
+                // info, and relying on AGP's default for this has proven
+                // unreliable (a bundleRelease run with this signingConfig
+                // wired up produced an .aab with no signature at all,
+                // silently, no build error). Being explicit here is the
+                // one variable this can still rule out.
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
             }
         }
     }
