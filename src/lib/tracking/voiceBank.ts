@@ -29,7 +29,7 @@ export function isVoiceBankSupported(): boolean {
 
 export function unlockVoiceBank(): void {
   if (!isVoiceBankSupported()) return;
-  const el = getClip("e"); // shortest clip, just needs one real play() call
+  const el = getClip("e--internal"); // shortest clip, just needs one real play() call
   el.volume = 0;
   el.play()
     .catch(() => {})

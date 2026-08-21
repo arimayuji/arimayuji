@@ -1,20 +1,22 @@
 /**
  * One-time (re-runnable) generation script: renders every clip in
- * VOICE_BANK_SLUGS (src/lib/tracking/voiceWords.ts) through ElevenLabs TTS
- * using a fixed library voice, and saves them as static mp3s under
+ * VOICE_BANK (src/lib/tracking/voiceWords.ts) through ElevenLabs TTS,
+ * using a fixed library voice and each entry's own previous/next-text
+ * context, and saves them as static mp3s under
  * public/audio/voice/. Run with `npm run voice:generate` after putting
  * ELEVENLABS_API_KEY in .env.local — that key is never committed and never
  * read by the app itself (this script lives outside src/, uses plain
  * fetch against the REST API, no SDK).
  *
  * Idempotent: skips any slug whose mp3 already exists, so re-running after
- * adding a new word only pays for what's missing. Delete a file to force
- * a re-render of just that clip (e.g. after tweaking voice settings).
+ * adding a new word (or after a previous run got cut off partway through,
+ * e.g. by hitting the account's ElevenLabs quota) only pays for what's
+ * missing. Delete a file to force a re-render of just that clip.
  */
 import { mkdirSync, existsSync, writeFileSync, readFileSync, renameSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { WORD_BANK, VOICE_BANK_SLUGS } from "../src/lib/tracking/voiceWords";
+import { VOICE_BANK } from "../src/lib/tracking/voiceWords";
 
 const VOICE_ID = "9LwXyqQB0mUwtLRsS227"; // "Bianca" — PT-verified, professional
 const OUT_DIR = new URL("../public/audio/voice/", import.meta.url);
@@ -37,7 +39,12 @@ function loadEnvLocal(): void {
   }
 }
 
-async function generateClip(text: string, apiKey: string): Promise<ArrayBuffer> {
+async function generateClip(
+  text: string,
+  previousText: string | null,
+  nextText: string | null,
+  apiKey: string,
+): Promise<ArrayBuffer> {
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
     method: "POST",
     headers: {
@@ -47,6 +54,12 @@ async function generateClip(text: string, apiKey: string): Promise<ArrayBuffer> 
     },
     body: JSON.stringify({
       text,
+      // Renders this clip as if it sits mid-phrase between these two
+      // neighbors instead of as its own complete sentence — see the
+      // module doc comment in voiceWords.ts for why every clip now needs
+      // this instead of one universal render per word.
+      previous_text: previousText ?? undefined,
+      next_text: nextText ?? undefined,
       model_id: "eleven_multilingual_v2",
       voice_settings: { stability: 0.5, similarity_boost: 0.75 },
     }),
@@ -136,15 +149,14 @@ async function main(): Promise<void> {
 
   let generated = 0;
   let skipped = 0;
-  for (const slug of VOICE_BANK_SLUGS) {
-    const outPath = new URL(`${slug}.mp3`, OUT_DIR);
+  for (const entry of VOICE_BANK) {
+    const outPath = new URL(`${entry.slug}.mp3`, OUT_DIR);
     if (existsSync(outPath)) {
       skipped++;
       continue;
     }
-    const text = WORD_BANK[slug];
-    console.log(`generating "${slug}" ("${text}")...`);
-    const audio = await generateClip(text, apiKey);
+    console.log(`generating "${entry.slug}" ("${entry.text}", prev=${entry.previousText}, next=${entry.nextText})...`);
+    const audio = await generateClip(entry.text, entry.previousText, entry.nextText, apiKey);
     writeFileSync(outPath, Buffer.from(audio));
     trimSilence(fileURLToPath(outPath));
     generated++;
@@ -152,7 +164,7 @@ async function main(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 400));
   }
 
-  console.log(`done: ${generated} generated, ${skipped} already present (${VOICE_BANK_SLUGS.length} total).`);
+  console.log(`done: ${generated} generated, ${skipped} already present (${VOICE_BANK.length} total).`);
 }
 
 main().catch((err) => {
