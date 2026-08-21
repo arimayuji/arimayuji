@@ -153,6 +153,19 @@ jobs:
             exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > /tmp/xanthus-release.keystore
+          # `export` here only lasts for this step's own shell process — it
+          # does NOT carry over to the later "Build signed release AAB" step
+          # (each `run:` block is a fresh shell). Writing to $GITHUB_ENV is
+          # what actually persists these for the rest of the job; without
+          # this, bundleRelease silently falls back to build.gradle's
+          # unsigned branch (hasReleaseSigning = false) and produces an
+          # .aab that Google Play then rejects with "todos os pacotes
+          # enviados precisam ser assinados" — no build failure, no warning.
+          {
+            echo "ANDROID_RELEASE_KEYSTORE_PATH=/tmp/xanthus-release.keystore"
+            echo "ANDROID_RELEASE_KEY_ALIAS=xanthus"
+            echo "ANDROID_RELEASE_KEY_PASSWORD=$ANDROID_RELEASE_KEYSTORE_PASSWORD"
+          } >> "$GITHUB_ENV"
           export ANDROID_RELEASE_KEYSTORE_PATH=/tmp/xanthus-release.keystore
           export ANDROID_RELEASE_KEY_ALIAS=xanthus
           export ANDROID_RELEASE_KEY_PASSWORD="$ANDROID_RELEASE_KEYSTORE_PASSWORD"
