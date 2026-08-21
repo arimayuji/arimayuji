@@ -1545,7 +1545,7 @@ export default function RunPage() {
   const immersive = state.status === "warming" || state.status === "tracking" || state.status === "paused";
 
   return (
-    <div className="flex flex-1 flex-col bg-background text-foreground">
+    <div className="flex min-h-0 flex-1 flex-col bg-background text-foreground">
       {/*
         The "← Xanthus" link is skipped in the native app: it targets "/",
         the marketing landing page, but StandaloneGate redirects any native
