@@ -1988,7 +1988,7 @@ export default function RunPage() {
           );
 
           return (
-            <main className="relative z-10 flex flex-1 flex-col px-5 pb-8">
+            <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-8">
               <div className="flex items-center justify-end">
                 <span className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-muted">
                   {laps.length} {laps.length === 1 ? "volta" : "voltas"}
