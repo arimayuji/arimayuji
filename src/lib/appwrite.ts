@@ -46,6 +46,7 @@ export const TABLES = {
   placeRatings: "place_ratings",
   placeRunStats: "place_run_stats",
   profileStats: "profile_stats",
+  weeklyStats: "weekly_stats",
   runs: "runs",
   liveRuns: "live_runs",
   runComments: "run_comments",
