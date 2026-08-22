@@ -18,15 +18,23 @@ import { EvidenceFactRow } from "../evidence-row";
 import { GoalDatePicker } from "../date-picker";
 import {
   computeCurrentPlanWeek,
+  weekAdherence,
   ZONE_LABEL,
   ZONE_NUMBER,
   type PlannedSession as EngineSession,
   type PaceZoneName,
   type PaceZones,
+  type SessionOutcome,
 } from "@/lib/plan";
 import { GOAL_DISTANCE_OPTIONS, todayIsoDate, type RunnerProfile } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
-import { estimateWeeklyKm, listCompletedRuns, listPainCheckIns, type PainCheckIn } from "@/lib/tracking/storage";
+import {
+  estimateWeeklyKm,
+  listCompletedRuns,
+  listPainCheckIns,
+  type CompletedRun,
+  type PainCheckIn,
+} from "@/lib/tracking/storage";
 import { formatPace } from "@/lib/tracking/geoFilter";
 
 /**
@@ -39,10 +47,15 @@ import { formatPace } from "@/lib/tracking/geoFilter";
  *   teaches instead of just apologizing.
  * - **Real plan**: `src/lib/plan`'s rules engine ran on real inputs — the
  *   athlete's actual recent weekly volume (from IndexedDB, never typed in)
- *   plus the goal/recent-race fields from /perfil. Recomputed on every
- *   visit from current reality, not a fixed plan cached from the day it was
- *   first generated — a light week last week lowers next week's ramp
- *   automatically, the way a coach would react to it.
+ *   plus the goal/recent-race fields from /perfil. The full shape (which
+ *   week is "week 3") is anchored to `planStartDate`, set once and never
+ *   silently reshuffled just from opening this screen again — but the
+ *   *volume* for the current week and every week after it does react to
+ *   reality: once a week fully elapses, `computeCurrentPlanWeek` swaps in
+ *   what was actually run that week and restarts the ramp from there for
+ *   everything after (see `schedule.ts`'s `reprojectFromActual`) — a light
+ *   week lowers what follows it, the way a coach would react to it, without
+ *   the plan pretending week 1 never happened every time you look at it.
  */
 
 type SessionKind = "rest" | "easy" | "hard" | "long";
@@ -53,6 +66,8 @@ interface DisplaySession {
   detail: string;
   km?: number;
   kind: SessionKind;
+  /** Undefined for the illustrative example week and for a `/run` pre-fill — only the real current week has anything to compare against a recorded run. */
+  outcome?: SessionOutcome;
 }
 
 const ICON_STROKE = {
@@ -141,7 +156,7 @@ const FEATURED_EVIDENCE_IDS = [
   "taper-2-weeks-exponential",
 ];
 
-function engineSessionToDisplay(session: EngineSession, day: string): DisplaySession {
+function engineSessionToDisplay(session: EngineSession, day: string, outcome?: SessionOutcome): DisplaySession {
   const kind: SessionKind =
     session.kind === "quality" ? "hard" : session.kind === "long" ? "long" : session.kind === "easy" ? "easy" : "rest";
   const title =
@@ -160,7 +175,25 @@ function engineSessionToDisplay(session: EngineSession, day: string): DisplaySes
         : session.kind === "quality"
           ? "O único treino forte da semana — o resto é fácil de propósito."
           : "Ritmo de conversa, sem olhar o relógio.";
-  return { day, title, detail, km: session.km > 0 ? session.km : undefined, kind };
+  return { day, title, detail, km: session.km > 0 ? session.km : undefined, kind, outcome };
+}
+
+const OUTCOME_STYLE: Record<Exclude<SessionOutcome, "rest" | "upcoming">, { label: string; className: string }> = {
+  done: { label: "feito", className: "bg-good/15 text-good" },
+  partial: { label: "parcial", className: "bg-warn/15 text-warn" },
+  skipped: { label: "pulado", className: "bg-bad/15 text-bad" },
+};
+
+/** Small checkmark/dash/x overlay on the session's kind badge — only rendered for a day that's already happened (`SessionRow` skips it for `"rest"`/`"upcoming"` itself). */
+function OutcomeBadge({ outcome }: { outcome: Exclude<SessionOutcome, "rest" | "upcoming"> }) {
+  const style = OUTCOME_STYLE[outcome];
+  return (
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wide ${style.className}`}
+    >
+      {style.label}
+    </span>
+  );
 }
 
 function SessionRow({ session, index, isLast }: { session: DisplaySession; index: number; isLast: boolean }) {
@@ -173,7 +206,12 @@ function SessionRow({ session, index, isLast }: { session: DisplaySession; index
       <div className={`min-w-0 flex-1 ${isLast ? "" : "border-b border-border pb-3"}`}>
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[11px] uppercase tracking-wide text-muted">{session.day}</span>
-          <span className={`font-mono text-[10px] uppercase tracking-wide ${style.text}`}>{style.label}</span>
+          <span className="flex items-center gap-1.5">
+            {session.outcome && session.outcome !== "rest" && session.outcome !== "upcoming" && (
+              <OutcomeBadge outcome={session.outcome} />
+            )}
+            <span className={`font-mono text-[10px] uppercase tracking-wide ${style.text}`}>{style.label}</span>
+          </span>
         </div>
         <div className="mt-0.5 flex items-baseline justify-between gap-3">
           <h3 className="text-sm font-medium">{session.title}</h3>
@@ -547,7 +585,7 @@ function GoalCard({
 
 export default function PlanoPage() {
   const [profile, updateProfile] = useRunnerProfile();
-  const [weeklyKm, setWeeklyKm] = useState<number | null>(null);
+  const [completedRuns, setCompletedRuns] = useState<CompletedRun[] | null>(null);
   const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [planRevealed, setPlanRevealed] = useState(false);
   const [showExample, setShowExample] = useState(false);
@@ -555,13 +593,14 @@ export default function PlanoPage() {
   const handleBuildSequenceDone = useCallback(() => setPlanRevealed(true), []);
 
   useEffect(() => {
-    listCompletedRuns().then((runs) => setWeeklyKm(estimateWeeklyKm(runs)));
+    listCompletedRuns().then(setCompletedRuns);
     listPainCheckIns().then(setPainCheckIns);
   }, []);
 
   const hasGoal = Boolean(profile.goalDistanceMeters && profile.goalDate);
-  const loading = weeklyKm === null;
-  const hasHistory = (weeklyKm ?? 0) > 0;
+  const loading = completedRuns === null;
+  const weeklyKm = useMemo(() => (completedRuns ? estimateWeeklyKm(completedRuns) : 0), [completedRuns]);
+  const hasHistory = weeklyKm > 0;
 
   /**
    * A goal set before `planStartDate` existed has no anchor yet —
@@ -584,11 +623,15 @@ export default function PlanoPage() {
    * today's session, so that math exists in exactly one place.
    */
   const current = useMemo(() => {
-    if (!hasGoal || !hasHistory || weeklyKm === null) return null;
-    return computeCurrentPlanWeek(profile, weeklyKm, painCheckIns);
-  }, [hasGoal, hasHistory, weeklyKm, profile, painCheckIns]);
+    if (!hasGoal || !hasHistory || !completedRuns) return null;
+    return computeCurrentPlanWeek(profile, completedRuns, painCheckIns);
+  }, [hasGoal, hasHistory, completedRuns, profile, painCheckIns]);
   const plan = current?.plan ?? null;
   const currentWeek = current?.currentWeek;
+  const adherence = useMemo(
+    () => (currentWeek && completedRuns ? weekAdherence(currentWeek, completedRuns) : null),
+    [currentWeek, completedRuns],
+  );
 
   if (loading) {
     return (
@@ -624,8 +667,9 @@ export default function PlanoPage() {
     }
 
     const displaySessions = currentWeek.sessions.map((session, i) =>
-      engineSessionToDisplay(session, DAY_NAMES[i]),
+      engineSessionToDisplay(session, DAY_NAMES[i], adherence?.[i]),
     );
+    const actualKmSoFar = current?.weeksActualKm[current.currentWeekIndex] ?? null;
     const qualityCount = currentWeek.sessions.filter((s) => s.kind === "quality").length;
     const runCount = currentWeek.sessions.filter((s) => s.km > 0).length;
 
@@ -666,11 +710,30 @@ export default function PlanoPage() {
             </Card>
           )}
 
+          {current?.wasReprojected && (
+            <Card className="pr-enter border-accent/30 bg-accent/5" style={delay(95)}>
+              <CardTitle aside={<NoticeBadge>ajustado</NoticeBadge>}>
+                Ajustamos essa semana pelo que você realmente correu
+              </CardTitle>
+              <p className="text-sm leading-relaxed text-pretty">
+                O volume da semana passada saiu diferente do planejado, então a progressão a partir
+                de agora recomeça de onde você realmente está — nunca do número que o plano só
+                previa.
+              </p>
+            </Card>
+          )}
+
           <Card className="pr-enter" style={delay(110)}>
             <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>
               Semana {currentWeek.weekNumber} — {PHASE_LABEL[currentWeek.phase]}
             </CardTitle>
             <WeekStatsRow volumeKm={currentWeek.totalKm} sessions={runCount} hard={qualityCount} />
+            {actualKmSoFar !== null && (
+              <p className="mb-4 -mt-2 text-xs leading-relaxed text-muted text-pretty">
+                Até agora você já correu <strong className="text-foreground">{actualKmSoFar} km</strong>{" "}
+                essa semana.
+              </p>
+            )}
             <ul className="flex flex-col gap-3">
               {displaySessions.map((session, index) => (
                 <SessionRow

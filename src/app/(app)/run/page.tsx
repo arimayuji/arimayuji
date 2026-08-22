@@ -33,7 +33,6 @@ import {
 import {
   clearActiveRun,
   deleteCompletedRun,
-  estimateWeeklyKm,
   listCompletedRuns,
   listPainCheckIns,
   listShoes,
@@ -882,7 +881,7 @@ export default function RunPage() {
   const [shoeName, setShoeName] = useState("");
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
-  const [weeklyKmForPlan, setWeeklyKmForPlan] = useState<number | null>(null);
+  const [completedRunsForPlan, setCompletedRunsForPlan] = useState<CompletedRun[] | null>(null);
   const [painCheckInsForPlan, setPainCheckInsForPlan] = useState<PainCheckIn[]>([]);
   const [runnerProfile] = useRunnerProfile();
   const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
@@ -1072,7 +1071,7 @@ export default function RunPage() {
       setRegisteredShoes(shoes);
       const sorted = [...runs].sort((a, b) => b.startedAt - a.startedAt);
       setRecentRuns(sorted.slice(0, RECENT_GHOST_CANDIDATES));
-      setWeeklyKmForPlan(estimateWeeklyKm(runs));
+      setCompletedRunsForPlan(runs);
       setPainCheckInsForPlan(painCheckIns);
     });
   }, [state.status]);
@@ -1144,9 +1143,9 @@ export default function RunPage() {
    * yet" — the chip below just doesn't render either way.
    */
   const todaysPlan = useMemo(() => {
-    if (weeklyKmForPlan === null) return null;
-    return computeCurrentPlanWeek(runnerProfile, weeklyKmForPlan, painCheckInsForPlan);
-  }, [runnerProfile, weeklyKmForPlan, painCheckInsForPlan]);
+    if (completedRunsForPlan === null) return null;
+    return computeCurrentPlanWeek(runnerProfile, completedRunsForPlan, painCheckInsForPlan);
+  }, [runnerProfile, completedRunsForPlan, painCheckInsForPlan]);
   const todaysSession = todaysPlan?.currentWeek.sessions[isoWeekday(new Date())];
   const todaysPlannedSession = todaysSession && todaysSession.kind !== "rest" ? todaysSession : null;
 
