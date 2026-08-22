@@ -284,8 +284,10 @@ export const FILTER_CONFIG = {
   maxPlausibleSpeedMps: 12,
   /** Below this speed we treat the athlete as stopped, to avoid stationary GPS drift inflating distance. */
   stoppedSpeedMps: 0.5,
-  /** EWMA time-constant for the "current pace" readout. 8s = responsive, 20s = very stable. */
-  speedSmoothingTauSeconds: 12,
+  /** Trailing window (ms) the live "ritmo" readout averages distance/time over — see its computation in useRunTracker.ts for why that's distance/time and not the GPS chip's own Doppler speed. Long enough to smooth ordinary per-fix position noise, short enough to still feel live. */
+  livePaceWindowMs: 20_000,
+  /** Below this much real elapsed window, the distance/time ratio is too noisy to show a number — same role `warmupFixesRequired` plays for the run's opening fixes. */
+  livePaceMinWindowSeconds: 8,
   /** How "agile" true acceleration is expected to be between fixes, m/s² std — the `Kalman2D` process noise. Tuned loose enough to track a runner's real speed changes (surges, hills) without lagging, tight enough to still reject noise. */
   accelProcessNoiseMps2: 1.2,
   /**

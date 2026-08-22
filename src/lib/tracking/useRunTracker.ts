@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Ewma,
   FILTER_CONFIG,
   Kalman2D,
   accuracyToPositionVarianceM2,
@@ -131,7 +130,12 @@ export function useRunTracker() {
   const kalmanRef = useRef<Kalman2D | null>(null);
   /** Fixed the moment the filter is (re-)seeded — every fix afterward projects into East/North metres relative to this point. */
   const originRef = useRef<LatLon | null>(null);
-  const speedEwmaRef = useRef<Ewma | null>(null);
+  /**
+   * Trailing (timestamp, cumulative-distance) samples for the live "ritmo"
+   * readout — see its computation further down for why this replaced an
+   * EWMA over the GPS chip's own Doppler-derived speed.
+   */
+  const paceWindowRef = useRef<{ t: number; d: number }[]>([]);
   /** Consecutive fixes the adaptive plausibility gate has rejected — see its use in `handleFix` for why this resets the filter instead of rejecting forever. */
   const consecutiveGateRejectionsRef = useRef(0);
 
@@ -280,7 +284,7 @@ export function useRunTracker() {
         // Warmup complete: the run clock starts now.
         originRef.current = { lat, lon };
         kalmanRef.current = new Kalman2D({ e: 0, n: 0, ve: 0, vn: 0 });
-        speedEwmaRef.current = new Ewma(FILTER_CONFIG.speedSmoothingTauSeconds);
+        paceWindowRef.current = [];
         consecutiveGateRejectionsRef.current = 0;
         lastRawRef.current = { lat, lon };
         lastFilteredRef.current = { lat, lon };
@@ -314,8 +318,7 @@ export function useRunTracker() {
         lastFilteredRef.current === null ||
         lastFixTimestampRef.current === null ||
         kalmanRef.current === null ||
-        originRef.current === null ||
-        speedEwmaRef.current === null
+        originRef.current === null
       ) {
         return; // still warming
       }
@@ -330,6 +333,11 @@ export function useRunTracker() {
         lastFixTimestampRef.current = timestamp;
         lastFixWallClockRef.current = Date.now();
         pendingDriftMetersRef.current = 0;
+        // A pause is real dead time — carrying pre-pause samples into the
+        // live-pace window would average the stopped stretch into the
+        // ritmo readout right after resuming, same wrong-number effect
+        // this window replaced the Doppler EWMA to fix in the first place.
+        paceWindowRef.current = [];
         return;
       }
 
@@ -470,21 +478,36 @@ export function useRunTracker() {
         pendingDriftMetersRef.current *= FILTER_CONFIG.fallbackStationaryDecay;
       }
 
-      // The live pace readout used to trust the chip's raw Doppler `speed`
-      // outright whenever present, bypassing the Kalman fusion that
-      // `distanceStep` above already relies on. On devices/conditions where
-      // raw Doppler speed reads persistently low while position fixes stay
-      // accurate, that shows up exactly as reported: live pace stuck ~30%
-      // slow for the whole run, only correcting in the finish-time summary
-      // — which is derived from total distance, never from this raw speed
-      // field. `kalmanSpeed` already folds the same raw Doppler reading in
-      // as one measurement (see `kalman.updateVelocity` above) but keeps it
-      // continuously corrected against position, so using it here too keeps
-      // the live number honest against the same signal the rest of the run
-      // relies on instead of an unfiltered sensor field with no fallback.
-      const v = stationary ? 0 : kalmanSpeed;
-      const vSmooth = speedEwmaRef.current.update(v, dt);
-      const currentPaceSecPerKm = vSmooth > 0.3 ? 1000 / vSmooth : null;
+      // The live pace readout used to be `1000 / EWMA(kalmanSpeed)` —
+      // `kalmanSpeed` folds in the GPS chip's own raw Doppler `speed` as a
+      // trusted velocity measurement (see `kalman.updateVelocity` above),
+      // and on devices/conditions where that raw reading runs persistently
+      // biased (not just briefly noisy), the fused estimate inherits the
+      // same bias on every fix. That showed up exactly as reported: a live
+      // "ritmo" stuck noticeably off pace for the *entire* run, while the
+      // voice announcements, the "pace do km atual" card, and the
+      // finish-time summary all agreed with each other and with Strava —
+      // because none of those three ever touch `speed`/`kalmanSpeed` at
+      // all, they're plain distance-travelled ÷ time-elapsed, same as here.
+      // Rather than trust the Doppler-informed velocity for this one
+      // readout, it now uses that same distance/time approach, just over a
+      // short trailing window instead of a whole split — smooths normal
+      // per-fix position noise without ever being able to inherit a
+      // sensor-level speed bias.
+      paceWindowRef.current.push({ t: timestamp, d: distanceRef.current });
+      const paceWindowCutoff = timestamp - FILTER_CONFIG.livePaceWindowMs;
+      while (paceWindowRef.current.length > 1 && paceWindowRef.current[0].t < paceWindowCutoff) {
+        paceWindowRef.current.shift();
+      }
+      const paceWindowStart = paceWindowRef.current[0];
+      const paceWindowSeconds = (timestamp - paceWindowStart.t) / 1000;
+      const paceWindowDistance = distanceRef.current - paceWindowStart.d;
+      const paceWindowSpeedMps = paceWindowSeconds > 0 ? paceWindowDistance / paceWindowSeconds : 0;
+      const currentPaceSecPerKm =
+        paceWindowSeconds >= FILTER_CONFIG.livePaceMinWindowSeconds &&
+        paceWindowSpeedMps > FILTER_CONFIG.stoppedSpeedMps
+          ? (paceWindowSeconds / paceWindowDistance) * 1000
+          : null;
 
       // Live pace of the km currently in progress — recomputed on every fix
       // (unlike the voice announcement below, which only fires once per
