@@ -415,6 +415,35 @@ um novo push pra `testflight` deve completar a submissão normalmente —
 não precisa de nenhuma mudança de código, só esperar o build anterior
 sair da fila.
 
+## Auditoria LGPD/segurança — status em 2026-08-22
+
+22 achados originais (2 Crítico, 6 Alto, 9 Médio, 5 Baixo). **16
+corrigidos** ao longo de duas sessões, **6 em aberto**. Detalhe completo
+achado-a-achado só existe no chat/branch, não replicado aqui — o que
+importa persistir é a ação pendente:
+
+- **3 Appwrite Functions novas criadas nesta sessão, ainda NÃO deployadas**
+  (código pronto no branch `claude/strava-competitor-feedback-cyvop8`,
+  instruções completas de deploy no `README.md`):
+  - `claim-owned-row` — só assim que ela existir e `scripts/appwrite-setup.ts`
+    rodar de novo é que fecha de vez o achado #12 (linha de perfil/stats
+    "reservável" por outra conta antes do dono real criar a sua).
+  - `revoke-coach-run-access` — Function por **evento** (não por chamada do
+    cliente), dispara sozinha quando um vínculo de treinador é desfeito.
+  - `revoke-live-audience` — Function por **evento**, dispara sozinha quando
+    alguém sai de um longão.
+  - **Enquanto as três não forem deployadas, os achados #10, #11 e #12
+    continuam de fato abertos em produção**, mesmo com o código já commitado
+    — a mitigação só vale a partir do deploy real.
+- **Em aberto, dependem só do dono do projeto em console externo**:
+  rotacionar `APPWRITE_SETUP_API_KEY` (achado #08, decidido adiar), restringir
+  a chave pública da MapTiler por domínio (achado #13).
+- **Em aberto, decisão de produto tomada, sem ação de código pendente**:
+  achado #15 (chaves Gemini/Recraft paradas) — decidido manter, vão ser
+  usadas; achado #18 (bucket de avatares público) — decidido manter, estilo
+  "Strava só que melhor/gaming" (não detalhado ainda o que isso significa
+  visualmente).
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
