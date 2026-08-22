@@ -850,10 +850,10 @@ function drawScenario(ctx: CanvasRenderingContext2D, scenario: ScenarioId) {
 
   ctx.globalAlpha = art.ridgeOpacity;
   ctx.fillStyle = art.ridgeFar;
-  ctx.fill(new Path2D(RIDGE_FAR_PATH));
+  ctx.fill(new Path2D(art.ridgeFarPath ?? RIDGE_FAR_PATH));
   ctx.globalAlpha = Math.min(1, art.ridgeOpacity + 0.1);
   ctx.fillStyle = art.ridgeNear;
-  ctx.fill(new Path2D(RIDGE_NEAR_PATH));
+  ctx.fill(new Path2D(art.ridgeNearPath ?? RIDGE_NEAR_PATH));
   ctx.globalAlpha = 1;
 
   ctx.restore();
