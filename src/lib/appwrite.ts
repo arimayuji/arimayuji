@@ -90,6 +90,16 @@ export const CLAIM_OWNED_ROW_FUNCTION_ID = "claim-owned-row";
 // "is this account a friend of the host" — no Appwrite Role expresses that.
 export const SET_PLAN_OVERRIDE_FUNCTION_ID = "set-plan-override";
 
+// Matches appwrite-functions/suggest-plan-override's Function ID — same
+// convention as DELETE_ACCOUNT_FUNCTION_ID above. Read-only (never writes a
+// plan_overrides row itself): it calls a low-cost model grounded in
+// src/lib/evidence facts plus the student's own recent shared-run volume,
+// clamps the result to the same progression safety cap
+// src/lib/plan/volumeProgression.ts enforces, and hands the suggestion back
+// for the coach to review/edit in the Fase A editor before it's ever saved
+// via SET_PLAN_OVERRIDE_FUNCTION_ID.
+export const SUGGEST_PLAN_OVERRIDE_FUNCTION_ID = "suggest-plan-override";
+
 // Matches the Storage bucket ID created in scripts/appwrite-setup.ts —
 // same fixed-ID convention as the table/function IDs above.
 export const AVATARS_BUCKET_ID = "avatars";

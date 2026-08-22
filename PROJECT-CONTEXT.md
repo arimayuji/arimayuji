@@ -530,10 +530,44 @@ dia exato em que o goal foi configurado. Sem essa correção, um override de
 treinador simplesmente nunca bateria com a semana real do aluno pra quase
 ninguém.
 
-**Fase B (não iniciada)**: Function chamando um modelo lowcost com RAG
-sobre `src/lib/evidence/facts.ts`, sugestão passando pelos limites do
-motor determinístico antes de virar override real, treinador revisando via
-a mesma tela da Fase A antes de confirmar.
+**Fase B (implementada nesta sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+ainda não deployada em produção)**:
+
+- Function `suggest-plan-override` (`appwrite-functions/suggest-plan-override/`):
+  chama Gemini Flash (`GEMINI_API_KEY`, já em `.env.local` — primeira
+  Function deste projeto que precisa de um secret externo, não só
+  `x-appwrite-key`) grounded num recorte curado de
+  `src/lib/evidence/facts.ts` (só os tópicos volume_progression/
+  periodization/taper/overtraining/injury_prevention — o resto do corpus
+  não decide nada aqui). O contexto real vem do km semanal das últimas até
+  4 semanas de corrida que o aluno já compartilhou com esse treinador
+  (`runs` table, bucketed por segunda-feira em horário de Brasília fixo —
+  sem DST desde 2019, então um offset fixo de UTC-3 é seguro). **Só
+  leitura** (`databases.read`) — nunca escreve `plan_overrides` sozinha.
+- O teto de segurança é a mesma matemática de
+  `src/lib/plan/volumeProgression.ts` (`WEEKLY_STEP`/`TWO_WEEK_CEILING`,
+  duplicada à mão no `main.js` da Function com comentário apontando de
+  volta pro original — Functions aqui não têm build step nem import
+  compartilhado com o app, mesma razão que já vale pra `facts.ts`) aplicada
+  a uma semana avulsa em vez de a uma rampa inteira: nunca mais que
+  +10%/semana nem mais que 30% acima de 2 semanas atrás. Isso é reforçado
+  **depois** da resposta do Gemini (o total sugerido é escalado pra baixo
+  se estourar), não é só instrução no prompt — defesa em profundidade.
+- **Sem histórico real de corrida compartilhada, a Function recusa
+  sugerir** (`no-history`) em vez de inventar um teto — não dá pra travar
+  um limite de segurança sem dado real pra travar contra.
+- Cliente (`src/lib/coachPlanSuggestion.ts`): `suggestPlanOverride()` só
+  chama a Function e devolve a sugestão — **nunca salva sozinho**. Em
+  `/treinador/aluno`, botão "Sugerir com IA" (com campo opcional de
+  contexto livre pro modelo, ex. "joelho doendo") preenche o rascunho da
+  planilha da Fase A; o treinador ainda revisa/edita e clica "Salvar
+  semana" (que é a `set-plan-override` de sempre) — a arquitetura "os dois
+  juntos" decidida nesta sessão, na prática: IA sugere, motor trava,
+  treinador confirma.
+- **Ainda não deployada** — instruções completas no `README.md`,
+  incluindo o passo extra de configurar a variável `GEMINI_API_KEY` no
+  Appwrite Console (não é opcional pra essa Function, ao contrário das
+  outras).
 
 ## Perguntas em aberto (preencher quando puder)
 

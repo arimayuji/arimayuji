@@ -313,6 +313,40 @@ pra consultar `coach_relationships` e gravar em `plan_overrides`. O
 das outras Functions acima. Rode `npx tsx scripts/appwrite-setup.ts` antes
 ou depois do deploy pra garantir que a tabela `plan_overrides` já existe.
 
+**Sugerir override de plano com IA** (`appwrite-functions/suggest-plan-override`):
+"Fase B" do modo treinador — o treinador clica "Sugerir com IA" na mesma
+tela da planilha (`/treinador/aluno`), e essa Function chama um modelo
+lowcost (Gemini Flash) com um recorte de `src/lib/evidence/facts.ts`
+(volume/periodização/taper/overtraining/lesão — o resto do corpus de
+evidência não se aplica a essa decisão) como base, mais o km real das
+últimas semanas de corrida compartilhadas do aluno. A sugestão nunca é
+salva sozinha: é só um rascunho que preenche o formulário da planilha, e o
+treinador ainda tem que revisar e clicar "Salvar semana" (que é a Function
+`set-plan-override` de sempre). O total sugerido é sempre limitado
+server-side ao mesmo teto de segurança de `src/lib/plan/
+volumeProgression.ts` (+10%/semana, nunca mais que 30% acima de 2 semanas
+atrás) — isso é reforçado depois da resposta do modelo, não é só um pedido
+no prompt. Sem histórico real de corrida compartilhada, a Function recusa
+sugerir (não dá pra travar um limite sem dado real pra travar contra).
+Deploy (via [Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+
+```bash
+cd appwrite-functions/suggest-plan-override
+appwrite functions create \
+  --function-id suggest-plan-override --name "Sugerir override de plano (IA)" \
+  --runtime node-22 --entrypoint src/main.js \
+  --execute users
+appwrite push functions
+```
+
+Depois, no Appwrite Console → Functions → suggest-plan-override:
+- **Settings → API key scopes**: marca `databases.read` — só leitura (essa
+  Function nunca escreve em `plan_overrides`, quem escreve continua sendo
+  `set-plan-override` depois que o treinador confirma).
+- **Settings → Variables**: adiciona `GEMINI_API_KEY` com o mesmo valor já
+  presente em `.env.local` — é a primeira Function deste projeto que
+  precisa de um secret externo, então isso não é opcional como nas outras.
+
 **Política de Privacidade** (`/privacidade`): já publicada junto com o
 resto do app — a URL a colar nas duas lojas é
 `https://xanthus.app.br/privacidade`.

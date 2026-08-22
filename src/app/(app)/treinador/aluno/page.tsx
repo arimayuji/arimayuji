@@ -13,6 +13,7 @@ import {
   setPlanOverride,
   type ParsedPlanOverride,
 } from "@/lib/coachPlanOverrides";
+import { suggestPlanOverride, type SuggestPlanOverrideReason } from "@/lib/coachPlanSuggestion";
 import { ZONE_LABEL, ZONE_NUMBER, ZONE_ORDER, type PaceZoneName, type PlannedSession, type SessionKind } from "@/lib/plan";
 import { mondayOf } from "@/lib/tracking/stats";
 import { formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
@@ -60,6 +61,16 @@ function isoDateFromMs(ms: number): string {
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const SUGGEST_ERROR_LABEL: Record<SuggestPlanOverrideReason, string> = {
+  unavailable: "Recurso indisponível agora.",
+  "not-coach": "Vínculo de treinador com esse aluno não está mais ativo.",
+  "no-history": "Sem corridas compartilhadas recentes desse aluno — a IA precisa desse histórico pra sugerir com segurança. Preenche a planilha manualmente por enquanto.",
+  "ai-not-configured": "IA não configurada nesse ambiente ainda.",
+  "ai-unavailable": "IA indisponível agora — tenta de novo em instantes.",
+  "ai-invalid-response": "A IA devolveu algo que não deu pra usar — tenta de novo.",
+  failed: "Não deu pra gerar uma sugestão agora — tenta de novo.",
+};
 
 /**
  * A coach's read-only view of one student's shared runs — sourced from the
@@ -373,6 +384,11 @@ function WeekPlanEditor({
   const [removingOverride, setRemovingOverride] = useState(false);
   const [overrideError, setOverrideError] = useState<string | null>(null);
 
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestionNotice, setSuggestionNotice] = useState<string | null>(null);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+
   const draftTotalKm = useMemo(
     () => Math.round(draftSessions.reduce((sum, session) => sum + session.km, 0) * 10) / 10,
     [draftSessions],
@@ -425,6 +441,33 @@ function WeekPlanEditor({
     onRemoved();
   };
 
+  /**
+   * Fills the draft from an AI suggestion — never saves it. The Function
+   * already clamps the total to the same progression safety cap the engine
+   * uses (see suggest-plan-override/src/main.js), but the coach still has
+   * to review the shape and click "Salvar semana" themselves, same as if
+   * they'd typed it by hand — this button is a starting point, not an
+   * autopilot.
+   */
+  const handleSuggest = async () => {
+    setSuggesting(true);
+    setSuggestError(null);
+    setSuggestionNotice(null);
+    const result = await suggestPlanOverride(studentId, weekStartIso, aiInstruction.trim() || undefined);
+    setSuggesting(false);
+    if (!result.ok) {
+      setSuggestError(SUGGEST_ERROR_LABEL[result.reason]);
+      return;
+    }
+    setDraftSessions(result.sessions);
+    setDraftNote(result.note);
+    setSuggestionNotice(
+      result.capped
+        ? `Sugestão da IA — reduzida pra ${result.capKm} km pra respeitar o limite seguro de progressão. Revise antes de salvar.`
+        : "Sugestão da IA preenchida abaixo. Revise antes de salvar.",
+    );
+  };
+
   return (
     <Card className="pr-enter" style={delay(0)}>
       <CardTitle aside={<NoticeBadge>{draftTotalKm} km na semana</NoticeBadge>}>Planilha da semana</CardTitle>
@@ -449,6 +492,29 @@ function WeekPlanEditor({
           Próxima →
         </button>
       </div>
+
+      <div className="mb-3 flex items-center gap-2">
+        <input
+          type="text"
+          value={aiInstruction}
+          onChange={(event) => setAiInstruction(event.target.value.slice(0, 300))}
+          placeholder="Contexto pra IA (opcional): ex. joelho doendo, quer soltar essa semana"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-xs outline-none focus:border-accent"
+        />
+        <button
+          type="button"
+          onClick={handleSuggest}
+          disabled={suggesting}
+          className="shrink-0 rounded-lg border border-accent px-3 py-2 text-xs font-semibold text-accent disabled:opacity-40"
+        >
+          {suggesting ? "Pensando…" : "Sugerir com IA"}
+        </button>
+      </div>
+
+      {suggestionNotice && (
+        <p className="mb-3 text-xs leading-relaxed text-accent text-pretty">{suggestionNotice}</p>
+      )}
+      {suggestError && <p className="mb-3 text-xs leading-relaxed text-bad text-pretty">{suggestError}</p>}
 
       {!existingOverride && (
         <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
