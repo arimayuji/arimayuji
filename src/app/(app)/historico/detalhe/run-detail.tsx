@@ -485,6 +485,8 @@ export function RunDetail({ id }: { id: string }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [computedElevationGain, setComputedElevationGain] = useState<number | null>(null);
+  const [elevationUnavailable, setElevationUnavailable] = useState(false);
+  const [elevationRetryToken, setElevationRetryToken] = useState(0);
   const [healthData, setHealthData] = useState<RunHealthData | null>(null);
   const [openedMeters, setOpenedMeters] = useState<number[]>([]);
   const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
@@ -515,8 +517,18 @@ export function RunDetail({ id }: { id: string }) {
   useEffect(() => {
     if (load.status !== "ready" || load.run.elevationGainMeters !== undefined) return;
     let cancelled = false;
+    // Resets to "not failed yet" as soon as a retry is requested (the token
+    // bump below) — same external-trigger justification as the URL-sync
+    // effects elsewhere in the app: this is reacting to a user click, not
+    // deriving state from a prop that already has the right value.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setElevationUnavailable(false);
     computeElevationProfile(load.run.points).then((profile) => {
-      if (cancelled || !profile) return;
+      if (cancelled) return;
+      if (!profile) {
+        setElevationUnavailable(true);
+        return;
+      }
       const gain = elevationGainFromProfile(profile);
       setComputedElevationGain(gain);
       void updateRunElevationGain(load.run.id, gain);
@@ -524,7 +536,7 @@ export function RunDetail({ id }: { id: string }) {
     return () => {
       cancelled = true;
     };
-  }, [load]);
+  }, [load, elevationRetryToken]);
 
   useEffect(() => {
     // `fetchRunHealthData` itself already no-ops on `HEALTH_DATA_ENABLED`
@@ -655,6 +667,7 @@ export function RunDetail({ id }: { id: string }) {
           </div>
           {(run.shoeName ||
             elevationGain !== null ||
+            elevationUnavailable ||
             calories !== null ||
             run.rpe !== undefined ||
             healthData?.avgHeartRateBpm != null) && (
@@ -669,6 +682,26 @@ export function RunDetail({ id }: { id: string }) {
               )}
               {elevationGain !== null && (
                 <StatQuadrant icon="elevacao" label="Ganho de elevação" value={elevationGain} unit="m" />
+              )}
+              {elevationGain === null && elevationUnavailable && (
+                // Same slot the elevation quadrant would otherwise sit in —
+                // previously this case rendered nothing at all, so a failed
+                // MapTiler lookup (rate limit, flaky mobile network) looked
+                // identical to "this run has no elevation to report", with no
+                // way to tell the two apart or try again.
+                <div className="rounded-xl border border-border bg-background p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-[10px] uppercase tracking-wide text-muted">Ganho de elevação</span>
+                    <StatIconBadge icon="elevacao" className="block h-7 w-7 opacity-40" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setElevationRetryToken((token) => token + 1)}
+                    className="mt-1.5 text-left text-xs font-medium text-accent"
+                  >
+                    Indisponível — tentar de novo
+                  </button>
+                </div>
               )}
               {calories !== null && (
                 <StatQuadrant
