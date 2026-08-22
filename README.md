@@ -202,7 +202,7 @@ appwrite functions create \
   --execute users \
   --scopes users.read --scopes users.write --scopes databases.read \
   --scopes databases.write --scopes files.write
-appwrite push functions
+appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --activate
 ```
 
 Depois, no Appwrite Console → Functions → client-actions → **Settings →
@@ -241,30 +241,43 @@ appwrite functions create \
   --events "databases.*.tables.coach_relationships.rows.*.delete" \
   --events "databases.*.tables.group_run_participants.rows.*.delete" \
   --scopes databases.read --scopes databases.write
-appwrite push functions
+appwrite functions create-deployment --function-id row-events --code . --entrypoint src/main.js --activate
 ```
 
 Sem `--execute`, porque nada além do próprio evento do banco deve chamar
 essa Function.
 
-**Migrando de `send-welcome-email`/`join-group-run` (já em produção)**:
-essas duas Functions eram deployadas separadamente antes dessa
-consolidação e continuam rodando até serem apagadas de verdade — IDs de
-Function não são renomeáveis nem "fundem" com outra, então a virada exige
-apagar as antigas e deployar `client-actions`/`row-events` em seguida:
+**Nota sobre `create-deployment` em vez de `appwrite push functions`**:
+o comando `push functions` lê a lista de functions de um
+`appwrite.config.json` na raiz do projeto — que este repo nunca chegou a
+ter (só um `projectId`, escrito à mão como config do cliente CLI). Sem
+essa lista, `push functions` responde `function not found` mesmo com a
+function já criada. `functions create-deployment --code . --activate`
+não depende desse arquivo — sobe e ativa o código do diretório atual
+direto pro ID indicado, e foi o comando que realmente funcionou nesta
+migração.
 
-```bash
-appwrite functions delete --function-id send-welcome-email --force
-appwrite functions delete --function-id join-group-run --force
-# depois disso, os dois blocos de deploy acima já cabem nas vagas livres
-```
+**Migração de `send-welcome-email`/`join-group-run` já executada
+(2026-08-22)**: essas duas Functions eram deployadas separadamente antes
+dessa consolidação — apagadas de verdade (`appwrite functions delete
+--function-id <id> --force`) e substituídas por `client-actions`/
+`row-events` acima, seguindo exatamente os blocos de deploy documentados.
+Confirmado via `appwrite functions list`: só as duas novas, ambas
+`ready`. **Pendência que sobrou dessa migração**: `RESEND_API_KEY`
+não migra sozinha — o Appwrite não deixa ler o valor de uma variável
+secreta já configurada de volta, então ela se perdeu junto com a
+`send-welcome-email` antiga. **Se isso ainda não foi feito**: gere uma
+chave nova no Resend e configure em Appwrite Console → Functions →
+client-actions → Settings → Variables → `RESEND_API_KEY` — até lá, o
+e-mail de boas-vindas falha silenciosamente (best-effort, não trava a
+criação de conta).
 
-Faça isso só depois de `client-actions` já estar com o código pronto e
-testado localmente (`node --check` nos dois `main.js`) — entre apagar as
-antigas e o deploy das novas terminar, `sendWelcomeEmail()`/
-`joinGroupRun()` falham silenciosamente do lado do cliente (ambas já são
-best-effort/com fallback de erro, nenhuma trava a conta ou o longão), mas
-o ideal é manter essa janela a mais curta possível.
+**Se for repetir esse deploy num projeto novo** (não uma migração, uma
+instalação do zero): a ordem "apagar as antigas" acima não se aplica,
+mas a mesma janela de best-effort vale — entre criar `client-actions` e
+configurar `RESEND_API_KEY`/`GEMINI_API_KEY` nela, `sendWelcomeEmail()`/
+`suggestPlanOverride()` falham silenciosamente do lado do cliente,
+nenhuma trava conta, longão ou plano.
 
 **Política de Privacidade** (`/privacidade`): já publicada junto com o
 resto do app — a URL a colar nas duas lojas é

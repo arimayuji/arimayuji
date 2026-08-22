@@ -686,23 +686,39 @@ async function main() {
   );
 
   // ------------------------------------------------------------- avatars
+  // Checked with getBucket() first, not just a create-and-catch-409 like
+  // `ensure()` does for tables/columns: Appwrite Cloud's Free plan also
+  // caps total buckets per project (hit in practice once `avatars` was
+  // already the only one), and that cap rejects `createBucket` with a 403
+  // *before* it ever gets to check whether "avatars" already exists — so
+  // treating this one like every other `ensure()` call would fail this
+  // script every single re-run on a project already at its bucket limit,
+  // even though there is nothing left to create.
   console.log("\navatars (Storage bucket)");
-  await ensure("bucket avatars", () =>
-    storage.createBucket({
-      bucketId: "avatars",
-      name: "avatars",
-      // Bucket-level read for anyone (a profile photo is meant to be seen
-      // by friends/coaches, same public-by-default spirit as `profiles`
-      // itself) plus create for any signed-in user; `fileSecurity: true`
-      // lets the app additionally scope update/delete on each uploaded
-      // file to its owner at upload time, same row-permission pattern
-      // every table above already uses.
-      permissions: [Permission.read(Role.any()), Permission.create(Role.users())],
-      fileSecurity: true,
-      maximumFileSize: 5 * 1024 * 1024,
-      allowedFileExtensions: ["jpg", "jpeg", "png", "webp"],
-    }),
-  );
+  const avatarsBucketExists = await storage
+    .getBucket({ bucketId: "avatars" })
+    .then(() => true)
+    .catch(() => false);
+  if (avatarsBucketExists) {
+    console.log("  exists:  bucket avatars");
+  } else {
+    await ensure("bucket avatars", () =>
+      storage.createBucket({
+        bucketId: "avatars",
+        name: "avatars",
+        // Bucket-level read for anyone (a profile photo is meant to be seen
+        // by friends/coaches, same public-by-default spirit as `profiles`
+        // itself) plus create for any signed-in user; `fileSecurity: true`
+        // lets the app additionally scope update/delete on each uploaded
+        // file to its owner at upload time, same row-permission pattern
+        // every table above already uses.
+        permissions: [Permission.read(Role.any()), Permission.create(Role.users())],
+        fileSecurity: true,
+        maximumFileSize: 5 * 1024 * 1024,
+        allowedFileExtensions: ["jpg", "jpeg", "png", "webp"],
+      }),
+    );
+  }
 
   // ---------------------------------------------- tighten LGPD finding #12
   // `ensure()` above only ever creates a table that doesn't exist yet — on

@@ -483,23 +483,39 @@ importa persistir é a ação pendente:
   aceito conscientemente: cada dispatcher roda com a união de todos os
   escopos das suas ações, não o mínimo de uma ação específica — ver
   `README.md` pra esse raciocínio completo.
-  **Ainda não deployado de verdade**: os dois dispatchers têm código
-  pronto e sintaxe verificada (`node --check`), mas a virada de produção
-  em si — apagar `send-welcome-email`/`join-group-run` (já rodando de
-  verdade) e subir `client-actions`/`row-events` no lugar — ainda não foi
-  executada. IDs de Function não são renomeáveis, então essa troca é uma
-  operação destrutiva real sobre Functions em produção (não só criar coisa
-  nova); passo a passo exato no README, mas pedir confirmação explícita de
-  novo antes de rodar isso, mesmo já tendo escolhido "consolidar" como
-  caminho — a escolha de arquitetura e a execução do corte em produção são
-  duas confirmações diferentes.
-- **Achados #10, #11 e #12 da auditoria LGPD continuam de fato abertos em
-  produção** até `client-actions`/`row-events` serem deployadas de
-  verdade (código pronto, ver acima), mesmo com o código já commitado — a
-  mitigação só vale a partir do deploy real. `claim-owned-row` (achado
-  #12) fecha só quando, além do deploy, `scripts/appwrite-setup.ts` rodar
-  de novo pra retirar a permissão antiga de `create` aberta em
-  `profiles`/`profile_stats`/`place_run_stats`.
+  **Virada de produção executada em 2026-08-22**: `send-welcome-email` e
+  `join-group-run` apagadas de verdade (`appwrite functions delete`),
+  `client-actions` e `row-events` criadas e deployadas no lugar
+  (`appwrite functions create-deployment --code . --activate` — não
+  `appwrite push functions`, que depende de um `appwrite.config.json`
+  com a lista de functions que este projeto nunca teve; `create-deployment`
+  não precisa desse arquivo). `GEMINI_API_KEY` já configurada em
+  `client-actions` (mesmo valor do `.env.local`). Confirmado via
+  `appwrite functions list`: exatamente as 2 Functions esperadas, ambas
+  `ready`. **Pendência real que sobrou**: `RESEND_API_KEY` não foi
+  migrada — Appwrite não deixa ler o valor de uma variável secreta já
+  configurada de volta, então ela se perdeu junto com a
+  `send-welcome-email` antiga. **O dono do projeto precisa gerar uma nova
+  chave no Resend e configurá-la em Appwrite Console → Functions →
+  client-actions → Settings → Variables → `RESEND_API_KEY`** — até lá, o
+  e-mail de boas-vindas falha silenciosamente (best-effort por design,
+  não trava criação de conta, mas não está sendo enviado).
+  **Segunda descoberta de teto de plano nessa mesma sessão**: rodar
+  `scripts/appwrite-setup.ts` depois do deploy bateu num teto separado —
+  Free também trava em **1 bucket de Storage por projeto**, e como o
+  bucket `avatars` já existia, o `createBucket` do script tentava recriar
+  e levava 403 (`additional_resource_not_allowed`) **antes** de sequer
+  checar se o ID já existia (diferente de tabela/coluna, que dão 409 nesse
+  caso). Corrigido no próprio script: agora confere com `getBucket()`
+  primeiro e só chama `createBucket` se realmente não existir — sem essa
+  correção, o script falhava sempre que rodado de novo num projeto que já
+  tem o bucket, mesmo sem nada de fato pra criar.
+- **Achados #10, #11 e #12 da auditoria LGPD fechados de verdade em
+  produção em 2026-08-22** — `client-actions`/`row-events` deployadas, e
+  `scripts/appwrite-setup.ts` rodado até o fim (incluindo o bloco que
+  retira a permissão antiga de `create` aberta em
+  `profiles`/`profile_stats`/`place_run_stats`). `plan_overrides` também
+  criada nessa mesma rodada.
 - **Em aberto, dependem só do dono do projeto em console externo**:
   rotacionar `APPWRITE_SETUP_API_KEY` (achado #08, decidido adiar), restringir
   a chave pública da MapTiler por domínio (achado #13).
