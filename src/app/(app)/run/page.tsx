@@ -50,6 +50,7 @@ import {
 import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
+import { recordFinishedRun } from "@/lib/profileStats";
 import { updateProfile } from "@/lib/auth";
 import type { RunningPlace } from "@/lib/places";
 import { projectRoute } from "@/lib/tracking/routeProjection";
@@ -968,6 +969,17 @@ export default function RunPage() {
       cancelled = true;
     };
   }, [state.status, state.finishedRun]);
+
+  /**
+   * Cumulative km/run count for the friends-only profile view
+   * (/perfil/ver) — recorded automatically, no confirmation needed. Unlike
+   * the place match below, there's no ambiguity to confirm here: this
+   * account really did just finish a run of this exact distance.
+   */
+  useEffect(() => {
+    if (state.status !== "finished" || !state.finishedRun || !account) return;
+    void recordFinishedRun(account.id, state.finishedRun.distanceMeters);
+  }, [state.status, state.finishedRun, account]);
 
   /**
    * "Ranking de lugares" match — same run-once-per-finish timing as the
