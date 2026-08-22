@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { computeElevationProfile, elevationGainFromProfile, type ElevationSample } from "@/lib/elevation";
-import { fetchRunHealthData, HEALTH_DATA_ENABLED, type RunHealthData } from "@/lib/health";
+import { fetchRecoveryContext, fetchRunHealthData, HEALTH_DATA_ENABLED, type RecoveryContext, type RunHealthData } from "@/lib/health";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { getSyncedRun, shareRunWithCoaches } from "@/lib/runsSync";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
@@ -110,6 +110,40 @@ function HeartbeatIcon({ className }: { className?: string }) {
       strokeLinejoin="round"
     >
       <path d="M3 12h3.5l1.8-4.5L11 17l2.5-9 1.8 4.5H21" />
+    </svg>
+  );
+}
+
+/** Same accent-tinted-circle-with-plain-stroke treatment `HeartbeatIcon` documents above — no commissioned art for any of these three either. */
+function HrvIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 12h4l1.5-3 2 6 2-9 2 6h2.5l1.5-3h4" />
+    </svg>
+  );
+}
+
+function SleepIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
+    </svg>
+  );
+}
+
+function Vo2MaxIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20 9 9l3 5 3-9 5 15" />
     </svg>
   );
 }
@@ -488,6 +522,7 @@ export function RunDetail({ id }: { id: string }) {
   const [elevationUnavailable, setElevationUnavailable] = useState(false);
   const [elevationRetryToken, setElevationRetryToken] = useState(0);
   const [healthData, setHealthData] = useState<RunHealthData | null>(null);
+  const [recoveryContext, setRecoveryContext] = useState<RecoveryContext | null>(null);
   const [openedMeters, setOpenedMeters] = useState<number[]>([]);
   const [revealing, setRevealing] = useState<{ record: RunRecord; wasOpened: boolean } | null>(null);
   const [coaches, setCoaches] = useState<CoachConnection[] | null>(null);
@@ -547,6 +582,13 @@ export function RunDetail({ id }: { id: string }) {
     let cancelled = false;
     fetchRunHealthData(load.run).then((data) => {
       if (!cancelled) setHealthData(data);
+    });
+    // Recovery context describes the athlete's state going *into* the run
+    // (resting HR/HRV/VO2 max/sleep), not the run itself, so it's anchored
+    // to the run's start time rather than the matched workout's own window
+    // `fetchRunHealthData` uses.
+    fetchRecoveryContext(load.run.startedAt).then((data) => {
+      if (!cancelled) setRecoveryContext(data);
     });
     return () => {
       cancelled = true;
@@ -729,6 +771,44 @@ export function RunDetail({ id }: { id: string }) {
             </div>
           )}
         </Card>
+
+        {recoveryContext && (
+          <Card className="pr-enter" style={delay(85)}>
+            <CardTitle aside={<NoticeBadge>relógio</NoticeBadge>}>Recuperação</CardTitle>
+            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+              Como você chegou nessa corrida, não o que aconteceu durante ela.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {recoveryContext.restingHeartRateBpm != null && (
+                <StatQuadrant
+                  icon={<HeartbeatIcon className="h-4 w-4" />}
+                  label="FC em repouso"
+                  value={recoveryContext.restingHeartRateBpm}
+                  unit="bpm"
+                />
+              )}
+              {recoveryContext.hrvMs != null && (
+                <StatQuadrant icon={<HrvIcon className="h-4 w-4" />} label="HRV" value={recoveryContext.hrvMs} unit="ms" />
+              )}
+              {recoveryContext.sleepHours != null && (
+                <StatQuadrant
+                  icon={<SleepIcon className="h-4 w-4" />}
+                  label="Sono (noite anterior)"
+                  value={recoveryContext.sleepHours}
+                  unit="h"
+                />
+              )}
+              {recoveryContext.vo2Max != null && (
+                <StatQuadrant
+                  icon={<Vo2MaxIcon className="h-4 w-4" />}
+                  label="VO2 máx estimado"
+                  value={recoveryContext.vo2Max}
+                  unit="mL/kg/min"
+                />
+              )}
+            </div>
+          </Card>
+        )}
 
         {newRecords.length > 0 && (
           <Card className="pr-enter" style={delay(90)}>

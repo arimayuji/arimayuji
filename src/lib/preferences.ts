@@ -19,6 +19,17 @@ export type DistanceUnit = "km" | "mi";
 /** "system" follows the OS/browser scheme live; "light"/"dark" pin it regardless of what the OS is set to. */
 export type ThemeMode = "light" | "dark" | "system";
 
+/**
+ * Which "home" the app opens into for someone who is both an athlete and a
+ * coach of other people — a real minority (most accounts only ever run),
+ * so this only ever surfaces as a switch on /perfil when the account
+ * actually has at least one accepted student. "atleta" is always the
+ * default even for a coach: nobody expects the app they use to log their
+ * own runs to suddenly open into someone else's dashboard the first time
+ * they accept a student.
+ */
+export type AppMode = "atleta" | "treinador";
+
 export interface Preferences {
   announceIntervalMeters: number;
   distanceUnit: DistanceUnit;
@@ -34,6 +45,21 @@ export interface Preferences {
    * pace was actually set).
    */
   vibrateOnPaceDelay: boolean;
+  /**
+   * Explicit, separate consent for `src/lib/health.ts` to read from
+   * HealthKit/Health Connect — the product-level consent screen that
+   * feature's own doc comment says must exist before `HEALTH_DATA_ENABLED`
+   * is ever flipped back on (LGPD Art. 11: heart rate/calories/steps are
+   * sensitive data, and the OS's own permission dialog only consents to
+   * the sensor, not to what this app does with the reading). Off by
+   * default like every other opt-in here; `fetchRunHealthData` checks this
+   * itself, so turning it on here is what actually starts any reading —
+   * not `HEALTH_DATA_ENABLED`, which is a separate ship-readiness switch
+   * for the feature as a whole.
+   */
+  healthDataConsent: boolean;
+  /** See `AppMode`. Doesn't gate anything server-side — a plain athlete who somehow gets this set to "treinador" just sees an empty /treinador as their home, same empty state a coach with no accepted students sees. */
+  appMode: AppMode;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -48,6 +74,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showCurrentKmPaceLive: true,
   theme: "system",
   vibrateOnPaceDelay: false,
+  healthDataConsent: false,
+  appMode: "atleta",
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -92,6 +120,14 @@ function sanitize(raw: unknown): Preferences {
       ? value.vibrateOnPaceDelay
       : DEFAULT_PREFERENCES.vibrateOnPaceDelay;
 
+  const healthDataConsent =
+    typeof value.healthDataConsent === "boolean"
+      ? value.healthDataConsent
+      : DEFAULT_PREFERENCES.healthDataConsent;
+
+  const appMode: AppMode =
+    value.appMode === "atleta" || value.appMode === "treinador" ? value.appMode : DEFAULT_PREFERENCES.appMode;
+
   return {
     announceIntervalMeters,
     distanceUnit,
@@ -99,6 +135,8 @@ function sanitize(raw: unknown): Preferences {
     showCurrentKmPaceLive,
     theme,
     vibrateOnPaceDelay,
+    healthDataConsent,
+    appMode,
   };
 }
 

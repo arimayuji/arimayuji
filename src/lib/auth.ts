@@ -6,13 +6,12 @@
  * on any of this.
  */
 import { Browser } from "@capacitor/browser";
-import { ExecutionMethod, ID, type Models, OAuthProvider, Permission, Query, Role } from "appwrite";
+import { ExecutionMethod, ID, type Models, OAuthProvider, Query } from "appwrite";
 import {
   APPWRITE_DATABASE_ID,
-  DELETE_ACCOUNT_FUNCTION_ID,
+  CLIENT_ACTIONS_FUNCTION_ID,
   OAUTH_CALLBACK_SCHEME,
   OAUTH_RETURN_TO_PARAM,
-  SEND_WELCOME_EMAIL_FUNCTION_ID,
   TABLES,
   getAppwrite,
   oauth2TokenUrl,
@@ -207,8 +206,9 @@ export async function deleteAccount(): Promise<void> {
   const appwrite = getAppwrite();
   if (!appwrite) return;
   const execution = await appwrite.functions.createExecution({
-    functionId: DELETE_ACCOUNT_FUNCTION_ID,
+    functionId: CLIENT_ACTIONS_FUNCTION_ID,
     method: ExecutionMethod.POST,
+    body: JSON.stringify({ action: "delete-account" }),
   });
   // A synchronous execution "succeeds" (no thrown exception) even when the
   // function's own handler returned an error response — the invocation
@@ -293,19 +293,28 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
  * convention the Postgres version of this schema used — a profile's
  * identity is always its owner's account ID, one to one, so there's
  * never a separate foreign key to keep in sync.
+ *
+ * Goes through the `claim-owned-row` Function rather than a direct
+ * `createRow` — table-level `create` used to be open to any signed-in
+ * account with a client-chosen row ID, which let one account "reserve"
+ * another's profile row (their future `userId`) before they ever signed up
+ * (LGPD/security audit finding #12). The Function derives the row ID from
+ * the caller's own session and never reads one from the request body — no
+ * `userId` parameter here to be tempted to trust instead.
  */
-export async function createProfile(userId: string, handle: string, displayName: string): Promise<Profile> {
+export async function createProfile(handle: string, displayName: string): Promise<Profile> {
   const appwrite = getAppwrite();
   if (!appwrite) throw new Error("Appwrite não configurado");
-  return appwrite.tablesDB.createRow<Profile>({
-    databaseId: APPWRITE_DATABASE_ID,
-    tableId: TABLES.profiles,
-    rowId: userId,
-    data: { handle, displayName },
-    // Table-level permissions already allow public read of every profile;
-    // this grants the owner (and only the owner) update/delete on theirs.
-    permissions: [Permission.update(Role.user(userId)), Permission.delete(Role.user(userId))],
+  const execution = await appwrite.functions.createExecution({
+    functionId: CLIENT_ACTIONS_FUNCTION_ID,
+    method: ExecutionMethod.POST,
+    body: JSON.stringify({ action: "claim-owned-row", tableId: TABLES.profiles, handle, displayName }),
   });
+  const body = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; row?: Profile; error?: string };
+  if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !body.ok || !body.row) {
+    throw new Error(body.error ?? "failed");
+  }
+  return body.row;
 }
 
 /** Partial update of the signed-in account's own profile row — `avatarUrl`, `leaderboardOptIn`, `publicDisplayName` all go through this. No-op (returns `null`) when Appwrite isn't configured, same convention as every other function here. */
@@ -337,7 +346,11 @@ export function sendWelcomeEmail(): void {
   const appwrite = getAppwrite();
   if (!appwrite) return;
   appwrite.functions
-    .createExecution({ functionId: SEND_WELCOME_EMAIL_FUNCTION_ID, method: ExecutionMethod.POST })
+    .createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "send-welcome-email" }),
+    })
     .catch(() => {
       // Nothing to recover here — the athlete's account and profile are
       // already created either way.

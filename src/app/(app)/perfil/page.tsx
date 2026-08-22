@@ -11,7 +11,17 @@ import {
   type ThemeMode,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
-import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader, SegmentedButton } from "../ui";
+import {
+  Card,
+  CardTitle,
+  delay,
+  NoticeBadge,
+  PillTabs,
+  PreferenceToggle,
+  Screen,
+  ScreenHeader,
+  SegmentedButton,
+} from "../ui";
 import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
 import { ShareCardTeaser } from "../share-card";
@@ -31,6 +41,7 @@ import {
 import { formatDistance, unitLabel } from "@/lib/units";
 import { updateProfile } from "@/lib/auth";
 import { useAuth } from "@/lib/useAuth";
+import { listCoachConnections } from "@/lib/coachRelationships";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
 import type { RunningPlace } from "@/lib/places";
@@ -189,45 +200,6 @@ function SectionLabel({ children, delayMs }: { children: React.ReactNode; delayM
     >
       {children}
     </p>
-  );
-}
-
-/** One on/off preference row — a label, a short reason, and a switch, for settings that don't fit the mutually-exclusive `SegmentedButton` pattern above. */
-function PreferenceToggle({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className="flex w-full items-center gap-3 text-left"
-    >
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="mt-0.5 block text-xs text-muted">{hint}</span>
-      </span>
-      <span
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-          checked ? "bg-accent" : "bg-surface"
-        } border border-border`}
-      >
-        <span
-          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-background transition-transform ${
-            checked ? "translate-x-[22px]" : "translate-x-0.5"
-          }`}
-        />
-      </span>
-    </button>
   );
 }
 
@@ -995,6 +967,53 @@ function PlaceLeaderboardCard() {
   );
 }
 
+/**
+ * A toggle between the "atleta" and "treinador" home — renders nothing at
+ * all unless this account actually coaches at least one accepted student,
+ * since for everyone else (almost everyone) there's no second mode to
+ * switch into. Changing it only swaps which tab leads the bottom nav (see
+ * app-shell.tsx) and where a native launch lands (see standalone-gate.tsx)
+ * — every other screen works exactly the same either way, and "atleta"
+ * stays the default even for a coach: nobody expects the app they use to
+ * log their own runs to suddenly open into someone else's dashboard the
+ * first time they accept a student.
+ */
+function AppModeCard() {
+  const { status } = useAuth();
+  const [prefs, update] = usePreferences();
+  const [coachesSomeone, setCoachesSomeone] = useState(false);
+
+  useEffect(() => {
+    if (status !== "signed-in") return;
+    let cancelled = false;
+    listCoachConnections("accepted").then((rows) => {
+      if (!cancelled) setCoachesSomeone(rows.some((c) => c.myRole === "coach"));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
+  if (!coachesSomeone) return null;
+
+  return (
+    <Card className="pr-enter" style={delay(25)}>
+      <CardTitle>Modo do app</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Você treina outras pessoas — escolha o que abre primeiro quando você entra no app.
+      </p>
+      <div className="flex gap-2">
+        <SegmentedButton selected={prefs.appMode === "atleta"} onClick={() => update({ appMode: "atleta" })}>
+          Atleta
+        </SegmentedButton>
+        <SegmentedButton selected={prefs.appMode === "treinador"} onClick={() => update({ appMode: "treinador" })}>
+          Treinador
+        </SegmentedButton>
+      </div>
+    </Card>
+  );
+}
+
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
@@ -1008,6 +1027,7 @@ export default function PerfilPage() {
 
       <Screen>
         <AccountCard />
+        <AppModeCard />
 
         <SectionLabel delayMs={20}>Aparência</SectionLabel>
         <Card className="pr-enter" style={delay(30)}>
@@ -1177,7 +1197,7 @@ export default function PerfilPage() {
 
 
         <Card className="pr-enter" style={delay(300)}>
-          <CardTitle aside={<NoticeBadge>ativo, sem validação em campo</NoticeBadge>}>
+          <CardTitle aside={<NoticeBadge>{prefs.healthDataConsent ? "ativado" : "desligado"}</NoticeBadge>}>
             Dados de saúde do smartwatch
           </CardTitle>
           <div className="flex items-start gap-3">
@@ -1185,8 +1205,9 @@ export default function PerfilPage() {
               <HeartbeatIcon className="h-5 w-5" />
             </span>
             <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Frequência cardíaca, calorias medidas de verdade e passos — lidos do HealthKit
-              (iPhone) ou do Health Connect (Android) e atrelados a cada corrida no Histórico.
+              Frequência cardíaca, calorias medidas de verdade, passos, FC em repouso, HRV, VO2
+              máx e sono — lidos do HealthKit (iPhone) ou do Health Connect (Android) e atrelados a
+              cada corrida no Histórico.
             </p>
           </div>
           <Link

@@ -32,12 +32,16 @@ type LeaderboardScope = "public" | "friends";
  * for why there's no separately-gated friends dataset. Name shown per
  * scope: `publicDisplayName` (falling back to `handle`) in "público", the
  * real `displayName` in "amigos" — same split the opt-in card in /perfil
- * explains to the athlete before they ever turn this on.
+ * explains to the athlete before they ever turn this on. The real name
+ * comes from `listFriendConnections`'s own resolved profiles, never from
+ * the leaderboard entry itself — `getLeaderboardForPlace` only ever
+ * carries the public-safe fields (see its own comment), since that list
+ * is fetched by anyone who opens the place, not gated on friendship.
  */
 function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
   const { status, account } = useAuth();
   const [entries, setEntries] = useState<PlaceLeaderboardEntry[] | null>(null);
-  const [friendIds, setFriendIds] = useState<Set<string> | null>(null);
+  const [friendProfiles, setFriendProfiles] = useState<Map<string, Profile> | null>(null);
   const [scope, setScope] = useState<LeaderboardScope>("public");
 
   useEffect(() => {
@@ -54,7 +58,12 @@ function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
     if (status !== "signed-in") return;
     let cancelled = false;
     listFriendConnections("accepted").then((rows) => {
-      if (!cancelled) setFriendIds(new Set(rows.map((row) => row.otherId)));
+      if (cancelled) return;
+      const map = new Map<string, Profile>();
+      for (const row of rows) {
+        if (row.profile) map.set(row.otherId, row.profile);
+      }
+      setFriendProfiles(map);
     });
     return () => {
       cancelled = true;
@@ -64,7 +73,7 @@ function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
   const visible =
     scope === "public"
       ? entries
-      : entries?.filter((entry) => entry.userId === account?.id || friendIds?.has(entry.userId));
+      : entries?.filter((entry) => entry.userId === account?.id || friendProfiles?.has(entry.userId));
 
   return (
     <Card className="pr-enter" style={delay(145)}>
@@ -99,7 +108,9 @@ function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
             const name =
               scope === "public"
                 ? entry.profile?.publicDisplayName || (entry.profile ? `@${entry.profile.handle}` : "corredor(a)")
-                : entry.profile?.displayName ?? (entry.profile ? `@${entry.profile.handle}` : "corredor(a)");
+                : (entry.userId === account?.id ? account.name : undefined) ??
+                  friendProfiles?.get(entry.userId)?.displayName ??
+                  (entry.profile ? `@${entry.profile.handle}` : "corredor(a)");
             return (
               <li key={entry.userId} className="flex items-center gap-3 border-t border-border pt-2.5 first:border-t-0 first:pt-0">
                 <span className="w-5 shrink-0 text-center font-mono text-xs text-muted">{i + 1}</span>

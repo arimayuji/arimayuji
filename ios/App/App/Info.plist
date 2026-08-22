@@ -37,18 +37,18 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>O Xanthus continua registrando sua rota e seu pace mesmo com a tela bloqueada durante a corrida.</string>
 	<!--
-	  capacitor-health (src/lib/health.ts) — both keys required by HealthKit
-	  the moment the plugin is present, regardless of whether the app ever
-	  actually calls it; without them a build with this plugin linked just
-	  crashes on any Health API access instead of showing a permission
-	  prompt. Read-only in practice (HEALTH_DATA_ENABLED is still false and
-	  nothing writes anything back), but HealthKit doesn't have a
+	  @capgo/capacitor-health (src/lib/health.ts) — both keys required by
+	  HealthKit the moment the plugin is present, regardless of whether the
+	  app ever actually calls it; without them a build with this plugin
+	  linked just crashes on any Health API access instead of showing a
+	  permission prompt. Read-only in practice (HEALTH_DATA_ENABLED is still
+	  false and nothing writes anything back), but HealthKit doesn't have a
 	  read-only-capable entitlement — Xcode also needs the 'HealthKit'
 	  capability added to the App ID in the Apple Developer Portal before
 	  any of this actually works, a manual step this repo can't do for you.
 	-->
 	<key>NSHealthShareUsageDescription</key>
-	<string>O Xanthus lê frequência cardíaca, calorias e passos do treino já registrado no seu relógio, pra completar os dados dessa corrida.</string>
+	<string>O Xanthus lê frequência cardíaca, calorias, passos, FC em repouso, variabilidade de FC (HRV), VO2 máx e sono do seu relógio, pra completar os dados dessa corrida.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>O Xanthus não grava nada no Saúde — essa permissão é exigida pelo sistema mesmo assim.</string>
 	<key>UIBackgroundModes</key>

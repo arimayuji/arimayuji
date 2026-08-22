@@ -24,6 +24,18 @@
 .DS_Store
 *.pem
 
+# signing keys/certs — never committed even if dropped in the project
+# locally for a manual build; CI decodes these from secrets into /tmp, they
+# never live in the repo (added in an LGPD/security audit pass as a
+# defense-in-depth backstop — nothing had actually leaked, this just closes
+# the gap for next time)
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+serviceAccount*.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*

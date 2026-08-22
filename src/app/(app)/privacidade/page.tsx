@@ -42,6 +42,16 @@ export default function PrivacidadePage() {
             <li>— Nome de usuário (handle) e nome de exibição que você escolher</li>
             <li>— Amizades e vínculos de treinador(a)/aluno(a) que você criar</li>
             <li>— Avaliações de lugares pra correr que você publicar</li>
+            <li>
+              — Km total acumulado e número de corridas, sincronizado automaticamente a cada
+              corrida enquanto você tiver conta — usado só na sua tela de perfil visível a amigos
+              que você aceitar
+            </li>
+            <li>
+              — Se você ligar o &quot;Ranking de lugares&quot; (desligado por padrão, em Perfil):
+              km acumulado por lugar sob o nome de exibição que você escolher, público pra
+              qualquer pessoa dentro do app
+            </li>
             <li>— Corridas que você escolher explicitamente compartilhar (com um(a) treinador(a) ou ao vivo)</li>
           </ul>
         </Card>
@@ -50,9 +60,23 @@ export default function PrivacidadePage() {
           <CardTitle>Dados sensíveis (dores, esforço percebido)</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Registros de dor/desconforto e RPE (esforço percebido) que você marcar durante uma
-            corrida ficam no armazenamento local do aparelho, junto com o resto da corrida — não
-            são enviados aos nossos servidores a menos que você compartilhe aquela corrida
-            específica com um(a) treinador(a).
+            corrida ficam sempre no armazenamento local do aparelho, junto com o resto da corrida
+            — mesmo quando você compartilha aquela corrida com um(a) treinador(a), só a rota, a
+            distância, a duração e o tênis usado vão pro servidor; dor e esforço percebido nunca
+            saem do seu aparelho.
+          </p>
+        </Card>
+
+        <Card className="pr-enter" style={delay(140)}>
+          <CardTitle>Dados do seu smartwatch (Apple Health / Health Connect)</CardTitle>
+          <p className="text-sm leading-relaxed text-muted">
+            Se você ligar &quot;Ler dados de saúde&quot; (desligado por padrão, em Perfil → Dados do
+            relógio), o app lê frequência cardíaca, calorias, passos, frequência cardíaca em
+            repouso, variabilidade de frequência cardíaca (HRV), VO2 máx estimado e sono do
+            repositório de saúde do próprio celular — nunca fala com o relógio direto — e mostra
+            esses números junto com a corrida correspondente no seu Histórico. É dado sensível
+            (LGPD Art. 11): fica só nesse fluxo, nunca é enviado a servidor nenhum, e a leitura
+            para completamente assim que você desliga essa chave.
           </p>
         </Card>
 
@@ -74,6 +98,14 @@ export default function PrivacidadePage() {
             <li>
               <strong className="text-foreground">Google / Apple</strong> — provedores de
               login, caso você escolha entrar com uma dessas contas.
+            </li>
+            <li>
+              <strong className="text-foreground">Resend</strong> — envia o e-mail de boas-vindas
+              quando você cria conta; recebe seu e-mail e nome só pra isso.
+            </li>
+            <li>
+              <strong className="text-foreground">Apple (iTunes Search)</strong> — busca de
+              música pro card de compartilhamento; recebe só o termo que você digitar.
             </li>
           </ul>
         </Card>
@@ -116,9 +148,10 @@ export default function PrivacidadePage() {
           <CardTitle>Apagar sua conta e seus dados</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Em <strong className="text-foreground">Perfil → Excluir conta</strong>, dentro do
-            app: apaga a conta, o perfil e tudo que você compartilhou com outras pessoas (amigos,
-            treinador, avaliações), imediatamente e sem volta. O que fica só no aparelho (Fase
-            local acima) você apaga desinstalando o app ou limpando os dados do site.
+            app: apaga a conta, o perfil, a foto, o total acumulado, o ranking de lugares e tudo
+            que você compartilhou com outras pessoas (amigos, treinador, avaliações, corridas em
+            grupo), imediatamente e sem volta. O que fica só no aparelho (Fase local acima) você
+            apaga desinstalando o app ou limpando os dados do site.
           </p>
         </Card>
 

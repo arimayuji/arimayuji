@@ -12,10 +12,16 @@
  * on the `place_run_stats` table in scripts/appwrite-setup.ts for why a
  * true server-enforced friends-only read isn't implemented here, same
  * accepted limitation `place_ratings`'s "friends" visibility already has.
+ *
+ * This row's *first* creation at a given place goes through the
+ * `claim-owned-row` Function rather than a direct `createRow` — see that
+ * function's comment for why a client-chosen row ID here used to let one
+ * account seed another's totals at a place before they'd ever run there
+ * (LGPD/security audit finding #12).
  */
-import { Permission, Query, Role, type Models } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
-import { getProfile, type Profile } from "./auth";
+import { ExecutionMethod, Query, type Models } from "appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
+import { getPublicProfile, type PublicProfile } from "./auth";
 
 export interface PlaceRunStats extends Models.Row {
   placeId: string;
@@ -30,7 +36,14 @@ export interface PlaceLeaderboardEntry {
   totalMeters: number;
   runCount: number;
   lastRunAt: string;
-  profile: Profile | null;
+  /**
+   * Never the real `displayName` — this list is fetched by anyone who
+   * opens a place, friend or not, so it only ever carries the fields
+   * `PublicProfile` allows. The "amigos" view resolves the real name
+   * separately, from `listFriendConnections` (already scoped to genuine,
+   * confirmed friendships), not from this row.
+   */
+  profile: PublicProfile | null;
 }
 
 function statsRowId(placeId: string, userId: string): string {
@@ -56,11 +69,6 @@ export async function recordRunAtPlace(placeId: string, distanceMeters: number):
   const account = await appwrite.account.get();
   const userId = account.$id;
   const rowId = statsRowId(placeId, userId);
-  const permissions = [
-    Permission.read(Role.any()),
-    Permission.update(Role.user(userId)),
-    Permission.delete(Role.user(userId)),
-  ];
 
   let current: PlaceRunStats | null = null;
   try {
@@ -73,40 +81,38 @@ export async function recordRunAtPlace(placeId: string, distanceMeters: number):
     current = null;
   }
 
-  const data = {
-    placeId,
-    userId,
-    totalMeters: (current?.totalMeters ?? 0) + distanceMeters,
-    runCount: (current?.runCount ?? 0) + 1,
-    lastRunAt: new Date().toISOString(),
-  };
+  const totalMeters = (current?.totalMeters ?? 0) + distanceMeters;
+  const runCount = (current?.runCount ?? 0) + 1;
+  const lastRunAt = new Date().toISOString();
 
   if (current) {
     await appwrite.tablesDB.updateRow<PlaceRunStats>({
       databaseId: APPWRITE_DATABASE_ID,
       tableId: TABLES.placeRunStats,
       rowId,
-      data,
+      data: { placeId, userId, totalMeters, runCount, lastRunAt },
     });
   } else {
-    await appwrite.tablesDB.createRow<PlaceRunStats>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.placeRunStats,
-      rowId,
-      data,
-      permissions,
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "claim-owned-row", tableId: TABLES.placeRunStats, placeId, totalMeters, runCount, lastRunAt }),
     });
+    const body = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; error?: string };
+    if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !body.ok) {
+      throw new Error(body.error ?? "failed");
+    }
   }
 }
 
 /**
  * Every stats row for `placeId`, highest total first, with each entry's
- * profile resolved — same "resolve the other party" shape
- * `listFriendConnections`/`listCoachConnections` already use. Callers pick
- * which name to display (`profile.publicDisplayName ?? profile.handle` for
- * the public view, `profile.displayName` for the friends view) and, for
- * the friends view, which entries even to keep — this function always
- * returns the full public list.
+ * profile resolved via `getPublicProfile` — never the real `displayName`,
+ * since this list is fetched by anyone who opens the place, not gated on
+ * friendship. Callers pick which entries to keep for the "amigos" view
+ * (this function always returns the full public list) and resolve the
+ * real name for those separately, from `listFriendConnections` — a call
+ * that's actually scoped to confirmed friendships, unlike this one.
  */
 export async function getLeaderboardForPlace(placeId: string, limit = 50): Promise<PlaceLeaderboardEntry[]> {
   const appwrite = getAppwrite();
@@ -122,7 +128,7 @@ export async function getLeaderboardForPlace(placeId: string, limit = 50): Promi
       totalMeters: row.totalMeters,
       runCount: row.runCount,
       lastRunAt: row.lastRunAt,
-      profile: await getProfile(row.userId),
+      profile: await getPublicProfile(row.userId),
     })),
   );
   return entries;

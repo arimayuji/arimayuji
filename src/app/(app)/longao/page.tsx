@@ -7,6 +7,7 @@ import QRCode from "qrcode";
 import {
   closeGroupRun,
   createGroupRun,
+  CODE_LENGTH,
   getActiveGroupRunCode,
   getGroupRun,
   joinGroupRun,
@@ -398,8 +399,8 @@ function LongaoContent() {
                         type="text"
                         value={joinCode}
                         onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-                        placeholder="Código de 6 letras"
-                        maxLength={6}
+                        placeholder={`Código de ${CODE_LENGTH} letras`}
+                        maxLength={CODE_LENGTH}
                         autoCapitalize="characters"
                         autoCorrect="off"
                         spellCheck={false}

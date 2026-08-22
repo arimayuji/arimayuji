@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -16,6 +17,7 @@ import { isNativePlatform } from "@/lib/platform";
 import { onNotificationAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
+import { listFriendConnections, type FriendConnection } from "@/lib/friendships";
 import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
 import { getActiveGroupRunCode, getGroupRun, listParticipants, type GroupRun } from "@/lib/groupRuns";
 import { useGroupLiveRuns, buildGroupMarkers } from "@/lib/useGroupLiveRuns";
@@ -33,6 +35,7 @@ import {
   clearActiveRun,
   deleteCompletedRun,
   listCompletedRuns,
+  listPainCheckIns,
   listShoes,
   loadActiveRun,
   markEmblemOpened,
@@ -43,10 +46,14 @@ import {
   updateRunTracks,
   type ActiveRunSnapshot,
   type CompletedRun,
+  type PainCheckIn,
   type RunTrack,
   type Shoe,
   type StoredPoint,
 } from "@/lib/tracking/storage";
+import { applyCoachOverride, computeCurrentPlanWeek, isoWeekday, paceForZone, ZONE_LABEL } from "@/lib/plan";
+import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coachPlanOverrides";
+import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
@@ -502,6 +509,26 @@ function RepeatIcon({ className }: { className?: string }) {
   );
 }
 
+/** Small calendar-check glyph — the "treino de hoje" chip pulling a session straight from /plano's engine, distinct from the plain repeat arrow above. */
+function PlanIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="14" height="13" rx="2" />
+      <path d="M3 8h14M6.5 2.5v3M13.5 2.5v3" />
+      <path d="M7 12l2 2 4-4" />
+    </svg>
+  );
+}
+
 function formatGoalEta(totalSeconds: number | null): string {
   if (totalSeconds === null || !Number.isFinite(totalSeconds)) return "--:--";
   return formatElapsed(Math.round(totalSeconds));
@@ -856,6 +883,10 @@ export default function RunPage() {
   const [shoeName, setShoeName] = useState("");
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
+  const [completedRunsForPlan, setCompletedRunsForPlan] = useState<CompletedRun[] | null>(null);
+  const [coachOverrides, setCoachOverrides] = useState<Map<string, ParsedPlanOverride>>(new Map());
+  const [painCheckInsForPlan, setPainCheckInsForPlan] = useState<PainCheckIn[]>([]);
+  const [runnerProfile] = useRunnerProfile();
   const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
   /** The ghost actually used for the in-progress run, captured at start — kept separate from the
    * picker above so a later change to `selectedGhostId` (e.g. after resetting for a new run)
@@ -879,6 +910,10 @@ export default function RunPage() {
   const [coaches, setCoaches] = useState<CoachConnection[]>([]);
   /** Which coach (if any) this run is being shared live with — chosen before starting, null means "not live". */
   const [liveCoachId, setLiveCoachId] = useState<string | null>(null);
+  /** Accepted friends this athlete could go live with — same picker pattern as `coaches`, but multi-select (a coach is naturally one person; friends watching a run isn't). */
+  const [friends, setFriends] = useState<FriendConnection[]>([]);
+  /** Which friends (if any) this run is being shared live with — chosen before starting, empty means "not live" with any friend. */
+  const [liveFriendIds, setLiveFriendIds] = useState<string[]>([]);
   /** Own account id (needed to keep this athlete's own id out of the live-viewer permission list computed from the longão's participants below), plus `profile`/`refresh` for the post-run "ranking de lugares" confirmation below. */
   const { account, profile, refresh: refreshAuth } = useAuth();
   /** The "longão" this device currently remembers being part of, if any and still open — resolved from `getActiveGroupRunCode()`'s localStorage pointer, same re-check-on-return-to-idle timing as `coaches` above. */
@@ -978,7 +1013,7 @@ export default function RunPage() {
    */
   useEffect(() => {
     if (state.status !== "finished" || !state.finishedRun || !account) return;
-    void recordFinishedRun(account.id, state.finishedRun.distanceMeters);
+    void recordFinishedRun(state.finishedRun.distanceMeters);
   }, [state.status, state.finishedRun, account]);
 
   /**
@@ -1039,12 +1074,21 @@ export default function RunPage() {
    */
   useEffect(() => {
     if (state.status !== "idle") return;
-    Promise.all([listShoes(), listCompletedRuns()]).then(([shoes, runs]) => {
+    Promise.all([listShoes(), listCompletedRuns(), listPainCheckIns()]).then(([shoes, runs, painCheckIns]) => {
       setRegisteredShoes(shoes);
       const sorted = [...runs].sort((a, b) => b.startedAt - a.startedAt);
       setRecentRuns(sorted.slice(0, RECENT_GHOST_CANDIDATES));
+      setCompletedRunsForPlan(runs);
+      setPainCheckInsForPlan(painCheckIns);
     });
   }, [state.status]);
+
+  // Same coach-override lookup /plano applies — only meaningful once
+  // signed in, since an override is keyed by the real account ID.
+  useEffect(() => {
+    if (!account) return;
+    listPlanOverridesForStudent(account.id).then(setCoachOverrides);
+  }, [account]);
 
   /**
    * Real "GPS pronto"/"Buscando GPS…" on Preparar Corrida (Xanthus Preparar
@@ -1075,6 +1119,15 @@ export default function RunPage() {
     });
   }, [state.status]);
 
+  /** Same re-fetch-on-return-to-idle reasoning as the coach effect above — also drops any previously-picked friend who got unfriended since the last visit, instead of quietly trying to share with someone no longer in the list. */
+  useEffect(() => {
+    if (state.status !== "idle") return;
+    listFriendConnections("accepted").then((rows) => {
+      setFriends(rows);
+      setLiveFriendIds((current) => current.filter((id) => rows.some((f) => f.otherId === id)));
+    });
+  }, [state.status]);
+
   /**
    * Same idle-refresh timing as the coach effect above — also drops a
    * remembered session that expired or got closed since the last visit,
@@ -1101,6 +1154,25 @@ export default function RunPage() {
   const selectedGhost = recentRuns.find((r) => r.id === selectedGhostId) ?? null;
   /** Most recent real run with actual distance — powers the "Repetir última corrida" chip (Xanthus Preparar Corrida.dc.html). `recentRuns` is already sorted newest-first. */
   const lastRealRun = recentRuns.find((r) => r.distanceMeters > 0) ?? null;
+
+  /**
+   * Today's session from `/plano`'s own engine, if a real plan exists —
+   * closes the gap between "we compute a training plan" and "the plan
+   * actually reaches the screen where a run gets started." Without this,
+   * Preparar Corrida had no idea a plan existed at all: every goal here was
+   * always typed by hand, even on a day the athlete had already told /plano
+   * they wanted a specific quality session at a specific pace. Null on a
+   * rest day, same as `computeCurrentPlanWeek` returning null for "no plan
+   * yet" — the chip below just doesn't render either way.
+   */
+  const todaysPlan = useMemo(() => {
+    if (completedRunsForPlan === null) return null;
+    return computeCurrentPlanWeek(runnerProfile, completedRunsForPlan, painCheckInsForPlan);
+  }, [runnerProfile, completedRunsForPlan, painCheckInsForPlan]);
+  /** A coach's explicit choice for this week (if any) wins here too — same override /plano applies, so "treino de hoje" never contradicts what the athlete's own plan screen shows. */
+  const todaysWeek = todaysPlan ? applyCoachOverride(todaysPlan.currentWeek, coachOverrides.get(todaysPlan.currentWeek.startDate)) : undefined;
+  const todaysSession = todaysWeek?.sessions[isoWeekday(new Date())];
+  const todaysPlannedSession = todaysSession && todaysSession.kind !== "rest" ? todaysSession : null;
 
   /**
    * The announcement interval comes from the preference set on /perfil, and
@@ -1164,7 +1236,7 @@ export default function RunPage() {
       const changed = ids.length !== current.length || ids.some((id) => !current.includes(id));
       groupRunParticipantIdsRef.current = ids;
       if (changed && liveSessionActiveRef.current && state.runId) {
-        void refreshLiveSessionAudience(state.runId, [...(liveCoachId ? [liveCoachId] : []), ...ids]);
+        void refreshLiveSessionAudience(state.runId, [...(liveCoachId ? [liveCoachId] : []), ...liveFriendIds, ...ids]);
       }
     };
     void poll();
@@ -1173,11 +1245,11 @@ export default function RunPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [state.status, activeSessionCode, state.runId, liveCoachId, account?.id]);
+  }, [state.status, activeSessionCode, state.runId, liveCoachId, liveFriendIds, account?.id]);
 
   useEffect(() => {
     const live = state.status === "tracking" || state.status === "paused";
-    const viewerIds = [...(liveCoachId ? [liveCoachId] : []), ...groupRunParticipantIdsRef.current];
+    const viewerIds = [...(liveCoachId ? [liveCoachId] : []), ...liveFriendIds, ...groupRunParticipantIdsRef.current];
     if (live && viewerIds.length > 0 && state.runId) {
       const lastPoint = state.points[state.points.length - 1];
       if (lastPoint) {
@@ -1209,6 +1281,7 @@ export default function RunPage() {
     }
   }, [
     liveCoachId,
+    liveFriendIds,
     activeSessionCode,
     state.runId,
     state.status,
@@ -1393,6 +1466,12 @@ export default function RunPage() {
       ghostRun: selectedGhost ?? undefined,
       vibrateOnPaceDelay: preferences.vibrateOnPaceDelay,
     });
+  };
+
+  const toggleLiveFriend = (friendId: string) => {
+    setLiveFriendIds((current) =>
+      current.includes(friendId) ? current.filter((id) => id !== friendId) : [...current, friendId],
+    );
   };
 
   /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
@@ -1649,7 +1728,29 @@ export default function RunPage() {
                 </button>
                 .
               </p>
-              {lastRealRun && (
+              {todaysPlannedSession && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const zones = todaysPlan?.plan.paceZones;
+                    if (todaysPlannedSession.paceZone && zones) {
+                      setGoalType("ritmo");
+                      setGoalPaceSec(Math.round(paceForZone(zones, todaysPlannedSession.paceZone)));
+                    } else {
+                      setGoalType("distancia");
+                      setGoalKm(todaysPlannedSession.km);
+                    }
+                  }}
+                  className="mt-3 flex items-center gap-2 self-start rounded-full border border-accent/40 bg-accent/10 px-3.5 py-2 text-xs font-semibold text-accent hover:border-accent hover:bg-accent/15"
+                >
+                  <PlanIcon className="h-3.5 w-3.5" />
+                  Treino de hoje ·{" "}
+                  {todaysPlannedSession.paceZone
+                    ? `${ZONE_LABEL[todaysPlannedSession.paceZone]}, ${todaysPlannedSession.km} km`
+                    : `${todaysPlannedSession.km} km`}
+                </button>
+              )}
+              {!todaysPlannedSession && lastRealRun && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1889,6 +1990,32 @@ export default function RunPage() {
                       onClick={() => setLiveCoachId(connection.otherId)}
                       className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
                         liveCoachId === connection.otherId
+                          ? "border-accent bg-accent text-accent-foreground"
+                          : "border-border bg-surface text-foreground hover:border-accent"
+                      }`}
+                    >
+                      {connection.profile?.displayName ?? "Corredor(a)"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {friends.length > 0 && (
+              <div className="block space-y-1.5">
+                <span className="text-sm font-medium">Compartilhar com amigos (opcional)</span>
+                <p className="text-xs text-muted">
+                  Toque pra escolher quem vê sua posição e seu pace num mapa enquanto a corrida rolar —
+                  pode escolher mais de um. Some sozinho quando a corrida terminar.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {friends.map((connection) => (
+                    <button
+                      key={connection.friendship.$id}
+                      type="button"
+                      onClick={() => toggleLiveFriend(connection.otherId)}
+                      className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                        liveFriendIds.includes(connection.otherId)
                           ? "border-accent bg-accent text-accent-foreground"
                           : "border-border bg-surface text-foreground hover:border-accent"
                       }`}

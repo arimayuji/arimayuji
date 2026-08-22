@@ -26,6 +26,45 @@ export function ExampleBadge({ children = "exemplo ilustrativo" }: { children?: 
   );
 }
 
+/** A labeled on/off switch — one preference row (a boolean setting with a one-line hint), used anywhere a screen offers an opt-in toggle rather than a fixed choice set. */
+export function PreferenceToggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center gap-3 text-left"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="mt-0.5 block text-xs text-muted">{hint}</span>
+      </span>
+      <span
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+          checked ? "bg-accent" : "bg-surface"
+        } border border-border`}
+      >
+        <span
+          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-background transition-transform ${
+            checked ? "translate-x-[22px]" : "translate-x-0.5"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
 /** One button in a row of mutually-exclusive options — goal distance, run days, distance unit, wherever a screen needs a small fixed choice set instead of a native `<select>`. */
 export function SegmentedButton({
   selected,

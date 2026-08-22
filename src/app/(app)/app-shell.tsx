@@ -4,8 +4,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { GpsQuality } from "@/lib/tracking/useRunTracker";
+import { usePreferences } from "@/lib/usePreferences";
 import { HORSE_BUST_BODY_PATH, HORSE_BUST_LEGS_PATH, HORSE_BUST_LEGS_PIVOT } from "../horse-mark";
 import { NotificationBell } from "./notification-bell";
+import { PrivacyConsentGate } from "./privacy-consent";
 import { useScrollChromeVisibility } from "./use-scroll-chrome";
 
 /**
@@ -145,6 +147,26 @@ const TABS: TabDefinition[] = [
   },
 ];
 
+/**
+ * Stands in for the "Corrida" tab when `appMode` is "treinador" (see
+ * preferences.ts's `AppMode`) — same icon already used for the "Treinador"
+ * discovery row on /perfil, so the two surfaces read as the same concept.
+ * Not a 6th tab: swapping tab 0 keeps the bar's width/rhythm identical
+ * either way, and the coach side of the product is thin enough (two
+ * screens) that a whole parallel tab set would mostly sit empty.
+ */
+const TREINADOR_TAB: TabDefinition = {
+  href: "/treinador",
+  label: "Treinador",
+  icon: ({ className }) => (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
+      <path d="M3.5 10.3v3.9h2.5l7.3 3.9V6.4l-7.3 3.9H3.5Z" />
+      <path d="M13.8 9.3a4.1 4.1 0 0 1 0 6.9" />
+      <path d="M16.6 7.3a7.6 7.6 0 0 1 0 10.9" />
+    </svg>
+  ),
+};
+
 function isActive(pathname: string, tab: TabDefinition): boolean {
   const candidates = [tab.href, ...(tab.alsoMatches ?? [])];
   return candidates.some(
@@ -161,6 +183,8 @@ const TAB_RECLICK_EVENT = "xanthus:tab-reclick";
 
 function BottomNav({ hidden }: { hidden: boolean }) {
   const pathname = usePathname() ?? "";
+  const [{ appMode }] = usePreferences();
+  const tabs = appMode === "treinador" ? [TREINADOR_TAB, ...TABS.slice(1)] : TABS;
 
   return (
     <nav
@@ -169,7 +193,7 @@ function BottomNav({ hidden }: { hidden: boolean }) {
       style={{ transform: hidden ? "translateY(100%)" : "translateY(0)" }}
     >
       <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)]">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const active = isActive(pathname, tab);
           return (
             <li key={tab.href} className="flex-1">
@@ -416,6 +440,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <BottomNav hidden={!chromeVisible} />
             </>
           )}
+          {/*
+            Portals to `document.body`, so its position here costs nothing
+            in layout terms — it sits outside the scroll container purely so
+            nothing about `{children}`'s own position in the tree changes
+            when the gate appears or goes away (see the long comment above
+            for what that costs).
+          */}
+          <PrivacyConsentGate />
         </div>
       </HeaderGpsContext.Provider>
       </HeaderCloseContext.Provider>

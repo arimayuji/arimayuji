@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { signOut } from "@/lib/auth";
 import { uploadAvatar } from "@/lib/avatar";
 import { publicOrigin } from "@/lib/platform";
 import { useShareSupport } from "@/lib/share";
@@ -12,6 +11,7 @@ import { Card, CardTitle, NoticeBadge } from "./ui";
 import { AccountPrompt } from "./account-prompt";
 import { DeleteAccountConfirm } from "./delete-account-confirm";
 import { HandlePicker } from "./handle-picker";
+import { SignOutConfirm } from "./sign-out-confirm";
 
 const RETURN_TO = "/perfil";
 
@@ -26,8 +26,7 @@ export function AccountCard() {
   const { status, account, profile, refresh } = useAuth();
   const [showPrompt, setShowPrompt] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  /** True while `signOut` (a real Appwrite call) is in flight — this button has no text label to swap to a busy verb like the rest of the app does, so the icon itself spins instead. */
-  const [signingOut, setSigningOut] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const shareSupport = useShareSupport();
@@ -52,13 +51,6 @@ export function AccountCard() {
       // Nothing else to fall back to — the link is still visible nowhere else, but this is the same dead end share.ts's clipboard path already accepts elsewhere.
     }
   }
-
-  const handleSignOut = async () => {
-    setSigningOut(true);
-    await signOut();
-    await refresh();
-    setSigningOut(false);
-  };
 
   async function handleAvatarChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -127,43 +119,28 @@ export function AccountCard() {
               <p className="font-mono text-xs text-muted">@{profile.handle}</p>
             </div>
           </div>
+          {/* Opens the confirm sheet rather than signing out on the spot: the sheet is where the "keep or wipe the runs on this device" choice gets asked, and that question is too consequential to skip past on a single tap. */}
           <button
             type="button"
-            onClick={() => void handleSignOut()}
-            disabled={signingOut}
-            aria-label={signingOut ? "Saindo…" : "Sair"}
-            title={signingOut ? "Saindo…" : "Sair"}
-            className="shrink-0 rounded-full p-2 text-bad hover:bg-bad/10 disabled:opacity-60"
+            onClick={() => setShowSignOutConfirm(true)}
+            aria-label="Sair"
+            title="Sair"
+            className="shrink-0 rounded-full p-2 text-bad hover:bg-bad/10"
           >
-            {signingOut ? (
-              <svg viewBox="0 0 20 20" className="h-4.5 w-4.5 animate-spin" aria-hidden="true">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="7"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  fill="none"
-                  strokeDasharray="24 44"
-                  strokeLinecap="round"
-                />
-              </svg>
-            ) : (
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4.5 w-4.5"
-                aria-hidden="true"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
-                <path d="M16 17l5-5-5-5" />
-                <path d="M21 12H9" />
-              </svg>
-            )}
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4.5 w-4.5"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
+              <path d="M16 17l5-5-5-5" />
+              <path d="M21 12H9" />
+            </svg>
           </button>
         </div>
       )}
@@ -222,6 +199,16 @@ export function AccountCard() {
 
       {showPrompt && status === "signed-out" && (
         <AccountPrompt onClose={() => setShowPrompt(false)} returnTo={RETURN_TO} />
+      )}
+
+      {showSignOutConfirm && (
+        <SignOutConfirm
+          onClose={() => setShowSignOutConfirm(false)}
+          onSignedOut={() => {
+            setShowSignOutConfirm(false);
+            void refresh();
+          }}
+        />
       )}
 
       {showDeleteConfirm && (

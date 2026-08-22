@@ -113,8 +113,8 @@ export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoEr
     activeBackend = "background";
     watchStartPromise = BackgroundGeolocation.start(
       {
-        backgroundTitle: "Xanthus",
-        backgroundMessage: "Gravando sua corrida em segundo plano.",
+        backgroundTitle: "Corrida em andamento",
+        backgroundMessage: "Rastreando por GPS. Toque para voltar ao Xanthus.",
         requestPermissions: true,
         stale: false,
         distanceFilter: 0,

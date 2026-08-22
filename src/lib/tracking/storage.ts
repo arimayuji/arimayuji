@@ -418,7 +418,7 @@ export async function listPainCheckIns(): Promise<PainCheckIn[]> {
  * enough recent history, which the caller treats as "not enough data for a
  * real plan yet".
  */
-export function estimateWeeklyKm(runs: CompletedRun[], weeks = 3, now = Date.now()): number {
+export function estimateWeeklyKm(runs: readonly CompletedRun[], weeks = 3, now = Date.now()): number {
   const windowStart = now - weeks * 7 * 24 * 60 * 60 * 1000;
   const metersInWindow = runs
     .filter((run) => run.startedAt >= windowStart)

@@ -14,7 +14,7 @@ dependencies {
     implementation project(':capacitor-geolocation')
     implementation project(':capacitor-haptics')
     implementation project(':capgo-background-geolocation')
-    implementation project(':capacitor-health')
+    implementation project(':capgo-capacitor-health')
 
 }
 

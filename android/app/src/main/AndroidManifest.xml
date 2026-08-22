@@ -55,14 +55,18 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- capacitor-health (src/lib/health.ts) — required by Health Connect
-             so a user who taps the permissions-rationale link from its own
-             settings screen lands somewhere; nothing in this app links here
-             directly. Declaring this is harmless on its own: the READ_*
-             permissions below only get requested once HEALTH_DATA_ENABLED
-             in health.ts actually flips to true, which it doesn't yet. -->
+        <!-- @capgo/capacitor-health (src/lib/health.ts) — required by Health
+             Connect so a user who taps the permissions-rationale link from
+             its own settings screen lands somewhere; nothing in this app
+             links here directly. Package changed from com.fit_up.health.
+             capacitor.* to app.capgo.plugin.health.* when the plugin was
+             swapped (the previous fork never exposed HRV/sleep/VO2 max —
+             see health.ts's own comment). Declaring this is harmless on its
+             own: the READ_* permissions below only get requested once
+             HEALTH_DATA_ENABLED in health.ts actually flips to true, which
+             it doesn't yet. -->
         <activity
-            android:name="com.fit_up.health.capacitor.PermissionsRationaleActivity"
+            android:name="app.capgo.plugin.health.PermissionsRationaleActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
@@ -71,7 +75,7 @@
         <activity-alias
             android:name="ViewPermissionUsageActivity"
             android:exported="true"
-            android:targetActivity="com.fit_up.health.capacitor.PermissionsRationaleActivity"
+            android:targetActivity="app.capgo.plugin.health.PermissionsRationaleActivity"
             android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
@@ -80,8 +84,8 @@
         </activity-alias>
     </application>
 
-    <!-- capacitor-health: lets the app detect whether Health Connect itself
-         is installed (Health.isHealthAvailable() in health.ts). -->
+    <!-- @capgo/capacitor-health: lets the app detect whether Health Connect
+         itself is installed (Health.isAvailable() in health.ts). -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
@@ -92,13 +96,20 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- capacitor-health — read-only, matching REQUIRED_PERMISSIONS in
+    <!-- @capgo/capacitor-health — read-only, matching REQUIRED_READ_TYPES in
          health.ts exactly. Declaring these doesn't grant them: Health
          Connect still shows its own consent screen the first time
          requestHealthPermissions() actually runs, which only happens once
-         HEALTH_DATA_ENABLED is true. -->
+         HEALTH_DATA_ENABLED is true. Four new entries (resting HR, HRV,
+         VO2 max, sleep) since the plugin swap — the previous fork couldn't
+         read any of the four. -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
+    <uses-permission android:name="android.permission.health.READ_VO2_MAX" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
 </manifest>

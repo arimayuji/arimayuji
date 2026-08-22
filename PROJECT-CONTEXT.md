@@ -259,6 +259,29 @@ chamada "Xanthus" — resumo por área:
     commitado, avisa — o que existe no código é o que está descrito
     acima, pode já ter mais coisa combinada que não chegou a ser
     implementada.**
+- **Corrida compartilhada com amigos (task #62, implementada em
+  2026-08-22)**: mesma infra de `live_runs`/`liveRuns.ts` do treinador
+  acima, só trocando a fonte de `viewerIds` — em `/run`, o atleta agora
+  também pode escolher um ou mais amigos aceitos (multi-seleção, diferente
+  do treinador que é sempre um só) pra ver a corrida ao vivo, ao lado do
+  coach e do longão. Do lado de quem assiste: `/amigos` mostra um selo
+  verde "Ao vivo" (poll de 15s enquanto a aba "Amigos" está aberta) em
+  qualquer amigo correndo agora que te incluiu, e o selo linka pra
+  `/amigos/ao-vivo?id=`, uma tela de mapa dedicada (mesmo padrão do card
+  ao vivo do treinador, só sem a lista de corridas passadas — isso
+  continua exclusivo de `runsSync.ts`/coach, amigo só vê ao vivo mesmo).
+  Nenhuma tabela nova, nenhuma Function nova — é só reuso client-side da
+  mesma permissão por linha que já existia.
+- **Modo treino alternável (task #99, implementada em 2026-08-22)**: pra
+  quem é atleta E treina outras pessoas, um toggle "Atleta"/"Treinador" em
+  `/perfil` (`preferences.ts`'s `appMode`) troca o que abre primeiro —
+  a tab 0 da navegação vira "Treinador" (`/treinador`) em vez de "Corrida"
+  (`/run`), e o mesmo vale pro redirect de abertura do app nativo
+  (`standalone-gate.tsx`). Só aparece pra quem realmente tem pelo menos um
+  aluno com vínculo aceito; pra todo mundo (a grande maioria) o card nem
+  renderiza. Escopo deliberadamente pequeno: não virou uma 6ª aba nem um
+  conjunto paralelo de abas — o lado treinador do produto ainda é só
+  `/treinador` e `/treinador/aluno`, duas telas, não uma seção inteira.
 - **Longão**: corrida em grupo com código de convite, vários corredores
   no mesmo mapa ao vivo.
 - **Amigos**: convite por @handle.
@@ -266,8 +289,8 @@ chamada "Xanthus" — resumo por área:
   tela de corrida, tênis com quilometragem por tênis, **tema
   claro/escuro/sistema** (adicionado 2026-08-17).
 - **Lugares pra correr**: parques avaliados por segurança/iluminação/etc.
-- Política de privacidade, exclusão de conta (Appwrite Function
-  dedicada, `appwrite-functions/delete-account`), PWA instalável.
+- Política de privacidade, exclusão de conta (ação `delete-account` da
+  Function `client-actions`), PWA instalável.
 
 O que ainda é maquete (não persiste de verdade): meta de prova em
 `/perfil` — está marcado como tal no próprio código, não finge ser real.
@@ -280,16 +303,27 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   - **Abordagem técnica**: nenhum relógio conversa direto com o app — todos
     (Apple Watch, Garmin, Fitbit, Samsung, Coros) sincronizam primeiro pro
     repositório de saúde do próprio celular. No iOS isso é o **Apple
-    HealthKit**, no Android é o **Health Connect**. O plano é ler dos dois
-    via um único plugin Capacitor, achado por pesquisa:
-    **`capacitor-health`** (`Cap-go/capacitor-health`, mantido, cobre os
-    dois com uma API só). **Só funciona no app nativo** — HealthKit/Health
-    Connect são APIs do sistema operacional, inexistentes no navegador/PWA;
-    exige permissão nova (capability HealthKit no iOS, permissão Health
-    Connect no Android) e rebuild dos dois projetos nativos.
+    HealthKit**, no Android é o **Health Connect**. O plano sempre foi ler
+    dos dois via um único plugin Capacitor, achado por pesquisa:
+    **`Cap-go/capacitor-health`**, mantido pela mesma equipe do plugin de
+    GPS já em produção (`@capgo/background-geolocation`), cobrindo os dois
+    com uma API só. **Só funciona no app nativo** — HealthKit/Health Connect
+    são APIs do sistema operacional, inexistentes no navegador/PWA; exige
+    permissão nova (capability HealthKit no iOS, permissão Health Connect
+    no Android) e rebuild dos dois projetos nativos.
+    **Pegadinha achada e corrigida em 2026-08-22**: a implementação original
+    instalou o pacote npm de nome simples `capacitor-health` (fork de
+    `mley`), não o `@capgo/capacitor-health` pretendido aqui — nomes
+    parecidos, pacotes diferentes. O fork errado só lia passos/FC média/
+    calorias/distância; o certo lê tudo isso **e** FC em repouso, HRV, VO2
+    máx e sono. Trocado pro pacote certo nessa data — ver "Estudo de
+    captação de wearables" abaixo.
   - **Dados considerados**: frequência cardíaca (inclusive em tempo real
-    durante a corrida), calorias medidas de verdade (hoje é só estimativa),
-    contagem de passos, treinos já registrados no relógio.
+    durante a corrida — ainda não implementado, ver estudo de captação),
+    calorias medidas de verdade (antes só estimativa), contagem de passos,
+    treinos já registrados no relógio, e desde a correção do plugin:
+    frequência cardíaca em repouso, variabilidade de frequência cardíaca
+    (HRV), VO2 máx estimado, sono (com estágio).
   - **LGPD**: dado de saúde é categoria sensível (Art. 5º, II) — decidido
     que precisa de **tela de consentimento própria em `/perfil`**,
     separada do consentimento geral já existente, explicando exatamente o
@@ -301,8 +335,10 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       smartwatch" em `/perfil`, explica o que seria lido e o motivo LGPD,
       toggle "Ver como ficaria" (estado local, não persistido) revela um
       card com FC/calorias/passos fictícios via `ExampleBadge`.
-    - **Fase 3 (integração real)**: `capacitor-health@8.1.2` instalado
-      (`npm install` + `npx cap sync` já rodados). `src/lib/health.ts`
+    - **Fase 3 (integração real)**: `@capgo/capacitor-health@8.10.4`
+      instalado (`npm install` + `npx cap sync` já rodados; era
+      `capacitor-health@8.1.2` — pacote errado, ver correção acima).
+      `src/lib/health.ts`
       implementa `isHealthAvailable`/`requestHealthPermissions`/
       `fetchRunHealthData` de verdade, contra a API real do plugin
       (verificado lendo o Kotlin/Swift do pacote em `node_modules`, não só
@@ -316,42 +352,31 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       pro Health Connect, `uses-permission android.permission.health.*`) e
       `Info.plist` (`NSHealthShareUsageDescription`/
       `NSHealthUpdateUsageDescription`).
-    - **`HEALTH_DATA_ENABLED = true`** em `src/lib/health.ts` desde
-      2026-08-19 — chave única que liga tudo isso de uma vez, mesmo padrão
-      do `PHONE_AUTH_ENABLED`. Entitlement (`App.entitlements`) e a
-      capability no `project.pbxproj` já commitados em `main` (commits
-      `673ad84`/`c8aa8bf`). Faltava:
-      1. ~~Habilitar a **capability HealthKit** no App ID no Apple Developer
-         Portal~~ — **feito manualmente pelo dono do projeto em
-         developer.apple.com em 2026-08-19** (passo que não dava pra fazer
-         por código). Ainda não confirmado se o build assinado do TestFlight
-         (job `testflight` em `ios-build.yml`, assinatura automática com API
-         key Admin) já reflete isso sem erro — checar os últimos runs em
-         github.com/arimayuji/xanthus/actions antes de assumir que está
-         tudo verde.
-      2. Testar em aparelho real com um relógio de verdade sincronizado —
-         nada disso foi validado em dispositivo, só `tsc`/`eslint`/`next
-         build` (o plugin é nativo puro, não roda no sandbox nem no
-         navegador). Esse é o único bloqueio real que resta.
-      3. ~~Confirmar que o Android realmente lê certo quando o Health
-         Connect não está instalado~~ — **confirmado por leitura de código
-         em 2026-08-18** (não em dispositivo real, isso ainda depende do
-         item 2 acima): o plugin `capacitor-health` chama
-         `HealthConnectClient.getOrCreate(context)` dentro de um
-         `try/catch` (`HealthPlugin.kt`, método `isHealthAvailable`) — essa
-         chamada da própria AndroidX Health Connect lança exceção quando o
-         app Health Connect não está instalado no aparelho, e o plugin
-         captura isso e resolve `{available: false}` em vez de rejeitar a
-         chamada. `src/lib/health.ts`'s `isHealthAvailable()` tem seu
-         próprio `try/catch` por cima disso (dupla proteção). E
-         `fetchRunHealthData()` já checa `isHealthAvailable()` primeiro e
-         devolve `null` antes de chamar `requestHealthPermissions()` ou
-         qualquer query — nenhuma chamada nativa a mais acontece nesse
-         caminho. Na UI (`run-detail.tsx`), `healthData` nulo já cai de
-         volta pro comportamento antigo sem quebrar nada: o card de FC
-         média some, calorias volta pra estimativa. Resta só o item 2 acima
-         (teste em aparelho real) como validação real pendente — a flag já
-         está ligada em `main`.
+    - **Histórico da flag** (pra não repetir o vaivém): ligada em
+      2026-08-19, desligada de novo em 2026-08-17/21 numa auditoria LGPD
+      (lia FC/calorias/passos automaticamente com só o aviso de permissão
+      do sistema, sem consentimento de produto de verdade), lacuna fechada
+      em 2026-08-22 (`preferences.ts` ganhou `healthDataConsent`,
+      `/perfil/relogio` tem toggle real, `/privacidade` declara as duas
+      fontes, `fetchRunHealthData` checa o consentimento por conta
+      própria) — e **religada de vez em 2026-08-22**, branch
+      `claude/strava-competitor-feedback-cyvop8`, ainda não em `main`.
+    - Pré-requisitos já fechados: entitlement (`App.entitlements`) e
+      capability no `project.pbxproj` commitados; capability HealthKit
+      habilitada no App ID pelo dono do projeto em developer.apple.com
+      (2026-08-19) — ainda não confirmado se o build assinado do
+      TestFlight reflete isso sem erro, checar os runs em
+      github.com/arimayuji/xanthus/actions antes de assumir que está tudo
+      verde; fallback do Android quando o Health Connect não está
+      instalado confirmado por leitura de código (`HealthConnectClient.
+      getSdkStatus`, nunca lança exceção, `isHealthAvailable()` com seu
+      próprio `try/catch` por cima) — não em dispositivo real.
+    - **Único bloqueio real que resta**: testar em aparelho real com um
+      relógio de verdade sincronizado. Nada disso foi validado em
+      dispositivo, só `tsc`/`eslint`/`next build` (o plugin é nativo puro,
+      não roda no sandbox nem no navegador) — isso não dá pra fazer nesse
+      ambiente remoto, precisa ser o dono do projeto testando no celular
+      dele com um relógio pareado.
 
 ## Ferramentas externas usadas no projeto
 
@@ -415,6 +440,182 @@ um novo push pra `testflight` deve completar a submissão normalmente —
 não precisa de nenhuma mudança de código, só esperar o build anterior
 sair da fila.
 
+## Auditoria LGPD/segurança — status em 2026-08-22
+
+22 achados originais (2 Crítico, 6 Alto, 9 Médio, 5 Baixo). **16
+corrigidos** ao longo de duas sessões, **6 em aberto**. Detalhe completo
+achado-a-achado só existe no chat/branch, não replicado aqui — o que
+importa persistir é a ação pendente:
+
+- **Bloqueio de infra achado em 2026-08-22 tentando deployar, resolvido por
+  consolidação (não por upgrade de plano)**: o projeto Appwrite Cloud já
+  batia no teto de Functions do plano atual com só 2 Functions existentes
+  (`send-welcome-email`, `join-group-run`) — `appwrite functions create`
+  recusava a primeira das 5 pendentes (LGPD + modo treinador) com
+  `"The maximum number of functions allowed for the selected plan has
+  reached."` **Preço conferido em appwrite.io/pricing**: Free trava em
+  **2 Functions/projeto**, Pro (a partir de **US$25/mês**) libera
+  ilimitadas. Perguntado ao dono do projeto se preferia pagar o Pro ou
+  consolidar em menos Functions — **decidiu consolidar**.
+  **Consolidação implementada nesta sessão**: as 6 ações client-invocadas
+  (`delete-account`, `send-welcome-email`, `join-group-run`,
+  `claim-owned-row`, `set-plan-override`, `suggest-plan-override`) viraram
+  uma única Function `client-actions`, despachando por um campo `action`
+  no corpo da requisição; as 2 por evento (`revoke-coach-run-access`,
+  `revoke-live-audience`) viraram `row-events`, registrada nos dois
+  eventos de delete, despachando por qual tabela disparou. Isso cabe nas 2
+  vagas do Free — inclusive cobrindo de graça `delete-account`, que nunca
+  chegou a ser deployada standalone apesar de documentada. Trade-off
+  aceito conscientemente: cada dispatcher roda com a união de todos os
+  escopos das suas ações, não o mínimo de uma ação específica — ver
+  `README.md` pra esse raciocínio completo.
+  **Virada de produção executada em 2026-08-22**: `send-welcome-email` e
+  `join-group-run` apagadas de verdade (`appwrite functions delete`),
+  `client-actions` e `row-events` criadas e deployadas no lugar
+  (`appwrite functions create-deployment --code . --activate` — não
+  `appwrite push functions`, que depende de um `appwrite.config.json`
+  com a lista de functions que este projeto nunca teve; `create-deployment`
+  não precisa desse arquivo). `GEMINI_API_KEY` já configurada em
+  `client-actions` (mesmo valor do `.env.local`). Confirmado via
+  `appwrite functions list`: exatamente as 2 Functions esperadas, ambas
+  `ready`. **Pendência resolvida em 2026-08-22**: `RESEND_API_KEY` não
+  migrou sozinha (Appwrite não deixa ler o valor de uma variável secreta
+  já configurada de volta, então se perdeu junto com a `send-welcome-email`
+  antiga), mas o dono do projeto gerou uma chave nova no Resend e
+  configurou em `client-actions` no mesmo dia — confirmado via
+  `appwrite functions list-variables`: `GEMINI_API_KEY` e `RESEND_API_KEY`
+  ambas presentes. E-mail de boas-vindas voltou a funcionar, nenhuma
+  pendência real restando dessa migração.
+  **Segunda descoberta de teto de plano nessa mesma sessão**: rodar
+  `scripts/appwrite-setup.ts` depois do deploy bateu num teto separado —
+  Free também trava em **1 bucket de Storage por projeto**, e como o
+  bucket `avatars` já existia, o `createBucket` do script tentava recriar
+  e levava 403 (`additional_resource_not_allowed`) **antes** de sequer
+  checar se o ID já existia (diferente de tabela/coluna, que dão 409 nesse
+  caso). Corrigido no próprio script: agora confere com `getBucket()`
+  primeiro e só chama `createBucket` se realmente não existir — sem essa
+  correção, o script falhava sempre que rodado de novo num projeto que já
+  tem o bucket, mesmo sem nada de fato pra criar.
+- **Achados #10, #11 e #12 da auditoria LGPD fechados de verdade em
+  produção em 2026-08-22** — `client-actions`/`row-events` deployadas, e
+  `scripts/appwrite-setup.ts` rodado até o fim (incluindo o bloco que
+  retira a permissão antiga de `create` aberta em
+  `profiles`/`profile_stats`/`place_run_stats`). `plan_overrides` também
+  criada nessa mesma rodada.
+- **Em aberto, dependem só do dono do projeto em console externo**:
+  rotacionar `APPWRITE_SETUP_API_KEY` (achado #08, decidido adiar), restringir
+  a chave pública da MapTiler por domínio (achado #13).
+- **Em aberto, decisão de produto tomada, sem ação de código pendente**:
+  achado #15 (chaves Gemini/Recraft paradas) — decidido manter, vão ser
+  usadas; achado #18 (bucket de avatares público) — decidido manter, estilo
+  "Strava só que melhor/gaming" (não detalhado ainda o que isso significa
+  visualmente).
+
+## Modo treinador com IA — Fase A implementada, Fase B planejada
+
+Pedido do dono do projeto (2026-08-22): o "modo treinador" deveria virar
+algo mais parecido com o Runna — um treinador de verdade ajustando o plano
+de um aluno, eventualmente com IA sugerindo e input tipo planilha. Decisão
+de arquitetura: **"os dois juntos"** — a IA (fase futura) sugere, o motor
+determinístico existente (`src/lib/plan/`, limites como o teto de +30%/2
+semanas do `buildVolumeRamp`) trava a sugestão dentro de limites seguros
+antes dela virar um override real, e o treinador ainda pode editar por
+cima via a mesma tela da Fase A. A Fase B também vai usar RAG contra
+`src/lib/evidence/facts.ts` (a mesma base de fatos citados que `/plano` e
+`/estudos` já usam) com um modelo lowcost (provável Gemini Flash, chave já
+em `.env.local`), em vez de uma chamada de LLM sem embasamento.
+
+**Fase A (implementada nesta sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+ainda não deployada em produção)** — só o override manual, sem IA nenhuma:
+
+- Tabela nova `plan_overrides` (`scripts/appwrite-setup.ts`): chave
+  `(coachId, studentId, weekStartDate)`, `rowId` determinístico
+  `${studentId}_${weekStartDate}`. `permissions: []` na tabela — só a
+  Function grava.
+- Ação `set-plan-override` dentro da Function consolidada `client-actions`
+  (`appwrite-functions/client-actions/src/main.js` — ver "Auditoria
+  LGPD/segurança" acima pra por que virou uma ação dentro de um
+  dispatcher em vez da Function própria que era originalmente): mesmo
+  padrão de `join-group-run`/`claim-owned-row` — confirma vínculo
+  `accepted` em `coach_relationships` antes de gravar, chave privilegiada,
+  nunca escrita direta do cliente. **Ainda não deployada** — a Function
+  `client-actions` em si ainda não foi deployada; instruções no `README.md`.
+- `src/lib/plan/coachOverride.ts` (`applyCoachOverride`): merge puro que
+  sobrepõe o override no `PlannedWeek` calculado pelo motor — usado tanto
+  em `/plano` quanto em `/run` (chip "Treino de hoje").
+- `src/lib/coachPlanOverrides.ts`: round-trip com o Appwrite
+  (`setPlanOverride`/`listPlanOverridesForStudent`/`deletePlanOverride`).
+- Tela nova em `/treinador/aluno`: card "Planilha da semana" —
+  navegação de semana (setas ← →), 7 linhas (dia, km, tipo via
+  `SegmentedButton`, zona de ritmo só quando o tipo é "Forte"), recado
+  opcional, Salvar/Remover.
+
+**Limitação de arquitetura, importante pra qualquer trabalho futuro
+nessa área**: o treinador **não consegue ver o plano que o motor já
+calculou pro aluno** — `computeCurrentPlanWeek` depende do
+`RunnerProfile` (localStorage) e do histórico de corridas (IndexedDB) do
+próprio aparelho do aluno, nada disso sincroniza pro Appwrite. Por isso a
+tela do treinador é uma planilha em branco (o treinador digita tudo do
+zero), não uma tela de "revisar e ajustar o palpite do motor". Resolver
+isso de verdade exigiria sincronizar pelo menos o resumo do plano do aluno
+pro Appwrite — não fizemos isso, ficou como limitação conhecida da Fase A.
+
+**Correção de bug feita junto com a Fase A**: até esta sessão,
+`planStartDate` (o dia em que a semana 1 do plano do aluno começa) era
+carimbado com "hoje", em qualquer dia da semana — mas o treinador não tem
+como saber esse valor (é local ao aparelho do aluno) e precisa *adivinhar*
+em que data cada semana do plano começa pra saber qual `weekStartDate`
+usar num override. A tela do treinador adivinha usando a segunda-feira do
+calendário (`mondayOf`, `src/lib/tracking/stats.ts`) — o que só funciona
+se o plano do aluno também começar numa segunda. Corrigido carimbando
+`planStartDate` sempre com a segunda-feira anterior ou igual a hoje
+(`currentMondayIsoDate`, novo em `src/lib/runnerProfile.ts`), em vez do
+dia exato em que o goal foi configurado. Sem essa correção, um override de
+treinador simplesmente nunca bateria com a semana real do aluno pra quase
+ninguém.
+
+**Fase B (implementada nesta sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+ainda não deployada em produção)**:
+
+- Ação `suggest-plan-override` dentro da Function consolidada
+  `client-actions` (`appwrite-functions/client-actions/src/main.js` — ver
+  "Auditoria LGPD/segurança" acima pra por que virou uma ação dentro de
+  um dispatcher em vez da Function própria que era originalmente): chama
+  Gemini Flash (`GEMINI_API_KEY`, já em `.env.local` — primeira
+  Function deste projeto que precisa de um secret externo, não só
+  `x-appwrite-key`) grounded num recorte curado de
+  `src/lib/evidence/facts.ts` (só os tópicos volume_progression/
+  periodization/taper/overtraining/injury_prevention — o resto do corpus
+  não decide nada aqui). O contexto real vem do km semanal das últimas até
+  4 semanas de corrida que o aluno já compartilhou com esse treinador
+  (`runs` table, bucketed por segunda-feira em horário de Brasília fixo —
+  sem DST desde 2019, então um offset fixo de UTC-3 é seguro). **Só
+  leitura** (`databases.read`) — nunca escreve `plan_overrides` sozinha.
+- O teto de segurança é a mesma matemática de
+  `src/lib/plan/volumeProgression.ts` (`WEEKLY_STEP`/`TWO_WEEK_CEILING`,
+  duplicada à mão no `main.js` da Function com comentário apontando de
+  volta pro original — Functions aqui não têm build step nem import
+  compartilhado com o app, mesma razão que já vale pra `facts.ts`) aplicada
+  a uma semana avulsa em vez de a uma rampa inteira: nunca mais que
+  +10%/semana nem mais que 30% acima de 2 semanas atrás. Isso é reforçado
+  **depois** da resposta do Gemini (o total sugerido é escalado pra baixo
+  se estourar), não é só instrução no prompt — defesa em profundidade.
+- **Sem histórico real de corrida compartilhada, a Function recusa
+  sugerir** (`no-history`) em vez de inventar um teto — não dá pra travar
+  um limite de segurança sem dado real pra travar contra.
+- Cliente (`src/lib/coachPlanSuggestion.ts`): `suggestPlanOverride()` só
+  chama a Function e devolve a sugestão — **nunca salva sozinho**. Em
+  `/treinador/aluno`, botão "Sugerir com IA" (com campo opcional de
+  contexto livre pro modelo, ex. "joelho doendo") preenche o rascunho da
+  planilha da Fase A; o treinador ainda revisa/edita e clica "Salvar
+  semana" (que é a `set-plan-override` de sempre) — a arquitetura "os dois
+  juntos" decidida nesta sessão, na prática: IA sugere, motor trava,
+  treinador confirma.
+- **Ainda não deployada** — a Function `client-actions` em si ainda não
+  foi deployada; instruções completas no `README.md`, incluindo o passo
+  de configurar a variável `GEMINI_API_KEY` nela (usada só por essa ação,
+  ao lado de `RESEND_API_KEY` usada por `send-welcome-email`).
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
@@ -435,10 +636,39 @@ sair da fila.
       build sem precisar de nova revisão — só builds novos exigem revisão de
       novo. Revisão completa da App Store (produção) continua sem prazo
       definido.
-- [ ] A corrida compartilhada / modo treinador tem trabalho combinado que
-      ainda não está no código (além do que já está listado acima)?
+- [x] **2026-08-22: escopado, Fase A e Fase B implementadas** — modo
+      treinador vira "os dois juntos" (IA sugere + motor determinístico
+      trava os limites + treinador edita por cima), ver seção própria
+      acima. Fase A (planilha manual) e Fase B (sugestão por IA) têm
+      código pronto; falta só o deploy de `client-actions`.
 - [ ] Alguma decisão de produto/negócio recente que vale registrar aqui
       (posicionamento, prioridade de roadmap, concorrência, etc.)?
+- [x] **2026-08-22: análise competitiva feita** — 16 reviews do Google Play
+      de "Runna: Treinador de Corrida" (4.9★) extraídas e cruzadas com o que
+      o Xanthus já entrega. Achado principal: o Xanthus já cobre as dores
+      operacionais mais citadas (GPS confiável, sem travar em segundo plano,
+      sem paywall, sem exigir login, em pt-BR) — essas eram literalmente o
+      motivo do produto existir. Gap real de ambição de produto: o Runna tem
+      plano de treino adaptativo por IA + módulo de treino de força; o
+      Xanthus tem plano de treino (motor determinístico, `src/lib/plan/`,
+      **não** IA) mas ele não tinha aderência real — corrigido em 2026-08-22
+      (`planStartDate` ancorado + chip "Treino de hoje" em `/run`, ver acima
+      na seção de tracking). Treino de força **decidido não fazer** por ora
+      (aparece nas reviews majoritariamente como bug, não como o que
+      fideliza). Falta ainda: casar corrida gravada com sessão planejada
+      (marcar feito/pulado) e recalcular o ramp de volume pelo que
+      realmente aconteceu — não fizemos essa parte ainda, escopado mas não
+      construído.
+- [x] **2026-08-22: `HEALTH_DATA_ENABLED` religado** — "Caminho A" (ler
+      HealthKit/Health Connect pós-corrida, cobre toda marca de relógio,
+      mas não é ao vivo) está com todo o código e pré-requisitos prontos.
+      **Único bloqueio real restante: testar em aparelho real com um
+      relógio de verdade sincronizado** — não dá pra fazer neste ambiente,
+      precisa ser o dono do projeto no celular dele. "Caminho B1" (FC ao
+      vivo via Bluetooth Heart Rate Service, `0x180D`) continua só
+      pesquisado, nada implementado — cobre cinta/relógio em modo
+      broadcast mas nunca Apple Watch (não transmite por BLE); não é
+      excludente com o Caminho A, só uma fase futura possível.
 
 ## Como manter isso vivo
 

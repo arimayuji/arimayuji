@@ -10,6 +10,15 @@ import type { Split } from "../tracking/splits";
 import type { PaceZoneName, PaceZones } from "./types";
 import { paceForZone } from "./vdot";
 
+/** Portuguese display name per zone — shared by `/plano` and `/run`'s "usar treino de hoje" chip, so the two screens never drift into calling the same zone two different things. */
+export const ZONE_LABEL: Record<PaceZoneName, string> = {
+  easy: "Fácil",
+  marathon: "Maratona",
+  threshold: "Limiar",
+  interval: "Intervalado",
+  repetition: "Repetição",
+};
+
 /** Zone order from easiest to hardest — Z1 through Z5. */
 export const ZONE_ORDER: PaceZoneName[] = [
   "easy",

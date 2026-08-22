@@ -58,7 +58,7 @@ export function HandlePicker({ account, onDone }: { account: Account; onDone: (p
     setSubmitting(true);
     setError(null);
     try {
-      const profile = await createProfile(account.id, handle, displayName.trim());
+      const profile = await createProfile(handle, displayName.trim());
       sendWelcomeEmail();
       onDone(profile);
     } catch {

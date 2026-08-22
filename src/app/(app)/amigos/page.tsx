@@ -10,6 +10,7 @@ import {
   sendFriendRequest,
   type FriendConnection,
 } from "@/lib/friendships";
+import { getActiveLiveSession, type LiveRun } from "@/lib/liveRuns";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
@@ -17,6 +18,11 @@ import { Avatar } from "../avatar";
 import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/amigos";
+
+/** Same threshold `/treinador/aluno`/`ao-vivo` use for "this ping is stale, treat as not live" — kept in sync by eye since this list only needs it for the badge, not the full live card those screens render. */
+const LIVE_STALE_MS = 45_000;
+/** A once-in-a-while badge on a list, not a map someone's staring at — much less frequent than the 5s poll the actual live-viewing screens use. */
+const LIVE_LIST_POLL_MS = 15_000;
 
 const SEND_ERRORS: Record<string, string> = {
   "not-found": "Ninguém com esse @ por aqui. Confere a escrita — o @ é o mesmo que a pessoa escolheu ao criar a conta.",
@@ -163,6 +169,38 @@ export default function AmigosPage() {
     (c) => c.friendship.status === "pending" && c.direction === "outgoing",
   );
   const friends = (connections ?? []).filter((c) => c.friendship.status === "accepted");
+
+  /**
+   * Which accepted friends are live right now, keyed by their account id —
+   * only polled while the "Amigos" tab is actually showing, since nobody's
+   * looking at this list otherwise. A friend's own `startLiveSession` call
+   * (see /run) already restricted read access to whoever they picked, so
+   * this simply comes back empty for anyone who didn't include this
+   * account — no extra filtering needed here, same reasoning
+   * `listSessionLiveRuns` documents for the longão case.
+   */
+  const [liveFriends, setLiveFriends] = useState<Map<string, LiveRun>>(new Map());
+  useEffect(() => {
+    if (activeTab !== "amigos" || friends.length === 0) return;
+    let cancelled = false;
+    const poll = async () => {
+      const rows = await Promise.all(friends.map((c) => getActiveLiveSession(c.otherId)));
+      if (cancelled) return;
+      const now = Date.now();
+      const next = new Map<string, LiveRun>();
+      rows.forEach((row, i) => {
+        if (row && now - row.updatedAtMs <= LIVE_STALE_MS) next.set(friends[i].otherId, row);
+      });
+      setLiveFriends(next);
+    };
+    void poll();
+    const interval = setInterval(poll, LIVE_LIST_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `friends` is a new array every render (derived from `connections` above); keying off `connections` itself instead avoids re-polling every render while still refetching whenever who's actually a friend changes.
+  }, [activeTab, connections]);
 
   return (
     <>
@@ -355,6 +393,7 @@ export default function AmigosPage() {
                         key={connection.friendship.$id}
                         connection={connection}
                         busy={busyId === connection.friendship.$id}
+                        live={liveFriends.has(connection.otherId)}
                         onRemove={() => act(connection.friendship.$id, () => removeFriendship(connection.friendship.$id))}
                       />
                     ))}
@@ -363,8 +402,9 @@ export default function AmigosPage() {
             </Card>
 
             <p className="pr-enter text-center text-xs leading-relaxed text-muted text-pretty" style={delay(140)}>
-              Por enquanto a amizade é só a conexão em si — compartilhar corridas com quem você aceitou
-              ainda está por vir, e a gente não vai fingir que já está aí.
+              Um amigo aceito pode escolher te ver ao vivo enquanto corre (tela Preparar Corrida) — o
+              selo verde Ao vivo aqui aparece na hora. Ver o histórico de corridas passadas de um amigo,
+              como já dá pra fazer com um treinador, ainda está por vir.
             </p>
           </>
         )}
@@ -427,16 +467,28 @@ function OutgoingRequestRow({
 function FriendRow({
   connection,
   busy,
+  live,
   onRemove,
 }: {
   connection: FriendConnection;
   busy: boolean;
+  /** Whether this friend currently has a live run this account is included in — see the polling effect in `AmigosPage`. */
+  live: boolean;
   onRemove: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
 
   return (
     <PersonRow connection={connection} linkToProfile>
+      {live && !confirming && (
+        <Link
+          href={`/amigos/ao-vivo?id=${connection.otherId}`}
+          className="flex items-center gap-1.5 self-center rounded-full border border-good/30 bg-good/10 px-3 py-1.5 text-xs font-medium text-good"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden="true" />
+          Ao vivo
+        </Link>
+      )}
       {confirming ? (
         <>
           <button
