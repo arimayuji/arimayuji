@@ -19,16 +19,11 @@
  * neighboring text as `previous_text`/`next_text` hints — so the model
  * shapes it as genuinely mid-phrase.
  *
- * NOT YET GENERATED as of this branch: this was built and verified
- * (numberToSlugs/announcementSlugs decomposition logic checked against
- * several sample announcements — see the branch's commit message) but the
- * actual npm run voice:generate pass ran out of ElevenLabs API quota
- * (300 total, key nearly spent already) partway through the 135 clips this
- * needs. main still runs on the previous single-context word bank (32
- * clips, just with dead-air trimmed — see voiceBank.ts's playSequence).
- * Once the ElevenLabs account has enough quota for ~135 short clips, merge
- * this branch and run `npm run voice:generate` for real; it will pick up
- * from wherever the last attempt left off (idempotent skip-if-exists).
+ * All 135 clips this bank needs have been generated (two ElevenLabs quota
+ * top-ups across the build). Even with every clip individually
+ * context-aware, this still needs a gap-free playback engine to actually
+ * read as one flowing phrase — see voiceBank.ts's buffer-splicing comment
+ * for the other half of that fix.
  *
  * A word's exact position in the template (which of the 4 numeric slots,
  * and whether it's spoken alone or as the tens/units half of a compound
