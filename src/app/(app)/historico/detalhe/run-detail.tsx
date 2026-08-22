@@ -7,8 +7,10 @@ import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { computeElevationProfile, elevationGainFromProfile, type ElevationSample } from "@/lib/elevation";
 import { fetchRecoveryContext, fetchRunHealthData, HEALTH_DATA_ENABLED, type RecoveryContext, type RunHealthData } from "@/lib/health";
+import { removeFinishedRun } from "@/lib/profileStats";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { getSyncedRun, shareRunWithCoaches } from "@/lib/runsSync";
+import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
@@ -513,6 +515,7 @@ function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
 export function RunDetail({ id }: { id: string }) {
   useHeaderClose("/historico");
   const router = useRouter();
+  const { account } = useAuth();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [{ distanceUnit: unit }] = usePreferences();
   const [runnerProfile] = useRunnerProfile();
@@ -652,6 +655,7 @@ export function RunDetail({ id }: { id: string }) {
   const handleDelete = async () => {
     setDeleting(true);
     await deleteCompletedRun(run.id);
+    if (account) void removeFinishedRun(run.distanceMeters);
     router.push("/historico");
   };
 

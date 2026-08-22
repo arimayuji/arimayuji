@@ -57,7 +57,7 @@ import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
-import { recordFinishedRun } from "@/lib/profileStats";
+import { recordFinishedRun, removeFinishedRun } from "@/lib/profileStats";
 import { updateProfile } from "@/lib/auth";
 import type { RunningPlace } from "@/lib/places";
 import { projectRoute } from "@/lib/tracking/routeProjection";
@@ -1582,6 +1582,7 @@ export default function RunPage() {
     if (!state.finishedRun) return;
     setDiscarding(true);
     await deleteCompletedRun(state.finishedRun.id);
+    if (account) void removeFinishedRun(state.finishedRun.distanceMeters);
     handleReset();
   };
 

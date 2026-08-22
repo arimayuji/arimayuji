@@ -79,6 +79,49 @@ export async function recordFinishedRun(distanceMeters: number): Promise<void> {
   }
 }
 
+/**
+ * Reverses `recordFinishedRun`'s own increment — call this wherever a
+ * completed run gets deleted (discarded right after finishing, or removed
+ * later from Histórico), so a run that no longer exists doesn't keep
+ * counting toward the public total forever. Found missing entirely in a
+ * 2026-08-22 report: every one of the three delete paths called
+ * `deleteCompletedRun` on the local IndexedDB row and stopped there,
+ * leaving `profile_stats` permanently overcounted by every discarded or
+ * deleted run. Clamped at 0 rather than let it go negative — the only way
+ * this could ever go below what it should be is a run recorded before this
+ * function existed, and overcounting that one historical case is a smaller
+ * failure than a negative total.
+ */
+export async function removeFinishedRun(distanceMeters: number): Promise<void> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return;
+  const account = await appwrite.account.get();
+  const userId = account.$id;
+
+  let current: ProfileStats | null = null;
+  try {
+    current = await appwrite.tablesDB.getRow<ProfileStats>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.profileStats,
+      rowId: userId,
+    });
+  } catch {
+    return;
+  }
+  if (!current) return;
+
+  await appwrite.tablesDB.updateRow<ProfileStats>({
+    databaseId: APPWRITE_DATABASE_ID,
+    tableId: TABLES.profileStats,
+    rowId: userId,
+    data: {
+      userId,
+      totalMeters: Math.max(0, current.totalMeters - distanceMeters),
+      totalRuns: Math.max(0, current.totalRuns - 1),
+    },
+  });
+}
+
 export async function getProfileStats(userId: string): Promise<ProfileStats | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return null;

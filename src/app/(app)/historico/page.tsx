@@ -9,6 +9,8 @@ import {
   type CompletedRun,
   type StoredPoint,
 } from "@/lib/tracking/storage";
+import { removeFinishedRun } from "@/lib/profileStats";
+import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { allTimeBests } from "@/lib/tracking/personalRecords";
 import type { DistanceUnit } from "@/lib/preferences";
@@ -829,10 +831,13 @@ export default function HistoricoPage() {
   const [period, setPeriod] = useState<Period>("recent3");
   const [sort, setSort] = useState<SortKey>("recent");
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const { account } = useAuth();
 
   const handleConfirmDelete = async (id: string) => {
     setDeletingId(id);
+    const deletedRun = load.status === "ready" ? load.runs.find((run) => run.id === id) : undefined;
     await deleteCompletedRun(id);
+    if (account && deletedRun) void removeFinishedRun(deletedRun.distanceMeters);
     setLoad((current) =>
       current.status === "ready"
         ? { status: "ready", runs: current.runs.filter((run) => run.id !== id) }
