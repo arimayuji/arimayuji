@@ -280,16 +280,27 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   - **Abordagem técnica**: nenhum relógio conversa direto com o app — todos
     (Apple Watch, Garmin, Fitbit, Samsung, Coros) sincronizam primeiro pro
     repositório de saúde do próprio celular. No iOS isso é o **Apple
-    HealthKit**, no Android é o **Health Connect**. O plano é ler dos dois
-    via um único plugin Capacitor, achado por pesquisa:
-    **`capacitor-health`** (`Cap-go/capacitor-health`, mantido, cobre os
-    dois com uma API só). **Só funciona no app nativo** — HealthKit/Health
-    Connect são APIs do sistema operacional, inexistentes no navegador/PWA;
-    exige permissão nova (capability HealthKit no iOS, permissão Health
-    Connect no Android) e rebuild dos dois projetos nativos.
+    HealthKit**, no Android é o **Health Connect**. O plano sempre foi ler
+    dos dois via um único plugin Capacitor, achado por pesquisa:
+    **`Cap-go/capacitor-health`**, mantido pela mesma equipe do plugin de
+    GPS já em produção (`@capgo/background-geolocation`), cobrindo os dois
+    com uma API só. **Só funciona no app nativo** — HealthKit/Health Connect
+    são APIs do sistema operacional, inexistentes no navegador/PWA; exige
+    permissão nova (capability HealthKit no iOS, permissão Health Connect
+    no Android) e rebuild dos dois projetos nativos.
+    **Pegadinha achada e corrigida em 2026-08-22**: a implementação original
+    instalou o pacote npm de nome simples `capacitor-health` (fork de
+    `mley`), não o `@capgo/capacitor-health` pretendido aqui — nomes
+    parecidos, pacotes diferentes. O fork errado só lia passos/FC média/
+    calorias/distância; o certo lê tudo isso **e** FC em repouso, HRV, VO2
+    máx e sono. Trocado pro pacote certo nessa data — ver "Estudo de
+    captação de wearables" abaixo.
   - **Dados considerados**: frequência cardíaca (inclusive em tempo real
-    durante a corrida), calorias medidas de verdade (hoje é só estimativa),
-    contagem de passos, treinos já registrados no relógio.
+    durante a corrida — ainda não implementado, ver estudo de captação),
+    calorias medidas de verdade (antes só estimativa), contagem de passos,
+    treinos já registrados no relógio, e desde a correção do plugin:
+    frequência cardíaca em repouso, variabilidade de frequência cardíaca
+    (HRV), VO2 máx estimado, sono (com estágio).
   - **LGPD**: dado de saúde é categoria sensível (Art. 5º, II) — decidido
     que precisa de **tela de consentimento própria em `/perfil`**,
     separada do consentimento geral já existente, explicando exatamente o
@@ -301,8 +312,10 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       smartwatch" em `/perfil`, explica o que seria lido e o motivo LGPD,
       toggle "Ver como ficaria" (estado local, não persistido) revela um
       card com FC/calorias/passos fictícios via `ExampleBadge`.
-    - **Fase 3 (integração real)**: `capacitor-health@8.1.2` instalado
-      (`npm install` + `npx cap sync` já rodados). `src/lib/health.ts`
+    - **Fase 3 (integração real)**: `@capgo/capacitor-health@8.10.4`
+      instalado (`npm install` + `npx cap sync` já rodados; era
+      `capacitor-health@8.1.2` — pacote errado, ver correção acima).
+      `src/lib/health.ts`
       implementa `isHealthAvailable`/`requestHealthPermissions`/
       `fetchRunHealthData` de verdade, contra a API real do plugin
       (verificado lendo o Kotlin/Swift do pacote em `node_modules`, não só
@@ -347,15 +360,16 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
          navegador). Esse é o único bloqueio real que resta.
       3. ~~Confirmar que o Android realmente lê certo quando o Health
          Connect não está instalado~~ — **confirmado por leitura de código
-         em 2026-08-18** (não em dispositivo real, isso ainda depende do
-         item 2 acima): o plugin `capacitor-health` chama
-         `HealthConnectClient.getOrCreate(context)` dentro de um
-         `try/catch` (`HealthPlugin.kt`, método `isHealthAvailable`) — essa
-         chamada da própria AndroidX Health Connect lança exceção quando o
-         app Health Connect não está instalado no aparelho, e o plugin
-         captura isso e resolve `{available: false}` em vez de rejeitar a
-         chamada. `src/lib/health.ts`'s `isHealthAvailable()` tem seu
-         próprio `try/catch` por cima disso (dupla proteção). E
+         em 2026-08-18, reconfirmado em 2026-08-22 após a troca de
+         plugin** (não em dispositivo real, isso ainda depende do item 2
+         acima): o `@capgo/capacitor-health` chama
+         `HealthConnectClient.getSdkStatus(context)` (`HealthPlugin.kt`,
+         método `isAvailable`) — API dedicada de status que nunca lança
+         exceção, diferente do `getOrCreate()`-em-`try/catch` que o fork
+         antigo usava, mas com a mesma garantia final: resolve
+         `{available: false}` em vez de travar quando o app Health Connect
+         não está instalado. `src/lib/health.ts`'s `isHealthAvailable()`
+         tem seu próprio `try/catch` por cima disso (dupla proteção). E
          `fetchRunHealthData()` já checa `isHealthAvailable()` primeiro e
          devolve `null` antes de chamar `requestHealthPermissions()` ou
          qualquer query — nenhuma chamada nativa a mais acontece nesse

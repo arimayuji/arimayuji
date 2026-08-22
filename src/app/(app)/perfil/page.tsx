@@ -1156,8 +1156,9 @@ export default function PerfilPage() {
               <HeartbeatIcon className="h-5 w-5" />
             </span>
             <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Frequência cardíaca, calorias medidas de verdade e passos — lidos do HealthKit
-              (iPhone) ou do Health Connect (Android) e atrelados a cada corrida no Histórico.
+              Frequência cardíaca, calorias medidas de verdade, passos, FC em repouso, HRV, VO2
+              máx e sono — lidos do HealthKit (iPhone) ou do Health Connect (Android) e atrelados a
+              cada corrida no Histórico.
             </p>
           </div>
           <Link

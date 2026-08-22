@@ -17,5 +17,5 @@ project(':capacitor-haptics').projectDir = new File('../node_modules/@capacitor/
 include ':capgo-background-geolocation'
 project(':capgo-background-geolocation').projectDir = new File('../native-plugins/capacitor-background-geolocation/android')
 
-include ':capacitor-health'
-project(':capacitor-health').projectDir = new File('../node_modules/capacitor-health/android')
+include ':capgo-capacitor-health'
+project(':capgo-capacitor-health').projectDir = new File('../node_modules/@capgo/capacitor-health/android')

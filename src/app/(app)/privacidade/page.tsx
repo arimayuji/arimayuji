@@ -71,11 +71,12 @@ export default function PrivacidadePage() {
           <CardTitle>Dados do seu smartwatch (Apple Health / Health Connect)</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Se você ligar &quot;Ler dados de saúde&quot; (desligado por padrão, em Perfil → Dados do
-            relógio), o app lê frequência cardíaca, calorias e passos do repositório de saúde do
-            próprio celular — nunca fala com o relógio direto — e mostra esses números junto com a
-            corrida correspondente no seu Histórico. É dado sensível (LGPD Art. 11): fica só nesse
-            fluxo, nunca é enviado a servidor nenhum, e a leitura para completamente assim que você
-            desliga essa chave.
+            relógio), o app lê frequência cardíaca, calorias, passos, frequência cardíaca em
+            repouso, variabilidade de frequência cardíaca (HRV), VO2 máx estimado e sono do
+            repositório de saúde do próprio celular — nunca fala com o relógio direto — e mostra
+            esses números junto com a corrida correspondente no seu Histórico. É dado sensível
+            (LGPD Art. 11): fica só nesse fluxo, nunca é enviado a servidor nenhum, e a leitura
+            para completamente assim que você desliga essa chave.
           </p>
         </Card>
 

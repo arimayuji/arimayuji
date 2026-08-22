@@ -107,7 +107,7 @@ export default function DadosRelogioPage() {
     <>
       <ScreenHeader
         title="Dados do relógio"
-        subtitle="FC, calorias e passos medidos de verdade pelo seu smartwatch, atrelados a cada corrida."
+        subtitle="FC, calorias, passos, sono e mais, medidos de verdade pelo seu smartwatch."
       />
 
       <Screen>
@@ -120,9 +120,10 @@ export default function DadosRelogioPage() {
             Ler dados de saúde
           </CardTitle>
           <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-            Frequência cardíaca, calorias e passos são dados sensíveis — o Xanthus só lê do seu
-            Apple Health/Health Connect com essa chave ligada por você. O aviso de permissão do
-            sistema, sozinho, não conta como esse consentimento.
+            Frequência cardíaca, calorias, passos, FC em repouso, variabilidade de FC (HRV), VO2
+            máx estimado e sono são dados sensíveis — o Xanthus só lê do seu Apple Health/Health
+            Connect com essa chave ligada por você. O aviso de permissão do sistema, sozinho, não
+            conta como esse consentimento.
           </p>
           <PreferenceToggle
             label="Ativar leitura de dados de saúde"
@@ -135,8 +136,10 @@ export default function DadosRelogioPage() {
         <Card className="pr-enter" style={delay(40)}>
           <CardTitle aside={<NoticeBadge>sem validação em campo</NoticeBadge>}>Onde aparece</CardTitle>
           <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-            Não é uma lista separada — os dados do relógio entram direto no card da corrida, dentro
-            do seu Histórico.
+            Não é uma lista separada — FC média, calorias e passos entram direto no card da
+            corrida, dentro do seu Histórico. FC em repouso, HRV, VO2 máx e sono da noite anterior
+            aparecem num segundo card, &quot;Recuperação&quot;, logo abaixo — só quando o relógio
+            realmente tiver medido isso perto da data da corrida.
           </p>
 
           <div className="rounded-2xl border border-border p-4">
