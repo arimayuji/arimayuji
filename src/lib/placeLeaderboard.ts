@@ -15,7 +15,7 @@
  */
 import { Permission, Query, Role, type Models } from "appwrite";
 import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
-import { getProfile, type Profile } from "./auth";
+import { getPublicProfile, type PublicProfile } from "./auth";
 
 export interface PlaceRunStats extends Models.Row {
   placeId: string;
@@ -30,7 +30,14 @@ export interface PlaceLeaderboardEntry {
   totalMeters: number;
   runCount: number;
   lastRunAt: string;
-  profile: Profile | null;
+  /**
+   * Never the real `displayName` — this list is fetched by anyone who
+   * opens a place, friend or not, so it only ever carries the fields
+   * `PublicProfile` allows. The "amigos" view resolves the real name
+   * separately, from `listFriendConnections` (already scoped to genuine,
+   * confirmed friendships), not from this row.
+   */
+  profile: PublicProfile | null;
 }
 
 function statsRowId(placeId: string, userId: string): string {
@@ -101,12 +108,12 @@ export async function recordRunAtPlace(placeId: string, distanceMeters: number):
 
 /**
  * Every stats row for `placeId`, highest total first, with each entry's
- * profile resolved — same "resolve the other party" shape
- * `listFriendConnections`/`listCoachConnections` already use. Callers pick
- * which name to display (`profile.publicDisplayName ?? profile.handle` for
- * the public view, `profile.displayName` for the friends view) and, for
- * the friends view, which entries even to keep — this function always
- * returns the full public list.
+ * profile resolved via `getPublicProfile` — never the real `displayName`,
+ * since this list is fetched by anyone who opens the place, not gated on
+ * friendship. Callers pick which entries to keep for the "amigos" view
+ * (this function always returns the full public list) and resolve the
+ * real name for those separately, from `listFriendConnections` — a call
+ * that's actually scoped to confirmed friendships, unlike this one.
  */
 export async function getLeaderboardForPlace(placeId: string, limit = 50): Promise<PlaceLeaderboardEntry[]> {
   const appwrite = getAppwrite();
@@ -122,7 +129,7 @@ export async function getLeaderboardForPlace(placeId: string, limit = 50): Promi
       totalMeters: row.totalMeters,
       runCount: row.runCount,
       lastRunAt: row.lastRunAt,
-      profile: await getProfile(row.userId),
+      profile: await getPublicProfile(row.userId),
     })),
   );
   return entries;

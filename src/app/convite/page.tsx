@@ -50,7 +50,12 @@ function ConviteContent() {
     };
   }, [handle]);
 
-  const inviterName = profile?.publicDisplayName ?? profile?.displayName ?? null;
+  // Never the real `displayName` here — this page has no session at all
+  // (whoever opens the link doesn't have an account yet), same reasoning
+  // `getPublicProfile` documents for the landing scoreboard: a stranger's
+  // real name has no business showing up on a page reachable with nothing
+  // but a guessed/shared handle.
+  const inviterName = profile?.publicDisplayName || (profile ? `@${profile.handle}` : null);
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col px-6 py-8">
@@ -59,7 +64,7 @@ function ConviteContent() {
       </Link>
 
       <div className="mt-10 flex flex-col items-center text-center">
-        {profile && <Avatar name={profile.displayName} avatarUrl={profile.avatarUrl} />}
+        {profile && <Avatar name={inviterName ?? profile.handle} avatarUrl={profile.avatarUrl} />}
 
         <h1 className="mt-4 font-mono text-2xl font-semibold text-balance">
           {inviterName ? `${inviterName} te convidou pro Xanthus` : "Você foi convidado pro Xanthus"}
