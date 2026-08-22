@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { GpsQuality } from "@/lib/tracking/useRunTracker";
 import { HORSE_BUST_BODY_PATH, HORSE_BUST_LEGS_PATH, HORSE_BUST_LEGS_PIVOT } from "../horse-mark";
 import { NotificationBell } from "./notification-bell";
+import { PrivacyConsentGate } from "./privacy-consent";
 import { useScrollChromeVisibility } from "./use-scroll-chrome";
 
 /**
@@ -416,6 +417,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <BottomNav hidden={!chromeVisible} />
             </>
           )}
+          {/*
+            Portals to `document.body`, so its position here costs nothing
+            in layout terms — it sits outside the scroll container purely so
+            nothing about `{children}`'s own position in the tree changes
+            when the gate appears or goes away (see the long comment above
+            for what that costs).
+          */}
+          <PrivacyConsentGate />
         </div>
       </HeaderGpsContext.Provider>
       </HeaderCloseContext.Provider>

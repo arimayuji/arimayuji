@@ -217,9 +217,97 @@ necessária pra ler `group_runs`/`friendships` e criar a linha em
 `group_run_participants`. O `--execute users` restringe quem pode chamar a
 function a usuários autenticados, mesmo padrão de `delete-account`.
 
+**Criar a primeira linha de `profiles`/`profile_stats`/`place_run_stats`**
+(`appwrite-functions/claim-owned-row`): essas três tabelas usam o próprio
+`userId` da conta (ou uma combinação óbvia dele) como ID da linha — e o
+Appwrite não tem como expressar como permissão "o ID da linha que você tá
+criando precisa ser o seu próprio ID de conta". Deixar a criação aberta a
+`Role.users()` deixava qualquer conta logada "reservar" a linha de outra
+pessoa antes dela — um handle/nome forjado, ou uma distância total inventada
+com permissão de update só pro atacante — achado de uma auditoria
+LGPD/segurança. Por isso a criação dessas três linhas só acontece por essa
+Function, com chave privilegiada, que descobre o ID de quem está chamando
+pela própria sessão (nunca por um campo do corpo da requisição). Deploy (via
+[Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+
+```bash
+cd appwrite-functions/claim-owned-row
+appwrite functions create \
+  --function-id claim-owned-row --name "Criar linha própria" \
+  --runtime node-22 --entrypoint src/main.js \
+  --execute users
+appwrite push functions
+```
+
+Depois, no Appwrite Console → Functions → claim-owned-row → **Settings →
+API key scopes**, marca `databases.write` — é isso que dá à function a
+chave dinâmica (por execução, sem secret fixo guardado) necessária pra
+criar a linha nas três tabelas. O `--execute users` restringe quem pode
+chamar a function a usuários autenticados, mesmo padrão de
+`delete-account`/`join-group-run`.
+
+Depois de deployada, rode `npx tsx scripts/appwrite-setup.ts` de novo — além
+de criar o que ainda não existe, ele agora também *retira* a permissão
+antiga (`Role.users()` em `create`) dessas três tabelas num projeto que já
+estava rodando antes dessa Function existir; sem rodar o script de novo, a
+Function existe mas a porta antiga continua aberta em paralelo.
+
+**Revogar acesso de ex-treinador e de quem saiu de um longão**
+(`appwrite-functions/revoke-coach-run-access` e
+`appwrite-functions/revoke-live-audience`): dois achados de uma auditoria
+LGPD/segurança — desfazer um vínculo de treinador nunca revogava a leitura
+de GPS já concedida sobre corridas passadas compartilhadas, e sair de um
+longão dependia só de um poll a cada 20s no próprio cliente do atleta pra
+parar de te mostrar (best-effort, sem garantia). As duas são **Functions
+disparadas por evento**, não por chamada do cliente como as anteriores —
+nenhum código do app precisou mudar: `removeCoachRelationship` e
+`leaveGroupRun` continuam só apagando a linha de sempre, e o Appwrite chama
+a Function correspondente sozinho assim que essa exclusão acontece de
+verdade, não importa qual lado da relação a iniciou. Deploy (via
+[Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+
+```bash
+cd appwrite-functions/revoke-coach-run-access
+appwrite functions create \
+  --function-id revoke-coach-run-access --name "Revogar acesso de ex-treinador" \
+  --runtime node-22 --entrypoint src/main.js \
+  --events "databases.*.tables.coach_relationships.rows.*.delete"
+appwrite push functions
+
+cd ../revoke-live-audience
+appwrite functions create \
+  --function-id revoke-live-audience --name "Revogar audiência de longão" \
+  --runtime node-22 --entrypoint src/main.js \
+  --events "databases.*.tables.group_run_participants.rows.*.delete"
+appwrite push functions
+```
+
+Depois, em cada uma no Appwrite Console → Functions → (nome) → **Settings →
+API key scopes**, marca `databases.read` e `databases.write` — sem
+`--execute`, porque nada além do próprio evento do banco deve chamar essas
+duas.
+
 **Política de Privacidade** (`/privacidade`): já publicada junto com o
 resto do app — a URL a colar nas duas lojas é
 `https://xanthus.app.br/privacidade`.
+
+## Rotação de chaves (LGPD/segurança)
+
+| Chave | Onde | Frequência | Como rotacionar |
+|---|---|---|---|
+| `APPWRITE_SETUP_API_KEY` | `.env.local`, só usada por `scripts/appwrite-setup.ts` | A cada ~6 meses, ou imediatamente se suspeitar de vazamento | Appwrite Console → Overview → API Keys → gerar uma nova, revogar a antiga, atualizar `.env.local` |
+| `NEXT_PUBLIC_MAPTILER_KEY` | `.env.local`, embarcada no bundle público (é uma chave pública por natureza) | Só se abusada (checar cota no [MapTiler Cloud](https://cloud.maptiler.com/)) | Gerar nova no MapTiler Cloud, restringir por domínio (`xanthus.app.br`) antes de trocar |
+| `ELEVENLABS_API_KEY` | `.env.local`, só usada por `scripts/generate-voice-bank.ts` (nunca em runtime) | Baixa prioridade — não roda em produção | Gerar nova no ElevenLabs, atualizar `.env.local` |
+| `GEMINI_API_KEY` / `RECRAFT_API_KEY` | `.env.local`, server-only, sem uso em código ainda | N/A enquanto não usadas | Revogar se decidir não usar; gerar nova quando a feature que as usa for construída |
+| Secrets do GitHub Actions (`APP_STORE_CONNECT_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, keystores Android) | GitHub → Settings → Secrets | Seguindo a expiração de cada credencial (ex.: chave `.p8` da Apple não expira sozinha; conta de serviço do Google Play, conforme política do Google Cloud) | Gerar nova nas respectivas consoles, atualizar o secret no GitHub, nunca commitar o arquivo bruto |
+
+Toda chave server-only (sem prefixo `NEXT_PUBLIC_`) já vive só em
+`.env.local` (`.gitignore`) e nunca chega ao bundle do navegador — rotacionar
+uma delas nunca exige mudança de código, só gerar a nova e substituir no
+arquivo. As únicas exceções por natureza são as duas `NEXT_PUBLIC_*`
+(Appwrite project ID e MapTiler key), que são públicas por definição e cuja
+segurança depende de restrição por domínio/origem no console do provedor,
+não de sigilo.
 
 ## E-mail transacional (Resend)
 

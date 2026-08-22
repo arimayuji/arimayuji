@@ -71,6 +71,17 @@ export const SEND_WELCOME_EMAIL_FUNCTION_ID = "send-welcome-email";
 // `createRow`, see that function's own comment for why.
 export const JOIN_GROUP_RUN_FUNCTION_ID = "join-group-run";
 
+// Matches appwrite-functions/claim-owned-row's Function ID — same
+// convention as DELETE_ACCOUNT_FUNCTION_ID above. The only path allowed to
+// create the first `profiles`/`profile_stats`/`place_run_stats` row for an
+// account: those tables' row IDs are the account's own `userId` (or a
+// composite including it), and Appwrite has no permission rule for "the row
+// ID you're creating must equal your own account ID" — enforcing that
+// needs a privileged key that derives the ID from the caller's session
+// instead of trusting whatever ID a raw `createRow` call supplies. See that
+// function's own comment for the finding this closes.
+export const CLAIM_OWNED_ROW_FUNCTION_ID = "claim-owned-row";
+
 // Matches the Storage bucket ID created in scripts/appwrite-setup.ts —
 // same fixed-ID convention as the table/function IDs above.
 export const AVATARS_BUCKET_ID = "avatars";

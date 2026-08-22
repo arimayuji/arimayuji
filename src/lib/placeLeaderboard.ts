@@ -12,9 +12,15 @@
  * on the `place_run_stats` table in scripts/appwrite-setup.ts for why a
  * true server-enforced friends-only read isn't implemented here, same
  * accepted limitation `place_ratings`'s "friends" visibility already has.
+ *
+ * This row's *first* creation at a given place goes through the
+ * `claim-owned-row` Function rather than a direct `createRow` — see that
+ * function's comment for why a client-chosen row ID here used to let one
+ * account seed another's totals at a place before they'd ever run there
+ * (LGPD/security audit finding #12).
  */
-import { Permission, Query, Role, type Models } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
+import { ExecutionMethod, Query, type Models } from "appwrite";
+import { APPWRITE_DATABASE_ID, CLAIM_OWNED_ROW_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getPublicProfile, type PublicProfile } from "./auth";
 
 export interface PlaceRunStats extends Models.Row {
@@ -63,11 +69,6 @@ export async function recordRunAtPlace(placeId: string, distanceMeters: number):
   const account = await appwrite.account.get();
   const userId = account.$id;
   const rowId = statsRowId(placeId, userId);
-  const permissions = [
-    Permission.read(Role.any()),
-    Permission.update(Role.user(userId)),
-    Permission.delete(Role.user(userId)),
-  ];
 
   let current: PlaceRunStats | null = null;
   try {
@@ -80,29 +81,27 @@ export async function recordRunAtPlace(placeId: string, distanceMeters: number):
     current = null;
   }
 
-  const data = {
-    placeId,
-    userId,
-    totalMeters: (current?.totalMeters ?? 0) + distanceMeters,
-    runCount: (current?.runCount ?? 0) + 1,
-    lastRunAt: new Date().toISOString(),
-  };
+  const totalMeters = (current?.totalMeters ?? 0) + distanceMeters;
+  const runCount = (current?.runCount ?? 0) + 1;
+  const lastRunAt = new Date().toISOString();
 
   if (current) {
     await appwrite.tablesDB.updateRow<PlaceRunStats>({
       databaseId: APPWRITE_DATABASE_ID,
       tableId: TABLES.placeRunStats,
       rowId,
-      data,
+      data: { placeId, userId, totalMeters, runCount, lastRunAt },
     });
   } else {
-    await appwrite.tablesDB.createRow<PlaceRunStats>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.placeRunStats,
-      rowId,
-      data,
-      permissions,
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLAIM_OWNED_ROW_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ tableId: TABLES.placeRunStats, placeId, totalMeters, runCount, lastRunAt }),
     });
+    const body = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; error?: string };
+    if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !body.ok) {
+      throw new Error(body.error ?? "failed");
+    }
   }
 }
 

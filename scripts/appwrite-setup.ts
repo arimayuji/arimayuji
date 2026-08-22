@@ -97,10 +97,16 @@ async function main() {
       tableId: "profiles",
       name: "profiles",
       // Public read (handles are discoverable, like a Strava/Instagram
-      // username); any signed-in user may create a row (their own, by
-      // convention — the app creates it right after signup with the row
-      // ID set to their account ID), row-level permissions handle update.
-      permissions: [Permission.read(Role.any()), Permission.create(Role.users())],
+      // username). *Create* is deliberately NOT open to Role.users() —
+      // the row ID is the account's own user ID, and Appwrite has no
+      // permission rule for "the row ID you're creating must equal your
+      // own account ID"; a blanket create grant here let one account
+      // "reserve" another's future profile row before they ever signed up
+      // (LGPD/security audit finding #12). Rows are only ever created by
+      // the claim-owned-row Appwrite Function (privileged key, derives the
+      // row ID from the caller's own session) — see that function's own
+      // comment. Row-level permissions (set by the Function) handle update.
+      permissions: [Permission.read(Role.any())],
       rowSecurity: true,
     }),
   );
@@ -297,16 +303,21 @@ async function main() {
       databaseId: DATABASE_ID,
       tableId: "place_run_stats",
       name: "place_run_stats",
-      // Same split as every other table: this only grants "may create a
-      // row at all". Read is granted broadly (any signed-in user) per row
-      // at creation time — the leaderboard is meant to be visible once an
-      // athlete opts in, and the real gate is the opt-in itself
-      // (`profiles.leaderboardOptIn`), not a per-row ACL. The "friends
-      // only" view is a client-side filter over these same public rows,
-      // same limitation `place_ratings`'s "friends" visibility already
-      // has (no Appwrite Team exists per friend pair to enforce that
-      // server-side).
-      permissions: [Permission.create(Role.users())],
+      // *Create* is deliberately NOT open to Role.users() — the row ID is
+      // `${placeId}_${userId}`, and a blanket create grant here let one
+      // account seed another's totals at a place before they'd ever run
+      // there (LGPD/security audit finding #12), the same reasoning
+      // `profiles` above documents. Rows are only ever created by the
+      // claim-owned-row Appwrite Function (privileged key, derives the row
+      // ID from the caller's own session). Read is granted broadly (any
+      // signed-in user) per row at creation time — the leaderboard is meant
+      // to be visible once an athlete opts in, and the real gate is the
+      // opt-in itself (`profiles.leaderboardOptIn`), not a per-row ACL. The
+      // "friends only" view is a client-side filter over these same public
+      // rows, same limitation `place_ratings`'s "friends" visibility
+      // already has (no Appwrite Team exists per friend pair to enforce
+      // that server-side).
+      permissions: [],
       rowSecurity: true,
     }),
   );
@@ -355,7 +366,13 @@ async function main() {
       // on a public place leaderboard is. The gate that matters is
       // src/app/(app)/perfil/ver/page.tsx only ever *surfacing* this to a
       // confirmed friend, never a stranger browsing by handle.
-      permissions: [Permission.create(Role.users())],
+      //
+      // *Create* is deliberately NOT open to Role.users() — same
+      // claim-owned-row reasoning as `profiles`/`place_run_stats` above
+      // (LGPD/security audit finding #12): the row ID is the account's own
+      // user ID, so a blanket create grant let one account seed another's
+      // stats row before they'd ever finished a run.
+      permissions: [],
       rowSecurity: true,
     }),
   );
@@ -631,6 +648,23 @@ async function main() {
       allowedFileExtensions: ["jpg", "jpeg", "png", "webp"],
     }),
   );
+
+  // ---------------------------------------------- tighten LGPD finding #12
+  // `ensure()` above only ever creates a table that doesn't exist yet — on
+  // a project where profiles/place_run_stats/profile_stats were already
+  // created with the old `Permission.create(Role.users())`, re-running this
+  // script leaves that permission in place (a 409 short-circuits before the
+  // permissions array is ever looked at again). These three `updateTable`
+  // calls apply regardless of whether the table is brand new or years old,
+  // so the fix actually reaches a project that's been running since before
+  // the claim-owned-row Function existed.
+  console.log("\ntightening create permissions (LGPD/security audit finding #12)");
+  for (const tableId of ["profiles", "place_run_stats", "profile_stats"] as const) {
+    const permissions = tableId === "profiles" ? [Permission.read(Role.any())] : [];
+    await ensure(`${tableId}: strip Role.users() create`, () =>
+      tablesDB.updateTable({ databaseId: DATABASE_ID, tableId, permissions }),
+    );
+  }
 
   console.log("\nDone. Every table/column/index above either already existed or was just created.");
 }

@@ -53,7 +53,22 @@ export interface GroupRunParticipantConnection {
 
 /** Unambiguous alphabet (no 0/O, 1/I) — read aloud or typed by hand, same idea as the emblem serials elsewhere in the app. */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const CODE_LENGTH = 6;
+/**
+ * 6 characters (33^6 ≈ 1.16 billion combinations) was an LGPD/security audit
+ * finding (#19): read on `group_runs`/`group_run_participants` is open to
+ * any signed-in account at the table level (the code itself is meant to be
+ * the gate, same reasoning as a TestFlight public link) — a low but real
+ * enumeration surface, since guessing a live code exposes a session's
+ * name/host/participant list to a stranger the host never invited (joining
+ * still requires being the host's friend, verified server-side by
+ * `join-group-run` — this only ever affected what a guess could *read*, not
+ * who could join). 8 characters (33^8 ≈ 1.26 trillion) makes brute-forcing
+ * one within an 8-hour session (`SESSION_HOURS`) infeasible while an
+ * athlete can still read a code aloud or type it by hand. Existing 6-char
+ * codes keep working — the row ID is just a string, nothing about length is
+ * baked into lookups.
+ */
+export const CODE_LENGTH = 8;
 const SESSION_HOURS = 8;
 const MAX_CODE_ATTEMPTS = 5;
 
