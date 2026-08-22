@@ -272,6 +272,16 @@ chamada "Xanthus" — resumo por área:
   continua exclusivo de `runsSync.ts`/coach, amigo só vê ao vivo mesmo).
   Nenhuma tabela nova, nenhuma Function nova — é só reuso client-side da
   mesma permissão por linha que já existia.
+- **Modo treino alternável (task #99, implementada em 2026-08-22)**: pra
+  quem é atleta E treina outras pessoas, um toggle "Atleta"/"Treinador" em
+  `/perfil` (`preferences.ts`'s `appMode`) troca o que abre primeiro —
+  a tab 0 da navegação vira "Treinador" (`/treinador`) em vez de "Corrida"
+  (`/run`), e o mesmo vale pro redirect de abertura do app nativo
+  (`standalone-gate.tsx`). Só aparece pra quem realmente tem pelo menos um
+  aluno com vínculo aceito; pra todo mundo (a grande maioria) o card nem
+  renderiza. Escopo deliberadamente pequeno: não virou uma 6ª aba nem um
+  conjunto paralelo de abas — o lado treinador do produto ainda é só
+  `/treinador` e `/treinador/aluno`, duas telas, não uma seção inteira.
 - **Longão**: corrida em grupo com código de convite, vários corredores
   no mesmo mapa ao vivo.
 - **Amigos**: convite por @handle.
