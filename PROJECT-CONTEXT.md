@@ -492,14 +492,14 @@ importa persistir é a ação pendente:
   não precisa desse arquivo). `GEMINI_API_KEY` já configurada em
   `client-actions` (mesmo valor do `.env.local`). Confirmado via
   `appwrite functions list`: exatamente as 2 Functions esperadas, ambas
-  `ready`. **Pendência real que sobrou**: `RESEND_API_KEY` não foi
-  migrada — Appwrite não deixa ler o valor de uma variável secreta já
-  configurada de volta, então ela se perdeu junto com a
-  `send-welcome-email` antiga. **O dono do projeto precisa gerar uma nova
-  chave no Resend e configurá-la em Appwrite Console → Functions →
-  client-actions → Settings → Variables → `RESEND_API_KEY`** — até lá, o
-  e-mail de boas-vindas falha silenciosamente (best-effort por design,
-  não trava criação de conta, mas não está sendo enviado).
+  `ready`. **Pendência resolvida em 2026-08-22**: `RESEND_API_KEY` não
+  migrou sozinha (Appwrite não deixa ler o valor de uma variável secreta
+  já configurada de volta, então se perdeu junto com a `send-welcome-email`
+  antiga), mas o dono do projeto gerou uma chave nova no Resend e
+  configurou em `client-actions` no mesmo dia — confirmado via
+  `appwrite functions list-variables`: `GEMINI_API_KEY` e `RESEND_API_KEY`
+  ambas presentes. E-mail de boas-vindas voltou a funcionar, nenhuma
+  pendência real restando dessa migração.
   **Segunda descoberta de teto de plano nessa mesma sessão**: rodar
   `scripts/appwrite-setup.ts` depois do deploy bateu num teto separado —
   Free também trava em **1 bucket de Storage por projeto**, e como o
