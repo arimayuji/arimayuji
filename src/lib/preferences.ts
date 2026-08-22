@@ -26,6 +26,14 @@ export interface Preferences {
   showAveragePaceLive: boolean;
   showCurrentKmPaceLive: boolean;
   theme: ThemeMode;
+  /**
+   * Native haptic tap when a "meta de ritmo" run falls too far behind
+   * schedule — see `PACE_DELAY_VIBRATION_THRESHOLD_SECONDS` in
+   * useRunTracker.ts. Off by default like every other opt-in here; only
+   * has an effect at all when the run's goal type is "ritmo" (a target
+   * pace was actually set).
+   */
+  vibrateOnPaceDelay: boolean;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -39,6 +47,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showAveragePaceLive: true,
   showCurrentKmPaceLive: true,
   theme: "system",
+  vibrateOnPaceDelay: false,
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -78,7 +87,19 @@ function sanitize(raw: unknown): Preferences {
       ? value.theme
       : DEFAULT_PREFERENCES.theme;
 
-  return { announceIntervalMeters, distanceUnit, showAveragePaceLive, showCurrentKmPaceLive, theme };
+  const vibrateOnPaceDelay =
+    typeof value.vibrateOnPaceDelay === "boolean"
+      ? value.vibrateOnPaceDelay
+      : DEFAULT_PREFERENCES.vibrateOnPaceDelay;
+
+  return {
+    announceIntervalMeters,
+    distanceUnit,
+    showAveragePaceLive,
+    showCurrentKmPaceLive,
+    theme,
+    vibrateOnPaceDelay,
+  };
 }
 
 /** Safe on the server and in private-mode browsers: always returns something usable. */

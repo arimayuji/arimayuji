@@ -1391,6 +1391,7 @@ export default function RunPage() {
           ? { distanceMeters, durationSeconds, targetPaceSecPerKm }
           : undefined,
       ghostRun: selectedGhost ?? undefined,
+      vibrateOnPaceDelay: preferences.vibrateOnPaceDelay,
     });
   };
 

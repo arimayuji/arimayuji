@@ -61,11 +61,18 @@ import {
 export const SHARE_CARD_WIDTH = 720;
 export const SHARE_CARD_HEIGHT = 1280;
 
-/** Wall-clock length of the finished video. */
-export const SHARE_CARD_DURATION_MS = 6200;
+/**
+ * Wall-clock length of the finished video. Everything after the route
+ * finishes drawing (music chip, stat text, medal) is timed relative to
+ * `ROUTE_DRAW_END` below, so this and `ROUTE_DRAW_MS` are kept in lockstep
+ * — both raised by the same ~1020ms when the route draw was slowed by
+ * ~30% — rather than letting the route eat into the fixed runway the rest
+ * of the choreography already had after it.
+ */
+export const SHARE_CARD_DURATION_MS = 7220;
 
 const ROUTE_DRAW_START = 260;
-const ROUTE_DRAW_MS = 3400;
+const ROUTE_DRAW_MS = 4420;
 const ROUTE_DRAW_END = ROUTE_DRAW_START + ROUTE_DRAW_MS;
 
 const NUMBER_FONT_FALLBACK = "system-ui, sans-serif";
@@ -843,10 +850,10 @@ function drawScenario(ctx: CanvasRenderingContext2D, scenario: ScenarioId) {
 
   ctx.globalAlpha = art.ridgeOpacity;
   ctx.fillStyle = art.ridgeFar;
-  ctx.fill(new Path2D(RIDGE_FAR_PATH));
+  ctx.fill(new Path2D(art.ridgeFarPath ?? RIDGE_FAR_PATH));
   ctx.globalAlpha = Math.min(1, art.ridgeOpacity + 0.1);
   ctx.fillStyle = art.ridgeNear;
-  ctx.fill(new Path2D(RIDGE_NEAR_PATH));
+  ctx.fill(new Path2D(art.ridgeNearPath ?? RIDGE_NEAR_PATH));
   ctx.globalAlpha = 1;
 
   ctx.restore();

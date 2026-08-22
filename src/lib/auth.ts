@@ -251,6 +251,32 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   }
 }
 
+/** The one field shape ever meant to reach a surface with no session at all — see its own doc comment on `Profile.publicDisplayName`. */
+export type PublicProfile = Pick<Profile, "handle" | "publicDisplayName" | "avatarUrl">;
+
+/**
+ * Same row `getProfile` reads, but `Query.select` keeps the real
+ * `displayName` off the wire entirely rather than trusting the caller to
+ * not paint a field it fetched — the landing-page scoreboard runs with no
+ * session (anonymous, indexable by search engines), and unlike every
+ * other reader of `profiles` this one has no "friend" case that ever
+ * legitimately needs the real name.
+ */
+export async function getPublicProfile(userId: string): Promise<PublicProfile | null> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return null;
+  try {
+    return await appwrite.tablesDB.getRow<PublicProfile & Models.Row>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.profiles,
+      rowId: userId,
+      queries: [Query.select(["handle", "publicDisplayName", "avatarUrl"])],
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function isHandleAvailable(handle: string): Promise<boolean> {
   const appwrite = getAppwrite();
   if (!appwrite) return false;

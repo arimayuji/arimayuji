@@ -57,6 +57,27 @@ import { TEXT_ENTRANCE_IDS, TEXT_ENTRANCES, type TextEntranceId } from "@/lib/sh
 
 const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
 
+const CATEGORY_LABEL: Record<(typeof SCENARIOS)[ScenarioId]["category"], string> = {
+  hora: "Hora do dia",
+  clima: "Clima",
+  bioma: "Biomas",
+  capital: "Capitais",
+};
+
+/**
+ * Scenario ids grouped by category, in a fixed display order — flattened
+ * back to a single list for `Math.random()` picks and other places that just
+ * need "any scenario", but grouped here so 20 thumbnails in one scroll strip
+ * don't read as one undifferentiated wall (hora/clima kept first since those
+ * are what a run actually gets picked automatically from).
+ */
+const SCENARIO_GROUPS: { category: (typeof SCENARIOS)[ScenarioId]["category"]; ids: ScenarioId[] }[] = (
+  ["hora", "clima", "bioma", "capital"] as const
+).map((category) => ({
+  category,
+  ids: SCENARIO_IDS.filter((id) => SCENARIOS[id].category === category),
+}));
+
 const NO_RUN_TEXT = "Fui correr 🏃 — Xanthus";
 
 function SparkleIcon({ className }: { className?: string }) {
@@ -1087,32 +1108,41 @@ function CompartilharContent() {
             </p>
           )}
           <div
-            className={`-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 ${usingMedia ? "opacity-50" : ""}`}
+            className={`-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-1 ${usingMedia ? "opacity-50" : ""}`}
           >
-            {SCENARIO_IDS.map((id) => {
-              const def = SCENARIOS[id];
-              const [sky0, sky1, sky2, sky3] = def.sky;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={usingMedia}
-                  onClick={() => setScenario(id)}
-                  aria-pressed={activeScenario === id}
-                  className={`relative block w-24 shrink-0 snap-center overflow-hidden rounded-2xl border-2 transition-colors disabled:cursor-not-allowed ${
-                    activeScenario === id ? "border-accent" : "border-border"
-                  }`}
-                  style={{
-                    aspectRatio: "92 / 128",
-                    background: `linear-gradient(180deg, ${sky0} 0%, ${sky1} 46%, ${sky2} 78%, ${sky3} 100%)`,
-                  }}
-                >
-                  <span className="pointer-events-none absolute inset-x-0 bottom-0 block bg-gradient-to-t from-black/75 to-transparent px-2 pt-8 pb-2 text-left text-[11px] leading-tight font-semibold text-white">
-                    {def.label}
-                  </span>
-                </button>
-              );
-            })}
+            {SCENARIO_GROUPS.map(({ category, ids }) => (
+              <div key={category} className="flex shrink-0 snap-start flex-col gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+                  {CATEGORY_LABEL[category]}
+                </span>
+                <div className="flex gap-2">
+                  {ids.map((id) => {
+                    const def = SCENARIOS[id];
+                    const [sky0, sky1, sky2, sky3] = def.sky;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        disabled={usingMedia}
+                        onClick={() => setScenario(id)}
+                        aria-pressed={activeScenario === id}
+                        className={`relative block w-24 shrink-0 snap-center overflow-hidden rounded-2xl border-2 transition-colors disabled:cursor-not-allowed ${
+                          activeScenario === id ? "border-accent" : "border-border"
+                        }`}
+                        style={{
+                          aspectRatio: "92 / 128",
+                          background: `linear-gradient(180deg, ${sky0} 0%, ${sky1} 46%, ${sky2} 78%, ${sky3} 100%)`,
+                        }}
+                      >
+                        <span className="pointer-events-none absolute inset-x-0 bottom-0 block bg-gradient-to-t from-black/75 to-transparent px-2 pt-8 pb-2 text-left text-[11px] leading-tight font-semibold text-white">
+                          {def.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted text-pretty">
             {SCENARIOS[activeScenario].hint}

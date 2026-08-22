@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Haptics, NotificationType } from "@capacitor/haptics";
 import {
-  Ewma,
   FILTER_CONFIG,
   Kalman2D,
   accuracyToPositionVarianceM2,
@@ -70,6 +70,8 @@ export interface StartOptions {
   goal?: RunGoal;
   /** A previously completed run to race against, compared by distance vs elapsed time only. */
   ghostRun?: CompletedRun;
+  /** Native haptic tap when cumulative time behind `goal.targetPaceSecPerKm` crosses `PACE_DELAY_VIBRATION_THRESHOLD_SECONDS` — see its own comment. No effect without a "ritmo" goal. */
+  vibrateOnPaceDelay?: boolean;
 }
 
 export interface RunTrackerState {
@@ -102,6 +104,25 @@ export interface RunTrackerState {
 const PERSIST_INTERVAL_MS = 10_000;
 const TICK_INTERVAL_MS = 1000;
 
+/**
+ * Cumulative-schedule-behind vibration, for a "ritmo" goal
+ * (`goal.targetPaceSecPerKm`) — deliberately NOT the same signal as
+ * `paceDeltaSecPerKm` (current pace vs target, shown on screen as the
+ * "PaceDeltaPill"): that's instantaneous and noisy enough on its own that
+ * vibrating off it would buzz constantly during completely normal pace
+ * wobble. This instead compares total elapsed time against
+ * `targetPaceSecPerKm × distance so far` — "how far behind schedule am I,
+ * total" — which only drifts meaningfully when actually running slower
+ * than the goal for a sustained stretch, not from moment-to-moment noise.
+ * Two thresholds (not one) give it hysteresis: crossing
+ * PACE_DELAY_VIBRATION_THRESHOLD_SECONDS fires the tap and arms the
+ * "already alerted" state; only dropping back under
+ * PACE_DELAY_CLEAR_THRESHOLD_SECONDS disarms it, so hovering right at the
+ * edge can't fire repeatedly.
+ */
+const PACE_DELAY_VIBRATION_THRESHOLD_SECONDS = 20;
+const PACE_DELAY_CLEAR_THRESHOLD_SECONDS = 10;
+
 function newRunId(): string {
   return `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -131,7 +152,18 @@ export function useRunTracker() {
   const kalmanRef = useRef<Kalman2D | null>(null);
   /** Fixed the moment the filter is (re-)seeded — every fix afterward projects into East/North metres relative to this point. */
   const originRef = useRef<LatLon | null>(null);
-  const speedEwmaRef = useRef<Ewma | null>(null);
+  /**
+   * Trailing (timestamp, cumulative-distance) samples for the live "ritmo"
+   * readout — see its computation further down for why this replaced an
+   * EWMA over the GPS chip's own Doppler-derived speed.
+   */
+  const paceWindowRef = useRef<{ t: number; d: number }[]>([]);
+
+  /** Cached from `StartOptions` at `start()` — mirrors `state.goal.targetPaceSecPerKm`/`vibrateOnPaceDelay`, but read from a ref rather than state so the per-fix vibration check doesn't need a `setState` round trip. */
+  const targetPaceSecPerKmRef = useRef<number | undefined>(undefined);
+  const vibrateOnPaceDelayRef = useRef(false);
+  /** Hysteresis state for the vibration above — true while already alerted for the current bout of falling behind. */
+  const paceDelayAlertedRef = useRef(false);
   /** Consecutive fixes the adaptive plausibility gate has rejected — see its use in `handleFix` for why this resets the filter instead of rejecting forever. */
   const consecutiveGateRejectionsRef = useRef(0);
 
@@ -280,7 +312,7 @@ export function useRunTracker() {
         // Warmup complete: the run clock starts now.
         originRef.current = { lat, lon };
         kalmanRef.current = new Kalman2D({ e: 0, n: 0, ve: 0, vn: 0 });
-        speedEwmaRef.current = new Ewma(FILTER_CONFIG.speedSmoothingTauSeconds);
+        paceWindowRef.current = [];
         consecutiveGateRejectionsRef.current = 0;
         lastRawRef.current = { lat, lon };
         lastFilteredRef.current = { lat, lon };
@@ -314,8 +346,7 @@ export function useRunTracker() {
         lastFilteredRef.current === null ||
         lastFixTimestampRef.current === null ||
         kalmanRef.current === null ||
-        originRef.current === null ||
-        speedEwmaRef.current === null
+        originRef.current === null
       ) {
         return; // still warming
       }
@@ -330,6 +361,11 @@ export function useRunTracker() {
         lastFixTimestampRef.current = timestamp;
         lastFixWallClockRef.current = Date.now();
         pendingDriftMetersRef.current = 0;
+        // A pause is real dead time — carrying pre-pause samples into the
+        // live-pace window would average the stopped stretch into the
+        // ritmo readout right after resuming, same wrong-number effect
+        // this window replaced the Doppler EWMA to fix in the first place.
+        paceWindowRef.current = [];
         return;
       }
 
@@ -470,21 +506,36 @@ export function useRunTracker() {
         pendingDriftMetersRef.current *= FILTER_CONFIG.fallbackStationaryDecay;
       }
 
-      // The live pace readout used to trust the chip's raw Doppler `speed`
-      // outright whenever present, bypassing the Kalman fusion that
-      // `distanceStep` above already relies on. On devices/conditions where
-      // raw Doppler speed reads persistently low while position fixes stay
-      // accurate, that shows up exactly as reported: live pace stuck ~30%
-      // slow for the whole run, only correcting in the finish-time summary
-      // — which is derived from total distance, never from this raw speed
-      // field. `kalmanSpeed` already folds the same raw Doppler reading in
-      // as one measurement (see `kalman.updateVelocity` above) but keeps it
-      // continuously corrected against position, so using it here too keeps
-      // the live number honest against the same signal the rest of the run
-      // relies on instead of an unfiltered sensor field with no fallback.
-      const v = stationary ? 0 : kalmanSpeed;
-      const vSmooth = speedEwmaRef.current.update(v, dt);
-      const currentPaceSecPerKm = vSmooth > 0.3 ? 1000 / vSmooth : null;
+      // The live pace readout used to be `1000 / EWMA(kalmanSpeed)` —
+      // `kalmanSpeed` folds in the GPS chip's own raw Doppler `speed` as a
+      // trusted velocity measurement (see `kalman.updateVelocity` above),
+      // and on devices/conditions where that raw reading runs persistently
+      // biased (not just briefly noisy), the fused estimate inherits the
+      // same bias on every fix. That showed up exactly as reported: a live
+      // "ritmo" stuck noticeably off pace for the *entire* run, while the
+      // voice announcements, the "pace do km atual" card, and the
+      // finish-time summary all agreed with each other and with Strava —
+      // because none of those three ever touch `speed`/`kalmanSpeed` at
+      // all, they're plain distance-travelled ÷ time-elapsed, same as here.
+      // Rather than trust the Doppler-informed velocity for this one
+      // readout, it now uses that same distance/time approach, just over a
+      // short trailing window instead of a whole split — smooths normal
+      // per-fix position noise without ever being able to inherit a
+      // sensor-level speed bias.
+      paceWindowRef.current.push({ t: timestamp, d: distanceRef.current });
+      const paceWindowCutoff = timestamp - FILTER_CONFIG.livePaceWindowMs;
+      while (paceWindowRef.current.length > 1 && paceWindowRef.current[0].t < paceWindowCutoff) {
+        paceWindowRef.current.shift();
+      }
+      const paceWindowStart = paceWindowRef.current[0];
+      const paceWindowSeconds = (timestamp - paceWindowStart.t) / 1000;
+      const paceWindowDistance = distanceRef.current - paceWindowStart.d;
+      const paceWindowSpeedMps = paceWindowSeconds > 0 ? paceWindowDistance / paceWindowSeconds : 0;
+      const currentPaceSecPerKm =
+        paceWindowSeconds >= FILTER_CONFIG.livePaceMinWindowSeconds &&
+        paceWindowSpeedMps > FILTER_CONFIG.stoppedSpeedMps
+          ? (paceWindowSeconds / paceWindowDistance) * 1000
+          : null;
 
       // Live pace of the km currently in progress — recomputed on every fix
       // (unlike the voice announcement below, which only fires once per
@@ -526,6 +577,21 @@ export function useRunTracker() {
       }
 
       persistIfDue(announced);
+
+      if (vibrateOnPaceDelayRef.current && targetPaceSecPerKmRef.current) {
+        const expectedSeconds = (distanceRef.current / 1000) * targetPaceSecPerKmRef.current;
+        const delaySeconds = computeElapsedSeconds() - expectedSeconds;
+        if (!paceDelayAlertedRef.current && delaySeconds >= PACE_DELAY_VIBRATION_THRESHOLD_SECONDS) {
+          paceDelayAlertedRef.current = true;
+          // Best-effort: the web Vibration-API fallback (non-native) can
+          // reject in browsers that gate it behind a user gesture, and
+          // there's nothing useful to do about that mid-run other than not
+          // let it crash the tracking loop over a missed buzz.
+          void Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
+        } else if (paceDelayAlertedRef.current && delaySeconds <= PACE_DELAY_CLEAR_THRESHOLD_SECONDS) {
+          paceDelayAlertedRef.current = false;
+        }
+      }
 
       setState((s) => {
         const remainingMeters = s.goal?.distanceMeters
@@ -670,6 +736,9 @@ export function useRunTracker() {
         lastAnnounceDistanceRef.current = 0;
         lastAnnounceTimeRef.current = null;
         announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
+        targetPaceSecPerKmRef.current = options?.goal?.targetPaceSecPerKm;
+        vibrateOnPaceDelayRef.current = options?.vibrateOnPaceDelay ?? false;
+        paceDelayAlertedRef.current = false;
         // kmMarkDistanceRef/kmMarkTimeRef aren't reset here — the
         // warmup-completion block always recomputes both fresh from
         // `distanceRef.current` (0 for a new run, the recovered distance for

@@ -87,9 +87,9 @@ function PlaceholderPhoto({ scenario }: { scenario: ScenarioId }) {
       )}
 
       {/* Ridge line: enough to read as landscape, obviously drawn, not shot. */}
-      <path d={RIDGE_FAR_PATH} fill={s.ridgeFar} opacity={s.ridgeOpacity} />
+      <path d={s.ridgeFarPath ?? RIDGE_FAR_PATH} fill={s.ridgeFar} opacity={s.ridgeOpacity} />
       <path
-        d={RIDGE_NEAR_PATH}
+        d={s.ridgeNearPath ?? RIDGE_NEAR_PATH}
         fill={s.ridgeNear}
         opacity={Math.min(1, s.ridgeOpacity + 0.1)}
       />
