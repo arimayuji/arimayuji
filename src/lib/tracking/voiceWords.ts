@@ -7,11 +7,88 @@
  *
  * 0-20 are irregular standalone words; 21-99 follow "dezena + e + unidade",
  * reusing the same unit words 1-9 already recorded for the standalone case.
+ *
+ * Every announcement follows one fixed shape:
+ *   [km inteiro] "vírgula" [km decimal] "quilômetros" "pace" [minutos] "e" [segundos]
+ * A first pass at this bank recorded one clip per word with no idea what
+ * would play before/after it — each clip came out of ElevenLabs with its
+ * own complete start-to-finish sentence intonation, so playing several back
+ * to back read as separate sentences glued together ("dez." "e." "vinte."),
+ * not one flowing phrase. This version instead records each word once per
+ * *context* it can appear in — same word, but rendered with the actual
+ * neighboring text as `previous_text`/`next_text` hints — so the model
+ * shapes it as genuinely mid-phrase.
+ *
+ * NOT YET GENERATED as of this branch: this was built and verified
+ * (numberToSlugs/announcementSlugs decomposition logic checked against
+ * several sample announcements — see the branch's commit message) but the
+ * actual npm run voice:generate pass ran out of ElevenLabs API quota
+ * (300 total, key nearly spent already) partway through the 135 clips this
+ * needs. main still runs on the previous single-context word bank (32
+ * clips, just with dead-air trimmed — see voiceBank.ts's playSequence).
+ * Once the ElevenLabs account has enough quota for ~135 short clips, merge
+ * this branch and run `npm run voice:generate` for real; it will pick up
+ * from wherever the last attempt left off (idempotent skip-if-exists).
+ *
+ * A word's exact position in the template (which of the 4 numeric slots,
+ * and whether it's spoken alone or as the tens/units half of a compound
+ * like "vinte e cinco") determines its literal previous/next neighbor.
+ * Enumerating every (slot, standalone/tens/units) combination turns up
+ * only 7 distinct (previousText, nextText) pairs in total — several
+ * combinations sit between literally the same two neighbor words (e.g. a
+ * lone minutes value and the tens-half of a compound minutes value both
+ * sit right after "pace" and right before the "e" that leads into
+ * seconds), so recording them separately would just be the same audio
+ * twice. See ROLE_CONTEXT below for the 7.
  */
 
-const UNITS = ["zero", "um", "dois", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove"];
+export type NumberSlot = "kmInt" | "kmDec" | "min" | "sec";
 
-const TEENS: Record<number, string> = {
+export type NumberRole =
+  | "leadNumber" // start of the phrase, before "vírgula" — a lone km-inteiro value
+  | "leadTensPart" // start of the phrase, before the internal "e" — tens-half of a compound km-inteiro
+  | "kmUnitsPart" // after the internal "e", before "vírgula" — units-half of a compound km-inteiro
+  | "kmDecimal" // after "vírgula", before "quilômetros" — the single km-decimal digit
+  | "paceLead" // after "pace", before "e" — a lone minutes value, or the tens-half of a compound one
+  | "midConnector" // after "e", before "e" — units-half of compound minutes, or tens-half of compound seconds
+  | "trailNumber"; // after "e", at the end of the phrase — a lone seconds value, or units-half of a compound one
+
+const ROLE_CONTEXT: Record<NumberRole, { previousText: string | null; nextText: string | null }> = {
+  leadNumber: { previousText: null, nextText: "vírgula" },
+  leadTensPart: { previousText: null, nextText: "e" },
+  kmUnitsPart: { previousText: "e", nextText: "vírgula" },
+  kmDecimal: { previousText: "vírgula", nextText: "quilômetros" },
+  paceLead: { previousText: "pace", nextText: "e" },
+  midConnector: { previousText: "e", nextText: "e" },
+  trailNumber: { previousText: "e", nextText: null },
+};
+
+/** Every role a word spoken standalone (never split into tens+units) can take, by slot. */
+const STANDALONE_ROLE_BY_SLOT: Record<NumberSlot, NumberRole> = {
+  kmInt: "leadNumber",
+  kmDec: "kmDecimal",
+  min: "paceLead",
+  sec: "trailNumber",
+};
+
+/** Role for the tens-half of a compound number (e.g. "vinte" in "vinte e cinco"), by slot. kmDec never compounds (always a single digit). */
+const TENS_PART_ROLE_BY_SLOT: Partial<Record<NumberSlot, NumberRole>> = {
+  kmInt: "leadTensPart",
+  min: "paceLead", // sits right after "pace", right before the internal "e" — same neighbors as a lone minutes value
+  sec: "midConnector",
+};
+
+/** Role for the units-half of a compound number, by slot. kmDec never compounds. */
+const UNITS_PART_ROLE_BY_SLOT: Partial<Record<NumberSlot, NumberRole>> = {
+  kmInt: "kmUnitsPart",
+  min: "midConnector",
+  sec: "trailNumber", // sits right after the internal "e", at the very end — same neighbors as a lone seconds value
+};
+
+const UNITS_TEXT = ["zero", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove"];
+const UNITS_SLUG = ["zero", "um", "dois", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove"];
+
+const TEENS_TEXT: Record<number, string> = {
   10: "dez",
   11: "onze",
   12: "doze",
@@ -22,10 +99,9 @@ const TEENS: Record<number, string> = {
   17: "dezessete",
   18: "dezoito",
   19: "dezenove",
-  20: "vinte",
 };
 
-const TENS: Record<number, string> = {
+const TENS_TEXT: Record<number, string> = {
   20: "vinte",
   30: "trinta",
   40: "quarenta",
@@ -36,43 +112,129 @@ const TENS: Record<number, string> = {
   90: "noventa",
 };
 
-/** slug -> what to speak when generating that clip. */
-export const WORD_BANK: Record<string, string> = {
-  ...Object.fromEntries(UNITS.map((slug) => [slug, slug === "tres" ? "três" : slug])),
-  ...Object.fromEntries(Object.values(TEENS).map((slug) => [slug, slug])),
-  ...Object.fromEntries(Object.values(TENS).map((slug) => [slug, slug])),
-  e: "e",
-  virgula: "vírgula",
-  quilometros: "quilômetros",
-  pace: "pace",
-};
+function slugFor(base: string, role: NumberRole): string {
+  return `${base}--${role}`;
+}
 
-export const VOICE_BANK_SLUGS = Object.keys(WORD_BANK);
-
-/** Decomposes an integer 0-99 into the ordered clip slugs that speak it. */
-export function numberToSlugs(n: number): string[] {
+/** Decomposes an integer 0-99, spoken in the given template slot, into the ordered clip slugs that speak it. */
+export function numberToSlugs(n: number, slot: NumberSlot): string[] {
   if (!Number.isInteger(n) || n < 0 || n > 99) {
     throw new RangeError(`numberToSlugs: ${n} is outside the recorded 0-99 range`);
   }
-  if (n <= 9) return [UNITS[n]];
-  if (n <= 20) return [TEENS[n]];
+  if (n <= 9) {
+    return [slugFor(UNITS_SLUG[n], STANDALONE_ROLE_BY_SLOT[slot])];
+  }
+  if (n <= 20) {
+    // 20 ("vinte") is standalone here — the 21-99 branch below handles it as a tens-part instead.
+    return [slugFor(n === 20 ? "vinte" : TEENS_TEXT[n], STANDALONE_ROLE_BY_SLOT[slot])];
+  }
   const tens = Math.floor(n / 10) * 10;
   const units = n % 10;
-  const tensSlug = TENS[tens];
-  return units === 0 ? [tensSlug] : [tensSlug, "e", UNITS[units]];
+  const tensBase = TENS_TEXT[tens];
+  if (units === 0) {
+    return [slugFor(tensBase, STANDALONE_ROLE_BY_SLOT[slot])];
+  }
+  const tensRole = TENS_PART_ROLE_BY_SLOT[slot];
+  const unitsRole = UNITS_PART_ROLE_BY_SLOT[slot];
+  if (!tensRole || !unitsRole) {
+    throw new RangeError(`numberToSlugs: slot "${slot}" cannot hold a compound value (${n})`);
+  }
+  return [slugFor(tensBase, tensRole), "e--internal", slugFor(UNITS_SLUG[units], unitsRole)];
 }
 
 /** Slug sequence for "{km.toFixed(1)} quilômetros. Pace {min} e {sec}." */
 export function announcementSlugs(kmTenths: string, paceMinutes: number, paceSeconds: number): string[] {
   const [intPart, decPart] = kmTenths.split(".");
   return [
-    ...numberToSlugs(Number(intPart)),
+    ...numberToSlugs(Number(intPart), "kmInt"),
     "virgula",
-    ...numberToSlugs(Number(decPart ?? "0")),
+    ...numberToSlugs(Number(decPart ?? "0"), "kmDec"),
     "quilometros",
     "pace",
-    ...numberToSlugs(paceMinutes),
-    "e",
-    ...numberToSlugs(paceSeconds),
+    ...numberToSlugs(paceMinutes, "min"),
+    "e--paceConnector",
+    ...numberToSlugs(paceSeconds, "sec"),
   ];
 }
+
+export interface VoiceBankEntry {
+  slug: string;
+  text: string;
+  previousText: string | null;
+  nextText: string | null;
+}
+
+/**
+ * Every clip the generation script needs to render, and (via WORD_BANK
+ * below) what each one plays back. A word that can appear in N distinct
+ * roles gets N separate entries — same spoken text, different recorded
+ * context — rather than N slugs pointing at one shared clip.
+ */
+function buildVoiceBank(): VoiceBankEntry[] {
+  const entries: VoiceBankEntry[] = [];
+
+  const addStandaloneOnly = (base: string, text: string, slots: NumberSlot[]) => {
+    for (const slot of slots) {
+      const role = STANDALONE_ROLE_BY_SLOT[slot];
+      entries.push({ slug: slugFor(base, role), text, ...ROLE_CONTEXT[role] });
+    }
+  };
+
+  const addTensCapable = (base: string, text: string) => {
+    for (const slot of ["kmInt", "min", "sec"] as const) {
+      const standaloneRole = STANDALONE_ROLE_BY_SLOT[slot];
+      entries.push({ slug: slugFor(base, standaloneRole), text, ...ROLE_CONTEXT[standaloneRole] });
+      const tensRole = TENS_PART_ROLE_BY_SLOT[slot];
+      if (tensRole && tensRole !== standaloneRole) {
+        entries.push({ slug: slugFor(base, tensRole), text, ...ROLE_CONTEXT[tensRole] });
+      }
+    }
+  };
+
+  // Units words (0-9): every slot, standalone form only for kmDec, plus
+  // the units-half-of-a-compound role for the other three slots.
+  for (let n = 0; n <= 9; n++) {
+    const base = UNITS_SLUG[n];
+    const text = UNITS_TEXT[n];
+    addStandaloneOnly(base, text, ["kmDec"]);
+    for (const slot of ["kmInt", "min", "sec"] as const) {
+      const standaloneRole = STANDALONE_ROLE_BY_SLOT[slot];
+      entries.push({ slug: slugFor(base, standaloneRole), text, ...ROLE_CONTEXT[standaloneRole] });
+      const unitsRole = UNITS_PART_ROLE_BY_SLOT[slot];
+      if (unitsRole && unitsRole !== standaloneRole) {
+        entries.push({ slug: slugFor(base, unitsRole), text, ...ROLE_CONTEXT[unitsRole] });
+      }
+    }
+  }
+
+  // Teens 10-19 (never compound, never in kmDec — that slot is always a single digit).
+  for (let n = 10; n <= 19; n++) {
+    addStandaloneOnly(TEENS_TEXT[n], TEENS_TEXT[n], ["kmInt", "min", "sec"]);
+  }
+
+  // "vinte" and the tens 30-90 (can stand alone, or lead a compound).
+  for (const text of Object.values(TENS_TEXT)) {
+    addTensCapable(text, text);
+  }
+
+  // Connectors. "e" needs two renders — the internal tens/units joiner
+  // inside a single number, and the top-level minutes-to-seconds
+  // connector — since those sit in genuinely different phrase positions.
+  // "vírgula"/"quilômetros"/"pace" only ever sit in one template position
+  // each, so one recording (with a representative neighbor, since the
+  // actual adjacent number varies by run) covers every use.
+  entries.push({ slug: "e--internal", text: "e", previousText: "vinte", nextText: "cinco" });
+  entries.push({ slug: "e--paceConnector", text: "e", previousText: "dez", nextText: "trinta" });
+  entries.push({ slug: "virgula", text: "vírgula", previousText: "cinco", nextText: "cinco" });
+  entries.push({ slug: "quilometros", text: "quilômetros", previousText: "cinco", nextText: "pace" });
+  entries.push({ slug: "pace", text: "pace", previousText: "quilômetros", nextText: "dez" });
+
+  return entries;
+}
+
+export const VOICE_BANK: VoiceBankEntry[] = buildVoiceBank();
+
+/** slug -> text to speak, for generate-voice-bank.ts. */
+export const WORD_BANK: Record<string, string> = Object.fromEntries(VOICE_BANK.map((e) => [e.slug, e.text]));
+
+export const VOICE_BANK_SLUGS: string[] = VOICE_BANK.map((e) => e.slug);
