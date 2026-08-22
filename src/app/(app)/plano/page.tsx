@@ -17,15 +17,14 @@ import { getEvidenceById, getEvidenceForTopicRanked } from "@/lib/evidence";
 import { EvidenceFactRow } from "../evidence-row";
 import { GoalDatePicker } from "../date-picker";
 import {
-  activePainSignal,
-  generatePlan,
+  computeCurrentPlanWeek,
+  ZONE_LABEL,
   ZONE_NUMBER,
-  type GeneratedPlan,
   type PlannedSession as EngineSession,
   type PaceZoneName,
   type PaceZones,
 } from "@/lib/plan";
-import { GOAL_DISTANCE_OPTIONS, type RunnerProfile } from "@/lib/runnerProfile";
+import { GOAL_DISTANCE_OPTIONS, todayIsoDate, type RunnerProfile } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { estimateWeeklyKm, listCompletedRuns, listPainCheckIns, type PainCheckIn } from "@/lib/tracking/storage";
 import { formatPace } from "@/lib/tracking/geoFilter";
@@ -103,14 +102,6 @@ const KIND_STYLE: Record<SessionKind, { badge: string; text: string; label: stri
 };
 
 const DAY_NAMES = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
-
-const ZONE_LABEL: Record<PaceZoneName, string> = {
-  easy: "Fácil",
-  marathon: "Maratona",
-  threshold: "Limiar",
-  interval: "Intervalado",
-  repetition: "Repetição",
-};
 
 /** "Z1 · Fácil" — the numbered vocabulary a watch or Strava already trained the athlete to recognize, paired with the descriptive name so it's not just a bare number. */
 function zoneDisplayLabel(zone: PaceZoneName): string {
@@ -571,30 +562,33 @@ export default function PlanoPage() {
   const hasGoal = Boolean(profile.goalDistanceMeters && profile.goalDate);
   const loading = weeklyKm === null;
   const hasHistory = (weeklyKm ?? 0) > 0;
-  const activePain = useMemo(() => activePainSignal(painCheckIns), [painCheckIns]);
 
-  const plan: GeneratedPlan | null = useMemo(() => {
+  /**
+   * A goal set before `planStartDate` existed has no anchor yet —
+   * `saveRunnerProfile` only stamps one at the moment a goal is actually
+   * *changed*, not for a goal that was already sitting in storage the day
+   * this feature shipped. Backfilling it here, once, the first time such a
+   * profile is seen, is what keeps every hasGoal profile guaranteed to have
+   * one from this point on, rather than `/plano` needing its own
+   * "not anchored yet" fallback path forever.
+   */
+  useEffect(() => {
+    if (hasGoal && !profile.planStartDate) updateProfile({ planStartDate: todayIsoDate() });
+  }, [hasGoal, profile.planStartDate, updateProfile]);
+
+  /**
+   * `computeCurrentPlanWeek` (src/lib/plan/schedule.ts) owns both the
+   * anchoring (a fixed plan shape computed once against `planStartDate`,
+   * not recomputed fresh every visit) and the "which week is today" lookup
+   * into it — shared with `/run`'s own use of the same plan for pre-filling
+   * today's session, so that math exists in exactly one place.
+   */
+  const current = useMemo(() => {
     if (!hasGoal || !hasHistory || weeklyKm === null) return null;
-    return generatePlan(
-      {
-        recentRace:
-          profile.recentRaceDistanceMeters && profile.recentRaceTimeSeconds
-            ? {
-                distanceMeters: profile.recentRaceDistanceMeters,
-                timeSeconds: profile.recentRaceTimeSeconds,
-              }
-            : undefined,
-        currentWeeklyKm: weeklyKm,
-        goalDistanceMeters: profile.goalDistanceMeters!,
-        goalDate: profile.goalDate!,
-        weeklyRunDays: profile.weeklyRunDays,
-      },
-      new Date(),
-      activePain,
-    );
-  }, [hasGoal, hasHistory, weeklyKm, profile, activePain]);
-
-  const currentWeek = plan?.weeks[0];
+    return computeCurrentPlanWeek(profile, weeklyKm, painCheckIns);
+  }, [hasGoal, hasHistory, weeklyKm, profile, painCheckIns]);
+  const plan = current?.plan ?? null;
+  const currentWeek = current?.currentWeek;
 
   if (loading) {
     return (
@@ -640,7 +634,7 @@ export default function PlanoPage() {
         <ScreenHeader
           title="Plano"
           badge={<NoticeBadge>seu plano</NoticeBadge>}
-          subtitle={`Semana ${currentWeek.weekNumber} de ${plan.weeks.length} — fase de ${PHASE_LABEL[currentWeek.phase]}. Calculado do seu histórico real e recalculado sempre que você abre essa tela.`}
+          subtitle={`Semana ${currentWeek.weekNumber} de ${plan.weeks.length} — fase de ${PHASE_LABEL[currentWeek.phase]}. Calculado do seu histórico real, avança sozinho junto com o calendário.`}
         />
         <Screen>
           {plan.warning && (

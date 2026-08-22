@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -32,7 +33,9 @@ import {
 import {
   clearActiveRun,
   deleteCompletedRun,
+  estimateWeeklyKm,
   listCompletedRuns,
+  listPainCheckIns,
   listShoes,
   loadActiveRun,
   markEmblemOpened,
@@ -43,10 +46,13 @@ import {
   updateRunTracks,
   type ActiveRunSnapshot,
   type CompletedRun,
+  type PainCheckIn,
   type RunTrack,
   type Shoe,
   type StoredPoint,
 } from "@/lib/tracking/storage";
+import { computeCurrentPlanWeek, isoWeekday, paceForZone, ZONE_LABEL } from "@/lib/plan";
+import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
@@ -502,6 +508,26 @@ function RepeatIcon({ className }: { className?: string }) {
   );
 }
 
+/** Small calendar-check glyph — the "treino de hoje" chip pulling a session straight from /plano's engine, distinct from the plain repeat arrow above. */
+function PlanIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="14" height="13" rx="2" />
+      <path d="M3 8h14M6.5 2.5v3M13.5 2.5v3" />
+      <path d="M7 12l2 2 4-4" />
+    </svg>
+  );
+}
+
 function formatGoalEta(totalSeconds: number | null): string {
   if (totalSeconds === null || !Number.isFinite(totalSeconds)) return "--:--";
   return formatElapsed(Math.round(totalSeconds));
@@ -856,6 +882,9 @@ export default function RunPage() {
   const [shoeName, setShoeName] = useState("");
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
+  const [weeklyKmForPlan, setWeeklyKmForPlan] = useState<number | null>(null);
+  const [painCheckInsForPlan, setPainCheckInsForPlan] = useState<PainCheckIn[]>([]);
+  const [runnerProfile] = useRunnerProfile();
   const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
   /** The ghost actually used for the in-progress run, captured at start — kept separate from the
    * picker above so a later change to `selectedGhostId` (e.g. after resetting for a new run)
@@ -1039,10 +1068,12 @@ export default function RunPage() {
    */
   useEffect(() => {
     if (state.status !== "idle") return;
-    Promise.all([listShoes(), listCompletedRuns()]).then(([shoes, runs]) => {
+    Promise.all([listShoes(), listCompletedRuns(), listPainCheckIns()]).then(([shoes, runs, painCheckIns]) => {
       setRegisteredShoes(shoes);
       const sorted = [...runs].sort((a, b) => b.startedAt - a.startedAt);
       setRecentRuns(sorted.slice(0, RECENT_GHOST_CANDIDATES));
+      setWeeklyKmForPlan(estimateWeeklyKm(runs));
+      setPainCheckInsForPlan(painCheckIns);
     });
   }, [state.status]);
 
@@ -1101,6 +1132,23 @@ export default function RunPage() {
   const selectedGhost = recentRuns.find((r) => r.id === selectedGhostId) ?? null;
   /** Most recent real run with actual distance — powers the "Repetir última corrida" chip (Xanthus Preparar Corrida.dc.html). `recentRuns` is already sorted newest-first. */
   const lastRealRun = recentRuns.find((r) => r.distanceMeters > 0) ?? null;
+
+  /**
+   * Today's session from `/plano`'s own engine, if a real plan exists —
+   * closes the gap between "we compute a training plan" and "the plan
+   * actually reaches the screen where a run gets started." Without this,
+   * Preparar Corrida had no idea a plan existed at all: every goal here was
+   * always typed by hand, even on a day the athlete had already told /plano
+   * they wanted a specific quality session at a specific pace. Null on a
+   * rest day, same as `computeCurrentPlanWeek` returning null for "no plan
+   * yet" — the chip below just doesn't render either way.
+   */
+  const todaysPlan = useMemo(() => {
+    if (weeklyKmForPlan === null) return null;
+    return computeCurrentPlanWeek(runnerProfile, weeklyKmForPlan, painCheckInsForPlan);
+  }, [runnerProfile, weeklyKmForPlan, painCheckInsForPlan]);
+  const todaysSession = todaysPlan?.currentWeek.sessions[isoWeekday(new Date())];
+  const todaysPlannedSession = todaysSession && todaysSession.kind !== "rest" ? todaysSession : null;
 
   /**
    * The announcement interval comes from the preference set on /perfil, and
@@ -1649,7 +1697,29 @@ export default function RunPage() {
                 </button>
                 .
               </p>
-              {lastRealRun && (
+              {todaysPlannedSession && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const zones = todaysPlan?.plan.paceZones;
+                    if (todaysPlannedSession.paceZone && zones) {
+                      setGoalType("ritmo");
+                      setGoalPaceSec(Math.round(paceForZone(zones, todaysPlannedSession.paceZone)));
+                    } else {
+                      setGoalType("distancia");
+                      setGoalKm(todaysPlannedSession.km);
+                    }
+                  }}
+                  className="mt-3 flex items-center gap-2 self-start rounded-full border border-accent/40 bg-accent/10 px-3.5 py-2 text-xs font-semibold text-accent hover:border-accent hover:bg-accent/15"
+                >
+                  <PlanIcon className="h-3.5 w-3.5" />
+                  Treino de hoje ·{" "}
+                  {todaysPlannedSession.paceZone
+                    ? `${ZONE_LABEL[todaysPlannedSession.paceZone]}, ${todaysPlannedSession.km} km`
+                    : `${todaysPlannedSession.km} km`}
+                </button>
+              )}
+              {!todaysPlannedSession && lastRealRun && (
                 <button
                   type="button"
                   onClick={() => {

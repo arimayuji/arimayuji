@@ -1,9 +1,10 @@
 export { computeVdot, paceForZone, paceZonesFromVdot, predictRaceTime } from "./vdot";
-export { classifyPace, timeInZones, ZONE_NUMBER, ZONE_ORDER } from "./zones";
+export { classifyPace, timeInZones, ZONE_LABEL, ZONE_NUMBER, ZONE_ORDER } from "./zones";
 export type { TimeInZones } from "./zones";
 export { buildVolumeRamp, PAIN_VOLUME_ADJUSTMENT } from "./volumeProgression";
 export { buildWeekSessions, phaseForWeek } from "./periodization";
 export { generatePlan } from "./generatePlan";
+export { computeCurrentPlanWeek, isoWeekday, todaysSession, type CurrentPlanWeek } from "./schedule";
 export { activePainSignal } from "./painSignal";
 export type { ActivePainSignal, PainSeverity } from "./painSignal";
 export type {

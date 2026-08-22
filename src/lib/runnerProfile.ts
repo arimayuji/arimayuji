@@ -20,6 +20,18 @@ export interface RunnerProfile {
   goalDistanceMeters?: number;
   /** ISO date (yyyy-mm-dd). */
   goalDate?: string;
+  /**
+   * ISO date (yyyy-mm-dd) the current plan's week 1 is anchored to — set
+   * automatically the moment a goal is (re)configured, never chosen
+   * directly. Without this, `/plano` had no notion of "week 3 of 12": it
+   * called `generatePlan(profile, new Date())` on every visit, which always
+   * measures from *today* to the goal date and always hands back week 1 as
+   * "the current week" — a plan that silently restarts itself every time
+   * the screen opens, never actually progressing. Anchoring the full
+   * 12-week (or whatever) shape to a fixed start date lets "today" instead
+   * be a lookup into which week of that fixed plan is current.
+   */
+  planStartDate?: string;
   recentRaceDistanceMeters?: number;
   recentRaceTimeSeconds?: number;
   weeklyRunDays?: number;
@@ -50,6 +62,9 @@ function sanitize(raw: unknown): RunnerProfile {
   }
   if (typeof value.goalDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.goalDate)) {
     profile.goalDate = value.goalDate;
+  }
+  if (typeof value.planStartDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.planStartDate)) {
+    profile.planStartDate = value.planStartDate;
   }
   if (
     typeof value.recentRaceDistanceMeters === "number" &&
@@ -90,8 +105,35 @@ export function loadRunnerProfile(): RunnerProfile {
   }
 }
 
+/** Today, as an ISO date — the plan always anchors to a whole day, never a timestamp, so "today" reads the same regardless of what hour it's called at. */
+export function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * A changed goal (distance or date) invalidates every week the old plan had
+ * already computed — they were built against a race that no longer applies.
+ * Rather than make every caller remember to also reset `planStartDate`,
+ * this one place does it whenever the patch actually changes either goal
+ * field (not merely re-sends the same value the profile already had), plus
+ * the very first time a goal is set at all. `/plano` then always has a
+ * `planStartDate` the moment `hasGoal` is true, with no separate
+ * "not anchored yet" state to handle downstream.
+ */
 export function saveRunnerProfile(patch: Partial<RunnerProfile>): RunnerProfile {
-  const next = sanitize({ ...loadRunnerProfile(), ...patch });
+  const current = loadRunnerProfile();
+  const goalChanged =
+    ("goalDistanceMeters" in patch && patch.goalDistanceMeters !== current.goalDistanceMeters) ||
+    ("goalDate" in patch && patch.goalDate !== current.goalDate);
+  const nextGoalDistance = patch.goalDistanceMeters ?? current.goalDistanceMeters;
+  const nextGoalDate = patch.goalDate ?? current.goalDate;
+  const startingFreshGoal = Boolean(nextGoalDistance && nextGoalDate) && (goalChanged || !current.planStartDate);
+
+  const next = sanitize({
+    ...current,
+    ...patch,
+    ...(startingFreshGoal ? { planStartDate: todayIsoDate() } : {}),
+  });
   if (typeof window === "undefined") return next;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
