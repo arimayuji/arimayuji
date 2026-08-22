@@ -457,9 +457,12 @@ importa persistir é a ação pendente:
   `revoke-coach-run-access`, `revoke-live-audience`, `set-plan-override`,
   `suggest-plan-override`) ser criada. Não é bug de código nem do CLI — é
   literalmente o teto do plano contratado no Appwrite Cloud. Nada foi
-  apagado nem alterado no projeto tentando contornar isso. **Decisão
-  pendente do dono do projeto**: upgradar o plano do Appwrite Cloud (ver
-  billing no Console), ou priorizar quais Functions cabem no limite atual
+  apagado nem alterado no projeto tentando contornar isso. **Preço
+  conferido em appwrite.io/pricing (2026-08-22)**: o plano **Free** (o
+  atual) permite só **2 Functions por projeto** — exatamente as duas que
+  já existem. O plano **Pro** (a partir de **US$25/mês**) libera Functions
+  **ilimitadas**. **Decisão pendente do dono do projeto**: upgradar pro
+  Pro, ou priorizar quais das 5 Functions pendentes cabem no limite atual
   caso não vá upgradar agora.
 - **3 Appwrite Functions criadas nesta sessão pra fechar a auditoria LGPD,
   ainda NÃO deployadas** (bloqueadas pelo teto de plano acima; código
