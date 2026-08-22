@@ -29,15 +29,16 @@
  * `/perfil/relogio` now has an explicit toggle (`healthDataConsent` in
  * preferences.ts, checked below on every call), and `/privacidade`
  * declares both data sources. See PROJECT-CONTEXT.md's "Funcionalidades
- * planejadas" section for the full phased plan this is part of — what's
- * left is re-enabling `HEALTH_DATA_ENABLED` itself and a real-device test.
+ * planejadas" section for the full phased plan this is part of —
+ * `HEALTH_DATA_ENABLED` is back on; the one thing left is a real-device
+ * test with an actual watch synced, which hasn't happened yet.
  */
 import { Health, type HealthDataType, type HealthSample, type Workout } from "@capgo/capacitor-health";
 import type { CompletedRun } from "./tracking/storage";
 import { isNativePlatform } from "./platform";
 import { loadPreferences } from "./preferences";
 
-export const HEALTH_DATA_ENABLED = false;
+export const HEALTH_DATA_ENABLED = true;
 
 /**
  * Read-only, and only what this module actually turns into something the
