@@ -316,9 +316,21 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       pro Health Connect, `uses-permission android.permission.health.*`) e
       `Info.plist` (`NSHealthShareUsageDescription`/
       `NSHealthUpdateUsageDescription`).
-    - **`HEALTH_DATA_ENABLED = true`** em `src/lib/health.ts` desde
-      2026-08-19 — chave única que liga tudo isso de uma vez, mesmo padrão
-      do `PHONE_AUTH_ENABLED`. Entitlement (`App.entitlements`) e a
+    - **Correção 2026-08-22 (a linha abaixo estava desatualizada)**:
+      `HEALTH_DATA_ENABLED` foi **desligado de novo** (`= false`) numa
+      auditoria LGPD/segurança em 2026-08-17/21 — estava lendo FC/calorias/
+      passos automaticamente sem nenhuma tela de consentimento própria, só
+      o aviso de permissão do sistema (que consente com o sensor, não com o
+      uso do dado pelo app). Em 2026-08-22 essa lacuna foi fechada de
+      verdade: `preferences.ts` ganhou `healthDataConsent` (desligado por
+      padrão), `/perfil/relogio` tem um toggle real explicando o que é lido
+      e de onde, `/privacidade` já declara HealthKit/Health Connect, e
+      `fetchRunHealthData` checa esse consentimento por conta própria (não
+      só a flag). Falta só religar `HEALTH_DATA_ENABLED = true` — o resto
+      dos itens abaixo (capability HealthKit, teste em aparelho) continua
+      valendo como estava.
+    - ~~**`HEALTH_DATA_ENABLED = true`** em `src/lib/health.ts` desde
+      2026-08-19~~ — ver correção acima. Entitlement (`App.entitlements`) e a
       capability no `project.pbxproj` já commitados em `main` (commits
       `673ad84`/`c8aa8bf`). Faltava:
       1. ~~Habilitar a **capability HealthKit** no App ID no Apple Developer
@@ -468,6 +480,31 @@ importa persistir é a ação pendente:
       ainda não está no código (além do que já está listado acima)?
 - [ ] Alguma decisão de produto/negócio recente que vale registrar aqui
       (posicionamento, prioridade de roadmap, concorrência, etc.)?
+- [x] **2026-08-22: análise competitiva feita** — 16 reviews do Google Play
+      de "Runna: Treinador de Corrida" (4.9★) extraídas e cruzadas com o que
+      o Xanthus já entrega. Achado principal: o Xanthus já cobre as dores
+      operacionais mais citadas (GPS confiável, sem travar em segundo plano,
+      sem paywall, sem exigir login, em pt-BR) — essas eram literalmente o
+      motivo do produto existir. Gap real de ambição de produto: o Runna tem
+      plano de treino adaptativo por IA + módulo de treino de força; o
+      Xanthus tem plano de treino (motor determinístico, `src/lib/plan/`,
+      **não** IA) mas ele não tinha aderência real — corrigido em 2026-08-22
+      (`planStartDate` ancorado + chip "Treino de hoje" em `/run`, ver acima
+      na seção de tracking). Treino de força **decidido não fazer** por ora
+      (aparece nas reviews majoritariamente como bug, não como o que
+      fideliza). Falta ainda: casar corrida gravada com sessão planejada
+      (marcar feito/pulado) e recalcular o ramp de volume pelo que
+      realmente aconteceu — não fizemos essa parte ainda, escopado mas não
+      construído.
+- [ ] **Smartwatch — decisão pendente entre dois caminhos, não escolhida
+      ainda**: "Caminho A" (ler HealthKit/Health Connect pós-corrida, já
+      existe e cobre toda marca de relógio, mas não é ao vivo) teve seus
+      itens de pré-requisito fechados em 2026-08-22 — falta só religar
+      `HEALTH_DATA_ENABLED` e testar em aparelho real (ver acima). "Caminho
+      B1" (FC ao vivo via Bluetooth Heart Rate Service, `0x180D`) foi só
+      pesquisado, nada implementado — cobre cinta/relógio em modo broadcast
+      mas nunca Apple Watch (não transmite por BLE). Não são excludentes,
+      mas a ordem recomendada é A primeiro (mais gente, menos trabalho).
 
 ## Como manter isso vivo
 
