@@ -26,7 +26,7 @@ import { buildVolumeRamp } from "./volumeProgression";
 import { weekActualKm } from "./adherence";
 import type { GeneratedPlan, PlannedWeek } from "./types";
 import { estimateWeeklyKm, type CompletedRun, type PainCheckIn } from "../tracking/storage";
-import { todayIsoDate, type RunnerProfile as PersistedRunnerProfile } from "../runnerProfile";
+import { currentMondayIsoDate, type RunnerProfile as PersistedRunnerProfile } from "../runnerProfile";
 
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -106,7 +106,7 @@ export function computeCurrentPlanWeek(
   const weeklyKm = estimateWeeklyKm(completedRuns);
   if (!profile.goalDistanceMeters || !profile.goalDate || weeklyKm <= 0) return null;
 
-  const planStartDate = profile.planStartDate ?? todayIsoDate();
+  const planStartDate = profile.planStartDate ?? currentMondayIsoDate();
   const activePain: ActivePainSignal | null = activePainSignal(painCheckIns);
 
   const basePlan = generatePlan(

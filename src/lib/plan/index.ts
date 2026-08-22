@@ -6,6 +6,7 @@ export { buildWeekSessions, phaseForWeek } from "./periodization";
 export { generatePlan } from "./generatePlan";
 export { computeCurrentPlanWeek, isoWeekday, todaysSession, type CurrentPlanWeek } from "./schedule";
 export { weekAdherence, weekActualKm, type SessionOutcome } from "./adherence";
+export { applyCoachOverride, type PlanOverrideSessions } from "./coachOverride";
 export { activePainSignal } from "./painSignal";
 export type { ActivePainSignal, PainSeverity } from "./painSignal";
 export type {

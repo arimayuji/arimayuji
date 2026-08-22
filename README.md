@@ -287,6 +287,32 @@ API key scopes**, marca `databases.read` e `databases.write` — sem
 `--execute`, porque nada além do próprio evento do banco deve chamar essas
 duas.
 
+**Salvar override de treinador no plano do aluno** (`appwrite-functions/set-plan-override`):
+"esse treinador tem vínculo aceito com esse aluno" também não dá pra
+expressar como permissão do Appwrite — mesma razão de `join-group-run` —
+então quem grava a linha em `plan_overrides` é essa Function, com chave
+privilegiada, depois de confirmar em `coach_relationships` que existe um
+vínculo `accepted` entre as duas contas. O `rowId` é sempre
+`${studentId}_${weekStartDate}` (upsert), e a permissão da linha dá leitura
+pras duas contas mas escrita só pro treinador que criou. Deploy (via
+[Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+
+```bash
+cd appwrite-functions/set-plan-override
+appwrite functions create \
+  --function-id set-plan-override --name "Salvar override de plano" \
+  --runtime node-22 --entrypoint src/main.js \
+  --execute users
+appwrite push functions
+```
+
+Depois, no Appwrite Console → Functions → set-plan-override → **Settings →
+API key scopes**, marca `databases.read` e `databases.write` — necessário
+pra consultar `coach_relationships` e gravar em `plan_overrides`. O
+`--execute users` restringe a chamada a usuários autenticados, mesmo padrão
+das outras Functions acima. Rode `npx tsx scripts/appwrite-setup.ts` antes
+ou depois do deploy pra garantir que a tabela `plan_overrides` já existe.
+
 **Política de Privacidade** (`/privacidade`): já publicada junto com o
 resto do app — a URL a colar nas duas lojas é
 `https://xanthus.app.br/privacidade`.

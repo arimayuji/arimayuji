@@ -470,6 +470,71 @@ importa persistir é a ação pendente:
   "Strava só que melhor/gaming" (não detalhado ainda o que isso significa
   visualmente).
 
+## Modo treinador com IA — Fase A implementada, Fase B planejada
+
+Pedido do dono do projeto (2026-08-22): o "modo treinador" deveria virar
+algo mais parecido com o Runna — um treinador de verdade ajustando o plano
+de um aluno, eventualmente com IA sugerindo e input tipo planilha. Decisão
+de arquitetura: **"os dois juntos"** — a IA (fase futura) sugere, o motor
+determinístico existente (`src/lib/plan/`, limites como o teto de +30%/2
+semanas do `buildVolumeRamp`) trava a sugestão dentro de limites seguros
+antes dela virar um override real, e o treinador ainda pode editar por
+cima via a mesma tela da Fase A. A Fase B também vai usar RAG contra
+`src/lib/evidence/facts.ts` (a mesma base de fatos citados que `/plano` e
+`/estudos` já usam) com um modelo lowcost (provável Gemini Flash, chave já
+em `.env.local`), em vez de uma chamada de LLM sem embasamento.
+
+**Fase A (implementada nesta sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+ainda não deployada em produção)** — só o override manual, sem IA nenhuma:
+
+- Tabela nova `plan_overrides` (`scripts/appwrite-setup.ts`): chave
+  `(coachId, studentId, weekStartDate)`, `rowId` determinístico
+  `${studentId}_${weekStartDate}`. `permissions: []` na tabela — só a
+  Function grava.
+- Function `set-plan-override` (`appwrite-functions/set-plan-override/`):
+  mesmo padrão de `join-group-run`/`claim-owned-row` — confirma vínculo
+  `accepted` em `coach_relationships` antes de gravar, chave privilegiada,
+  nunca escrita direta do cliente. **Ainda não deployada** — instruções no
+  `README.md`.
+- `src/lib/plan/coachOverride.ts` (`applyCoachOverride`): merge puro que
+  sobrepõe o override no `PlannedWeek` calculado pelo motor — usado tanto
+  em `/plano` quanto em `/run` (chip "Treino de hoje").
+- `src/lib/coachPlanOverrides.ts`: round-trip com o Appwrite
+  (`setPlanOverride`/`listPlanOverridesForStudent`/`deletePlanOverride`).
+- Tela nova em `/treinador/aluno`: card "Planilha da semana" —
+  navegação de semana (setas ← →), 7 linhas (dia, km, tipo via
+  `SegmentedButton`, zona de ritmo só quando o tipo é "Forte"), recado
+  opcional, Salvar/Remover.
+
+**Limitação de arquitetura, importante pra qualquer trabalho futuro
+nessa área**: o treinador **não consegue ver o plano que o motor já
+calculou pro aluno** — `computeCurrentPlanWeek` depende do
+`RunnerProfile` (localStorage) e do histórico de corridas (IndexedDB) do
+próprio aparelho do aluno, nada disso sincroniza pro Appwrite. Por isso a
+tela do treinador é uma planilha em branco (o treinador digita tudo do
+zero), não uma tela de "revisar e ajustar o palpite do motor". Resolver
+isso de verdade exigiria sincronizar pelo menos o resumo do plano do aluno
+pro Appwrite — não fizemos isso, ficou como limitação conhecida da Fase A.
+
+**Correção de bug feita junto com a Fase A**: até esta sessão,
+`planStartDate` (o dia em que a semana 1 do plano do aluno começa) era
+carimbado com "hoje", em qualquer dia da semana — mas o treinador não tem
+como saber esse valor (é local ao aparelho do aluno) e precisa *adivinhar*
+em que data cada semana do plano começa pra saber qual `weekStartDate`
+usar num override. A tela do treinador adivinha usando a segunda-feira do
+calendário (`mondayOf`, `src/lib/tracking/stats.ts`) — o que só funciona
+se o plano do aluno também começar numa segunda. Corrigido carimbando
+`planStartDate` sempre com a segunda-feira anterior ou igual a hoje
+(`currentMondayIsoDate`, novo em `src/lib/runnerProfile.ts`), em vez do
+dia exato em que o goal foi configurado. Sem essa correção, um override de
+treinador simplesmente nunca bateria com a semana real do aluno pra quase
+ninguém.
+
+**Fase B (não iniciada)**: Function chamando um modelo lowcost com RAG
+sobre `src/lib/evidence/facts.ts`, sugestão passando pelos limites do
+motor determinístico antes de virar override real, treinador revisando via
+a mesma tela da Fase A antes de confirmar.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
@@ -490,8 +555,11 @@ importa persistir é a ação pendente:
       build sem precisar de nova revisão — só builds novos exigem revisão de
       novo. Revisão completa da App Store (produção) continua sem prazo
       definido.
-- [ ] A corrida compartilhada / modo treinador tem trabalho combinado que
-      ainda não está no código (além do que já está listado acima)?
+- [x] **2026-08-22: escopado e Fase A implementada** — modo treinador vira
+      "os dois juntos" (IA sugere + motor determinístico trava os limites +
+      treinador edita por cima), ver seção própria acima. Fase A (planilha
+      manual, sem IA) já tem código pronto, só falta deploy da Function
+      `set-plan-override`. Fase B (IA + RAG) ainda não começou.
 - [ ] Alguma decisão de produto/negócio recente que vale registrar aqui
       (posicionamento, prioridade de roadmap, concorrência, etc.)?
 - [x] **2026-08-22: análise competitiva feita** — 16 reviews do Google Play

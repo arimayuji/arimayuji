@@ -43,6 +43,7 @@ export const TABLES = {
   profiles: "profiles",
   friendships: "friendships",
   coachRelationships: "coach_relationships",
+  planOverrides: "plan_overrides",
   placeRatings: "place_ratings",
   placeRunStats: "place_run_stats",
   profileStats: "profile_stats",
@@ -81,6 +82,13 @@ export const JOIN_GROUP_RUN_FUNCTION_ID = "join-group-run";
 // instead of trusting whatever ID a raw `createRow` call supplies. See that
 // function's own comment for the finding this closes.
 export const CLAIM_OWNED_ROW_FUNCTION_ID = "claim-owned-row";
+
+// Matches appwrite-functions/set-plan-override's Function ID — same
+// convention as DELETE_ACCOUNT_FUNCTION_ID above. Writing a `plan_overrides`
+// row needs "is this account an accepted coach of that student" verified
+// server-side, same reasoning join-group-run's own comment documents for
+// "is this account a friend of the host" — no Appwrite Role expresses that.
+export const SET_PLAN_OVERRIDE_FUNCTION_ID = "set-plan-override";
 
 // Matches the Storage bucket ID created in scripts/appwrite-setup.ts —
 // same fixed-ID convention as the table/function IDs above.

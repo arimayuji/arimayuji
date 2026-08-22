@@ -50,7 +50,8 @@ import {
   type Shoe,
   type StoredPoint,
 } from "@/lib/tracking/storage";
-import { computeCurrentPlanWeek, isoWeekday, paceForZone, ZONE_LABEL } from "@/lib/plan";
+import { applyCoachOverride, computeCurrentPlanWeek, isoWeekday, paceForZone, ZONE_LABEL } from "@/lib/plan";
+import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coachPlanOverrides";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
@@ -882,6 +883,7 @@ export default function RunPage() {
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
   const [completedRunsForPlan, setCompletedRunsForPlan] = useState<CompletedRun[] | null>(null);
+  const [coachOverrides, setCoachOverrides] = useState<Map<string, ParsedPlanOverride>>(new Map());
   const [painCheckInsForPlan, setPainCheckInsForPlan] = useState<PainCheckIn[]>([]);
   const [runnerProfile] = useRunnerProfile();
   const [selectedGhostId, setSelectedGhostId] = useState<string | null>(null);
@@ -1076,6 +1078,13 @@ export default function RunPage() {
     });
   }, [state.status]);
 
+  // Same coach-override lookup /plano applies — only meaningful once
+  // signed in, since an override is keyed by the real account ID.
+  useEffect(() => {
+    if (!account) return;
+    listPlanOverridesForStudent(account.id).then(setCoachOverrides);
+  }, [account]);
+
   /**
    * Real "GPS pronto"/"Buscando GPS…" on Preparar Corrida (Xanthus Preparar
    * Corrida.dc.html) instead of no status at all — begins the same watch a
@@ -1146,7 +1155,9 @@ export default function RunPage() {
     if (completedRunsForPlan === null) return null;
     return computeCurrentPlanWeek(runnerProfile, completedRunsForPlan, painCheckInsForPlan);
   }, [runnerProfile, completedRunsForPlan, painCheckInsForPlan]);
-  const todaysSession = todaysPlan?.currentWeek.sessions[isoWeekday(new Date())];
+  /** A coach's explicit choice for this week (if any) wins here too — same override /plano applies, so "treino de hoje" never contradicts what the athlete's own plan screen shows. */
+  const todaysWeek = todaysPlan ? applyCoachOverride(todaysPlan.currentWeek, coachOverrides.get(todaysPlan.currentWeek.startDate)) : undefined;
+  const todaysSession = todaysWeek?.sessions[isoWeekday(new Date())];
   const todaysPlannedSession = todaysSession && todaysSession.kind !== "rest" ? todaysSession : null;
 
   /**

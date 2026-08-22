@@ -17,6 +17,7 @@ import { getEvidenceById, getEvidenceForTopicRanked } from "@/lib/evidence";
 import { EvidenceFactRow } from "../evidence-row";
 import { GoalDatePicker } from "../date-picker";
 import {
+  applyCoachOverride,
   computeCurrentPlanWeek,
   weekAdherence,
   ZONE_LABEL,
@@ -26,7 +27,9 @@ import {
   type PaceZones,
   type SessionOutcome,
 } from "@/lib/plan";
-import { GOAL_DISTANCE_OPTIONS, todayIsoDate, type RunnerProfile } from "@/lib/runnerProfile";
+import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coachPlanOverrides";
+import { useAuth } from "@/lib/useAuth";
+import { currentMondayIsoDate, GOAL_DISTANCE_OPTIONS, type RunnerProfile } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import {
   estimateWeeklyKm,
@@ -584,9 +587,11 @@ function GoalCard({
 }
 
 export default function PlanoPage() {
+  const { account } = useAuth();
   const [profile, updateProfile] = useRunnerProfile();
   const [completedRuns, setCompletedRuns] = useState<CompletedRun[] | null>(null);
   const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
+  const [coachOverrides, setCoachOverrides] = useState<Map<string, ParsedPlanOverride>>(new Map());
   const [planRevealed, setPlanRevealed] = useState(false);
   const [showExample, setShowExample] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
@@ -596,6 +601,14 @@ export default function PlanoPage() {
     listCompletedRuns().then(setCompletedRuns);
     listPainCheckIns().then(setPainCheckIns);
   }, []);
+
+  // Only meaningful once signed in — a coach's override is keyed by the
+  // real account ID, and there's no such thing as a coach for a local-only
+  // athlete who never made an account.
+  useEffect(() => {
+    if (!account) return;
+    listPlanOverridesForStudent(account.id).then(setCoachOverrides);
+  }, [account]);
 
   const hasGoal = Boolean(profile.goalDistanceMeters && profile.goalDate);
   const loading = completedRuns === null;
@@ -612,7 +625,7 @@ export default function PlanoPage() {
    * "not anchored yet" fallback path forever.
    */
   useEffect(() => {
-    if (hasGoal && !profile.planStartDate) updateProfile({ planStartDate: todayIsoDate() });
+    if (hasGoal && !profile.planStartDate) updateProfile({ planStartDate: currentMondayIsoDate() });
   }, [hasGoal, profile.planStartDate, updateProfile]);
 
   /**
@@ -627,7 +640,14 @@ export default function PlanoPage() {
     return computeCurrentPlanWeek(profile, completedRuns, painCheckIns);
   }, [hasGoal, hasHistory, completedRuns, profile, painCheckIns]);
   const plan = current?.plan ?? null;
-  const currentWeek = current?.currentWeek;
+  /**
+   * A coach's explicit choice for this exact week (looked up by
+   * `startDate`, the same ISO Monday the engine already stamps every week
+   * with) wins over both the engine's original prescription and its own
+   * real-adherence reprojection — see `applyCoachOverride`'s own comment.
+   */
+  const coachOverride = current ? coachOverrides.get(current.currentWeek.startDate) : undefined;
+  const currentWeek = current ? applyCoachOverride(current.currentWeek, coachOverride) : undefined;
   const adherence = useMemo(
     () => (currentWeek && completedRuns ? weekAdherence(currentWeek, completedRuns) : null),
     [currentWeek, completedRuns],
@@ -710,21 +730,34 @@ export default function PlanoPage() {
             </Card>
           )}
 
-          {current?.wasReprojected && (
+          {coachOverride ? (
             <Card className="pr-enter border-accent/30 bg-accent/5" style={delay(95)}>
-              <CardTitle aside={<NoticeBadge>ajustado</NoticeBadge>}>
-                Ajustamos essa semana pelo que você realmente correu
+              <CardTitle aside={<NoticeBadge>treinador</NoticeBadge>}>
+                Seu treinador definiu essa semana
               </CardTitle>
               <p className="text-sm leading-relaxed text-pretty">
-                O volume da semana passada saiu diferente do planejado, então a progressão a partir
-                de agora recomeça de onde você realmente está — nunca do número que o plano só
-                previa.
+                {coachOverride.note
+                  ? coachOverride.note
+                  : "O volume e as sessões abaixo vieram direto do seu treinador, não do cálculo automático."}
               </p>
             </Card>
+          ) : (
+            current?.wasReprojected && (
+              <Card className="pr-enter border-accent/30 bg-accent/5" style={delay(95)}>
+                <CardTitle aside={<NoticeBadge>ajustado</NoticeBadge>}>
+                  Ajustamos essa semana pelo que você realmente correu
+                </CardTitle>
+                <p className="text-sm leading-relaxed text-pretty">
+                  O volume da semana passada saiu diferente do planejado, então a progressão a
+                  partir de agora recomeça de onde você realmente está — nunca do número que o
+                  plano só previa.
+                </p>
+              </Card>
+            )
           )}
 
           <Card className="pr-enter" style={delay(110)}>
-            <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>
+            <CardTitle aside={<NoticeBadge>{coachOverride ? "treinador" : "dados reais"}</NoticeBadge>}>
               Semana {currentWeek.weekNumber} — {PHASE_LABEL[currentWeek.phase]}
             </CardTitle>
             <WeekStatsRow volumeKm={currentWeek.totalKm} sessions={runCount} hard={qualityCount} />

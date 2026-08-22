@@ -243,6 +243,61 @@ async function main() {
     }),
   );
 
+  // ------------------------------------------------------------ plan_overrides
+  console.log("\nplan_overrides");
+  await ensure("table plan_overrides", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "plan_overrides",
+      name: "plan_overrides",
+      // *Create* is deliberately NOT open to Role.users() — "is this account
+      // an accepted coach of that student" isn't a Role Appwrite can express,
+      // same reasoning join-group-run's own table documents for "is this
+      // account a friend of the host". Rows are only ever created by the
+      // set-plan-override Appwrite Function (privileged key, verifies the
+      // coach_relationships row server-side before writing) — see that
+      // function's own comment. Row-level permissions (set by the Function)
+      // grant read to both the coach and the student, update/delete to the
+      // coach only.
+      permissions: [],
+      rowSecurity: true,
+    }),
+  );
+  await ensure("plan_overrides.coachId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "plan_overrides", key: "coachId", size: 36, required: true }),
+  );
+  await ensure("plan_overrides.studentId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "plan_overrides", key: "studentId", size: 36, required: true }),
+  );
+  // ISO date (yyyy-mm-dd) of the Monday the overridden week starts —
+  // matches PlannedWeek.startDate exactly, so applying an override is a
+  // plain lookup by that string, no date math needed at read time.
+  await ensure("plan_overrides.weekStartDate", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "plan_overrides", key: "weekStartDate", size: 10, required: true }),
+  );
+  await ensure("plan_overrides.totalKm", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "plan_overrides", key: "totalKm", required: true }),
+  );
+  // JSON-encoded PlannedSession[] (7 entries, Monday-first) — same
+  // stringify-a-small-structure convention as runs.points, just far
+  // smaller (7 tiny objects, not a GPS track).
+  await ensure("plan_overrides.sessions", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "plan_overrides", key: "sessions", size: 2000, required: true }),
+  );
+  await ensure("plan_overrides.note", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "plan_overrides", key: "note", size: 300, required: false }),
+  );
+  await waitForColumn("plan_overrides", "studentId");
+  await ensure("plan_overrides index: studentId", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "plan_overrides",
+      key: "by_student",
+      type: TablesDBIndexType.Key,
+      columns: ["studentId"],
+    }),
+  );
+
   // ---------------------------------------------------------- place_ratings
   console.log("\nplace_ratings");
   await ensure("table place_ratings", () =>

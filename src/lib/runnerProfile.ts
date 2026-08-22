@@ -111,6 +111,29 @@ export function todayIsoDate(): string {
 }
 
 /**
+ * The calendar Monday on or before today, as an ISO date — what
+ * `planStartDate` actually gets stamped with (see below), so that every
+ * plan's week boundaries land on real calendar weeks. This matters beyond
+ * cosmetics: a coach has no way to see a student's own `planStartDate` (it
+ * never leaves the student's device), so `/treinador/aluno`'s override
+ * editor has to guess which ISO date each `PlannedWeek.startDate` will be —
+ * and it guesses by picking calendar Mondays (`mondayOf` in
+ * tracking/stats.ts). If plans could anchor to an arbitrary weekday, that
+ * guess would only ever match by coincidence and coach overrides would
+ * silently never apply.
+ */
+export function currentMondayIsoDate(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+/**
  * A changed goal (distance or date) invalidates every week the old plan had
  * already computed — they were built against a race that no longer applies.
  * Rather than make every caller remember to also reset `planStartDate`,
@@ -132,7 +155,7 @@ export function saveRunnerProfile(patch: Partial<RunnerProfile>): RunnerProfile 
   const next = sanitize({
     ...current,
     ...patch,
-    ...(startingFreshGoal ? { planStartDate: todayIsoDate() } : {}),
+    ...(startingFreshGoal ? { planStartDate: currentMondayIsoDate() } : {}),
   });
   if (typeof window === "undefined") return next;
   try {
