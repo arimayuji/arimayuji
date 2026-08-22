@@ -60,10 +60,10 @@ const UNITS: { value: DistanceUnit; label: string; hint: string }[] = [
   { value: "mi", label: "Milhas", hint: "mi · min/mi" },
 ];
 
-const THEMES: { value: ThemeMode; label: string }[] = [
-  { value: "light", label: "Claro" },
-  { value: "dark", label: "Escuro" },
-  { value: "system", label: "Sistema" },
+const THEMES: { id: ThemeMode; label: string }[] = [
+  { id: "light", label: "Claro" },
+  { id: "dark", label: "Escuro" },
+  { id: "system", label: "Sistema" },
 ];
 
 /** Same register as the bottom-nav icons in app-shell.tsx: stroke-only, 1.7 weight, round joins. */
@@ -1069,17 +1069,7 @@ export default function PerfilPage() {
           <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
             &quot;Sistema&quot; segue o tema do aparelho e muda sozinho se você trocar por lá.
           </p>
-          <div className="flex gap-2">
-            {THEMES.map((theme) => (
-              <SegmentedButton
-                key={theme.value}
-                selected={prefs.theme === theme.value}
-                onClick={() => update({ theme: theme.value })}
-              >
-                {theme.label}
-              </SegmentedButton>
-            ))}
-          </div>
+          <PillTabs tabs={THEMES} active={prefs.theme} onChange={(theme) => update({ theme })} />
         </Card>
 
         <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
