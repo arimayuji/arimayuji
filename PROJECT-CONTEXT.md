@@ -342,55 +342,31 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       pro Health Connect, `uses-permission android.permission.health.*`) e
       `Info.plist` (`NSHealthShareUsageDescription`/
       `NSHealthUpdateUsageDescription`).
-    - **Correção 2026-08-22 (a linha abaixo estava desatualizada)**:
-      `HEALTH_DATA_ENABLED` foi **desligado de novo** (`= false`) numa
-      auditoria LGPD/segurança em 2026-08-17/21 — estava lendo FC/calorias/
-      passos automaticamente sem nenhuma tela de consentimento própria, só
-      o aviso de permissão do sistema (que consente com o sensor, não com o
-      uso do dado pelo app). Em 2026-08-22 essa lacuna foi fechada de
-      verdade: `preferences.ts` ganhou `healthDataConsent` (desligado por
-      padrão), `/perfil/relogio` tem um toggle real explicando o que é lido
-      e de onde, `/privacidade` já declara HealthKit/Health Connect, e
-      `fetchRunHealthData` checa esse consentimento por conta própria (não
-      só a flag). Falta só religar `HEALTH_DATA_ENABLED = true` — o resto
-      dos itens abaixo (capability HealthKit, teste em aparelho) continua
-      valendo como estava.
-    - ~~**`HEALTH_DATA_ENABLED = true`** em `src/lib/health.ts` desde
-      2026-08-19~~ — ver correção acima. Entitlement (`App.entitlements`) e a
-      capability no `project.pbxproj` já commitados em `main` (commits
-      `673ad84`/`c8aa8bf`). Faltava:
-      1. ~~Habilitar a **capability HealthKit** no App ID no Apple Developer
-         Portal~~ — **feito manualmente pelo dono do projeto em
-         developer.apple.com em 2026-08-19** (passo que não dava pra fazer
-         por código). Ainda não confirmado se o build assinado do TestFlight
-         (job `testflight` em `ios-build.yml`, assinatura automática com API
-         key Admin) já reflete isso sem erro — checar os últimos runs em
-         github.com/arimayuji/xanthus/actions antes de assumir que está
-         tudo verde.
-      2. Testar em aparelho real com um relógio de verdade sincronizado —
-         nada disso foi validado em dispositivo, só `tsc`/`eslint`/`next
-         build` (o plugin é nativo puro, não roda no sandbox nem no
-         navegador). Esse é o único bloqueio real que resta.
-      3. ~~Confirmar que o Android realmente lê certo quando o Health
-         Connect não está instalado~~ — **confirmado por leitura de código
-         em 2026-08-18, reconfirmado em 2026-08-22 após a troca de
-         plugin** (não em dispositivo real, isso ainda depende do item 2
-         acima): o `@capgo/capacitor-health` chama
-         `HealthConnectClient.getSdkStatus(context)` (`HealthPlugin.kt`,
-         método `isAvailable`) — API dedicada de status que nunca lança
-         exceção, diferente do `getOrCreate()`-em-`try/catch` que o fork
-         antigo usava, mas com a mesma garantia final: resolve
-         `{available: false}` em vez de travar quando o app Health Connect
-         não está instalado. `src/lib/health.ts`'s `isHealthAvailable()`
-         tem seu próprio `try/catch` por cima disso (dupla proteção). E
-         `fetchRunHealthData()` já checa `isHealthAvailable()` primeiro e
-         devolve `null` antes de chamar `requestHealthPermissions()` ou
-         qualquer query — nenhuma chamada nativa a mais acontece nesse
-         caminho. Na UI (`run-detail.tsx`), `healthData` nulo já cai de
-         volta pro comportamento antigo sem quebrar nada: o card de FC
-         média some, calorias volta pra estimativa. Resta só o item 2 acima
-         (teste em aparelho real) como validação real pendente — a flag já
-         está ligada em `main`.
+    - **Histórico da flag** (pra não repetir o vaivém): ligada em
+      2026-08-19, desligada de novo em 2026-08-17/21 numa auditoria LGPD
+      (lia FC/calorias/passos automaticamente com só o aviso de permissão
+      do sistema, sem consentimento de produto de verdade), lacuna fechada
+      em 2026-08-22 (`preferences.ts` ganhou `healthDataConsent`,
+      `/perfil/relogio` tem toggle real, `/privacidade` declara as duas
+      fontes, `fetchRunHealthData` checa o consentimento por conta
+      própria) — e **religada de vez em 2026-08-22**, branch
+      `claude/strava-competitor-feedback-cyvop8`, ainda não em `main`.
+    - Pré-requisitos já fechados: entitlement (`App.entitlements`) e
+      capability no `project.pbxproj` commitados; capability HealthKit
+      habilitada no App ID pelo dono do projeto em developer.apple.com
+      (2026-08-19) — ainda não confirmado se o build assinado do
+      TestFlight reflete isso sem erro, checar os runs em
+      github.com/arimayuji/xanthus/actions antes de assumir que está tudo
+      verde; fallback do Android quando o Health Connect não está
+      instalado confirmado por leitura de código (`HealthConnectClient.
+      getSdkStatus`, nunca lança exceção, `isHealthAvailable()` com seu
+      próprio `try/catch` por cima) — não em dispositivo real.
+    - **Único bloqueio real que resta**: testar em aparelho real com um
+      relógio de verdade sincronizado. Nada disso foi validado em
+      dispositivo, só `tsc`/`eslint`/`next build` (o plugin é nativo puro,
+      não roda no sandbox nem no navegador) — isso não dá pra fazer nesse
+      ambiente remoto, precisa ser o dono do projeto testando no celular
+      dele com um relógio pareado.
 
 ## Ferramentas externas usadas no projeto
 
@@ -673,15 +649,16 @@ ainda não deployada em produção)**:
       (marcar feito/pulado) e recalcular o ramp de volume pelo que
       realmente aconteceu — não fizemos essa parte ainda, escopado mas não
       construído.
-- [ ] **Smartwatch — decisão pendente entre dois caminhos, não escolhida
-      ainda**: "Caminho A" (ler HealthKit/Health Connect pós-corrida, já
-      existe e cobre toda marca de relógio, mas não é ao vivo) teve seus
-      itens de pré-requisito fechados em 2026-08-22 — falta só religar
-      `HEALTH_DATA_ENABLED` e testar em aparelho real (ver acima). "Caminho
-      B1" (FC ao vivo via Bluetooth Heart Rate Service, `0x180D`) foi só
-      pesquisado, nada implementado — cobre cinta/relógio em modo broadcast
-      mas nunca Apple Watch (não transmite por BLE). Não são excludentes,
-      mas a ordem recomendada é A primeiro (mais gente, menos trabalho).
+- [x] **2026-08-22: `HEALTH_DATA_ENABLED` religado** — "Caminho A" (ler
+      HealthKit/Health Connect pós-corrida, cobre toda marca de relógio,
+      mas não é ao vivo) está com todo o código e pré-requisitos prontos.
+      **Único bloqueio real restante: testar em aparelho real com um
+      relógio de verdade sincronizado** — não dá pra fazer neste ambiente,
+      precisa ser o dono do projeto no celular dele. "Caminho B1" (FC ao
+      vivo via Bluetooth Heart Rate Service, `0x180D`) continua só
+      pesquisado, nada implementado — cobre cinta/relógio em modo
+      broadcast mas nunca Apple Watch (não transmite por BLE); não é
+      excludente com o Caminho A, só uma fase futura possível.
 
 ## Como manter isso vivo
 
