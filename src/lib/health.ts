@@ -27,6 +27,7 @@
 import { Health, type HealthPermission, type PermissionResponse, type Workout } from "capacitor-health";
 import type { CompletedRun } from "./tracking/storage";
 import { isNativePlatform } from "./platform";
+import { loadPreferences } from "./preferences";
 
 export const HEALTH_DATA_ENABLED = false;
 
@@ -124,6 +125,12 @@ export async function fetchRunHealthData(
   run: Pick<CompletedRun, "startedAt" | "finishedAt">,
 ): Promise<RunHealthData | null> {
   if (!HEALTH_DATA_ENABLED || !isNativePlatform()) return null;
+  // The OS's own HealthKit/Health Connect permission dialog consents to the
+  // sensor, not to what Xanthus does with the reading — this is the
+  // separate, product-level "Perfil → Dados do relógio" toggle LGPD Art. 11
+  // needs ahead of that, checked fresh on every call (not cached) so
+  // turning it off in Perfil takes effect on the very next run opened.
+  if (!loadPreferences().healthDataConsent) return null;
   try {
     if (!(await isHealthAvailable())) return null;
     if (!(await requestHealthPermissions())) return null;

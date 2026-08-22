@@ -34,6 +34,19 @@ export interface Preferences {
    * pace was actually set).
    */
   vibrateOnPaceDelay: boolean;
+  /**
+   * Explicit, separate consent for `src/lib/health.ts` to read from
+   * HealthKit/Health Connect — the product-level consent screen that
+   * feature's own doc comment says must exist before `HEALTH_DATA_ENABLED`
+   * is ever flipped back on (LGPD Art. 11: heart rate/calories/steps are
+   * sensitive data, and the OS's own permission dialog only consents to
+   * the sensor, not to what this app does with the reading). Off by
+   * default like every other opt-in here; `fetchRunHealthData` checks this
+   * itself, so turning it on here is what actually starts any reading —
+   * not `HEALTH_DATA_ENABLED`, which is a separate ship-readiness switch
+   * for the feature as a whole.
+   */
+  healthDataConsent: boolean;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -48,6 +61,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showCurrentKmPaceLive: true,
   theme: "system",
   vibrateOnPaceDelay: false,
+  healthDataConsent: false,
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -92,6 +106,11 @@ function sanitize(raw: unknown): Preferences {
       ? value.vibrateOnPaceDelay
       : DEFAULT_PREFERENCES.vibrateOnPaceDelay;
 
+  const healthDataConsent =
+    typeof value.healthDataConsent === "boolean"
+      ? value.healthDataConsent
+      : DEFAULT_PREFERENCES.healthDataConsent;
+
   return {
     announceIntervalMeters,
     distanceUnit,
@@ -99,6 +118,7 @@ function sanitize(raw: unknown): Preferences {
     showCurrentKmPaceLive,
     theme,
     vibrateOnPaceDelay,
+    healthDataConsent,
   };
 }
 

@@ -2,17 +2,24 @@
 
 import Link from "next/link";
 import { useHeaderClose } from "../../app-shell";
-import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader } from "../../ui";
+import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, PreferenceToggle, Screen, ScreenHeader } from "../../ui";
+import { usePreferences } from "@/lib/usePreferences";
 
 /**
  * Split out of `/perfil` the same way `/perfil/dados` was: the health-data
  * card had grown into its own dedicated visual (a full run-card mockup plus
  * a "how this works" explainer) rather than a plain settings row, so it
  * gets a screen of its own instead of pushing the rest of Perfil further
- * down. Purely informational — the actual read happens automatically in
- * `historico/detalhe/run-detail.tsx` via `fetchRunHealthData` whenever a
- * watch workout overlaps the run; there is no toggle or permission button
- * here to wire up.
+ * down.
+ *
+ * The consent toggle below is the product-level screen `src/lib/health.ts`'s
+ * own doc comment says has to exist before that feature can be turned back
+ * on — an LGPD/security audit found it reading heart rate/calories/steps
+ * automatically, with only the OS's own HealthKit/Health Connect permission
+ * dialog ahead of it, which consents to the sensor, not to what *this app*
+ * does with the reading. Off by default; `fetchRunHealthData` checks this
+ * same preference itself, so nothing reads until this is turned on here —
+ * and turning it back off takes effect on the very next run opened.
  */
 
 const ICON_STROKE = {
@@ -94,6 +101,8 @@ const INFO_ITEMS = [
 
 export default function DadosRelogioPage() {
   useHeaderClose("/perfil");
+  const [preferences, updatePreferences] = usePreferences();
+
   return (
     <>
       <ScreenHeader
@@ -102,8 +111,29 @@ export default function DadosRelogioPage() {
       />
 
       <Screen>
+        <Card className="pr-enter" style={delay(20)}>
+          <CardTitle
+            aside={
+              <NoticeBadge>{preferences.healthDataConsent ? "ativado" : "desligado"}</NoticeBadge>
+            }
+          >
+            Ler dados de saúde
+          </CardTitle>
+          <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+            Frequência cardíaca, calorias e passos são dados sensíveis — o Xanthus só lê do seu
+            Apple Health/Health Connect com essa chave ligada por você. O aviso de permissão do
+            sistema, sozinho, não conta como esse consentimento.
+          </p>
+          <PreferenceToggle
+            label="Ativar leitura de dados de saúde"
+            hint="Desligado por padrão. Desligar aqui para de ler a partir da próxima corrida aberta."
+            checked={preferences.healthDataConsent}
+            onChange={(healthDataConsent) => updatePreferences({ healthDataConsent })}
+          />
+        </Card>
+
         <Card className="pr-enter" style={delay(40)}>
-          <CardTitle aside={<NoticeBadge>ativo, sem validação em campo</NoticeBadge>}>Onde aparece</CardTitle>
+          <CardTitle aside={<NoticeBadge>sem validação em campo</NoticeBadge>}>Onde aparece</CardTitle>
           <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
             Não é uma lista separada — os dados do relógio entram direto no card da corrida, dentro
             do seu Histórico.
