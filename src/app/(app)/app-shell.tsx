@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { GpsQuality } from "@/lib/tracking/useRunTracker";
-import { HORSE_BUST_PATHS } from "../horse-mark";
+import { HORSE_BUST_BODY_PATH, HORSE_BUST_LEGS_PATH, HORSE_BUST_LEGS_PIVOT } from "../horse-mark";
 import { NotificationBell } from "./notification-bell";
 import { useScrollChromeVisibility } from "./use-scroll-chrome";
 
@@ -285,7 +285,15 @@ function AppHeader({
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16">
             <svg viewBox="0 0 100 100" className="h-5 w-5" aria-hidden="true">
-              <path d={HORSE_BUST_PATHS[0]} fill="none" stroke="#fff" strokeWidth="4.5" strokeLinejoin="round" />
+              <path d={HORSE_BUST_BODY_PATH} fill="none" stroke="#fff" strokeWidth="4.5" strokeLinejoin="round" />
+              <g
+                style={{
+                  transformOrigin: `${HORSE_BUST_LEGS_PIVOT.x}px ${HORSE_BUST_LEGS_PIVOT.y}px`,
+                  animation: "pr-horse-paw 2.4s ease-in-out infinite",
+                }}
+              >
+                <path d={HORSE_BUST_LEGS_PATH} fill="none" stroke="#fff" strokeWidth="4.5" strokeLinejoin="round" />
+              </g>
             </svg>
           </span>
           <span className="font-mono text-lg font-semibold tracking-wide text-white">Xanthus</span>

@@ -345,6 +345,27 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/*
+ * The header horse mark's forelegs pawing at the air — see
+ * HORSE_BUST_LEGS_PATH/HORSE_BUST_LEGS_PIVOT in horse-mark.tsx. Small
+ * amplitude on purpose: the far end of the legs path isn't re-anchored to
+ * the body when rotated, so a wide swing would visibly open a gap at the
+ * chest.
+ */
+@keyframes pr-horse-paw {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  35%,
+  55% {
+    transform: rotate(9deg);
+  }
+  80% {
+    transform: rotate(-6deg);
+  }
+}
+
 /* The hero's "role para explorar" cue — see landing-scroll-ux.tsx. */
 @keyframes pr-scroll-cue {
   0%,
