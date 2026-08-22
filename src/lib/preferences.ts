@@ -19,6 +19,17 @@ export type DistanceUnit = "km" | "mi";
 /** "system" follows the OS/browser scheme live; "light"/"dark" pin it regardless of what the OS is set to. */
 export type ThemeMode = "light" | "dark" | "system";
 
+/**
+ * Which "home" the app opens into for someone who is both an athlete and a
+ * coach of other people — a real minority (most accounts only ever run),
+ * so this only ever surfaces as a switch on /perfil when the account
+ * actually has at least one accepted student. "atleta" is always the
+ * default even for a coach: nobody expects the app they use to log their
+ * own runs to suddenly open into someone else's dashboard the first time
+ * they accept a student.
+ */
+export type AppMode = "atleta" | "treinador";
+
 export interface Preferences {
   announceIntervalMeters: number;
   distanceUnit: DistanceUnit;
@@ -47,6 +58,8 @@ export interface Preferences {
    * for the feature as a whole.
    */
   healthDataConsent: boolean;
+  /** See `AppMode`. Doesn't gate anything server-side — a plain athlete who somehow gets this set to "treinador" just sees an empty /treinador as their home, same empty state a coach with no accepted students sees. */
+  appMode: AppMode;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -62,6 +75,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
   vibrateOnPaceDelay: false,
   healthDataConsent: false,
+  appMode: "atleta",
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -111,6 +125,9 @@ function sanitize(raw: unknown): Preferences {
       ? value.healthDataConsent
       : DEFAULT_PREFERENCES.healthDataConsent;
 
+  const appMode: AppMode =
+    value.appMode === "atleta" || value.appMode === "treinador" ? value.appMode : DEFAULT_PREFERENCES.appMode;
+
   return {
     announceIntervalMeters,
     distanceUnit,
@@ -119,6 +136,7 @@ function sanitize(raw: unknown): Preferences {
     theme,
     vibrateOnPaceDelay,
     healthDataConsent,
+    appMode,
   };
 }
 

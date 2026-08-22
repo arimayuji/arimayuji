@@ -41,6 +41,7 @@ import {
 import { formatDistance, unitLabel } from "@/lib/units";
 import { updateProfile } from "@/lib/auth";
 import { useAuth } from "@/lib/useAuth";
+import { listCoachConnections } from "@/lib/coachRelationships";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
 import type { RunningPlace } from "@/lib/places";
@@ -966,6 +967,53 @@ function PlaceLeaderboardCard() {
   );
 }
 
+/**
+ * A toggle between the "atleta" and "treinador" home — renders nothing at
+ * all unless this account actually coaches at least one accepted student,
+ * since for everyone else (almost everyone) there's no second mode to
+ * switch into. Changing it only swaps which tab leads the bottom nav (see
+ * app-shell.tsx) and where a native launch lands (see standalone-gate.tsx)
+ * — every other screen works exactly the same either way, and "atleta"
+ * stays the default even for a coach: nobody expects the app they use to
+ * log their own runs to suddenly open into someone else's dashboard the
+ * first time they accept a student.
+ */
+function AppModeCard() {
+  const { status } = useAuth();
+  const [prefs, update] = usePreferences();
+  const [coachesSomeone, setCoachesSomeone] = useState(false);
+
+  useEffect(() => {
+    if (status !== "signed-in") return;
+    let cancelled = false;
+    listCoachConnections("accepted").then((rows) => {
+      if (!cancelled) setCoachesSomeone(rows.some((c) => c.myRole === "coach"));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
+  if (!coachesSomeone) return null;
+
+  return (
+    <Card className="pr-enter" style={delay(25)}>
+      <CardTitle>Modo do app</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Você treina outras pessoas — escolha o que abre primeiro quando você entra no app.
+      </p>
+      <div className="flex gap-2">
+        <SegmentedButton selected={prefs.appMode === "atleta"} onClick={() => update({ appMode: "atleta" })}>
+          Atleta
+        </SegmentedButton>
+        <SegmentedButton selected={prefs.appMode === "treinador"} onClick={() => update({ appMode: "treinador" })}>
+          Treinador
+        </SegmentedButton>
+      </div>
+    </Card>
+  );
+}
+
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
@@ -979,6 +1027,7 @@ export default function PerfilPage() {
 
       <Screen>
         <AccountCard />
+        <AppModeCard />
 
         <SectionLabel delayMs={20}>Aparência</SectionLabel>
         <Card className="pr-enter" style={delay(30)}>
