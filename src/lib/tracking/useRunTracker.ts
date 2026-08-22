@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Haptics, NotificationType } from "@capacitor/haptics";
 import {
   FILTER_CONFIG,
   Kalman2D,
@@ -69,6 +70,8 @@ export interface StartOptions {
   goal?: RunGoal;
   /** A previously completed run to race against, compared by distance vs elapsed time only. */
   ghostRun?: CompletedRun;
+  /** Native haptic tap when cumulative time behind `goal.targetPaceSecPerKm` crosses `PACE_DELAY_VIBRATION_THRESHOLD_SECONDS` — see its own comment. No effect without a "ritmo" goal. */
+  vibrateOnPaceDelay?: boolean;
 }
 
 export interface RunTrackerState {
@@ -100,6 +103,25 @@ export interface RunTrackerState {
 
 const PERSIST_INTERVAL_MS = 10_000;
 const TICK_INTERVAL_MS = 1000;
+
+/**
+ * Cumulative-schedule-behind vibration, for a "ritmo" goal
+ * (`goal.targetPaceSecPerKm`) — deliberately NOT the same signal as
+ * `paceDeltaSecPerKm` (current pace vs target, shown on screen as the
+ * "PaceDeltaPill"): that's instantaneous and noisy enough on its own that
+ * vibrating off it would buzz constantly during completely normal pace
+ * wobble. This instead compares total elapsed time against
+ * `targetPaceSecPerKm × distance so far` — "how far behind schedule am I,
+ * total" — which only drifts meaningfully when actually running slower
+ * than the goal for a sustained stretch, not from moment-to-moment noise.
+ * Two thresholds (not one) give it hysteresis: crossing
+ * PACE_DELAY_VIBRATION_THRESHOLD_SECONDS fires the tap and arms the
+ * "already alerted" state; only dropping back under
+ * PACE_DELAY_CLEAR_THRESHOLD_SECONDS disarms it, so hovering right at the
+ * edge can't fire repeatedly.
+ */
+const PACE_DELAY_VIBRATION_THRESHOLD_SECONDS = 20;
+const PACE_DELAY_CLEAR_THRESHOLD_SECONDS = 10;
 
 function newRunId(): string {
   return `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -136,6 +158,12 @@ export function useRunTracker() {
    * EWMA over the GPS chip's own Doppler-derived speed.
    */
   const paceWindowRef = useRef<{ t: number; d: number }[]>([]);
+
+  /** Cached from `StartOptions` at `start()` — mirrors `state.goal.targetPaceSecPerKm`/`vibrateOnPaceDelay`, but read from a ref rather than state so the per-fix vibration check doesn't need a `setState` round trip. */
+  const targetPaceSecPerKmRef = useRef<number | undefined>(undefined);
+  const vibrateOnPaceDelayRef = useRef(false);
+  /** Hysteresis state for the vibration above — true while already alerted for the current bout of falling behind. */
+  const paceDelayAlertedRef = useRef(false);
   /** Consecutive fixes the adaptive plausibility gate has rejected — see its use in `handleFix` for why this resets the filter instead of rejecting forever. */
   const consecutiveGateRejectionsRef = useRef(0);
 
@@ -550,6 +578,21 @@ export function useRunTracker() {
 
       persistIfDue(announced);
 
+      if (vibrateOnPaceDelayRef.current && targetPaceSecPerKmRef.current) {
+        const expectedSeconds = (distanceRef.current / 1000) * targetPaceSecPerKmRef.current;
+        const delaySeconds = computeElapsedSeconds() - expectedSeconds;
+        if (!paceDelayAlertedRef.current && delaySeconds >= PACE_DELAY_VIBRATION_THRESHOLD_SECONDS) {
+          paceDelayAlertedRef.current = true;
+          // Best-effort: the web Vibration-API fallback (non-native) can
+          // reject in browsers that gate it behind a user gesture, and
+          // there's nothing useful to do about that mid-run other than not
+          // let it crash the tracking loop over a missed buzz.
+          void Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
+        } else if (paceDelayAlertedRef.current && delaySeconds <= PACE_DELAY_CLEAR_THRESHOLD_SECONDS) {
+          paceDelayAlertedRef.current = false;
+        }
+      }
+
       setState((s) => {
         const remainingMeters = s.goal?.distanceMeters
           ? Math.max(0, s.goal.distanceMeters - distanceRef.current)
@@ -693,6 +736,9 @@ export function useRunTracker() {
         lastAnnounceDistanceRef.current = 0;
         lastAnnounceTimeRef.current = null;
         announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
+        targetPaceSecPerKmRef.current = options?.goal?.targetPaceSecPerKm;
+        vibrateOnPaceDelayRef.current = options?.vibrateOnPaceDelay ?? false;
+        paceDelayAlertedRef.current = false;
         // kmMarkDistanceRef/kmMarkTimeRef aren't reset here — the
         // warmup-completion block always recomputes both fresh from
         // `distanceRef.current` (0 for a new run, the recovered distance for

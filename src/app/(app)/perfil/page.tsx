@@ -1135,6 +1135,23 @@ export default function PerfilPage() {
             </div>
           </fieldset>
 
+          <fieldset className="mt-6 border-t border-border pt-5">
+            <legend className="text-sm font-medium">Vibração</legend>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Só tem efeito com uma corrida de meta &quot;Ritmo&quot;: o celular vibra quando você
+              acumula 20s de atraso sobre o ritmo alvo — pra olhar a tela sem depender do aviso por
+              voz.
+            </p>
+            <div className="mt-3">
+              <PreferenceToggle
+                label="Vibrar quando atrasar do ritmo"
+                hint="silencioso o resto do tempo, mesmo com meta de ritmo ativa"
+                checked={prefs.vibrateOnPaceDelay}
+                onChange={(checked) => update({ vibrateOnPaceDelay: checked })}
+              />
+            </div>
+          </fieldset>
+
           <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">
             Meta de prova e tempo recente ficam na aba{" "}
             <Link href="/plano" className="text-accent underline underline-offset-2">
