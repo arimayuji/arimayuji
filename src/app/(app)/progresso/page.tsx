@@ -21,7 +21,7 @@ import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import type { WeeklyTargetKind } from "@/lib/runnerProfile";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader, Stat } from "../ui";
 import { PillSlider } from "../pill-slider";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 import { MatchedRunsCard } from "../matched-runs-card";
@@ -239,32 +239,17 @@ function ConstancyCard({
             ritmo. Escolha como quer medir isso.
           </p>
         )}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setDraftKind("runs")}
-            aria-pressed={draftKind === "runs"}
-            className={`min-h-11 flex-1 rounded-xl border px-3 text-sm font-medium ${
-              draftKind === "runs"
-                ? "border-accent bg-accent text-accent-foreground"
-                : "border-border bg-background text-foreground"
-            }`}
-          >
-            Corridas por semana
-          </button>
-          <button
-            type="button"
-            onClick={() => setDraftKind("km")}
-            aria-pressed={draftKind === "km"}
-            className={`min-h-11 flex-1 rounded-xl border px-3 text-sm font-medium ${
-              draftKind === "km"
-                ? "border-accent bg-accent text-accent-foreground"
-                : "border-border bg-background text-foreground"
-            }`}
-          >
-            Km por semana
-          </button>
-        </div>
+        <PillTabs
+          tabs={[
+            { id: "runs", label: "Corridas" },
+            { id: "km", label: "Km" },
+          ]}
+          active={draftKind}
+          onChange={setDraftKind}
+        />
+        <p className="mt-1.5 text-xs text-muted">
+          {draftKind === "runs" ? "Meta em número de corridas por semana." : "Meta em km rodados por semana."}
+        </p>
         <div className="mt-4">
           <PillSlider
             min={draftKind === "runs" ? 1 : 5}

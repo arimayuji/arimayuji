@@ -11,7 +11,7 @@ import {
   type ThemeMode,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader, SegmentedButton } from "../ui";
 import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
 import { ShareCardTeaser } from "../share-card";
@@ -1102,19 +1102,15 @@ export default function PerfilPage() {
               Aplicada no histórico. A tela de corrida segue em km enquanto o tracking está em
               validação.
             </p>
-            <div className="mt-3 flex gap-2">
-              {UNITS.map((unit) => (
-                <SegmentedButton
-                  key={unit.value}
-                  selected={prefs.distanceUnit === unit.value}
-                  onClick={() => update({ distanceUnit: unit.value })}
-                >
-                  <span className="block">{unit.label}</span>
-                  <span className="mt-0.5 block font-mono text-[10px] opacity-70">
-                    {unit.hint}
-                  </span>
-                </SegmentedButton>
-              ))}
+            <div className="mt-3">
+              <PillTabs
+                tabs={UNITS.map((unit) => ({ id: unit.value, label: unit.label }))}
+                active={prefs.distanceUnit}
+                onChange={(value) => update({ distanceUnit: value })}
+              />
+              <p className="mt-1.5 font-mono text-[10px] text-muted">
+                {UNITS.find((unit) => unit.value === prefs.distanceUnit)?.hint}
+              </p>
             </div>
           </fieldset>
 
