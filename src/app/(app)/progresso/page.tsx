@@ -650,7 +650,15 @@ export default function EstatisticasPage() {
         )}
 
         {load.status === "ready" && runs.length === 0 && (
-          <Card>
+          <Card className="overflow-hidden">
+            <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+              <img
+                src="/progresso-empty.png"
+                alt="Ilustração de pegadas numa trilha, começando uma jornada"
+                className="h-full w-full object-cover"
+              />
+            </div>
             <CardTitle>Nada pra mostrar ainda</CardTitle>
             <p className="text-sm leading-relaxed text-muted">
               Assim que a primeira corrida for salva, as estatísticas de rodagem, pace e

@@ -739,7 +739,17 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
       {shoes === null ? (
         <div className="h-12 animate-pulse rounded-lg bg-background" />
       ) : shoes.length === 0 ? (
-        <p className="text-xs leading-relaxed text-muted">Nenhum tênis registrado ainda.</p>
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+            <img
+              src="/perfil-tenis-empty.png"
+              alt="Ilustração de um tênis de corrida esperando num caminho"
+              className="h-full w-full object-cover"
+            />
+          </div>
+          <p className="text-xs leading-relaxed text-muted">Nenhum tênis registrado ainda.</p>
+        </div>
       ) : (
         <>
           <ShoeHero shoes={shoes} summaryFor={summaryFor} unit={unit} />
