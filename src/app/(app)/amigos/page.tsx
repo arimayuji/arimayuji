@@ -65,6 +65,18 @@ export default function AmigosPage() {
   const [busyAction, setBusyAction] = useState<"accept" | "decline" | null>(null);
   const [activeTab, setActiveTab] = useState<FriendTab>("convites");
 
+  // Prefills from an invite link (?h=) — either the web landing page's own
+  // fallback instructions, or the deep-link handler in
+  // oauth-callback-listener.tsx navigating here directly. Read straight off
+  // `window.location.search` instead of `useSearchParams()` so this page
+  // doesn't need a Suspense boundary just for a value only ever read once,
+  // on mount.
+  useEffect(() => {
+    const fromInvite = new URLSearchParams(window.location.search).get("h");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from an external source (the URL), not from other React state; there's nothing to read this from except an effect.
+    if (fromInvite) setHandle(fromInvite.toLowerCase());
+  }, []);
+
   useEffect(() => {
     if (status !== "signed-in") return;
     let cancelled = false;

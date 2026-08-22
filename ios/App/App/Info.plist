@@ -126,6 +126,16 @@
 				<string>appwrite-callback-6a7cd5df0036246ce258</string>
 			</array>
 		</dict>
+		<!-- Invite links (src/app/convite/page.tsx tries this first, before
+		     falling back to the web landing page) — handled in
+		     src/app/oauth-callback-listener.tsx alongside the OAuth callback
+		     above, same appUrlOpen listener. -->
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>xanthus</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

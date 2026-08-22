@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { signOut } from "@/lib/auth";
 import { uploadAvatar } from "@/lib/avatar";
+import { publicOrigin } from "@/lib/platform";
+import { useShareSupport } from "@/lib/share";
 import { useAuth } from "@/lib/useAuth";
 import { Avatar } from "./avatar";
 import { Card, CardTitle, NoticeBadge } from "./ui";
@@ -28,6 +30,28 @@ export function AccountCard() {
   const [signingOut, setSigningOut] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const shareSupport = useShareSupport();
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  async function handleInvite(handle: string) {
+    const url = `${publicOrigin()}/convite?h=${encodeURIComponent(handle)}`;
+    const text = "Corre comigo no Xanthus?";
+    if (shareSupport === "share") {
+      try {
+        await navigator.share({ title: "Xanthus", text, url });
+        return;
+      } catch {
+        // Cancelled or failed — clipboard below is the fallback either way.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    } catch {
+      // Nothing else to fall back to — the link is still visible nowhere else, but this is the same dead end share.ts's clipboard path already accepts elsewhere.
+    }
+  }
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -168,6 +192,19 @@ export function AccountCard() {
           <span className="text-muted">Amigos e convites</span>
           <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
         </Link>
+      )}
+
+      {status === "signed-in" && profile && (
+        <button
+          type="button"
+          onClick={() => void handleInvite(profile.handle)}
+          className="mt-3 flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm"
+        >
+          <span className="text-muted">Convidar amigos</span>
+          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">
+            {inviteCopied ? "Link copiado" : shareSupport === "share" ? "Compartilhar" : "Copiar link"}
+          </span>
+        </button>
       )}
 
       {status === "signed-in" && profile && (

@@ -127,6 +127,30 @@ export async function sendFriendRequest(handle: string): Promise<SendFriendReque
 }
 
 /**
+ * Public handle lookup, no session required — profile rows are readable by
+ * anyone (see `createProfile`'s comment in auth.ts), so this works from the
+ * signed-out invite-link landing page (`/convite`) the same as from inside
+ * the app. Same query `sendFriendRequest` above already runs to resolve a
+ * handle to an account, just without requiring the caller to be signed in.
+ */
+export async function getProfileByHandle(handle: string): Promise<Profile | null> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return null;
+  const wanted = normalizeHandle(handle);
+  if (!wanted) return null;
+  try {
+    const found = await appwrite.tablesDB.listRows<Profile>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.profiles,
+      queries: [Query.equal("handle", wanted), Query.limit(1)],
+    });
+    return found.rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Accept or decline. A decline *deletes* the row rather than recording a
  * "rejected" state: the schema's status enum is `pending | accepted` and
  * nothing else, so there is nowhere to store a refusal — and deleting
