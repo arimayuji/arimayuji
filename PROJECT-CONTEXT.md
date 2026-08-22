@@ -448,9 +448,23 @@ corrigidos** ao longo de duas sessões, **6 em aberto**. Detalhe completo
 achado-a-achado só existe no chat/branch, não replicado aqui — o que
 importa persistir é a ação pendente:
 
-- **3 Appwrite Functions novas criadas nesta sessão, ainda NÃO deployadas**
-  (código pronto no branch `claude/strava-competitor-feedback-cyvop8`,
-  instruções completas de deploy no `README.md`):
+- **Bloqueio de infra achado em 2026-08-22 tentando deployar**: o projeto
+  Appwrite Cloud já bate no teto de Functions do plano atual com só 2
+  Functions existentes (`send-welcome-email`, `join-group-run`) —
+  `appwrite functions create` retorna `"The maximum number of functions
+  allowed for the selected plan has reached. Upgrade to increase the
+  limit."` antes mesmo da primeira das 5 pendentes (`claim-owned-row`,
+  `revoke-coach-run-access`, `revoke-live-audience`, `set-plan-override`,
+  `suggest-plan-override`) ser criada. Não é bug de código nem do CLI — é
+  literalmente o teto do plano contratado no Appwrite Cloud. Nada foi
+  apagado nem alterado no projeto tentando contornar isso. **Decisão
+  pendente do dono do projeto**: upgradar o plano do Appwrite Cloud (ver
+  billing no Console), ou priorizar quais Functions cabem no limite atual
+  caso não vá upgradar agora.
+- **3 Appwrite Functions criadas nesta sessão pra fechar a auditoria LGPD,
+  ainda NÃO deployadas** (bloqueadas pelo teto de plano acima; código
+  pronto no branch `claude/strava-competitor-feedback-cyvop8`, instruções
+  completas de deploy no `README.md`):
   - `claim-owned-row` — só assim que ela existir e `scripts/appwrite-setup.ts`
     rodar de novo é que fecha de vez o achado #12 (linha de perfil/stats
     "reservável" por outra conta antes do dono real criar a sua).
@@ -494,8 +508,9 @@ ainda não deployada em produção)** — só o override manual, sem IA nenhuma:
 - Function `set-plan-override` (`appwrite-functions/set-plan-override/`):
   mesmo padrão de `join-group-run`/`claim-owned-row` — confirma vínculo
   `accepted` em `coach_relationships` antes de gravar, chave privilegiada,
-  nunca escrita direta do cliente. **Ainda não deployada** — instruções no
-  `README.md`.
+  nunca escrita direta do cliente. **Ainda não deployada** — bloqueada
+  pelo teto de plano do Appwrite Cloud, ver "Auditoria LGPD/segurança"
+  acima; instruções de deploy no `README.md`.
 - `src/lib/plan/coachOverride.ts` (`applyCoachOverride`): merge puro que
   sobrepõe o override no `PlannedWeek` calculado pelo motor — usado tanto
   em `/plano` quanto em `/run` (chip "Treino de hoje").
@@ -564,8 +579,9 @@ ainda não deployada em produção)**:
   semana" (que é a `set-plan-override` de sempre) — a arquitetura "os dois
   juntos" decidida nesta sessão, na prática: IA sugere, motor trava,
   treinador confirma.
-- **Ainda não deployada** — instruções completas no `README.md`,
-  incluindo o passo extra de configurar a variável `GEMINI_API_KEY` no
+- **Ainda não deployada** — bloqueada pelo teto de plano do Appwrite
+  Cloud, ver "Auditoria LGPD/segurança" acima; instruções completas no
+  `README.md`, incluindo o passo extra de configurar a variável `GEMINI_API_KEY` no
   Appwrite Console (não é opcional pra essa Function, ao contrário das
   outras).
 
