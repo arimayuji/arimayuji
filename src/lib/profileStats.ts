@@ -22,10 +22,20 @@ export interface ProfileStats extends Models.Row {
   totalRuns: number;
 }
 
-/** Adds one finished run's distance to this account's running total, creating the row on the first one. */
-export async function recordFinishedRun(userId: string, distanceMeters: number): Promise<void> {
+/**
+ * Adds one finished run's distance to this account's running total,
+ * creating the row on the first one. `userId` is read from the live
+ * session, never a parameter — same reasoning `recordRunAtPlace`
+ * (placeLeaderboard.ts) documents: trusting a caller-supplied id would
+ * let this public row be seeded/attributed to the wrong account (an
+ * IDOR fixed in an LGPD/security audit pass — this used to take
+ * `userId` as its first argument).
+ */
+export async function recordFinishedRun(distanceMeters: number): Promise<void> {
   const appwrite = getAppwrite();
   if (!appwrite) return;
+  const account = await appwrite.account.get();
+  const userId = account.$id;
 
   let current: ProfileStats | null = null;
   try {

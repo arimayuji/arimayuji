@@ -978,7 +978,7 @@ export default function RunPage() {
    */
   useEffect(() => {
     if (state.status !== "finished" || !state.finishedRun || !account) return;
-    void recordFinishedRun(account.id, state.finishedRun.distanceMeters);
+    void recordFinishedRun(state.finishedRun.distanceMeters);
   }, [state.status, state.finishedRun, account]);
 
   /**
