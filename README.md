@@ -179,11 +179,15 @@ appwrite push functions
 ```
 
 Depois, no Appwrite Console → Functions → delete-account → **Settings →
-API key scopes**, marca `users.write` e `databases.write` — é isso que dá
-à function a chave dinâmica (por execução, sem secret fixo guardado)
-necessária pra apagar a conta e as linhas do usuário nas tabelas
-`friendships`, `coach_relationships`, `place_ratings`, `runs`, `live_runs`
-e `run_comments`. O `--execute users` restringe quem pode chamar a
+API key scopes**, marca `users.write`, `databases.write` **e
+`files.write`** — é isso que dá à function a chave dinâmica (por
+execução, sem secret fixo guardado) necessária pra apagar a conta, as
+linhas do usuário nas tabelas `friendships`, `coach_relationships`,
+`place_ratings`, `runs`, `live_runs`, `run_comments`, `place_run_stats`,
+`profile_stats`, `group_runs`, `group_run_participants`, e o arquivo do
+avatar no bucket `avatars` (o `files.write` cobre esse último — sem ele
+a foto de perfil sobrevive à exclusão da conta, achado de uma auditoria
+LGPD). O `--execute users` restringe quem pode chamar a
 function a usuários autenticados — Appwrite identifica automaticamente
 quem está chamando pela própria sessão, sem o cliente precisar informar
 nada.

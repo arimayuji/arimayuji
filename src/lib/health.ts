@@ -7,22 +7,28 @@
  * store is the only integration point that works across brands (Apple
  * Watch, Garmin, Fitbit, Samsung, Coros, ...) with one code path.
  *
- * `HEALTH_DATA_ENABLED` gates the whole thing off for now — same pattern
+ * `HEALTH_DATA_ENABLED` gates the whole thing off — same pattern
  * `PHONE_AUTH_ENABLED` in auth.ts already uses for a feature whose code is
- * ready but whose real-world prerequisite isn't: the iOS App ID needs the
- * HealthKit *capability* enabled in the Apple Developer Portal (an App
- * Store Connect / developer.apple.com step, not something this repo can
- * do), and the Android manifest queries/permissions below only take effect
- * once Health Connect is actually installed on the test device. Flip this
- * to `true` once that capability is turned on; nothing else needs to
- * change. See PROJECT-CONTEXT.md's "Funcionalidades planejadas" section
- * for the full phased plan this is part of.
+ * ready but whose real-world prerequisite isn't.
+ *
+ * Turned back off in an LGPD/security audit pass: heart rate/calories/steps
+ * are sensitive health data (LGPD Art. 11), and this was reading them
+ * automatically on opening any run detail with no product-level consent
+ * screen ahead of it — only the OS's own HealthKit/Health Connect
+ * permission dialog, which is not the same thing as informed consent for
+ * *this app's* use of the data, and the privacy policy never mentioned
+ * either data source at all. Re-enabling this needs both a real consent
+ * screen in /perfil (something explicit and separate from the general
+ * privacy-policy link, explaining exactly what gets read and why) and a
+ * privacy-policy update to match — not just flipping this flag back on.
+ * See PROJECT-CONTEXT.md's "Funcionalidades planejadas" section for the
+ * full phased plan this is part of.
  */
 import { Health, type HealthPermission, type PermissionResponse, type Workout } from "capacitor-health";
 import type { CompletedRun } from "./tracking/storage";
 import { isNativePlatform } from "./platform";
 
-export const HEALTH_DATA_ENABLED = true;
+export const HEALTH_DATA_ENABLED = false;
 
 /**
  * Read-only, and only what the "essa corrida" card actually shows —
