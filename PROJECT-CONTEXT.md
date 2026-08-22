@@ -279,8 +279,8 @@ chamada "Xanthus" — resumo por área:
   tela de corrida, tênis com quilometragem por tênis, **tema
   claro/escuro/sistema** (adicionado 2026-08-17).
 - **Lugares pra correr**: parques avaliados por segurança/iluminação/etc.
-- Política de privacidade, exclusão de conta (Appwrite Function
-  dedicada, `appwrite-functions/delete-account`), PWA instalável.
+- Política de privacidade, exclusão de conta (ação `delete-account` da
+  Function `client-actions`), PWA instalável.
 
 O que ainda é maquete (não persiste de verdade): meta de prova em
 `/perfil` — está marcado como tal no próprio código, não finge ser real.
@@ -461,36 +461,45 @@ corrigidos** ao longo de duas sessões, **6 em aberto**. Detalhe completo
 achado-a-achado só existe no chat/branch, não replicado aqui — o que
 importa persistir é a ação pendente:
 
-- **Bloqueio de infra achado em 2026-08-22 tentando deployar**: o projeto
-  Appwrite Cloud já bate no teto de Functions do plano atual com só 2
-  Functions existentes (`send-welcome-email`, `join-group-run`) —
-  `appwrite functions create` retorna `"The maximum number of functions
-  allowed for the selected plan has reached. Upgrade to increase the
-  limit."` antes mesmo da primeira das 5 pendentes (`claim-owned-row`,
-  `revoke-coach-run-access`, `revoke-live-audience`, `set-plan-override`,
-  `suggest-plan-override`) ser criada. Não é bug de código nem do CLI — é
-  literalmente o teto do plano contratado no Appwrite Cloud. Nada foi
-  apagado nem alterado no projeto tentando contornar isso. **Preço
-  conferido em appwrite.io/pricing (2026-08-22)**: o plano **Free** (o
-  atual) permite só **2 Functions por projeto** — exatamente as duas que
-  já existem. O plano **Pro** (a partir de **US$25/mês**) libera Functions
-  **ilimitadas**. **Decisão pendente do dono do projeto**: upgradar pro
-  Pro, ou priorizar quais das 5 Functions pendentes cabem no limite atual
-  caso não vá upgradar agora.
-- **3 Appwrite Functions criadas nesta sessão pra fechar a auditoria LGPD,
-  ainda NÃO deployadas** (bloqueadas pelo teto de plano acima; código
-  pronto no branch `claude/strava-competitor-feedback-cyvop8`, instruções
-  completas de deploy no `README.md`):
-  - `claim-owned-row` — só assim que ela existir e `scripts/appwrite-setup.ts`
-    rodar de novo é que fecha de vez o achado #12 (linha de perfil/stats
-    "reservável" por outra conta antes do dono real criar a sua).
-  - `revoke-coach-run-access` — Function por **evento** (não por chamada do
-    cliente), dispara sozinha quando um vínculo de treinador é desfeito.
-  - `revoke-live-audience` — Function por **evento**, dispara sozinha quando
-    alguém sai de um longão.
-  - **Enquanto as três não forem deployadas, os achados #10, #11 e #12
-    continuam de fato abertos em produção**, mesmo com o código já commitado
-    — a mitigação só vale a partir do deploy real.
+- **Bloqueio de infra achado em 2026-08-22 tentando deployar, resolvido por
+  consolidação (não por upgrade de plano)**: o projeto Appwrite Cloud já
+  batia no teto de Functions do plano atual com só 2 Functions existentes
+  (`send-welcome-email`, `join-group-run`) — `appwrite functions create`
+  recusava a primeira das 5 pendentes (LGPD + modo treinador) com
+  `"The maximum number of functions allowed for the selected plan has
+  reached."` **Preço conferido em appwrite.io/pricing**: Free trava em
+  **2 Functions/projeto**, Pro (a partir de **US$25/mês**) libera
+  ilimitadas. Perguntado ao dono do projeto se preferia pagar o Pro ou
+  consolidar em menos Functions — **decidiu consolidar**.
+  **Consolidação implementada nesta sessão**: as 6 ações client-invocadas
+  (`delete-account`, `send-welcome-email`, `join-group-run`,
+  `claim-owned-row`, `set-plan-override`, `suggest-plan-override`) viraram
+  uma única Function `client-actions`, despachando por um campo `action`
+  no corpo da requisição; as 2 por evento (`revoke-coach-run-access`,
+  `revoke-live-audience`) viraram `row-events`, registrada nos dois
+  eventos de delete, despachando por qual tabela disparou. Isso cabe nas 2
+  vagas do Free — inclusive cobrindo de graça `delete-account`, que nunca
+  chegou a ser deployada standalone apesar de documentada. Trade-off
+  aceito conscientemente: cada dispatcher roda com a união de todos os
+  escopos das suas ações, não o mínimo de uma ação específica — ver
+  `README.md` pra esse raciocínio completo.
+  **Ainda não deployado de verdade**: os dois dispatchers têm código
+  pronto e sintaxe verificada (`node --check`), mas a virada de produção
+  em si — apagar `send-welcome-email`/`join-group-run` (já rodando de
+  verdade) e subir `client-actions`/`row-events` no lugar — ainda não foi
+  executada. IDs de Function não são renomeáveis, então essa troca é uma
+  operação destrutiva real sobre Functions em produção (não só criar coisa
+  nova); passo a passo exato no README, mas pedir confirmação explícita de
+  novo antes de rodar isso, mesmo já tendo escolhido "consolidar" como
+  caminho — a escolha de arquitetura e a execução do corte em produção são
+  duas confirmações diferentes.
+- **Achados #10, #11 e #12 da auditoria LGPD continuam de fato abertos em
+  produção** até `client-actions`/`row-events` serem deployadas de
+  verdade (código pronto, ver acima), mesmo com o código já commitado — a
+  mitigação só vale a partir do deploy real. `claim-owned-row` (achado
+  #12) fecha só quando, além do deploy, `scripts/appwrite-setup.ts` rodar
+  de novo pra retirar a permissão antiga de `create` aberta em
+  `profiles`/`profile_stats`/`place_run_stats`.
 - **Em aberto, dependem só do dono do projeto em console externo**:
   rotacionar `APPWRITE_SETUP_API_KEY` (achado #08, decidido adiar), restringir
   a chave pública da MapTiler por domínio (achado #13).
@@ -521,12 +530,14 @@ ainda não deployada em produção)** — só o override manual, sem IA nenhuma:
   `(coachId, studentId, weekStartDate)`, `rowId` determinístico
   `${studentId}_${weekStartDate}`. `permissions: []` na tabela — só a
   Function grava.
-- Function `set-plan-override` (`appwrite-functions/set-plan-override/`):
-  mesmo padrão de `join-group-run`/`claim-owned-row` — confirma vínculo
+- Ação `set-plan-override` dentro da Function consolidada `client-actions`
+  (`appwrite-functions/client-actions/src/main.js` — ver "Auditoria
+  LGPD/segurança" acima pra por que virou uma ação dentro de um
+  dispatcher em vez da Function própria que era originalmente): mesmo
+  padrão de `join-group-run`/`claim-owned-row` — confirma vínculo
   `accepted` em `coach_relationships` antes de gravar, chave privilegiada,
-  nunca escrita direta do cliente. **Ainda não deployada** — bloqueada
-  pelo teto de plano do Appwrite Cloud, ver "Auditoria LGPD/segurança"
-  acima; instruções de deploy no `README.md`.
+  nunca escrita direta do cliente. **Ainda não deployada** — a Function
+  `client-actions` em si ainda não foi deployada; instruções no `README.md`.
 - `src/lib/plan/coachOverride.ts` (`applyCoachOverride`): merge puro que
   sobrepõe o override no `PlannedWeek` calculado pelo motor — usado tanto
   em `/plano` quanto em `/run` (chip "Treino de hoje").
@@ -564,8 +575,11 @@ ninguém.
 **Fase B (implementada nesta sessão, branch `claude/strava-competitor-feedback-cyvop8`,
 ainda não deployada em produção)**:
 
-- Function `suggest-plan-override` (`appwrite-functions/suggest-plan-override/`):
-  chama Gemini Flash (`GEMINI_API_KEY`, já em `.env.local` — primeira
+- Ação `suggest-plan-override` dentro da Function consolidada
+  `client-actions` (`appwrite-functions/client-actions/src/main.js` — ver
+  "Auditoria LGPD/segurança" acima pra por que virou uma ação dentro de
+  um dispatcher em vez da Function própria que era originalmente): chama
+  Gemini Flash (`GEMINI_API_KEY`, já em `.env.local` — primeira
   Function deste projeto que precisa de um secret externo, não só
   `x-appwrite-key`) grounded num recorte curado de
   `src/lib/evidence/facts.ts` (só os tópicos volume_progression/
@@ -595,11 +609,10 @@ ainda não deployada em produção)**:
   semana" (que é a `set-plan-override` de sempre) — a arquitetura "os dois
   juntos" decidida nesta sessão, na prática: IA sugere, motor trava,
   treinador confirma.
-- **Ainda não deployada** — bloqueada pelo teto de plano do Appwrite
-  Cloud, ver "Auditoria LGPD/segurança" acima; instruções completas no
-  `README.md`, incluindo o passo extra de configurar a variável `GEMINI_API_KEY` no
-  Appwrite Console (não é opcional pra essa Function, ao contrário das
-  outras).
+- **Ainda não deployada** — a Function `client-actions` em si ainda não
+  foi deployada; instruções completas no `README.md`, incluindo o passo
+  de configurar a variável `GEMINI_API_KEY` nela (usada só por essa ação,
+  ao lado de `RESEND_API_KEY` usada por `send-welcome-email`).
 
 ## Perguntas em aberto (preencher quando puder)
 
@@ -621,11 +634,11 @@ ainda não deployada em produção)**:
       build sem precisar de nova revisão — só builds novos exigem revisão de
       novo. Revisão completa da App Store (produção) continua sem prazo
       definido.
-- [x] **2026-08-22: escopado e Fase A implementada** — modo treinador vira
-      "os dois juntos" (IA sugere + motor determinístico trava os limites +
-      treinador edita por cima), ver seção própria acima. Fase A (planilha
-      manual, sem IA) já tem código pronto, só falta deploy da Function
-      `set-plan-override`. Fase B (IA + RAG) ainda não começou.
+- [x] **2026-08-22: escopado, Fase A e Fase B implementadas** — modo
+      treinador vira "os dois juntos" (IA sugere + motor determinístico
+      trava os limites + treinador edita por cima), ver seção própria
+      acima. Fase A (planilha manual) e Fase B (sugestão por IA) têm
+      código pronto; falta só o deploy de `client-actions`.
 - [ ] Alguma decisão de produto/negócio recente que vale registrar aqui
       (posicionamento, prioridade de roadmap, concorrência, etc.)?
 - [x] **2026-08-22: análise competitiva feita** — 16 reviews do Google Play

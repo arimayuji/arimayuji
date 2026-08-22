@@ -10,7 +10,7 @@
  * feature (AI suggests, engine caps, coach confirms).
  */
 import { ExecutionMethod } from "appwrite";
-import { getAppwrite, SUGGEST_PLAN_OVERRIDE_FUNCTION_ID } from "./appwrite";
+import { CLIENT_ACTIONS_FUNCTION_ID, getAppwrite } from "./appwrite";
 import type { PlannedSession } from "./plan";
 
 export interface PlanSuggestion {
@@ -45,9 +45,9 @@ export async function suggestPlanOverride(
   if (!appwrite) return { ok: false, reason: "unavailable" };
   try {
     const execution = await appwrite.functions.createExecution({
-      functionId: SUGGEST_PLAN_OVERRIDE_FUNCTION_ID,
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
       method: ExecutionMethod.POST,
-      body: JSON.stringify({ studentId, weekStartDate, coachNote: coachNote ?? "" }),
+      body: JSON.stringify({ action: "suggest-plan-override", studentId, weekStartDate, coachNote: coachNote ?? "" }),
     });
     const responseBody = JSON.parse(execution.responseBody || "{}") as
       | ({ ok: true } & PlanSuggestion)

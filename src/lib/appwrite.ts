@@ -55,50 +55,32 @@ export const TABLES = {
   groupRunParticipants: "group_run_participants",
 } as const;
 
-// Matches appwrite-functions/delete-account's Function ID — set this exact
-// ID when creating the function in the Appwrite console (see README), same
-// convention as TABLES above (a fixed, human-readable ID chosen at
-// creation, not one Appwrite generates).
-export const DELETE_ACCOUNT_FUNCTION_ID = "delete-account";
-
-// Matches appwrite-functions/send-welcome-email's Function ID — same
-// convention as DELETE_ACCOUNT_FUNCTION_ID above.
-export const SEND_WELCOME_EMAIL_FUNCTION_ID = "send-welcome-email";
-
-// Matches appwrite-functions/join-group-run's Function ID — same convention
-// as DELETE_ACCOUNT_FUNCTION_ID above. Joining a "longão" is privileged
-// (verifying "is this account a friend of the host" needs a scoped key,
-// same reasoning as delete-account) rather than a plain client-side
-// `createRow`, see that function's own comment for why.
-export const JOIN_GROUP_RUN_FUNCTION_ID = "join-group-run";
-
-// Matches appwrite-functions/claim-owned-row's Function ID — same
-// convention as DELETE_ACCOUNT_FUNCTION_ID above. The only path allowed to
-// create the first `profiles`/`profile_stats`/`place_run_stats` row for an
-// account: those tables' row IDs are the account's own `userId` (or a
-// composite including it), and Appwrite has no permission rule for "the row
-// ID you're creating must equal your own account ID" — enforcing that
-// needs a privileged key that derives the ID from the caller's session
-// instead of trusting whatever ID a raw `createRow` call supplies. See that
-// function's own comment for the finding this closes.
-export const CLAIM_OWNED_ROW_FUNCTION_ID = "claim-owned-row";
-
-// Matches appwrite-functions/set-plan-override's Function ID — same
-// convention as DELETE_ACCOUNT_FUNCTION_ID above. Writing a `plan_overrides`
-// row needs "is this account an accepted coach of that student" verified
-// server-side, same reasoning join-group-run's own comment documents for
-// "is this account a friend of the host" — no Appwrite Role expresses that.
-export const SET_PLAN_OVERRIDE_FUNCTION_ID = "set-plan-override";
-
-// Matches appwrite-functions/suggest-plan-override's Function ID — same
-// convention as DELETE_ACCOUNT_FUNCTION_ID above. Read-only (never writes a
-// plan_overrides row itself): it calls a low-cost model grounded in
-// src/lib/evidence facts plus the student's own recent shared-run volume,
-// clamps the result to the same progression safety cap
-// src/lib/plan/volumeProgression.ts enforces, and hands the suggestion back
-// for the coach to review/edit in the Fase A editor before it's ever saved
-// via SET_PLAN_OVERRIDE_FUNCTION_ID.
-export const SUGGEST_PLAN_OVERRIDE_FUNCTION_ID = "suggest-plan-override";
+/**
+ * Matches appwrite-functions/client-actions's Function ID — one dispatcher
+ * Function backing every privileged, client-invoked write this app needs
+ * (deleting an account, sending the welcome email, joining a longão,
+ * claiming the first row of an owned table, setting/suggesting a coach plan
+ * override), instead of one Function per action.
+ *
+ * Why one Function instead of six: Appwrite Cloud's Free plan caps a
+ * project at 2 Functions total (confirmed against appwrite.io/pricing,
+ * 2026-08-22, after `appwrite functions create` refused a 3rd with "the
+ * maximum number of functions allowed for the selected plan has reached").
+ * Six actions, each needing its own privileged server-side check (the kind
+ * of thing this file's other Function-ID comments explain — "is this
+ * account a friend of the host," "is this the caller's own row," etc.) plus
+ * two event-triggered cleanup Functions (see ROW_EVENTS below) would need
+ * 8 Functions on a plan that allows 2. Folding every client-invoked action
+ * into one dispatcher, keyed by a `body.action` field, and every
+ * event-triggered one into a second dispatcher keyed by which table's
+ * event fired, fits both real trigger *shapes* this app needs into exactly
+ * the two slots the Free plan allows — see appwrite-functions/client-actions
+ * and appwrite-functions/row-events for the actual dispatch logic, and
+ * README.md for the one-time Appwrite Console setup (this dispatcher needs
+ * the union of every action's API key scopes, since Appwrite grants scopes
+ * per Function, not per action).
+ */
+export const CLIENT_ACTIONS_FUNCTION_ID = "client-actions";
 
 // Matches the Storage bucket ID created in scripts/appwrite-setup.ts —
 // same fixed-ID convention as the table/function IDs above.

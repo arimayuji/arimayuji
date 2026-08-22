@@ -162,190 +162,109 @@ Não precisa de nenhuma mudança no projeto Xcode/`ios/App` — o fluxo passa
 pelo endpoint OAuth2 padrão da Apple (`appleid.apple.com`) do mesmo jeito
 que Google e Microsoft já funcionam aqui, sem SDK nativo nem entitlement.
 
-**Exclusão de conta** (`appwrite-functions/delete-account`): obrigatória
-pela guideline 5.1.1(v) da App Store sempre que o app permite criar conta.
-O SDK cliente do Appwrite não tem um jeito de auto-excluir a conta (só
-`deleteSession`/`deleteIdentity`) — apagar de verdade exige a API
-privilegiada de Users, então isso roda como uma **Appwrite Function**
-separada, nunca no cliente. Deploy (via [Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+**Exclusão de conta** (`/perfil`): obrigatória pela guideline 5.1.1(v) da
+App Store sempre que o app permite criar conta. O SDK cliente do Appwrite
+não tem um jeito de auto-excluir a conta (só `deleteSession`/
+`deleteIdentity`) — apagar de verdade exige a API privilegiada de Users,
+então isso roda como Appwrite Function, nunca no cliente. Ver
+`appwrite-functions/client-actions` (ação `delete-account`) abaixo.
 
-```bash
-cd appwrite-functions/delete-account
-appwrite functions create \
-  --function-id delete-account --name "Excluir conta" \
-  --runtime node-22 --entrypoint src/main.js \
-  --execute users
-appwrite push functions
-```
+**Entrar num "longão"**, **criar a primeira linha de
+`profiles`/`profile_stats`/`place_run_stats`**, **salvar/sugerir um
+override de treinador no plano do aluno**, e **enviar o e-mail de
+boas-vindas** — cinco ações privilegiadas diferentes, cinco motivos
+diferentes pra não serem uma escrita direta do cliente (ver o comentário
+de cada handler em `appwrite-functions/client-actions/src/main.js` pro
+raciocínio específico de cada uma), mas **uma Function só**,
+`client-actions`, despachando por um campo `action` no corpo da
+requisição.
 
-Depois, no Appwrite Console → Functions → delete-account → **Settings →
-API key scopes**, marca `users.write`, `databases.write` **e
-`files.write`** — é isso que dá à function a chave dinâmica (por
-execução, sem secret fixo guardado) necessária pra apagar a conta, as
-linhas do usuário nas tabelas `friendships`, `coach_relationships`,
-`place_ratings`, `runs`, `live_runs`, `run_comments`, `place_run_stats`,
-`profile_stats`, `group_runs`, `group_run_participants`, e o arquivo do
-avatar no bucket `avatars` (o `files.write` cobre esse último — sem ele
-a foto de perfil sobrevive à exclusão da conta, achado de uma auditoria
-LGPD). O `--execute users` restringe quem pode chamar a
-function a usuários autenticados — Appwrite identifica automaticamente
-quem está chamando pela própria sessão, sem o cliente precisar informar
-nada.
+**Por que uma Function só em vez de seis**: o plano **Free** do Appwrite
+Cloud trava em **2 Functions por projeto** (conferido em
+appwrite.io/pricing, 2026-08-22) — as seis ações client-invocadas acima
+mais as duas por evento abaixo somariam 8 Functions, quatro vezes o
+limite do plano atual. Dobrar tudo em dois *dispatchers* (um por chamada
+do cliente, outro por evento do banco) cabe exatamente nas duas vagas do
+Free. A troca: cada dispatcher roda com a **união** de todos os escopos
+de API key que suas ações precisam, não só o escopo mínimo de uma ação
+específica — um raio de ação maior por execução do que seis Functions
+isoladas teriam, mas ainda assim bem mais restrito que uma chave admin
+fixa. Ver PROJECT-CONTEXT.md pra como esse teto foi descoberto e o preço
+do plano Pro (ilimitado) se algum dia isso deixar de compensar.
 
-**Entrar num "longão"** (`appwrite-functions/join-group-run`): a checagem
-"só amigos do host podem entrar" não dá pra expressar como permissão do
-Appwrite (não existe um Role "é amigo de fulano"), então quem cria a linha
-de participante é essa Function, com chave privilegiada, depois de
-verificar a amizade — nunca o cliente direto (ver o comentário do próprio
-`src/lib/groupRuns.ts` pra entender por que uma escrita aberta nessa
-tabela vazava a localização ao vivo de qualquer atleta pra qualquer conta).
 Deploy (via [Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
 
 ```bash
-cd appwrite-functions/join-group-run
+cd appwrite-functions/client-actions
 appwrite functions create \
-  --function-id join-group-run --name "Entrar num longão" \
+  --function-id client-actions --name "Ações privilegiadas do cliente" \
   --runtime node-22 --entrypoint src/main.js \
-  --execute users
+  --execute users \
+  --scopes users.read --scopes users.write --scopes databases.read \
+  --scopes databases.write --scopes files.write
 appwrite push functions
 ```
 
-Depois, no Appwrite Console → Functions → join-group-run → **Settings →
-API key scopes**, marca `databases.read` e `databases.write` — é isso que
-dá à function a chave dinâmica (por execução, sem secret fixo guardado)
-necessária pra ler `group_runs`/`friendships` e criar a linha em
-`group_run_participants`. O `--execute users` restringe quem pode chamar a
-function a usuários autenticados, mesmo padrão de `delete-account`.
+Depois, no Appwrite Console → Functions → client-actions → **Settings →
+Variables**, adiciona:
+- `RESEND_API_KEY` — usada pela ação `send-welcome-email` (ver "E-mail
+  transacional (Resend)" abaixo pra como conseguir uma).
+- `GEMINI_API_KEY` — usada pela ação `suggest-plan-override`, mesmo valor
+  já presente em `.env.local`.
 
-**Criar a primeira linha de `profiles`/`profile_stats`/`place_run_stats`**
-(`appwrite-functions/claim-owned-row`): essas três tabelas usam o próprio
-`userId` da conta (ou uma combinação óbvia dele) como ID da linha — e o
-Appwrite não tem como expressar como permissão "o ID da linha que você tá
-criando precisa ser o seu próprio ID de conta". Deixar a criação aberta a
-`Role.users()` deixava qualquer conta logada "reservar" a linha de outra
-pessoa antes dela — um handle/nome forjado, ou uma distância total inventada
-com permissão de update só pro atacante — achado de uma auditoria
-LGPD/segurança. Por isso a criação dessas três linhas só acontece por essa
-Function, com chave privilegiada, que descobre o ID de quem está chamando
-pela própria sessão (nunca por um campo do corpo da requisição). Deploy (via
-[Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
-
-```bash
-cd appwrite-functions/claim-owned-row
-appwrite functions create \
-  --function-id claim-owned-row --name "Criar linha própria" \
-  --runtime node-22 --entrypoint src/main.js \
-  --execute users
-appwrite push functions
-```
-
-Depois, no Appwrite Console → Functions → claim-owned-row → **Settings →
-API key scopes**, marca `databases.write` — é isso que dá à function a
-chave dinâmica (por execução, sem secret fixo guardado) necessária pra
-criar a linha nas três tabelas. O `--execute users` restringe quem pode
-chamar a function a usuários autenticados, mesmo padrão de
-`delete-account`/`join-group-run`.
-
-Depois de deployada, rode `npx tsx scripts/appwrite-setup.ts` de novo — além
-de criar o que ainda não existe, ele agora também *retira* a permissão
-antiga (`Role.users()` em `create`) dessas três tabelas num projeto que já
-estava rodando antes dessa Function existir; sem rodar o script de novo, a
-Function existe mas a porta antiga continua aberta em paralelo.
+O `--execute users` restringe a chamada a usuários autenticados — todas as
+seis ações exigem sessão, nenhuma é pensada pra ser chamada anônima. Rode
+`npx tsx scripts/appwrite-setup.ts` depois do deploy pra garantir que
+`plan_overrides` existe e que a permissão antiga de `create` aberta em
+`profiles`/`profile_stats`/`place_run_stats` foi retirada (achado de uma
+auditoria LGPD/segurança — ver `PROJECT-CONTEXT.md`).
 
 **Revogar acesso de ex-treinador e de quem saiu de um longão**
-(`appwrite-functions/revoke-coach-run-access` e
-`appwrite-functions/revoke-live-audience`): dois achados de uma auditoria
-LGPD/segurança — desfazer um vínculo de treinador nunca revogava a leitura
-de GPS já concedida sobre corridas passadas compartilhadas, e sair de um
-longão dependia só de um poll a cada 20s no próprio cliente do atleta pra
-parar de te mostrar (best-effort, sem garantia). As duas são **Functions
-disparadas por evento**, não por chamada do cliente como as anteriores —
-nenhum código do app precisou mudar: `removeCoachRelationship` e
-`leaveGroupRun` continuam só apagando a linha de sempre, e o Appwrite chama
-a Function correspondente sozinho assim que essa exclusão acontece de
-verdade, não importa qual lado da relação a iniciou. Deploy (via
-[Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+(`appwrite-functions/row-events`): dois achados de uma auditoria
+LGPD/segurança — desfazer um vínculo de treinador nunca revogava a
+leitura de GPS já concedida sobre corridas passadas compartilhadas, e sair
+de um longão dependia só de um poll a cada 20s no próprio cliente do
+atleta pra parar de te mostrar (best-effort, sem garantia). Mesma
+consolidação do parágrafo acima, só que do lado dos eventos: uma Function
+só, registrada nos dois eventos de delete, decidindo qual dos dois
+handlers rodar olhando o cabeçalho `x-appwrite-event`. Nenhum código do
+app precisou mudar: `removeCoachRelationship` e `leaveGroupRun` continuam
+só apagando a linha de sempre, e o Appwrite chama essa Function sozinho
+assim que a exclusão acontece de verdade, não importa qual lado da
+relação a iniciou.
 
 ```bash
-cd appwrite-functions/revoke-coach-run-access
+cd appwrite-functions/row-events
 appwrite functions create \
-  --function-id revoke-coach-run-access --name "Revogar acesso de ex-treinador" \
+  --function-id row-events --name "Revogar acesso ao sair" \
   --runtime node-22 --entrypoint src/main.js \
-  --events "databases.*.tables.coach_relationships.rows.*.delete"
-appwrite push functions
-
-cd ../revoke-live-audience
-appwrite functions create \
-  --function-id revoke-live-audience --name "Revogar audiência de longão" \
-  --runtime node-22 --entrypoint src/main.js \
-  --events "databases.*.tables.group_run_participants.rows.*.delete"
+  --events "databases.*.tables.coach_relationships.rows.*.delete" \
+  --events "databases.*.tables.group_run_participants.rows.*.delete" \
+  --scopes databases.read --scopes databases.write
 appwrite push functions
 ```
 
-Depois, em cada uma no Appwrite Console → Functions → (nome) → **Settings →
-API key scopes**, marca `databases.read` e `databases.write` — sem
-`--execute`, porque nada além do próprio evento do banco deve chamar essas
-duas.
+Sem `--execute`, porque nada além do próprio evento do banco deve chamar
+essa Function.
 
-**Salvar override de treinador no plano do aluno** (`appwrite-functions/set-plan-override`):
-"esse treinador tem vínculo aceito com esse aluno" também não dá pra
-expressar como permissão do Appwrite — mesma razão de `join-group-run` —
-então quem grava a linha em `plan_overrides` é essa Function, com chave
-privilegiada, depois de confirmar em `coach_relationships` que existe um
-vínculo `accepted` entre as duas contas. O `rowId` é sempre
-`${studentId}_${weekStartDate}` (upsert), e a permissão da linha dá leitura
-pras duas contas mas escrita só pro treinador que criou. Deploy (via
-[Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
+**Migrando de `send-welcome-email`/`join-group-run` (já em produção)**:
+essas duas Functions eram deployadas separadamente antes dessa
+consolidação e continuam rodando até serem apagadas de verdade — IDs de
+Function não são renomeáveis nem "fundem" com outra, então a virada exige
+apagar as antigas e deployar `client-actions`/`row-events` em seguida:
 
 ```bash
-cd appwrite-functions/set-plan-override
-appwrite functions create \
-  --function-id set-plan-override --name "Salvar override de plano" \
-  --runtime node-22 --entrypoint src/main.js \
-  --execute users
-appwrite push functions
+appwrite functions delete --function-id send-welcome-email --force
+appwrite functions delete --function-id join-group-run --force
+# depois disso, os dois blocos de deploy acima já cabem nas vagas livres
 ```
 
-Depois, no Appwrite Console → Functions → set-plan-override → **Settings →
-API key scopes**, marca `databases.read` e `databases.write` — necessário
-pra consultar `coach_relationships` e gravar em `plan_overrides`. O
-`--execute users` restringe a chamada a usuários autenticados, mesmo padrão
-das outras Functions acima. Rode `npx tsx scripts/appwrite-setup.ts` antes
-ou depois do deploy pra garantir que a tabela `plan_overrides` já existe.
-
-**Sugerir override de plano com IA** (`appwrite-functions/suggest-plan-override`):
-"Fase B" do modo treinador — o treinador clica "Sugerir com IA" na mesma
-tela da planilha (`/treinador/aluno`), e essa Function chama um modelo
-lowcost (Gemini Flash) com um recorte de `src/lib/evidence/facts.ts`
-(volume/periodização/taper/overtraining/lesão — o resto do corpus de
-evidência não se aplica a essa decisão) como base, mais o km real das
-últimas semanas de corrida compartilhadas do aluno. A sugestão nunca é
-salva sozinha: é só um rascunho que preenche o formulário da planilha, e o
-treinador ainda tem que revisar e clicar "Salvar semana" (que é a Function
-`set-plan-override` de sempre). O total sugerido é sempre limitado
-server-side ao mesmo teto de segurança de `src/lib/plan/
-volumeProgression.ts` (+10%/semana, nunca mais que 30% acima de 2 semanas
-atrás) — isso é reforçado depois da resposta do modelo, não é só um pedido
-no prompt. Sem histórico real de corrida compartilhada, a Function recusa
-sugerir (não dá pra travar um limite sem dado real pra travar contra).
-Deploy (via [Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
-
-```bash
-cd appwrite-functions/suggest-plan-override
-appwrite functions create \
-  --function-id suggest-plan-override --name "Sugerir override de plano (IA)" \
-  --runtime node-22 --entrypoint src/main.js \
-  --execute users
-appwrite push functions
-```
-
-Depois, no Appwrite Console → Functions → suggest-plan-override:
-- **Settings → API key scopes**: marca `databases.read` — só leitura (essa
-  Function nunca escreve em `plan_overrides`, quem escreve continua sendo
-  `set-plan-override` depois que o treinador confirma).
-- **Settings → Variables**: adiciona `GEMINI_API_KEY` com o mesmo valor já
-  presente em `.env.local` — é a primeira Function deste projeto que
-  precisa de um secret externo, então isso não é opcional como nas outras.
+Faça isso só depois de `client-actions` já estar com o código pronto e
+testado localmente (`node --check` nos dois `main.js`) — entre apagar as
+antigas e o deploy das novas terminar, `sendWelcomeEmail()`/
+`joinGroupRun()` falham silenciosamente do lado do cliente (ambas já são
+best-effort/com fallback de erro, nenhuma trava a conta ou o longão), mas
+o ideal é manter essa janela a mais curta possível.
 
 **Política de Privacidade** (`/privacidade`): já publicada junto com o
 resto do app — a URL a colar nas duas lojas é
@@ -358,7 +277,8 @@ resto do app — a URL a colar nas duas lojas é
 | `APPWRITE_SETUP_API_KEY` | `.env.local`, só usada por `scripts/appwrite-setup.ts` | A cada ~6 meses, ou imediatamente se suspeitar de vazamento | Appwrite Console → Overview → API Keys → gerar uma nova, revogar a antiga, atualizar `.env.local` |
 | `NEXT_PUBLIC_MAPTILER_KEY` | `.env.local`, embarcada no bundle público (é uma chave pública por natureza) | Só se abusada (checar cota no [MapTiler Cloud](https://cloud.maptiler.com/)) | Gerar nova no MapTiler Cloud, restringir por domínio (`xanthus.app.br`) antes de trocar |
 | `ELEVENLABS_API_KEY` | `.env.local`, só usada por `scripts/generate-voice-bank.ts` (nunca em runtime) | Baixa prioridade — não roda em produção | Gerar nova no ElevenLabs, atualizar `.env.local` |
-| `GEMINI_API_KEY` / `RECRAFT_API_KEY` | `.env.local`, server-only, sem uso em código ainda | N/A enquanto não usadas | Revogar se decidir não usar; gerar nova quando a feature que as usa for construída |
+| `GEMINI_API_KEY` | `.env.local` **e** Appwrite Console → Functions → client-actions → Variables (dois lugares independentes, ver seção de Functions acima) | Se abusada ou ao trocar de modelo | Gerar nova no Google AI Studio, atualizar os dois lugares |
+| `RECRAFT_API_KEY` | `.env.local`, server-only, sem uso em código ainda | N/A enquanto não usada | Revogar se decidir não usar; gerar nova quando a feature que a usa for construída |
 | Secrets do GitHub Actions (`APP_STORE_CONNECT_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, keystores Android) | GitHub → Settings → Secrets | Seguindo a expiração de cada credencial (ex.: chave `.p8` da Apple não expira sozinha; conta de serviço do Google Play, conforme política do Google Cloud) | Gerar nova nas respectivas consoles, atualizar o secret no GitHub, nunca commitar o arquivo bruto |
 
 Toda chave server-only (sem prefixo `NEXT_PUBLIC_`) já vive só em
@@ -375,16 +295,17 @@ Emails disparados pelo backend (welcome, confirmação de exclusão de conta,
 e no futuro anúncio de versão/newsletter) usam o [Resend](https://resend.com/).
 Como o app é 100% client-side (export estático, sem servidor Next.js
 rodando em produção), o envio nunca acontece no navegador — sempre por uma
-Appwrite Function invocada com a sessão de quem chama, mesmo padrão de
-`appwrite-functions/delete-account`. A chave da API vive só na configuração
-da Function no Appwrite Console, nunca neste repositório nem em
+Appwrite Function invocada com a sessão de quem chama (ação
+`send-welcome-email` dentro de `appwrite-functions/client-actions`, ver
+seção de Functions acima). A chave da API vive só na configuração da
+Function no Appwrite Console, nunca neste repositório nem em
 `NEXT_PUBLIC_*` — o app cliente nunca manda e-mail diretamente.
 
 **Por que não é um evento do Appwrite (`users.create`)**: é o gatilho óbvio
 à primeira vista, mas o próprio Appwrite documenta esse evento como não
 confiável pra contas criadas via OAuth — e Google/Apple são o único login
-que este app oferece (ver a issue linkada no comentário de
-`appwrite-functions/send-welcome-email/src/main.js`). Em vez disso, o
+que este app oferece (ver o comentário do handler `sendWelcomeEmail` em
+`appwrite-functions/client-actions/src/main.js`). Em vez disso, o
 welcome email é disparado direto do código, no exato momento em que
 `createProfile()` roda pela primeira vez (`handle-picker.tsx` →
 `sendWelcomeEmail()` em `src/lib/auth.ts`) — o único ponto client-side que
@@ -404,35 +325,23 @@ falha a criação de conta se o envio de e-mail falhar).
    minutos, pode levar até um dia por propagação de DNS.
 4. **API Keys → Create API Key** → escopo "Sending access", restrita ao
    domínio `xanthus.app.br` se a opção estiver disponível.
-5. Guarda a chave em **Appwrite Console → Functions → (a function que
-   for mandar o e-mail) → Settings → Variables → `RESEND_API_KEY`** — ela
-   fica só ali, não em `.env`/`.env.local` deste repo (que a Appwrite
-   Function nem lê) e não em secret do GitHub Actions (isso só seria
-   necessário se um disparo de broadcast/newsletter um dia rodar via CI
-   em vez de Appwrite Function — nesse caso, use uma chave *separada* da
-   da function, pra dar pra revogar uma sem derrubar a outra).
+5. Guarda a chave em **Appwrite Console → Functions → client-actions →
+   Settings → Variables → `RESEND_API_KEY`** (mesmo lugar que já leva
+   `GEMINI_API_KEY`, ver seção de Functions acima) — ela fica só ali, não
+   em `.env`/`.env.local` deste repo (que a Appwrite Function nem lê) e
+   não em secret do GitHub Actions (isso só seria necessário se um
+   disparo de broadcast/newsletter um dia rodar via CI em vez de Appwrite
+   Function — nesse caso, use uma chave *separada* da da function, pra
+   dar pra revogar uma sem derrubar a outra).
 6. Remetente: `noreply@xanthus.app.br` (não precisa de caixa de entrada
    real pra endereço de *remetente*, só do domínio verificado) — diferente
    de `contato@`/`feedback@`, que são os endereços de *recebimento* já
    configurados via Cloudflare Email Routing (ver seção de domínio no
    `PROJECT-CONTEXT.md`); um manda, o outro recebe, são coisas separadas.
 
-**Deploy da function de boas-vindas** (via [Appwrite CLI](https://appwrite.io/docs/tooling/command-line/installation)):
-
-```bash
-cd appwrite-functions/send-welcome-email
-appwrite functions create \
-  --function-id send-welcome-email --name "Enviar e-mail de boas-vindas" \
-  --runtime node-22 --entrypoint src/main.js \
-  --execute users
-appwrite push functions
-```
-
-Depois, no Appwrite Console → Functions → send-welcome-email:
-- **Settings → API key scopes**: marca `users.read` (só precisa ler o
-  e-mail do usuário — o tipo `Account` do lado do cliente não carrega
-  e-mail de propósito, ver `src/lib/auth.ts`).
-- **Settings → Variables**: `RESEND_API_KEY` (passo 5 acima).
+O deploy da Function em si (`client-actions`, com o escopo `users.read`
+já incluso na lista de scopes da seção acima) é o mesmo bloco de comando
+já documentado ali — nenhum deploy separado só pra essa ação.
 
 **LGPD**: e-mail transacional (welcome, confirmação de exclusão) não
 precisa de opt-in separado — é execução do serviço. E-mail de

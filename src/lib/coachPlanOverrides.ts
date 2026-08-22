@@ -17,7 +17,7 @@
  * Same degrade-to-empty/false convention as the rest of the backend layer.
  */
 import { ExecutionMethod, Query, type Models } from "appwrite";
-import { APPWRITE_DATABASE_ID, SET_PLAN_OVERRIDE_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import type { PlannedSession } from "./plan";
 
 interface PlanOverrideRow extends Models.Row {
@@ -61,9 +61,9 @@ export async function setPlanOverride(
   if (!appwrite) return { ok: false, reason: "unavailable" };
   try {
     const execution = await appwrite.functions.createExecution({
-      functionId: SET_PLAN_OVERRIDE_FUNCTION_ID,
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
       method: ExecutionMethod.POST,
-      body: JSON.stringify({ studentId, weekStartDate, totalKm, sessions, note: note ?? null }),
+      body: JSON.stringify({ action: "set-plan-override", studentId, weekStartDate, totalKm, sessions, note: note ?? null }),
     });
     const body = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; error?: string };
     if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !body.ok) {

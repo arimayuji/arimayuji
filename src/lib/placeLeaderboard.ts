@@ -20,7 +20,7 @@
  * (LGPD/security audit finding #12).
  */
 import { ExecutionMethod, Query, type Models } from "appwrite";
-import { APPWRITE_DATABASE_ID, CLAIM_OWNED_ROW_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getPublicProfile, type PublicProfile } from "./auth";
 
 export interface PlaceRunStats extends Models.Row {
@@ -94,9 +94,9 @@ export async function recordRunAtPlace(placeId: string, distanceMeters: number):
     });
   } else {
     const execution = await appwrite.functions.createExecution({
-      functionId: CLAIM_OWNED_ROW_FUNCTION_ID,
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
       method: ExecutionMethod.POST,
-      body: JSON.stringify({ tableId: TABLES.placeRunStats, placeId, totalMeters, runCount, lastRunAt }),
+      body: JSON.stringify({ action: "claim-owned-row", tableId: TABLES.placeRunStats, placeId, totalMeters, runCount, lastRunAt }),
     });
     const body = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; error?: string };
     if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !body.ok) {

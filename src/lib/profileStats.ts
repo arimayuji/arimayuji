@@ -22,7 +22,7 @@
  * names, which the Function sets to the real owner at creation time.
  */
 import { ExecutionMethod, type Models } from "appwrite";
-import { APPWRITE_DATABASE_ID, CLAIM_OWNED_ROW_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 
 export interface ProfileStats extends Models.Row {
   userId: string;
@@ -68,9 +68,9 @@ export async function recordFinishedRun(distanceMeters: number): Promise<void> {
     });
   } else {
     const execution = await appwrite.functions.createExecution({
-      functionId: CLAIM_OWNED_ROW_FUNCTION_ID,
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
       method: ExecutionMethod.POST,
-      body: JSON.stringify({ tableId: TABLES.profileStats, totalMeters, totalRuns }),
+      body: JSON.stringify({ action: "claim-owned-row", tableId: TABLES.profileStats, totalMeters, totalRuns }),
     });
     const body = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; error?: string };
     if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !body.ok) {

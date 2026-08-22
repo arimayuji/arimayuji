@@ -27,7 +27,7 @@
  * Same degrade-to-empty/false convention as the rest of the backend layer.
  */
 import { ExecutionMethod, Permission, Query, Role, type Models } from "appwrite";
-import { APPWRITE_DATABASE_ID, JOIN_GROUP_RUN_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getCurrentAccount, getProfile, type Profile } from "./auth";
 
 export type GroupRunStatus = "open" | "closed";
@@ -173,9 +173,9 @@ async function callJoinGroupRunFunction(code: string): Promise<JoinGroupRunResul
   if (!appwrite) return { ok: false, reason: "unavailable" };
   try {
     const execution = await appwrite.functions.createExecution({
-      functionId: JOIN_GROUP_RUN_FUNCTION_ID,
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
       method: ExecutionMethod.POST,
-      body: JSON.stringify({ sessionCode: code }),
+      body: JSON.stringify({ action: "join-group-run", sessionCode: code }),
     });
     const body = JSON.parse(execution.responseBody || "{}") as
       | { ok: true; groupRun: GroupRun }

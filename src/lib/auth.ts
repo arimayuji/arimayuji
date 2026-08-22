@@ -9,11 +9,9 @@ import { Browser } from "@capacitor/browser";
 import { ExecutionMethod, ID, type Models, OAuthProvider, Query } from "appwrite";
 import {
   APPWRITE_DATABASE_ID,
-  CLAIM_OWNED_ROW_FUNCTION_ID,
-  DELETE_ACCOUNT_FUNCTION_ID,
+  CLIENT_ACTIONS_FUNCTION_ID,
   OAUTH_CALLBACK_SCHEME,
   OAUTH_RETURN_TO_PARAM,
-  SEND_WELCOME_EMAIL_FUNCTION_ID,
   TABLES,
   getAppwrite,
   oauth2TokenUrl,
@@ -208,8 +206,9 @@ export async function deleteAccount(): Promise<void> {
   const appwrite = getAppwrite();
   if (!appwrite) return;
   const execution = await appwrite.functions.createExecution({
-    functionId: DELETE_ACCOUNT_FUNCTION_ID,
+    functionId: CLIENT_ACTIONS_FUNCTION_ID,
     method: ExecutionMethod.POST,
+    body: JSON.stringify({ action: "delete-account" }),
   });
   // A synchronous execution "succeeds" (no thrown exception) even when the
   // function's own handler returned an error response — the invocation
@@ -307,9 +306,9 @@ export async function createProfile(handle: string, displayName: string): Promis
   const appwrite = getAppwrite();
   if (!appwrite) throw new Error("Appwrite não configurado");
   const execution = await appwrite.functions.createExecution({
-    functionId: CLAIM_OWNED_ROW_FUNCTION_ID,
+    functionId: CLIENT_ACTIONS_FUNCTION_ID,
     method: ExecutionMethod.POST,
-    body: JSON.stringify({ tableId: TABLES.profiles, handle, displayName }),
+    body: JSON.stringify({ action: "claim-owned-row", tableId: TABLES.profiles, handle, displayName }),
   });
   const body = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; row?: Profile; error?: string };
   if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !body.ok || !body.row) {
@@ -347,7 +346,11 @@ export function sendWelcomeEmail(): void {
   const appwrite = getAppwrite();
   if (!appwrite) return;
   appwrite.functions
-    .createExecution({ functionId: SEND_WELCOME_EMAIL_FUNCTION_ID, method: ExecutionMethod.POST })
+    .createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "send-welcome-email" }),
+    })
     .catch(() => {
       // Nothing to recover here — the athlete's account and profile are
       // already created either way.
