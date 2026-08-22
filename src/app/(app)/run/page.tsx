@@ -17,6 +17,7 @@ import { isNativePlatform } from "@/lib/platform";
 import { onNotificationAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
+import { listFriendConnections, type FriendConnection } from "@/lib/friendships";
 import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
 import { getActiveGroupRunCode, getGroupRun, listParticipants, type GroupRun } from "@/lib/groupRuns";
 import { useGroupLiveRuns, buildGroupMarkers } from "@/lib/useGroupLiveRuns";
@@ -909,6 +910,10 @@ export default function RunPage() {
   const [coaches, setCoaches] = useState<CoachConnection[]>([]);
   /** Which coach (if any) this run is being shared live with — chosen before starting, null means "not live". */
   const [liveCoachId, setLiveCoachId] = useState<string | null>(null);
+  /** Accepted friends this athlete could go live with — same picker pattern as `coaches`, but multi-select (a coach is naturally one person; friends watching a run isn't). */
+  const [friends, setFriends] = useState<FriendConnection[]>([]);
+  /** Which friends (if any) this run is being shared live with — chosen before starting, empty means "not live" with any friend. */
+  const [liveFriendIds, setLiveFriendIds] = useState<string[]>([]);
   /** Own account id (needed to keep this athlete's own id out of the live-viewer permission list computed from the longão's participants below), plus `profile`/`refresh` for the post-run "ranking de lugares" confirmation below. */
   const { account, profile, refresh: refreshAuth } = useAuth();
   /** The "longão" this device currently remembers being part of, if any and still open — resolved from `getActiveGroupRunCode()`'s localStorage pointer, same re-check-on-return-to-idle timing as `coaches` above. */
@@ -1114,6 +1119,15 @@ export default function RunPage() {
     });
   }, [state.status]);
 
+  /** Same re-fetch-on-return-to-idle reasoning as the coach effect above — also drops any previously-picked friend who got unfriended since the last visit, instead of quietly trying to share with someone no longer in the list. */
+  useEffect(() => {
+    if (state.status !== "idle") return;
+    listFriendConnections("accepted").then((rows) => {
+      setFriends(rows);
+      setLiveFriendIds((current) => current.filter((id) => rows.some((f) => f.otherId === id)));
+    });
+  }, [state.status]);
+
   /**
    * Same idle-refresh timing as the coach effect above — also drops a
    * remembered session that expired or got closed since the last visit,
@@ -1222,7 +1236,7 @@ export default function RunPage() {
       const changed = ids.length !== current.length || ids.some((id) => !current.includes(id));
       groupRunParticipantIdsRef.current = ids;
       if (changed && liveSessionActiveRef.current && state.runId) {
-        void refreshLiveSessionAudience(state.runId, [...(liveCoachId ? [liveCoachId] : []), ...ids]);
+        void refreshLiveSessionAudience(state.runId, [...(liveCoachId ? [liveCoachId] : []), ...liveFriendIds, ...ids]);
       }
     };
     void poll();
@@ -1231,11 +1245,11 @@ export default function RunPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [state.status, activeSessionCode, state.runId, liveCoachId, account?.id]);
+  }, [state.status, activeSessionCode, state.runId, liveCoachId, liveFriendIds, account?.id]);
 
   useEffect(() => {
     const live = state.status === "tracking" || state.status === "paused";
-    const viewerIds = [...(liveCoachId ? [liveCoachId] : []), ...groupRunParticipantIdsRef.current];
+    const viewerIds = [...(liveCoachId ? [liveCoachId] : []), ...liveFriendIds, ...groupRunParticipantIdsRef.current];
     if (live && viewerIds.length > 0 && state.runId) {
       const lastPoint = state.points[state.points.length - 1];
       if (lastPoint) {
@@ -1267,6 +1281,7 @@ export default function RunPage() {
     }
   }, [
     liveCoachId,
+    liveFriendIds,
     activeSessionCode,
     state.runId,
     state.status,
@@ -1451,6 +1466,12 @@ export default function RunPage() {
       ghostRun: selectedGhost ?? undefined,
       vibrateOnPaceDelay: preferences.vibrateOnPaceDelay,
     });
+  };
+
+  const toggleLiveFriend = (friendId: string) => {
+    setLiveFriendIds((current) =>
+      current.includes(friendId) ? current.filter((id) => id !== friendId) : [...current, friendId],
+    );
   };
 
   /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
@@ -1969,6 +1990,32 @@ export default function RunPage() {
                       onClick={() => setLiveCoachId(connection.otherId)}
                       className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
                         liveCoachId === connection.otherId
+                          ? "border-accent bg-accent text-accent-foreground"
+                          : "border-border bg-surface text-foreground hover:border-accent"
+                      }`}
+                    >
+                      {connection.profile?.displayName ?? "Corredor(a)"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {friends.length > 0 && (
+              <div className="block space-y-1.5">
+                <span className="text-sm font-medium">Compartilhar com amigos (opcional)</span>
+                <p className="text-xs text-muted">
+                  Toque pra escolher quem vê sua posição e seu pace num mapa enquanto a corrida rolar —
+                  pode escolher mais de um. Some sozinho quando a corrida terminar.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {friends.map((connection) => (
+                    <button
+                      key={connection.friendship.$id}
+                      type="button"
+                      onClick={() => toggleLiveFriend(connection.otherId)}
+                      className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                        liveFriendIds.includes(connection.otherId)
                           ? "border-accent bg-accent text-accent-foreground"
                           : "border-border bg-surface text-foreground hover:border-accent"
                       }`}

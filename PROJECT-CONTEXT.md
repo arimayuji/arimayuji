@@ -259,6 +259,19 @@ chamada "Xanthus" — resumo por área:
     commitado, avisa — o que existe no código é o que está descrito
     acima, pode já ter mais coisa combinada que não chegou a ser
     implementada.**
+- **Corrida compartilhada com amigos (task #62, implementada em
+  2026-08-22)**: mesma infra de `live_runs`/`liveRuns.ts` do treinador
+  acima, só trocando a fonte de `viewerIds` — em `/run`, o atleta agora
+  também pode escolher um ou mais amigos aceitos (multi-seleção, diferente
+  do treinador que é sempre um só) pra ver a corrida ao vivo, ao lado do
+  coach e do longão. Do lado de quem assiste: `/amigos` mostra um selo
+  verde "Ao vivo" (poll de 15s enquanto a aba "Amigos" está aberta) em
+  qualquer amigo correndo agora que te incluiu, e o selo linka pra
+  `/amigos/ao-vivo?id=`, uma tela de mapa dedicada (mesmo padrão do card
+  ao vivo do treinador, só sem a lista de corridas passadas — isso
+  continua exclusivo de `runsSync.ts`/coach, amigo só vê ao vivo mesmo).
+  Nenhuma tabela nova, nenhuma Function nova — é só reuso client-side da
+  mesma permissão por linha que já existia.
 - **Longão**: corrida em grupo com código de convite, vários corredores
   no mesmo mapa ao vivo.
 - **Amigos**: convite por @handle.
