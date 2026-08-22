@@ -729,11 +729,23 @@ async function main() {
   // calls apply regardless of whether the table is brand new or years old,
   // so the fix actually reaches a project that's been running since before
   // the claim-owned-row Function existed.
+  //
+  // `rowSecurity: true` has to ride along in this same call, not just live
+  // in the `createTable` definitions above — for the same reason a 409 on
+  // an existing table skips re-applying `permissions`, it also skips
+  // `rowSecurity`. A table stuck on `rowSecurity: false` ignores every
+  // per-row permission `claim-owned-row` ever sets (Appwrite only consults
+  // row-level grants when this flag is on), so on a project old enough to
+  // predate this flag being added here, every one of these three tables
+  // silently had **no update path at all** — not a client bug, a schema
+  // one: the row says `update("user:X")`, but the table was never told to
+  // look at that. Found 2026-08-22 chasing a real report that "Participar
+  // do ranking" on /perfil did nothing.
   console.log("\ntightening create permissions (LGPD/security audit finding #12)");
   for (const tableId of ["profiles", "place_run_stats", "profile_stats"] as const) {
     const permissions = tableId === "profiles" ? [Permission.read(Role.any())] : [];
-    await ensure(`${tableId}: strip Role.users() create`, () =>
-      tablesDB.updateTable({ databaseId: DATABASE_ID, tableId, permissions }),
+    await ensure(`${tableId}: strip Role.users() create + enable rowSecurity`, () =>
+      tablesDB.updateTable({ databaseId: DATABASE_ID, tableId, permissions, rowSecurity: true }),
     );
   }
 

@@ -831,13 +831,34 @@ function PlaceLeaderboardCard() {
   const [scanDone, setScanDone] = useState(false);
 
   const optedIn = profile?.leaderboardOptIn ?? false;
+  const [toggleError, setToggleError] = useState(false);
 
+  /**
+   * `finally` here isn't decoration — `updateProfile` throws straight from
+   * the Appwrite SDK on a permission error (no try/catch of its own), and
+   * without this, that throw would skip `setSavingToggle(false)` entirely:
+   * the switch stays visually off (never refreshed) *and* every future tap
+   * becomes a no-op forever, since `savingToggle` never clears. That's
+   * exactly what a real 2026-08-22 report ("toggle não funciona") turned
+   * out to be — surfaced as an unrecoverable stuck switch instead of a
+   * visible error, from a rowSecurity gap on the profiles table (see
+   * appwrite-setup.ts's "tighten LGPD finding #12" block for the actual
+   * fix) rather than anything wrong in this handler. Keeping the
+   * try/finally regardless: any future failure here should degrade to "try
+   * again", never to "this button is dead now".
+   */
   async function handleToggle(next: boolean) {
     if (!account || savingToggle) return;
     setSavingToggle(true);
-    await updateProfile(account.id, { leaderboardOptIn: next });
-    await refresh();
-    setSavingToggle(false);
+    setToggleError(false);
+    try {
+      await updateProfile(account.id, { leaderboardOptIn: next });
+      await refresh();
+    } catch {
+      setToggleError(true);
+    } finally {
+      setSavingToggle(false);
+    }
   }
 
   async function handleNameBlur() {
@@ -845,9 +866,17 @@ function PlaceLeaderboardCard() {
     const trimmed = publicName.trim();
     if (trimmed === (profile?.publicDisplayName ?? "")) return;
     setSavingName(true);
-    await updateProfile(account.id, { publicDisplayName: trimmed });
-    await refresh();
-    setSavingName(false);
+    try {
+      await updateProfile(account.id, { publicDisplayName: trimmed });
+      await refresh();
+    } catch {
+      // Reverts to whatever /perfil already had on the next render — no
+      // separate error UI for a field this low-stakes, same reasoning
+      // handleToggle's own comment explains for why this can't be silent
+      // in a way that leaves `savingName` stuck instead.
+    } finally {
+      setSavingName(false);
+    }
   }
 
   async function handleScan() {
@@ -898,6 +927,11 @@ function PlaceLeaderboardCard() {
             checked={optedIn}
             onChange={handleToggle}
           />
+          {toggleError && (
+            <p className="mt-2 text-xs leading-relaxed text-bad">
+              Não deu pra salvar agora — tenta de novo em instantes.
+            </p>
+          )}
 
           {optedIn && (
             <div className="mt-4 border-t border-border pt-4">
