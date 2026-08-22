@@ -8,6 +8,7 @@ import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
 import { ShareCardPreview } from "../share-card-preview";
 import { useShareSupport } from "@/lib/share";
+import { publicOrigin } from "@/lib/platform";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
@@ -521,7 +522,7 @@ function CompartilharContent() {
         return;
       }
       if (shareSupport === "share" && navigator.canShare?.({ files: [file] })) {
-        const ok = await shareFileWithFallback(file, shareText, window.location.origin);
+        const ok = await shareFileWithFallback(file, shareText, publicOrigin());
         if (ok) return;
       }
       downloadFile(file);
@@ -533,7 +534,7 @@ function CompartilharContent() {
   async function handleShareVideo() {
     if (videoProgress !== null) return;
     setShareNotice(null);
-    const url = window.location.origin;
+    const url = publicOrigin();
 
     if (scene && shareSupport === "share" && !reducedMotion && canRecordShareVideo()) {
       setVideoProgress(0);

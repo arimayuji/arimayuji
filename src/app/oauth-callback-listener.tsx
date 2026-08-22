@@ -24,6 +24,21 @@ export function OAuthCallbackListener() {
     if (!isNativePlatform() || !OAUTH_CALLBACK_SCHEME) return;
 
     const subscription = App.addListener("appUrlOpen", async ({ url }) => {
+      // Invite links (see src/app/convite/page.tsx and account-card.tsx's
+      // "Convidar amigos") — a completely separate feature from OAuth, but
+      // sharing this one long-lived appUrlOpen listener rather than a
+      // second `App.addListener` call, per this file's own guidance above.
+      if (url.startsWith("xanthus://convite")) {
+        const handle = new URL(url).searchParams.get("h");
+        // Full navigation, not router.push() — this can fire on a cold
+        // launch (the OS opening the app fresh off the deep link), the
+        // same reasoning the OAuth branch below already documents for its
+        // own window.location.assign.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        if (handle) window.location.assign(`/amigos?h=${encodeURIComponent(handle)}`);
+        return;
+      }
+
       if (!url.startsWith(`${OAUTH_CALLBACK_SCHEME}://`)) return;
 
       const parsed = new URL(url);

@@ -339,6 +339,39 @@ async function main() {
     }),
   );
 
+  // -------------------------------------------------------- profile_stats
+  console.log("\nprofile_stats");
+  await ensure("table profile_stats", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "profile_stats",
+      name: "profile_stats",
+      // Public read, same accepted tradeoff place_run_stats documents
+      // above (no Appwrite Team exists per friend pair to enforce a real
+      // server-side "friends only" read) — but unlike place_run_stats,
+      // there's no opt-in gate here at all: a friend already sees your
+      // real name and handle everywhere else in the app, so a cumulative
+      // running total isn't a new category of exposure the way appearing
+      // on a public place leaderboard is. The gate that matters is
+      // src/app/(app)/perfil/ver/page.tsx only ever *surfacing* this to a
+      // confirmed friend, never a stranger browsing by handle.
+      permissions: [Permission.create(Role.users())],
+      rowSecurity: true,
+    }),
+  );
+  // Row ID is the account's own user ID (like `profiles`), not
+  // `ID.unique()` — one row per account, so no separate lookup index is
+  // needed the way place_run_stats' composite key requires.
+  await ensure("profile_stats.userId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "userId", size: 36, required: true }),
+  );
+  await ensure("profile_stats.totalMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "totalMeters", required: true, min: 0 }),
+  );
+  await ensure("profile_stats.totalRuns", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "totalRuns", required: true, min: 0 }),
+  );
+
   // ------------------------------------------------------------------ runs
   console.log("\nruns");
   await ensure("table runs", () =>

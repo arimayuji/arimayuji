@@ -123,13 +123,6 @@ export default function DownloadPage() {
         </ol>
       </div>
 
-      <p className="mt-6 text-center text-xs leading-relaxed text-muted/80">
-        Prefere não instalar nada? Dá pra usar o Xanthus{" "}
-        <Link href="/run" className="text-accent underline underline-offset-2">
-          direto no navegador
-        </Link>
-        .
-      </p>
     </main>
   );
 }

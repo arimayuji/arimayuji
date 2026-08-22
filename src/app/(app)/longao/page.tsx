@@ -17,6 +17,7 @@ import {
   type GroupRun,
   type GroupRunParticipantConnection,
 } from "@/lib/groupRuns";
+import { publicOrigin } from "@/lib/platform";
 import { useAuth } from "@/lib/useAuth";
 import { useShareSupport } from "@/lib/share";
 import { AccountPrompt } from "../account-prompt";
@@ -202,7 +203,7 @@ function LongaoContent() {
   const handleShare = async (code: string, name: string) => {
     setSharing(true);
     try {
-      const url = `${window.location.origin}/longao?c=${code}`;
+      const url = `${publicOrigin()}/longao?c=${code}`;
       const text = `Bora correr o "${name}" comigo? Entra com o código ${code} no Xanthus, ou abre: ${url}`;
       if (shareSupport === "share") {
         try {
@@ -319,7 +320,7 @@ function LongaoContent() {
                   Vence em algumas horas.
                 </p>
                 <div className="mt-3 flex justify-center">
-                  <GroupRunQr url={`${window.location.origin}/longao?c=${activeSession.$id}`} />
+                  <GroupRunQr url={`${publicOrigin()}/longao?c=${activeSession.$id}`} />
                 </div>
                 <Link
                   href={`/longao/mapa?c=${activeSession.$id}`}

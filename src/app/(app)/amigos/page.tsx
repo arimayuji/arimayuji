@@ -26,11 +26,26 @@ const SEND_ERRORS: Record<string, string> = {
   failed: "Não deu pra enviar agora — tenta de novo em instantes.",
 };
 
-/** Name + @ for one person, with whatever profile we could resolve. */
-function PersonRow({ connection, children }: { connection: FriendConnection; children: React.ReactNode }) {
+/**
+ * Name + @ for one person, with whatever profile we could resolve. The
+ * avatar/name block links to /perfil/ver when `linkToProfile` is set (only
+ * accepted friends — a pending request's PersonRow never gets it) — kept
+ * to just that inner block, not the whole row, since the row's own
+ * actions (Aceitar/Recusar/Desfazer) are buttons that must not double as
+ * navigation targets.
+ */
+function PersonRow({
+  connection,
+  children,
+  linkToProfile = false,
+}: {
+  connection: FriendConnection;
+  children: React.ReactNode;
+  linkToProfile?: boolean;
+}) {
   const { profile } = connection;
-  return (
-    <li className="flex items-center gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
+  const info = (
+    <>
       <Avatar name={profile?.displayName ?? "?"} avatarUrl={profile?.avatarUrl} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{profile?.displayName ?? "Corredor(a)"}</p>
@@ -38,6 +53,17 @@ function PersonRow({ connection, children }: { connection: FriendConnection; chi
           {profile ? `@${profile.handle}` : "conta sem @ ainda"}
         </p>
       </div>
+    </>
+  );
+  return (
+    <li className="flex items-center gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
+      {linkToProfile && profile ? (
+        <Link href={`/perfil/ver?h=${profile.handle}`} className="flex min-w-0 flex-1 items-center gap-3">
+          {info}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">{info}</div>
+      )}
       <div className="flex shrink-0 gap-2">{children}</div>
     </li>
   );
@@ -64,6 +90,18 @@ export default function AmigosPage() {
   /** Which of the two actions on the *same* incoming request `busyId` is currently mid-flight — `busyId` alone can't tell Aceitar and Recusar's busy labels apart, since both buttons share it. */
   const [busyAction, setBusyAction] = useState<"accept" | "decline" | null>(null);
   const [activeTab, setActiveTab] = useState<FriendTab>("convites");
+
+  // Prefills from an invite link (?h=) — either the web landing page's own
+  // fallback instructions, or the deep-link handler in
+  // oauth-callback-listener.tsx navigating here directly. Read straight off
+  // `window.location.search` instead of `useSearchParams()` so this page
+  // doesn't need a Suspense boundary just for a value only ever read once,
+  // on mount.
+  useEffect(() => {
+    const fromInvite = new URLSearchParams(window.location.search).get("h");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from an external source (the URL), not from other React state; there's nothing to read this from except an effect.
+    if (fromInvite) setHandle(fromInvite.toLowerCase());
+  }, []);
 
   useEffect(() => {
     if (status !== "signed-in") return;
@@ -398,7 +436,7 @@ function FriendRow({
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <PersonRow connection={connection}>
+    <PersonRow connection={connection} linkToProfile>
       {confirming ? (
         <>
           <button
