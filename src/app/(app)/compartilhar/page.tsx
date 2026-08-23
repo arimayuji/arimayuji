@@ -287,6 +287,8 @@ function CompartilharContent() {
    * doesn't require re-uploading.
    */
   const [backgroundMode, setBackgroundMode] = useState<"foto" | "cenario">("cenario");
+  /** Which upload control "Sua foto ou vídeo" shows — foto and vídeo are mutually exclusive (see handlePhotoChange/handleVideoChange), so a toggle instead of two stacked pickers matches that. */
+  const [mediaPickerTab, setMediaPickerTab] = useState<"foto" | "video">("foto");
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [photos, setPhotos] = useState<HTMLImageElement[]>([]);
   const [photoGridLayout, setPhotoGridLayout] = useState<PhotoGridLayout>("colunas");
@@ -716,6 +718,7 @@ function CompartilharContent() {
     setVideoUrl(null);
     setVideoLoadFailed(false);
     setBackgroundMode("foto");
+    setMediaPickerTab("foto");
   }
 
   function handleVideoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -730,6 +733,7 @@ function CompartilharContent() {
     setPhotoUrls([]);
     setPhotoLoadFailed(false);
     setBackgroundMode("foto");
+    setMediaPickerTab("video");
   }
 
   const showVideoOption =
@@ -835,67 +839,78 @@ function CompartilharContent() {
             números, e 2+ fotos entram lado a lado numa grade. Um substitui o outro. Vale pros
             templates de foto — o de música usa a capa do álbum.
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <label
-              htmlFor="share-photo-input"
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:border-accent"
-            >
-              {photoUrls.length > 0 ? "Trocar fotos" : "Escolher fotos"}
-            </label>
-            <input
-              id="share-photo-input"
-              type="file"
-              accept="image/*"
-              multiple
-              className="sr-only"
-              onChange={handlePhotoChange}
-            />
-            {photoUrls.length > 0 && (
-              <>
-                <span className="text-xs text-muted">
-                  {photoUrls.length} {photoUrls.length === 1 ? "foto" : "fotos"}
-                </span>
+          <div className="mt-3 flex gap-2">
+            <SegmentedButton selected={mediaPickerTab === "foto"} onClick={() => setMediaPickerTab("foto")}>
+              Foto
+            </SegmentedButton>
+            <SegmentedButton selected={mediaPickerTab === "video"} onClick={() => setMediaPickerTab("video")}>
+              Vídeo
+            </SegmentedButton>
+          </div>
+
+          {mediaPickerTab === "foto" ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label
+                htmlFor="share-photo-input"
+                className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:border-accent"
+              >
+                {photoUrls.length > 0 ? "Trocar fotos" : "Escolher fotos"}
+              </label>
+              <input
+                id="share-photo-input"
+                type="file"
+                accept="image/*"
+                multiple
+                className="sr-only"
+                onChange={handlePhotoChange}
+              />
+              {photoUrls.length > 0 && (
+                <>
+                  <span className="text-xs text-muted">
+                    {photoUrls.length} {photoUrls.length === 1 ? "foto" : "fotos"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotos([]);
+                      setPhotoUrls([]);
+                    }}
+                    className="inline-flex min-h-11 items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-muted transition-colors hover:border-warn hover:text-warn"
+                  >
+                    Remover fotos
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label
+                htmlFor="share-video-input"
+                className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:border-accent"
+              >
+                {videoUrl ? "Trocar vídeo" : "Escolher vídeo"}
+              </label>
+              <input
+                id="share-video-input"
+                type="file"
+                accept="video/*"
+                className="sr-only"
+                onChange={handleVideoChange}
+              />
+              {videoUrl && (
                 <button
                   type="button"
                   onClick={() => {
-                    setPhotos([]);
-                    setPhotoUrls([]);
+                    setVideo(null);
+                    setVideoUrl(null);
                   }}
                   className="inline-flex min-h-11 items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-muted transition-colors hover:border-warn hover:text-warn"
                 >
-                  Remover fotos
+                  Remover vídeo
                 </button>
-              </>
-            )}
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <label
-              htmlFor="share-video-input"
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:border-accent"
-            >
-              {videoUrl ? "Trocar vídeo" : "Escolher vídeo"}
-            </label>
-            <input
-              id="share-video-input"
-              type="file"
-              accept="video/*"
-              className="sr-only"
-              onChange={handleVideoChange}
-            />
-            {videoUrl && (
-              <button
-                type="button"
-                onClick={() => {
-                  setVideo(null);
-                  setVideoUrl(null);
-                }}
-                className="inline-flex min-h-11 items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-muted transition-colors hover:border-warn hover:text-warn"
-              >
-                Remover vídeo
-              </button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {(photos.length > 0 || video) && (
             <div className="mt-4 border-t border-border pt-4">

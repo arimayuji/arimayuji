@@ -2032,13 +2032,12 @@ export default function RunPage() {
                 // (histórico/progresso can't tell "Nike Pegasus" from a typo
                 // of the same shoe). Registering once in Perfil is what
                 // makes the mileage-per-shoe tracking there mean anything.
-                <p className="text-xs leading-relaxed text-muted">
-                  Nenhum tênis cadastrado ainda —{" "}
-                  <Link href="/perfil" className="text-accent underline underline-offset-2">
-                    cadastre um no seu perfil
-                  </Link>{" "}
-                  pra escolher aqui.
-                </p>
+                <Link
+                  href="/perfil"
+                  className="block text-xs leading-relaxed text-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
+                >
+                  Nenhum tênis cadastrado ainda — cadastre um no seu perfil pra escolher aqui.
+                </Link>
               )}
             </div>
 
