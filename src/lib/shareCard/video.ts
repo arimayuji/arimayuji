@@ -87,7 +87,10 @@ export interface RecordedShareVideo {
 
 export async function recordShareCardVideo(
   scene: ShareCardScene,
-  { onProgress }: { onProgress?: (fraction: number) => void } = {},
+  {
+    onProgress,
+    durationMs = SHARE_CARD_DURATION_MS,
+  }: { onProgress?: (fraction: number) => void; durationMs?: number } = {},
 ): Promise<RecordedShareVideo | null> {
   const mimeType = shareVideoMimeType();
   if (!mimeType) return null;
@@ -99,7 +102,7 @@ export async function recordShareCardVideo(
   if (!ctx) return null;
 
   await ensureFontsLoaded(scene);
-  drawShareCardFrame(ctx, scene, 0);
+  drawShareCardFrame(ctx, scene, 0, durationMs);
 
   let stream: MediaStream;
   let recorder: MediaRecorder;
@@ -126,10 +129,10 @@ export async function recordShareCardVideo(
     await new Promise<void>((resolve) => {
       const startedAt = performance.now();
       const step = (now: number) => {
-        const elapsed = Math.min(now - startedAt, SHARE_CARD_DURATION_MS);
-        drawShareCardFrame(ctx, scene, elapsed);
-        onProgress?.(elapsed / SHARE_CARD_DURATION_MS);
-        if (elapsed < SHARE_CARD_DURATION_MS) requestAnimationFrame(step);
+        const elapsed = Math.min(now - startedAt, durationMs);
+        drawShareCardFrame(ctx, scene, elapsed, durationMs);
+        onProgress?.(elapsed / durationMs);
+        if (elapsed < durationMs) requestAnimationFrame(step);
         else resolve();
       };
       requestAnimationFrame(step);
@@ -157,7 +160,7 @@ export async function recordShareCardVideo(
 /** The recorded card as a `File`. Null for every failure, which the caller reads as "fall back to text". */
 export async function buildShareCardVideoFile(
   scene: ShareCardScene,
-  options: { onProgress?: (fraction: number) => void } = {},
+  options: { onProgress?: (fraction: number) => void; durationMs?: number } = {},
 ): Promise<File | null> {
   if (!canRecordShareVideo()) return null;
 

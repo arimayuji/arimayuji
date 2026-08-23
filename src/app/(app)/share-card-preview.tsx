@@ -24,9 +24,11 @@ const PREVIEW_FRAME_INTERVAL_MS = 1000 / 30;
  */
 export function ShareCardPreview({
   scene,
+  durationMs = SHARE_CARD_DURATION_MS,
   className = "",
 }: {
   scene: ShareCardScene;
+  durationMs?: number;
   className?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,15 +48,15 @@ export function ShareCardPreview({
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
 
     if (reducedMotion) {
-      drawShareCardFrame(context, scene, SHARE_CARD_DURATION_MS);
+      drawShareCardFrame(context, scene, durationMs, durationMs);
       return;
     }
 
     const startedAt = performance.now();
     let lastDrawnAt = -Infinity;
     const step = (now: number) => {
-      const elapsed = Math.min(now - startedAt, SHARE_CARD_DURATION_MS);
-      const done = elapsed >= SHARE_CARD_DURATION_MS;
+      const elapsed = Math.min(now - startedAt, durationMs);
+      const done = elapsed >= durationMs;
       // The full frame — scenario art, route trace, plate facets, gradients —
       // is too much canvas work to redraw at 60fps on a real phone (the
       // route-drawing reveal visibly stutters). This is a preview, not the
@@ -63,7 +65,7 @@ export function ShareCardPreview({
       // real elapsed time every rAF tick, so it isn't affected.
       if (done || now - lastDrawnAt >= PREVIEW_FRAME_INTERVAL_MS) {
         lastDrawnAt = now;
-        drawShareCardFrame(context, scene, elapsed);
+        drawShareCardFrame(context, scene, elapsed, durationMs);
       }
       if (!done) {
         setPlaying(true);
@@ -74,7 +76,7 @@ export function ShareCardPreview({
       setPlaying(false);
     };
     frameRef.current = requestAnimationFrame(step);
-  }, [reducedMotion, scene]);
+  }, [reducedMotion, scene, durationMs]);
 
   useEffect(() => {
     play();

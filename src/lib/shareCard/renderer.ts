@@ -74,6 +74,20 @@ export const SHARE_CARD_HEIGHT = 1280;
  */
 export const SHARE_CARD_DURATION_MS = 15000;
 
+/**
+ * Picker options for `/compartilhar` — `SHARE_CARD_DURATION_MS` above is both
+ * the reference timeline every constant below is hand-tuned against *and*
+ * the default/"padrão" choice, so picking it changes nothing. Picking "curto"
+ * or "longo" scales `elapsed` itself in `drawShareCardFrame` (see its own
+ * comment) rather than touching any of those constants individually.
+ */
+export const SHARE_CARD_DURATION_OPTIONS = [
+  { id: "curto", label: "7s", ms: 7000 },
+  { id: "padrao", label: "15s", ms: SHARE_CARD_DURATION_MS },
+  { id: "longo", label: "30s", ms: 30000 },
+] as const;
+export type ShareCardDurationId = (typeof SHARE_CARD_DURATION_OPTIONS)[number]["id"];
+
 const ROUTE_DRAW_START = 260;
 const ROUTE_DRAW_MS = 12200;
 const ROUTE_DRAW_END = ROUTE_DRAW_START + ROUTE_DRAW_MS;
@@ -1557,11 +1571,26 @@ export function drawShareCardFrame(
   ctx: CanvasRenderingContext2D,
   scene: ShareCardScene,
   elapsed: number,
+  durationMs: number = SHARE_CARD_DURATION_MS,
 ) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
   ctx.textAlign = "left";
   ctx.clearRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+
+  /**
+   * Every stage()/dartLanding()/textMotion() call below (route draw, text
+   * darts, emblem pop, plus the ambient float/equalizer loops that key off
+   * plain `elapsed` directly) was hand-tuned against a SHARE_CARD_DURATION_MS
+   * timeline. Rather than rescale each of those constants one by one, the
+   * caller's `elapsed` is remapped into that same reference timeline once,
+   * right here: picking a duration twice as long runs the *entire*
+   * choreography — reveal pacing and ambient motion alike — at half speed,
+   * instead of just stretching the total runtime while everything inside it
+   * still ticks at the original pace.
+   */
+  const scale = durationMs / SHARE_CARD_DURATION_MS;
+  const t = elapsed / scale;
 
   // "Só música" replaces the photo/scenario backdrop outright with the
   // track's own artwork — the whole point of that template. Falls through to
@@ -1572,8 +1601,8 @@ export function drawShareCardFrame(
   else if (scene.photos.length === 1) drawPhoto(ctx, scene.photos[0], scene.photoFilter);
   else drawScenario(ctx, scene.scenario);
 
-  if (scene.layout === "numero") drawNumberHero(ctx, scene, elapsed);
-  else drawRoute(ctx, scene, elapsed);
+  if (scene.layout === "numero") drawNumberHero(ctx, scene, t);
+  else drawRoute(ctx, scene, t);
 
   // A record and a shoe want the same slot; the record wins, because a card
   // announcing a PR is doing a different job than one showing off the kit.
@@ -1581,11 +1610,11 @@ export function drawShareCardFrame(
     scene.layout === "numero"
       ? [NUMERO_PLATE_SLOT, NUMERO_PLATE_POP_START, NUMERO_SHOE_SLOT, NUMERO_PLATE_POP_START]
       : [TRAJETO_PLATE_SLOT, TRAJETO_PLATE_POP_START, TRAJETO_SHOE_SLOT, TRAJETO_PLATE_POP_START];
-  if (scene.record) drawPlate(ctx, scene, scene.record, elapsed, plateSlot, plateStart);
-  else if (scene.shoe) drawShoe(ctx, scene.shoe, elapsed, shoeSlot, shoeStart);
+  if (scene.record) drawPlate(ctx, scene, scene.record, t, plateSlot, plateStart);
+  else if (scene.shoe) drawShoe(ctx, scene.shoe, t, shoeSlot, shoeStart);
 
-  const chromeAlpha = easeOut(stage(elapsed, 0, 360));
-  drawBrandPill(ctx, STAT_LEFT, CHROME_TOP, elapsed);
+  const chromeAlpha = easeOut(stage(t, 0, 360));
+  drawBrandPill(ctx, STAT_LEFT, CHROME_TOP, t);
   // The scenario badge names the illustrated sky; over someone's own photo —
   // or the album art in "só música" — it would be naming a background that
   // isn't there.
@@ -1602,12 +1631,12 @@ export function drawShareCardFrame(
   }
 
   if (scene.layout === "numero") {
-    drawNumberStats(ctx, scene, elapsed);
+    drawNumberStats(ctx, scene, t);
     if (scene.musicMode !== "none") {
       drawMusicChip(
         ctx,
         scene,
-        elapsed,
+        t,
         SHARE_CARD_WIDTH / 2,
         NUMERO_MUSIC_CHIP_Y,
         "center",
@@ -1615,6 +1644,6 @@ export function drawShareCardFrame(
       );
     }
   } else {
-    drawStats(ctx, scene, elapsed);
+    drawStats(ctx, scene, t);
   }
 }
