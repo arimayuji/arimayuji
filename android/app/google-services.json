@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "794127104610",
+    "project_id": "xanthus-1ee15",
+    "storage_bucket": "xanthus-1ee15.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:794127104610:android:d29e2e30011fbe259eaf3b",
+        "android_client_info": {
+          "package_name": "com.xanthus.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDrhTjHOeyGCiUoQQZgmGnVJd8ArJt7Uq8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

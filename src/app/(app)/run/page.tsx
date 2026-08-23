@@ -66,6 +66,7 @@ import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
+import { sendMilestoneNotification } from "@/lib/milestoneNotifications";
 import { recordFinishedRun, removeFinishedRun } from "@/lib/profileStats";
 import { getProfile, updateProfile } from "@/lib/auth";
 import type { RunningPlace } from "@/lib/places";
@@ -1052,15 +1053,29 @@ export default function RunPage() {
     if (state.status !== "finished" || !state.finishedRun) return;
     const run = state.finishedRun;
     listCompletedRuns().then((allRuns) => {
-      setRunRecords(computeRunRecords(run, allRuns));
+      const records = computeRunRecords(run, allRuns);
+      setRunRecords(records);
       // `allRuns` already includes this run (finish() saves it before this
       // effect's fetch fires), so subtracting its own distance back out is
       // what the lifetime total looked like the instant before it counted.
       const newTotal = totalDistanceMeters(allRuns);
       setCrossedEmblemsKm(milestonesJustCrossed(newTotal - run.distanceMeters, newTotal));
       setEmblemProgress(computeEmblemProgress(run, allRuns));
+
+      // Push milestones — only meaningful for a signed-in account (a push
+      // target is tied to one), and mutually exclusive by construction: the
+      // very first run can't also beat a "previous" best (that's null by
+      // definition the first time a distance is covered), so there's
+      // nothing to guard against sending both.
+      if (!account) return;
+      if (allRuns.length === 1) {
+        sendMilestoneNotification("primeira-corrida");
+        return;
+      }
+      const beaten = records.find((r) => r.isNewRecord && r.previousBestSeconds !== null);
+      if (beaten) sendMilestoneNotification("novo-recorde", { label: beaten.label });
     });
-  }, [state.status, state.finishedRun]);
+  }, [state.status, state.finishedRun, account]);
 
   /**
    * Elevation gain for the finish screen — same lookup `/historico/detalhe`
@@ -2034,7 +2049,7 @@ export default function RunPage() {
                 // makes the mileage-per-shoe tracking there mean anything.
                 <Link
                   href="/perfil"
-                  className="block text-xs leading-relaxed text-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
+                  className="block rounded-xl border border-dashed border-border bg-background px-3 py-2.5 text-xs leading-relaxed text-muted transition-colors hover:border-accent hover:text-accent"
                 >
                   Nenhum tênis cadastrado ainda — cadastre um no seu perfil pra escolher aqui.
                 </Link>

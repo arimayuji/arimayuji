@@ -3,6 +3,7 @@ import { Inter, Oswald, Rajdhani } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { OAuthCallbackListener } from "./oauth-callback-listener";
+import { PushRegistration } from "./push-registration";
 import { Splash } from "./splash";
 import { ThemeSync } from "./theme-sync";
 
@@ -83,6 +84,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Splash />
         {children}
         <OAuthCallbackListener />
+        <PushRegistration />
       </body>
     </html>
   );

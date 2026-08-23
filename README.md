@@ -148,7 +148,12 @@ Google) — sem ele a submissão é rejeitada. Configuração no lado da Apple
 1. [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list) →
    Identifiers → **+** → **Services IDs** → cria um identificador **diferente**
    do bundle ID do app (ex: `com.xanthus.app.signin`), habilita **Sign in
-   with Apple**, e configura o domínio (`xanthus.yujiarima.workers.dev`) e a
+   with Apple**, e configura o domínio (**`xanthus.app.br`** — domínio de
+   produção desde que o Custom Domain do Cloudflare foi ligado, ver
+   `PROJECT-CONTEXT.md`; se a Services ID ainda lista só o antigo
+   `xanthus.yujiarima.workers.dev`, é isso que causa "invalid_client" na
+   tela do appleid.apple.com — precisa editar a Services ID, trocar/somar
+   o domínio novo, e reverificar a propriedade dele se a Apple pedir) e a
    Return URL — o valor exato da Return URL está na tela do provedor "Apple"
    dentro do Appwrite Console (Auth → Settings → OAuth2 Providers).
 2. **Keys** → **+** → habilita **Sign in with Apple**, associa ao App ID
@@ -158,9 +163,39 @@ Google) — sem ele a submissão é rejeitada. Configuração no lado da Apple
    e o conteúdo do `.p8` do passo 2 — confira os nomes exatos dos campos na
    tela, podem variar entre versões do Appwrite.
 
-Não precisa de nenhuma mudança no projeto Xcode/`ios/App` — o fluxo passa
-pelo endpoint OAuth2 padrão da Apple (`appleid.apple.com`) do mesmo jeito
-que Google e Microsoft já funcionam aqui, sem SDK nativo nem entitlement.
+O passo 2 (Key + `.p8`) é usado pelo provedor OAuth2 do Appwrite (Android e
+web); no Android/web o fluxo é o de sempre, redirect por navegador do
+sistema (`startOAuthSignIn` em `src/lib/auth.ts`), sem SDK nativo nem
+entitlement extra.
+
+**No iOS, o login com Apple usa um caminho diferente** (`nativeAppleSignIn`,
+mesmo arquivo): o fluxo por navegador acima é uma limitação documentada da
+própria Appwrite pra Sign in with Apple especificamente em app nativo — o
+`response_mode=form_post` da Apple não completa de forma confiável a volta
+pro custom URL scheme de dentro do `SFSafariViewController` embarcado (Face
+ID passa, uma conta real chega a ser criada no Appwrite do lado do
+servidor, mas o cliente fica numa tela branca e nunca é logado de
+verdade — github.com/appwrite/appwrite/issues/2611,
+appwrite.io/integrations/native-auth-apple documenta essa mesma limitação
+e recomenda exatamente a troca feita aqui). Em vez do navegador, o iOS
+chama `ASAuthorizationAppleIDProvider` direto (sheet de Face ID puro, via
+`@capacitor-community/apple-sign-in`) e manda o identity token pra ação
+`apple-native-signin` em `client-actions` (ver seção de Functions abaixo),
+que verifica a assinatura contra as chaves públicas da Apple e devolve um
+`userId`/`secret` pro cliente trocar por sessão — sem navegador, sem deep
+link, sem `oauth-callback-listener.tsx` envolvido.
+
+Isso precisa de:
+- `com.apple.developer.applesignin` no `ios/App/App/App.entitlements`
+  (já commitado) — e a capability "Sign in with Apple" habilitada no App
+  ID principal (`com.xanthus.app`) em developer.apple.com, que quase
+  certamente já está ligada desde o passo 2 acima (a Apple exige essa
+  capability no App ID principal antes de deixar criar uma Services ID
+  vinculada a ele). Se um build assinado falhar por entitlement ausente,
+  é o primeiro lugar pra conferir.
+- A Function `client-actions` redeployada com a ação `apple-native-signin`
+  e o `--execute any` (ver seção de Functions abaixo) — sem isso, o login
+  nativo no iOS não tem como funcionar mesmo com o app buildado certo.
 
 **Exclusão de conta** (`/perfil`): obrigatória pela guideline 5.1.1(v) da
 App Store sempre que o app permite criar conta. O SDK cliente do Appwrite
@@ -171,13 +206,14 @@ então isso roda como Appwrite Function, nunca no cliente. Ver
 
 **Entrar num "longão"**, **criar a primeira linha de
 `profiles`/`profile_stats`/`place_run_stats`**, **salvar/sugerir um
-override de treinador no plano do aluno**, e **enviar o e-mail de
-boas-vindas** — cinco ações privilegiadas diferentes, cinco motivos
-diferentes pra não serem uma escrita direta do cliente (ver o comentário
-de cada handler em `appwrite-functions/client-actions/src/main.js` pro
-raciocínio específico de cada uma), mas **uma Function só**,
-`client-actions`, despachando por um campo `action` no corpo da
-requisição.
+override de treinador no plano do aluno**, **enviar o e-mail de
+boas-vindas**, e **validar o login nativo com Apple no iOS**
+(`apple-native-signin`, ver seção "Prontidão pra revisão das lojas" acima)
+— seis ações privilegiadas diferentes, seis motivos diferentes pra não
+serem uma escrita direta do cliente (ver o comentário de cada handler em
+`appwrite-functions/client-actions/src/main.js` pro raciocínio específico
+de cada uma), mas **uma Function só**, `client-actions`, despachando por
+um campo `action` no corpo da requisição.
 
 **Por que uma Function só em vez de seis**: o plano **Free** do Appwrite
 Cloud trava em **2 Functions por projeto** (conferido em
@@ -199,11 +235,34 @@ cd appwrite-functions/client-actions
 appwrite functions create \
   --function-id client-actions --name "Ações privilegiadas do cliente" \
   --runtime node-22 --entrypoint src/main.js \
-  --execute users \
+  --execute any \
   --scopes users.read --scopes users.write --scopes databases.read \
   --scopes databases.write --scopes files.write
 appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --activate
 ```
+
+**Se `client-actions` já existe** (caso normal — ela já está em produção
+desde a consolidação da auditoria LGPD, ver `PROJECT-CONTEXT.md`): o
+comando `create` acima falha porque o ID já existe, e o `create-deployment`
+sozinho não muda `--execute`/`--scopes` de uma function já criada — só o
+código. Redeploy de código novo (inclui `apple-native-signin`):
+
+```bash
+cd appwrite-functions/client-actions
+appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --activate
+```
+
+Pra mudar `--execute` de `users` pra `any` (necessário pra
+`apple-native-signin` funcionar — é a única ação que roda sem sessão
+nenhuma, ver o comentário de `PUBLIC_ACTIONS` em `main.js`): **Appwrite
+Console → Functions → client-actions → Settings → Execute Access → Any**
+(a lista de scopes acima não muda — `users.read`/`users.write` já cobrem
+`Users.create`/`Users.createToken`, que é tudo que `apple-native-signin`
+precisa além do que as outras ações já usavam). O check
+`x-appwrite-user-id` dentro de `clientActions()` continua bloqueando toda
+ação que não seja `apple-native-signin` mesmo com execução aberta pra
+`any` — abrir isso não deixa nenhuma das outras seis ações chamável
+anonimamente.
 
 Depois, no Appwrite Console → Functions → client-actions → **Settings →
 Variables**, adiciona:
@@ -212,8 +271,12 @@ Variables**, adiciona:
 - `GEMINI_API_KEY` — usada pela ação `suggest-plan-override`, mesmo valor
   já presente em `.env.local`.
 
-O `--execute users` restringe a chamada a usuários autenticados — todas as
-seis ações exigem sessão, nenhuma é pensada pra ser chamada anônima. Rode
+O `--execute any` libera a chamada pra qualquer um, autenticado ou não —
+necessário só por causa de `apple-native-signin` (a única das seis ações
+sem sessão possível). O check de sessão dentro de `clientActions()` (ver
+`PUBLIC_ACTIONS` em `main.js`) continua exigindo `x-appwrite-user-id` pra
+todas as outras cinco, então nenhuma delas passa a ser chamável anônima só
+por isso. Rode
 `npx tsx scripts/appwrite-setup.ts` depois do deploy pra garantir que
 `plan_overrides` existe e que a permissão antiga de `create` aberta em
 `profiles`/`profile_stats`/`place_run_stats` foi retirada (achado de uma
@@ -361,6 +424,71 @@ precisa de opt-in separado — é execução do serviço. E-mail de
 marketing/newsletter precisa, e o Resend deve ser adicionado à lista de
 terceiros na `/privacidade` quando o primeiro envio real acontecer (ver
 achado M5 da auditoria LGPD de 2026-08-17).
+
+## Notificações push (marcos: boas-vindas, primeira corrida, novo recorde)
+
+Push nativo de verdade (chega mesmo com o app fechado), não um banner
+dentro do app — decisão tomada em 2026-08-23. Custo: **zero**. FCM
+(Android) e APNs (iOS) não cobram por notificação; APNs usa a mesma
+conta Apple Developer já paga. O envio em si passa pelo **Appwrite
+Messaging** (`node-appwrite`'s `Messaging.createPush`), não por FCM/APNs
+direto — Free plan inclui 1.000 mensagens/mês (cota compartilhada com
+e-mail/SMS, que hoje vão pelo Resend em vez disso, então essa cota fica
+quase inteira pra push), Pro ($25/mês) libera ilimitado.
+
+**Como funciona**: `src/lib/pushNotifications.ts`'s `registerForPushNotifications()`
+pede permissão e registra o token do dispositivo como um Push Target da
+própria conta Appwrite (`account.createPushTarget`, chamado direto do
+cliente — não é uma ação privilegiada, Appwrite já trata isso como algo
+que a própria conta pode fazer). `src/app/push-registration.tsx`
+(montado em `layout.tsx`) chama isso assim que `useAuth()` vira
+`"signed-in"`. O envio em si é privilegiado — só pode disparar um dos
+textos fixos definidos em `MILESTONE_MESSAGES`
+(`appwrite-functions/client-actions/src/main.js`), nunca texto livre, e
+só pra própria conta de quem chamou (`users: [userId]` sempre resolve
+pro `x-appwrite-user-id` da sessão) — ação `send-milestone-notification`
+dentro da Function consolidada, chamada via
+`src/lib/milestoneNotifications.ts`'s `sendMilestoneNotification()` nos
+pontos reais do app onde um marco acontece (`handle-picker.tsx` pro
+boas-vindas, o efeito de detecção de PR em `run/page.tsx` pra primeira
+corrida/novo recorde).
+
+**Setup (uma vez, ainda pendente — nada disso dá pra fazer só com
+código):**
+
+1. **Firebase** (Android): criar um projeto em
+   [console.firebase.google.com](https://console.firebase.google.com/)
+   (pode ser um novo, não precisa reusar o projeto GCP do OAuth), ativar
+   Cloud Messaging, baixar `google-services.json` e colocar em
+   `android/app/` — e gerar uma **chave de conta de serviço** (Project
+   Settings → Service Accounts → Generate new private key) pro passo 3.
+2. **Apple Push Notifications** (iOS): em developer.apple.com →
+   Certificates, Identifiers & Profiles → **Keys** → criar uma chave nova
+   com "Apple Push Notifications service (APNs)" marcado — anota o Key
+   ID e baixa o `.p8` (só dá pra baixar uma vez). Depois, no **App ID**
+   do bundle `com.xanthus.app` (mesmo lugar onde a capability do
+   HealthKit foi ligada), habilitar a capability **Push Notifications**.
+3. **Appwrite Console → Messaging → Providers**: criar um provider **FCM**
+   com o JSON da conta de serviço do passo 1, ID exatamente `fcm`; criar
+   um provider **APNs** com o `.p8`, Key ID, Team ID e bundle ID
+   `com.xanthus.app` do passo 2, ID exatamente `apns` — os IDs precisam
+   bater com `PROVIDER_ID` em `src/lib/pushNotifications.ts`.
+4. Adicionar o escopo **`messages.write`** na chave da Function
+   `client-actions` (mesmo lugar de `users.read`/`databases.*`, ver seção
+   de Functions acima) — sem isso, `Messaging.createPush` falha com
+   permissão negada.
+5. `npx cap sync` já rodado (plugin `@capacitor/push-notifications`
+   instalado, `AppDelegate.swift` e `App.entitlements` já atualizados) —
+   só falta o `google-services.json` real do passo 1 pro Android
+   realmente inicializar o Firebase; sem ele, `registerForPushNotifications()`
+   continua rodando sem erro, só nunca completa o registro (best-effort,
+   mesmo padrão de toda outra capability nativa deste app).
+
+Até esse setup ser feito, o código todo já está no lugar mas as
+notificações não chegam de verdade — `registerForPushNotifications()` e
+`sendMilestoneNotification()` falham silenciosamente (nunca travam nem
+mostram erro pro atleta), do mesmo jeito que qualquer outra
+funcionalidade nativa best-effort deste app.
 
 ## Rodando localmente
 

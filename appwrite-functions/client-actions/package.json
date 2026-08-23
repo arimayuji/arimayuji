@@ -4,6 +4,7 @@
   "type": "module",
   "main": "src/main.js",
   "dependencies": {
+    "jose": "^6.2.10",
     "node-appwrite": "^27.1.0"
   }
 }
