@@ -148,7 +148,12 @@ Google) — sem ele a submissão é rejeitada. Configuração no lado da Apple
 1. [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list) →
    Identifiers → **+** → **Services IDs** → cria um identificador **diferente**
    do bundle ID do app (ex: `com.xanthus.app.signin`), habilita **Sign in
-   with Apple**, e configura o domínio (`xanthus.yujiarima.workers.dev`) e a
+   with Apple**, e configura o domínio (**`xanthus.app.br`** — domínio de
+   produção desde que o Custom Domain do Cloudflare foi ligado, ver
+   `PROJECT-CONTEXT.md`; se a Services ID ainda lista só o antigo
+   `xanthus.yujiarima.workers.dev`, é isso que causa "invalid_client" na
+   tela do appleid.apple.com — precisa editar a Services ID, trocar/somar
+   o domínio novo, e reverificar a propriedade dele se a Apple pedir) e a
    Return URL — o valor exato da Return URL está na tela do provedor "Apple"
    dentro do Appwrite Console (Auth → Settings → OAuth2 Providers).
 2. **Keys** → **+** → habilita **Sign in with Apple**, associa ao App ID
