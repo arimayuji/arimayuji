@@ -14,9 +14,9 @@
  * still works but `createPushTarget` will fail — caught below like every
  * other best-effort call in this file, so the app runs the same either way.
  */
-import { ID } from "appwrite";
+import { ExecutionMethod, ID } from "appwrite";
 import { PushNotifications } from "@capacitor/push-notifications";
-import { getAppwrite } from "./appwrite";
+import { CLIENT_ACTIONS_FUNCTION_ID, getAppwrite } from "./appwrite";
 import { isAndroidPlatform, isIOSPlatform, isNativePlatform } from "./platform";
 
 /** Must match the provider IDs created in Appwrite Console → Messaging → Providers — see this file's own comment. */
@@ -47,8 +47,9 @@ export async function registerForPushNotifications(): Promise<void> {
 
     registered = true; // set before the async register() call, not after — a second sign-in racing this one shouldn't also register.
 
-    const providerId = isAndroidPlatform() ? PROVIDER_ID.android : isIOSPlatform() ? PROVIDER_ID.ios : null;
-    if (!providerId) return;
+    const platform = isAndroidPlatform() ? "android" : isIOSPlatform() ? "ios" : null;
+    const providerId = platform ? PROVIDER_ID[platform] : null;
+    if (!providerId || !platform) return;
 
     const tokenPromise = new Promise<string>((resolve, reject) => {
       PushNotifications.addListener("registration", (token) => resolve(token.value));
@@ -59,7 +60,20 @@ export async function registerForPushNotifications(): Promise<void> {
     await PushNotifications.register();
     const token = await tokenPromise;
 
-    await appwrite.account.createPushTarget({ targetId: ID.unique(), identifier: token, providerId });
+    const targetId = ID.unique();
+    await appwrite.account.createPushTarget({ targetId, identifier: token, providerId });
+
+    // Best-effort on top of a best-effort call: subscribes this same target
+    // to the "nova versão" broadcast for its platform (see client-actions'
+    // subscribeUpdateTopic) — a failure here still leaves the push target
+    // itself registered, so milestone notifications keep working either way.
+    appwrite.functions
+      .createExecution({
+        functionId: CLIENT_ACTIONS_FUNCTION_ID,
+        method: ExecutionMethod.POST,
+        body: JSON.stringify({ action: "subscribe-update-topic", targetId, platform }),
+      })
+      .catch(() => {});
   } catch {
     // Best-effort, same as every other native-capability call in this app
     // (geolocation, health data, live activities) — a missing provider, a

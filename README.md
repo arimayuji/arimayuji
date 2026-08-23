@@ -490,6 +490,45 @@ notificações não chegam de verdade — `registerForPushNotifications()` e
 mostram erro pro atleta), do mesmo jeito que qualquer outra
 funcionalidade nativa best-effort deste app.
 
+### Aviso de "nova versão disponível" (Android e iOS)
+
+Empurra quem já está logado e com push registrado pra abrir o app assim
+que um build novo termina de publicar — diferente do sininho passivo em
+`/notificacoes` (que só quem abre o app vê), esse chega mesmo com o app
+fechado. **Alcance real: só contas logadas** — o app grava corrida sem
+conta pra maioria dos atletas, e registrar um Push Target sempre exige
+uma sessão Appwrite; sem repensar a arquitetura de sessão anônima pro app
+inteiro (fora de escopo aqui), quem nunca fez login continua só vendo o
+sininho passivo no Android e a notificação nativa do TestFlight no iOS.
+
+Mecanismo: dois **tópicos** do Appwrite Messaging, `android-updates` e
+`ios-updates` (criados uma vez via script, ver git history de
+`.setup-update-topics.mjs` — um tópico é agnóstico de provider FCM/APNs,
+só agrupa alvos). `registerForPushNotifications()` inscreve o Push Target
+recém-criado no tópico do seu SO chamando a ação `subscribe-update-topic`
+em `client-actions`. O CI (`.github/workflows/android-build.yml`, job
+`release`, step "Notify Android accounts...") dispara o aviso pro tópico
+`android-updates` assim que o link público do APK é confirmado — direto
+via `curl` na REST API do Appwrite Messaging (`POST
+/messaging/messages/push`), não pelo SDK, pra não precisar instalar
+`node-appwrite` só nesse step do CI. Precisa de um secret novo no GitHub:
+
+- **`APPWRITE_MESSAGING_API_KEY`** — chave de API do Appwrite Console
+  (Overview → API Keys) com **só** o escopo `messages.write` marcado
+  (não reusar a `APPWRITE_SETUP_API_KEY` aqui — essa é de uso local, sem
+  escopo restrito, e não devia circular em mais lugares do que precisa).
+  Sem esse secret configurado, o step avisa com `::warning::` e segue em
+  frente (`continue-on-error: true`) — nunca derruba o deploy do
+  APK/site por causa disso.
+
+O equivalente pro iOS (tópico `ios-updates`, step no
+`ios-build.yml`) **ainda não foi adicionado** — o app não tem hoje
+nenhuma tela de "nova versão" pra abrir no iOS (`updateCheck.ts` é
+Android-only de propósito, já que o TestFlight manda sua própria
+notificação nativa de build novo) — um push nosso redundante abriria o
+app sem ter o que mostrar. Avaliar se vale a pena antes de replicar o
+step.
+
 ## Rodando localmente
 
 ```bash

@@ -782,6 +782,42 @@ async function sendMilestoneNotification({ userId, body, client, res, error }) {
   }
 }
 
+// Same IDs as the ones created once via the one-off Messaging topic setup
+// script (see README's push-notification section) — one topic per platform
+// since a topic is provider-agnostic and CI decides which one to notify
+// based on which platform's build just shipped.
+const UPDATE_TOPIC_ID = { android: "android-updates", ios: "ios-updates" };
+
+/**
+ * action: "subscribe-update-topic" — ties this device's push target to the
+ * "new version shipped" broadcast for its platform, called right after
+ * `registerForPushNotifications()` creates the target (src/lib/
+ * pushNotifications.ts). Doesn't verify the target actually belongs to
+ * `userId` — the only thing subscribing gets you is the same fixed "nova
+ * versão" ping every other subscriber on that platform gets, so there's no
+ * meaningful privilege to steal by naming someone else's target here,
+ * unlike `sendMilestoneNotification` above (which sends to `users:
+ * [userId]`, the authenticated caller only).
+ */
+async function subscribeUpdateTopic({ body, client, res, error }) {
+  const topicId = UPDATE_TOPIC_ID[body.platform];
+  const targetId = String(body.targetId ?? "");
+  if (!topicId || !targetId) {
+    return res.json({ error: "invalid-platform-or-target" }, 400);
+  }
+  try {
+    const messaging = new Messaging(client);
+    await messaging.createSubscriber({ topicId, subscriberId: ID.unique(), targetId });
+    return res.json({ ok: true });
+  } catch (err) {
+    error(`subscribeUpdateTopic failed for ${body.platform}/${targetId}: ${err.message}`);
+    // Best-effort, same reasoning as sendMilestoneNotification above — a
+    // missed subscription just means one device doesn't get a nice-to-have
+    // nudge, not something worth failing registration over.
+    return res.json({ ok: false });
+  }
+}
+
 /**
  * Derives a stable, valid Appwrite user ID from Apple's `sub` claim (the
  * one identifier Apple guarantees is stable per app + Apple account,
@@ -879,6 +915,7 @@ const ACTIONS = {
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,
   "send-milestone-notification": sendMilestoneNotification,
+  "subscribe-update-topic": subscribeUpdateTopic,
   "apple-native-signin": appleNativeSignIn,
 };
 

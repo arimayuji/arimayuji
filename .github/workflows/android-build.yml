@@ -360,3 +360,30 @@ jobs:
           done
           echo "::error::Link público serve $ACTUAL_SIZE bytes, esperado $EXPECTED_SIZE após 5 tentativas — deploy pode ter quebrado o download."
           exit 1
+
+      - name: Notify Android accounts that a new version shipped
+        # Best-effort, same pattern as the Play Store publish step below —
+        # a missing secret or a failed push must never block the deploy
+        # that just succeeded above. Only reaches accounts that are signed
+        # in and have push registered (see src/lib/pushNotifications.ts) —
+        # this is a nice-to-have nudge to open the app and see the existing
+        # passive "nova versão" bell notification, not the update mechanism
+        # itself. `messageId` is deterministic per version code specifically
+        # so a workflow re-run for the same build can't double-notify —
+        # Appwrite rejects the second create as a conflict instead.
+        if: steps.publish.outputs.published == 'true'
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
+          APPWRITE_MESSAGING_API_KEY: ${{ secrets.APPWRITE_MESSAGING_API_KEY }}
+        run: |
+          if [ -z "$APPWRITE_MESSAGING_API_KEY" ]; then
+            echo "::warning::APPWRITE_MESSAGING_API_KEY não configurado — pulando o aviso de nova versão. Veja o README."
+            exit 0
+          fi
+          curl -sS --fail-with-body -X POST "$NEXT_PUBLIC_APPWRITE_ENDPOINT/messaging/messages/push" \
+            -H "Content-Type: application/json" \
+            -H "X-Appwrite-Project: $NEXT_PUBLIC_APPWRITE_PROJECT_ID" \
+            -H "X-Appwrite-Key: $APPWRITE_MESSAGING_API_KEY" \
+            -d "{\"messageId\":\"android-update-${ANDROID_VERSION_CODE}\",\"title\":\"Nova versão disponível\",\"body\":\"Abre o Xanthus pra baixar a atualização.\",\"topics\":[\"android-updates\"]}"

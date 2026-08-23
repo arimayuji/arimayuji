@@ -339,16 +339,9 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
     pergunta de privacidade do item anterior: agregar não expõe
     necessariamente a rota de ninguém individualmente, mas isso precisa
     ser decisão de produto explícita, não suposição de quem for construir.
-  - **Ciclofaixa como "lugar pra correr" de fato**: observação de que em
-    São Paulo (e provavelmente outras capitais) muita gente já corre na
-    ciclofaixa, não na calçada/rua — o pedido é ter alguma noção disso no
-    produto. Duas leituras possíveis, nenhuma confirmada com o dono do
-    projeto ainda: (a) puramente um insight/dado exposto ao usuário
-    ("muita gente corre nessa ciclofaixa"), ou (b) isso naturalmente
-    aparece sozinho se o item "trajeto da comunidade" acima for construído
-    (uma ciclofaixa muito usada só apareceria como cluster popular sem
-    precisar de tratamento especial). Não perguntar de novo sem reler
-    isso primeiro — a resposta pode já estar implícita na segunda leitura.
+  - ~~Ciclofaixa como "lugar pra correr" de fato~~ — **descartado** pelo
+    dono do projeto em 2026-08-23, não vale reabrir sem pedido explícito
+    de novo.
   - **"Coach ao vivo" — treinador acompanhando e falando com o aluno durante
     a corrida em tempo real** (pedido em 2026-08-23, nada escopado em
     detalhe, ideia rica com vários pedaços):
