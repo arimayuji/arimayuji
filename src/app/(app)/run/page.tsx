@@ -2049,7 +2049,7 @@ export default function RunPage() {
                 // makes the mileage-per-shoe tracking there mean anything.
                 <Link
                   href="/perfil"
-                  className="block text-xs leading-relaxed text-muted underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
+                  className="block rounded-xl border border-dashed border-border bg-background px-3 py-2.5 text-xs leading-relaxed text-muted transition-colors hover:border-accent hover:text-accent"
                 >
                   Nenhum tênis cadastrado ainda — cadastre um no seu perfil pra escolher aqui.
                 </Link>
