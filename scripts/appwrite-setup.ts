@@ -133,6 +133,19 @@ async function main() {
   await ensure("profiles.publicDisplayName", () =>
     tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "publicDisplayName", size: 60, required: false }),
   );
+  // A link to the account's running playlist (Spotify, Apple Music, whatever)
+  // — shown on /perfil and to friends on /perfil/ver. `playlistCoverUrl` is
+  // resolved once client-side when the link is saved (Spotify's public
+  // oEmbed endpoint, see src/lib/playlistLink.ts) and cached here rather than
+  // re-fetched on every profile view; stays empty for links this app doesn't
+  // know how to resolve a cover for, which is fine — the link itself still
+  // works as a plain link either way.
+  await ensure("profiles.playlistUrl", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "playlistUrl", size: 500, required: false }),
+  );
+  await ensure("profiles.playlistCoverUrl", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "playlistCoverUrl", size: 500, required: false }),
+  );
   await waitForColumn("profiles", "handle");
   await ensure("profiles index: unique handle", () =>
     tablesDB.createIndex({

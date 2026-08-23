@@ -44,6 +44,7 @@ import { useAuth } from "@/lib/useAuth";
 import { listCoachConnections } from "@/lib/coachRelationships";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
+import { resolvePlaylistCover } from "@/lib/playlistLink";
 import type { RunningPlace } from "@/lib/places";
 
 /**
@@ -1012,6 +1013,89 @@ function PlaceLeaderboardCard() {
 }
 
 /**
+ * A link to the account's running playlist, shown here for editing and on
+ * /perfil/ver for a friend viewing it. Cover art only resolves for Spotify
+ * links (see src/lib/playlistLink.ts's own comment for why) — anything else
+ * still saves and still shows as a plain link, just without a cover.
+ */
+function PlaylistCard() {
+  const { status, account, profile, refresh } = useAuth();
+  const [url, setUrl] = useState(profile?.playlistUrl ?? "");
+  const [resolvingCover, setResolvingCover] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+
+  async function handleBlur() {
+    if (!account) return;
+    const trimmed = url.trim();
+    if (trimmed === (profile?.playlistUrl ?? "")) return;
+    setSaveError(false);
+
+    if (!trimmed) {
+      try {
+        await updateProfile(account.id, { playlistUrl: "", playlistCoverUrl: "" });
+        await refresh();
+      } catch {
+        setSaveError(true);
+      }
+      return;
+    }
+
+    setResolvingCover(true);
+    try {
+      const coverUrl = await resolvePlaylistCover(trimmed);
+      await updateProfile(account.id, { playlistUrl: trimmed, playlistCoverUrl: coverUrl ?? "" });
+      await refresh();
+    } catch {
+      setSaveError(true);
+    } finally {
+      setResolvingCover(false);
+    }
+  }
+
+  return (
+    <Card className="pr-enter" style={delay(90)}>
+      <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Playlist pra corrida</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Cole o link de uma playlist (Spotify, Apple Music, o que for) — amigos que veem seu perfil
+        conseguem abrir ela direto.
+      </p>
+
+      {status !== "signed-in" ? (
+        <p className="text-xs text-muted">Precisa de conta pra salvar (Google ou Apple, em Conta acima).</p>
+      ) : (
+        <>
+          {profile?.playlistCoverUrl && (
+            <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-background p-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- an external cover URL, next/image's optimizer isn't available in a static export anyway. */}
+              <img
+                src={profile.playlistCoverUrl}
+                alt="Capa da playlist"
+                className="h-12 w-12 flex-none rounded-lg object-cover"
+              />
+              <p className="min-w-0 truncate text-xs text-muted">{profile.playlistUrl}</p>
+            </div>
+          )}
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium">Link da playlist</span>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onBlur={handleBlur}
+              placeholder="https://open.spotify.com/playlist/..."
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </label>
+          {resolvingCover && <p className="mt-1.5 text-[11px] text-muted">Buscando a capa…</p>}
+          {saveError && <p className="mt-1.5 text-[11px] text-bad">Não deu pra salvar agora — tenta de novo.</p>}
+        </>
+      )}
+    </Card>
+  );
+}
+
+/**
  * A toggle between the "atleta" and "treinador" home — renders nothing at
  * all unless this account actually coaches at least one accepted student,
  * since for everyone else (almost everyone) there's no second mode to
@@ -1123,6 +1207,7 @@ export default function PerfilPage() {
         </Card>
 
         <PlaceLeaderboardCard />
+        <PlaylistCard />
 
         <SectionLabel delayMs={110}>Treino</SectionLabel>
         <Card className="pr-enter" style={delay(120)}>
