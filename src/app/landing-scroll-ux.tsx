@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * Scroll interaction layer for the landing page — a fixed progress bar, a
- * side rail tracking the three numbered sections, scroll-snap between
+ * side rail tracking the four numbered sections, scroll-snap between
  * sections, and the hero's "role para explorar" cue. Purely an interaction
  * layer on top of what's already there: no copy, no palette, no existing
  * component touched. Kept separate from `reveal.tsx` — that one already
@@ -16,6 +16,7 @@ const SECTIONS: { id: string; label: string }[] = [
   { id: "evolucao", label: "01" },
   { id: "comunidade", label: "02" },
   { id: "pilares", label: "03" },
+  { id: "treinador", label: "04" },
 ];
 
 /** Fixed 3px bar at the very top of the viewport, filled left-to-right by how far down the page the reader is. `transform: scaleX` (not `width`) so the update never triggers layout — only compositing, which is what "no lag" actually requires at 60fps. */
