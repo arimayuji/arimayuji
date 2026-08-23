@@ -29,6 +29,7 @@ import {
   type GroupRun,
 } from "@/lib/groupRuns";
 import { PairingQrCode } from "../pairing-qr";
+import { AccountPrompt } from "../account-prompt";
 import { useGroupLiveRuns, buildGroupMarkers } from "@/lib/useGroupLiveRuns";
 import { useAuth } from "@/lib/useAuth";
 import { GroupLiveMap } from "../group-live-map";
@@ -934,6 +935,8 @@ export default function RunPage() {
   /** "Correr com alguém" (QR pairing) — generating a code from this device. */
   const [generatingPairing, setGeneratingPairing] = useState(false);
   const [pairingGenerateError, setPairingGenerateError] = useState<string | null>(null);
+  /** Hosting a pairing session needs an account (createGroupRun's own "unavailable" reason) — same gate /longao already shows for the same underlying reason, just triggered from this shortcut instead of a dedicated signed-out screen. */
+  const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   /** An incoming pairing invite opened via `?parear=` (see src/app/parear/page.tsx and oauth-callback-listener.tsx) — resolved once on mount, confirmed explicitly rather than joined silently. */
   const [pairingInvite, setPairingInvite] = useState<{ code: string; groupRun: GroupRun; hostName: string } | null>(
     null,
@@ -969,6 +972,10 @@ export default function RunPage() {
   }, []);
 
   const handleGeneratePairing = async () => {
+    if (!account) {
+      setShowAccountPrompt(true);
+      return;
+    }
     setGeneratingPairing(true);
     setPairingGenerateError(null);
     const firstName = profile?.displayName?.trim().split(/\s+/)[0];
@@ -2911,6 +2918,8 @@ export default function RunPage() {
           </div>
         </ModalPortal>
       )}
+
+      {showAccountPrompt && <AccountPrompt onClose={() => setShowAccountPrompt(false)} returnTo="/run" />}
     </div>
   );
 }
