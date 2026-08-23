@@ -349,6 +349,47 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
     (uma ciclofaixa muito usada só apareceria como cluster popular sem
     precisar de tratamento especial). Não perguntar de novo sem reler
     isso primeiro — a resposta pode já estar implícita na segunda leitura.
+  - **"Coach ao vivo" — treinador acompanhando e falando com o aluno durante
+    a corrida em tempo real** (pedido em 2026-08-23, nada escopado em
+    detalhe, ideia rica com vários pedaços):
+    - **Acesso a dado de saúde ao vivo pro treinador** (FC/zona de esforço,
+      possivelmente outros dados do smartwatch) durante uma corrida
+      compartilhada — **consentimento próprio, começando desligado por
+      padrão, o aluno ativa manualmente quando quiser** (explicitamente
+      pedido pelo dono do projeto) — **separado** do consentimento geral
+      de dados de saúde já existente (`healthDataConsent`,
+      `HEALTH_DATA_ENABLED`, ver seção de smartwatch acima): aquele é
+      "o app lê meu HealthKit/Health Connect", este seria "meu treinador
+      específico vê isso ao vivo enquanto eu corro" — duas permissões
+      concentricamente diferentes, não a mesma flag reaproveitada.
+    - **Treinador manda mensagem → vira voz durante a corrida do aluno**,
+      numa voz claramente diferente do aviso padrão do app, anunciada
+      como tal ("Seu treinador está pedindo pra reduzir o ritmo", "Seu
+      treinador quer que você acelere nessa reta final", "Seu treinador
+      está pedindo pra você parar"). **Incompatibilidade técnica real a
+      resolver antes de construir**: o banco de voz hoje
+      (`scripts/generate-voice-bank.ts`, tarefas #82-85) é um conjunto
+      fixo de clipes pré-gravados (números 0-99 + palavras) concatenados
+      em tempo de execução — não existe TTS de texto livre no app. Mensagem
+      livre do treinador não cabe nesse mecanismo; precisa decidir entre
+      (a) TTS de verdade em tempo real (custo/latência/dependência de API
+      externa nova) ou (b) um conjunto fechado de frases pré-gravadas que
+      o treinador só escolhe, não digita.
+    - **Previsão de chegada/tempo final ao vivo**, visível pro treinador
+      (o app já expõe métricas ao vivo pro próprio atleta — conferir se
+      dá pra reaproveitar o mesmo cálculo, não construir um novo).
+    - **Analogia usada pelo dono do projeto**: "treinador de time de
+      quadra orientando posicionamento do jogador ao vivo, só que pra
+      corrida" — acompanhado do notebook ou celular.
+    - **Problema de escala reconhecido pelo próprio dono do projeto**: fácil
+      com 1 aluno; com vários simultâneos, uma visão única fica poluída de
+      informação. Preferência dele: visão geral simples (quem tá correndo
+      agora) + entrar no perfil de UM aluno por vez pra ver o live
+      detalhado e mandar mensagem — não um painel único mostrando tudo de
+      todo mundo ao mesmo tempo. **Isso é literalmente o mesmo problema já
+      escopado na Fase C do "Modo treinador com IA"** (painel web "Sala de
+      Treino", ver seção própria acima) — vale desenhar as duas coisas
+      juntas, não em paralelo sem se falar.
   - **Lugares pra correr em outras capitais** (pedido nesta mesma sessão,
     confirmado "vários lugares por capital", com um critério de "pelo
     menos ~3km" de percurso que ficou cortado no áudio original — não
