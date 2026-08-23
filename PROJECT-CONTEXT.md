@@ -302,6 +302,60 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 
 ## Funcionalidades planejadas, ainda não implementadas
 
+- **Backlog de ideias soltas (sessão 2026-08-23, nenhuma escopada em detalhe
+  ainda — só registrando pra não perder)**:
+  - **Repetir corrida**: no histórico, um botão "repetir corrida" que
+    reabre `/run` já configurado com a mesma meta (distância/tempo/ritmo) —
+    e possivelmente o mesmo trajeto, se fizer sentido — de uma corrida
+    passada. Escopo pequeno, não iniciado.
+  - **Nomear/filtrar o histórico pelo lugar onde a corrida aconteceu**:
+    pedido do dono do projeto pra poder filtrar o histórico por "lugares
+    que já corri" — mas a infra que já existe (`placeMatch.ts`,
+    tarefas #74-78) só casa uma corrida contra os poucos lugares com
+    `circuits` (rota rastreada) do catálogo de `places.ts`, tipicamente
+    parques. **Gap real, ainda sem solução**: uma corrida de rua que passa
+    por vários bairros não bate com nada — não tem um jeito óbvio de gerar
+    um "nome do lugar" pra esse caso (nome do bairro? do trecho mais longo?
+    do ponto de partida?). Precisa de uma sessão própria só pra pensar
+    nisso antes de construir.
+  - **Sugestão de correr com amigo por proximidade**: se dois amigos
+    estão com o app aberto e fisicamente perto um do outro, avisar
+    ("fulano tá aí perto, bora correr junto?") — dentro do app tá OK, não
+    precisa ser push nativo. É a mais pesada das três: depende de
+    compartilhar localização em tempo real de quem só abriu o app (não de
+    quem já está numa corrida ativa, que já existe via `live_runs`), e tem
+    implicação de privacidade real (quem vê a localização de quem, e
+    quando) que precisa de decisão de produto antes de qualquer código.
+  - **"Trajeto da comunidade" (rotas populares agregadas)**: em vez de só
+    o catálogo curado à mão (`places.ts`), minerar as rotas GPS já salvas
+    na plataforma pra achar trechos que muita gente corre em comum (a
+    ideia foi soltar um número de exemplo tipo "uns 100 usuários", não um
+    threshold fechado) e virar isso um "trajeto sugerido pela comunidade"
+    — o raciocínio do pedido: a equipe não conhece todo lugar bom pra
+    correr numa cidade, mas quem já corre lá sabe. Tecnicamente isso é
+    clustering/agregação geoespacial de trajetórias de várias contas
+    diferentes — bem mais pesado que o matching atual (que só compara
+    contra um catálogo fixo, nunca entre usuários). Levanta a mesma
+    pergunta de privacidade do item anterior: agregar não expõe
+    necessariamente a rota de ninguém individualmente, mas isso precisa
+    ser decisão de produto explícita, não suposição de quem for construir.
+  - **Ciclofaixa como "lugar pra correr" de fato**: observação de que em
+    São Paulo (e provavelmente outras capitais) muita gente já corre na
+    ciclofaixa, não na calçada/rua — o pedido é ter alguma noção disso no
+    produto. Duas leituras possíveis, nenhuma confirmada com o dono do
+    projeto ainda: (a) puramente um insight/dado exposto ao usuário
+    ("muita gente corre nessa ciclofaixa"), ou (b) isso naturalmente
+    aparece sozinho se o item "trajeto da comunidade" acima for construído
+    (uma ciclofaixa muito usada só apareceria como cluster popular sem
+    precisar de tratamento especial). Não perguntar de novo sem reler
+    isso primeiro — a resposta pode já estar implícita na segunda leitura.
+  - **Lugares pra correr em outras capitais** (pedido nesta mesma sessão,
+    confirmado "vários lugares por capital", com um critério de "pelo
+    menos ~3km" de percurso que ficou cortado no áudio original — não
+    confirmado se é raio ou comprimento de circuito): ainda não iniciado
+    no momento deste registro, é o próximo item da fila assim que o dono
+    do projeto confirmar prioridade.
+
 - **Dados de saúde do smartwatch** (escopado em 2026-08 numa sessão anterior,
   contexto recuperado do transcript bruto porque nunca foi salvo aqui —
   registrando agora pra não se perder de novo):
