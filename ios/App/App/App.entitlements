@@ -2,6 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  Needed for the native Sign in with Apple flow (ASAuthorizationAppleIDProvider,
+	  via @capacitor-community/apple-sign-in — see src/lib/auth.ts's
+	  nativeAppleSignIn) that replaced the browser-redirect OAuth2 flow on
+	  iOS. The App ID itself almost certainly already has "Sign in with
+	  Apple" enabled at developer.apple.com from the original OAuth setup
+	  (task #51) — Apple requires that capability on the Primary App ID
+	  before a linked Services ID can even be created — but this entitlement
+	  key is what actually asks the provisioning profile for it; if a signed
+	  build ever rejects with a missing-entitlement code-signing error,
+	  check that capability toggle first.
+	-->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 	<key>com.apple.developer.healthkit</key>
 	<true/>
 	<key>com.apple.developer.healthkit.access</key>

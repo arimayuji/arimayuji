@@ -1,9 +1,21 @@
+import { createHash } from "node:crypto";
 import { Client, ID, Messaging, Permission, Query, Role, Storage, TablesDB, Users } from "node-appwrite";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 // Same fixed ID as src/lib/appwrite.ts (APPWRITE_DATABASE_ID).
 const DATABASE_ID = "6a7cd61a00290490a79d";
 // Same fixed ID as src/lib/appwrite.ts's AVATARS_BUCKET_ID.
 const AVATARS_BUCKET_ID = "avatars";
+// Same literal as src/lib/auth.ts's APPLE_BUNDLE_ID — the `aud` claim Apple
+// signs into the identity token when ASAuthorizationAppleIDProvider
+// authenticates natively (no Services ID/browser involved, unlike the web
+// OAuth2 flow's `aud`, which is the Services ID instead).
+const APPLE_BUNDLE_ID = "com.xanthus.app";
+// Module-level, not per-invocation: `createRemoteJWKSet` caches the fetched
+// keys internally and only refetches when a token's `kid` isn't in its
+// cache, so a warm container (the common case under real traffic) reuses
+// this across executions instead of hitting appleid.apple.com every time.
+const APPLE_JWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const WEEK_START_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -770,6 +782,94 @@ async function sendMilestoneNotification({ userId, body, client, res, error }) {
   }
 }
 
+/**
+ * Derives a stable, valid Appwrite user ID from Apple's `sub` claim (the
+ * one identifier Apple guarantees is stable per app + Apple account,
+ * across every future sign-in). `sub` itself isn't safe to use directly —
+ * Appwrite user IDs are capped at 36 chars and Apple's format isn't
+ * documented as staying within that — so this hashes it into a fixed
+ * 32-char hex string instead, same "deterministic ID over lookup table"
+ * convention as friendships.ts's `pairKeyOf`/group-run participant rows
+ * elsewhere in this Function.
+ *
+ * Known, accepted limitation: an athlete who already has an Apple-created
+ * account from the (broken) browser OAuth2 flow gets a *second*, separate
+ * account here — this hash has no relation to whatever ID Appwrite's own
+ * OAuth2 provider assigned that first one. Not worth reconciling for the
+ * handful of TestFlight accounts that hit the old broken flow before this
+ * shipped; a real merge would need matching by email, which Apple only
+ * discloses on a device's very first-ever authorization.
+ */
+function appleUserId(sub) {
+  return createHash("sha256").update(sub).digest("hex").slice(0, 32);
+}
+
+/**
+ * action: "apple-native-signin" — the only action in `ACTIONS` allowed to
+ * run with no caller session yet (see `clientActions`'s `PUBLIC_ACTIONS`
+ * below), since by definition nobody is signed in before this runs. Verifies
+ * the identity token iOS's native `ASAuthorizationAppleIDProvider` produced
+ * (see src/lib/auth.ts's `nativeAppleSignIn`) against Apple's own public
+ * keys, then mints a session token the client exchanges via the same
+ * `account.createSession({userId, secret})` call every other login path
+ * here already uses.
+ *
+ * `givenName`/`familyName` come from the client, not the verified token
+ * (Apple only ever puts the name in the one-time authorization response,
+ * never in the JWT) — same trust level as the name Appwrite's own Google/
+ * Apple OAuth2 providers already hand over unverified, so this isn't a new
+ * exposure.
+ */
+async function appleNativeSignIn({ body, client, res, error }) {
+  const identityToken = String(body.identityToken ?? "");
+  if (!identityToken) {
+    return res.json({ error: "missing-identity-token" }, 400);
+  }
+
+  let payload;
+  try {
+    ({ payload } = await jwtVerify(identityToken, APPLE_JWKS, {
+      issuer: "https://appleid.apple.com",
+      audience: APPLE_BUNDLE_ID,
+    }));
+  } catch (err) {
+    error(`apple-native-signin: identity token inválido: ${err.message}`);
+    return res.json({ error: "invalid-identity-token" }, 401);
+  }
+
+  if (typeof payload.sub !== "string" || !payload.sub) {
+    return res.json({ error: "invalid-identity-token" }, 401);
+  }
+
+  const userId = appleUserId(payload.sub);
+  const users = new Users(client);
+
+  try {
+    await users.get({ userId });
+  } catch {
+    const givenName = typeof body.givenName === "string" ? body.givenName.trim() : "";
+    const familyName = typeof body.familyName === "string" ? body.familyName.trim() : "";
+    const name = [givenName, familyName].filter(Boolean).join(" ") || undefined;
+    const email = typeof payload.email === "string" ? payload.email : undefined;
+    try {
+      await users.create({ userId, email, name });
+    } catch (err) {
+      error(`apple-native-signin: falha ao criar usuário ${userId}: ${err.message}`);
+      return res.json({ error: "user-create-failed" }, 500);
+    }
+  }
+
+  let token;
+  try {
+    token = await users.createToken({ userId });
+  } catch (err) {
+    error(`apple-native-signin: falha ao criar token de sessão para ${userId}: ${err.message}`);
+    return res.json({ error: "token-create-failed" }, 500);
+  }
+
+  return res.json({ ok: true, userId: token.userId, secret: token.secret });
+}
+
 const ACTIONS = {
   "delete-account": deleteAccount,
   "send-welcome-email": sendWelcomeEmail,
@@ -779,7 +879,14 @@ const ACTIONS = {
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,
   "send-milestone-notification": sendMilestoneNotification,
+  "apple-native-signin": appleNativeSignIn,
 };
+
+// The one action allowed to run with no `x-appwrite-user-id` at all — see
+// apple-native-signin's own comment for why. Every other action keeps
+// requiring a real session, checked once below rather than once per
+// handler.
+const PUBLIC_ACTIONS = new Set(["apple-native-signin"]);
 
 /**
  * One Appwrite Function backing every privileged, client-invoked write this
@@ -792,21 +899,21 @@ const ACTIONS = {
  * claim-owned-row,set-plan-override,suggest-plan-override} before this
  * consolidation).
  *
- * Every action needs the caller's own session (`x-appwrite-user-id`) — none
- * of the eight is meant to be called anonymously — so that check happens
- * once here rather than once per handler. The scoped per-execution key
- * (`x-appwrite-key`) needs the UNION of every action's API key scopes
- * (users.read, databases.read, databases.write, messages.write —
- * the last one for send-milestone-notification's `Messaging.createPush`)
- * configured on this one Function in the Console, since Appwrite grants
- * scopes per Function, not per action — see README.md for the exact setup.
+ * Every action except `apple-native-signin` needs the caller's own session
+ * (`x-appwrite-user-id`) — that one is the sole exception (see its own
+ * comment: by definition nobody's signed in yet when it runs), checked
+ * against `PUBLIC_ACTIONS` once here rather than once per handler. This
+ * means the Function's own execute permission has to allow anonymous
+ * calls too (`any`, not `users`) — every OTHER action stays just as
+ * locked down as before, since this check still runs for all of them.
+ * The scoped per-execution key (`x-appwrite-key`) needs the UNION of every
+ * action's API key scopes (users.read, users.write — the last one new,
+ * for apple-native-signin's `Users.create`/`Users.createToken` — databases
+ * .read, databases.write, messages.write) configured on this one Function
+ * in the Console, since Appwrite grants scopes per Function, not per
+ * action — see README.md for the exact setup.
  */
 async function clientActions({ req, res, log, error }) {
-  const userId = req.headers["x-appwrite-user-id"];
-  if (!userId) {
-    return res.json({ error: "not-authenticated" }, 401);
-  }
-
   let body;
   try {
     body = JSON.parse(req.bodyText || "{}");
@@ -817,6 +924,11 @@ async function clientActions({ req, res, log, error }) {
   const handler = ACTIONS[body.action];
   if (!handler) {
     return res.json({ error: "unknown-action" }, 400);
+  }
+
+  const userId = req.headers["x-appwrite-user-id"];
+  if (!userId && !PUBLIC_ACTIONS.has(body.action)) {
+    return res.json({ error: "not-authenticated" }, 401);
   }
 
   const client = new Client()

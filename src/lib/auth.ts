@@ -5,6 +5,7 @@
  * backend layer, since recording a run and viewing history never depend
  * on any of this.
  */
+import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { Browser } from "@capacitor/browser";
 import { ExecutionMethod, ID, type Models, OAuthProvider, Query } from "appwrite";
 import {
@@ -16,7 +17,10 @@ import {
   getAppwrite,
   oauth2TokenUrl,
 } from "./appwrite";
-import { isNativePlatform } from "./platform";
+import { isIOSPlatform, isNativePlatform } from "./platform";
+
+/** The app's own bundle ID — also the `aud` claim Apple's native identity token carries on iOS, since `ASAuthorizationAppleIDProvider` (no browser, no Services ID) authenticates as the app itself. Kept as its own constant since two spots below need the exact same literal. */
+const APPLE_BUNDLE_ID = "com.xanthus.app";
 
 export interface Profile extends Models.Row {
   handle: string;
@@ -128,14 +132,111 @@ export function signInWithGoogle(returnTo: string): Promise<string | null> {
 }
 
 /**
+ * Sign in with Apple's identity-token JSON is only meaningful to this
+ * app's own `client-actions` Function (verified there against Apple's
+ * public keys) — nothing here is used for anything beyond that one
+ * `POST`, so there's no separate module for it.
+ */
+interface AppleNativeSignInResult {
+  ok?: boolean;
+  userId?: string;
+  secret?: string;
+  error?: string;
+}
+
+/**
+ * iOS-only replacement for the browser-redirect Apple OAuth2 flow, which
+ * Appwrite itself documents as unreliable for native Sign in with Apple:
+ * Apple's `response_mode=form_post` consent step doesn't reliably hand
+ * control back to this app's custom URL scheme from inside the embedded
+ * `SFSafariViewController` `startOAuthSignIn` opens for every other
+ * provider — in practice, Face ID succeeds, a real Appwrite account gets
+ * created server-side (proving the OAuth2 provider config itself is
+ * fine), and the athlete is just left on a blank page, never actually
+ * signed in client-side. (github.com/appwrite/appwrite/issues/2611,
+ * appwrite.io/integrations/native-auth-apple — Appwrite's own recommended
+ * fix for native apps.)
+ *
+ * This talks to `ASAuthorizationAppleIDProvider` directly — no browser,
+ * no consent screen, just the system Face ID sheet — via
+ * `@capacitor-community/apple-sign-in`, then hands the resulting identity
+ * token to the `apple-native-signin` action in `client-actions` (the one
+ * action in that dispatcher allowed to run with no session yet, see its
+ * own comment in main.js) to verify it and mint a session token, which
+ * gets exchanged for a real session right here — no deep link or
+ * `oauth-callback-listener.tsx` involved at all, since there's no browser
+ * hop in the middle to come back from.
+ *
+ * A cancelled Face ID prompt surfaces as a rejected promise here (the
+ * plugin has no separate "cancelled" result) — treated as `null`, the
+ * same "nothing to show the athlete" outcome tapping outside any other
+ * system sheet gets, not a real error.
+ */
+async function nativeAppleSignIn(returnTo: string): Promise<string | null> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return "Appwrite não configurado (NEXT_PUBLIC_APPWRITE_ENDPOINT/PROJECT_ID ausentes neste build).";
+
+  let credential;
+  try {
+    credential = await SignInWithApple.authorize({
+      // Ignored by the native iOS implementation (it talks to
+      // ASAuthorizationAppleIDProvider directly, not a redirect flow) —
+      // required by the plugin's TypeScript signature regardless, so
+      // these are just placeholders that document what they'd be if this
+      // ever ran through the plugin's web fallback.
+      clientId: APPLE_BUNDLE_ID,
+      redirectURI: "https://xanthus.app.br",
+      scopes: "email name",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/cancel/i.test(message)) return null;
+    return message;
+  }
+
+  const { identityToken, givenName, familyName } = credential.response;
+  if (!identityToken) return "Apple não devolveu um identityToken.";
+
+  let execution;
+  try {
+    execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "apple-native-signin", identityToken, givenName, familyName }),
+    });
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  const result = JSON.parse(execution.responseBody || "{}") as AppleNativeSignInResult;
+  if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !result.ok) {
+    return `Falha ao validar o login com Apple (${result.error ?? execution.responseStatusCode}).`;
+  }
+  if (!result.userId || !result.secret) return "client-actions não devolveu userId/secret.";
+
+  try {
+    await appwrite.account.createSession({ userId: result.userId, secret: result.secret });
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  // Same full-navigation reasoning as oauth-callback-listener.tsx and
+  // PhoneSignIn — every screen that cares whether an account exists only
+  // checks that on mount.
+  window.location.assign(returnTo);
+  return null;
+}
+
+/**
  * Required alongside Google (App Store guideline 4.8: any third-party
- * login needs an equivalent Sign in with Apple option). Appwrite's
- * "Apple" provider talks to Apple's own `appleid.apple.com` authorize
- * endpoint over the web, the same mechanism a browser-based Sign in with
- * Apple integration uses, so this needs no native iOS entitlement or SDK
- * beyond what `startOAuthSignIn` already sets up for Google.
+ * login needs an equivalent Sign in with Apple option). On iOS this goes
+ * through `nativeAppleSignIn` (see its own doc comment for why); Android
+ * and web keep using Appwrite's "Apple" OAuth2 provider via
+ * `startOAuthSignIn`, the same mechanism Google uses on those platforms —
+ * this native-vs-OAuth2 split is Apple-specific, Appwrite has no
+ * documented equivalent issue for Google on any platform.
  */
 export function signInWithApple(returnTo: string): Promise<string | null> {
+  if (isIOSPlatform()) return nativeAppleSignIn(returnTo);
   return startOAuthSignIn(OAuthProvider.Apple, returnTo);
 }
 

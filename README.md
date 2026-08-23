@@ -163,9 +163,39 @@ Google) — sem ele a submissão é rejeitada. Configuração no lado da Apple
    e o conteúdo do `.p8` do passo 2 — confira os nomes exatos dos campos na
    tela, podem variar entre versões do Appwrite.
 
-Não precisa de nenhuma mudança no projeto Xcode/`ios/App` — o fluxo passa
-pelo endpoint OAuth2 padrão da Apple (`appleid.apple.com`) do mesmo jeito
-que Google e Microsoft já funcionam aqui, sem SDK nativo nem entitlement.
+O passo 2 (Key + `.p8`) é usado pelo provedor OAuth2 do Appwrite (Android e
+web); no Android/web o fluxo é o de sempre, redirect por navegador do
+sistema (`startOAuthSignIn` em `src/lib/auth.ts`), sem SDK nativo nem
+entitlement extra.
+
+**No iOS, o login com Apple usa um caminho diferente** (`nativeAppleSignIn`,
+mesmo arquivo): o fluxo por navegador acima é uma limitação documentada da
+própria Appwrite pra Sign in with Apple especificamente em app nativo — o
+`response_mode=form_post` da Apple não completa de forma confiável a volta
+pro custom URL scheme de dentro do `SFSafariViewController` embarcado (Face
+ID passa, uma conta real chega a ser criada no Appwrite do lado do
+servidor, mas o cliente fica numa tela branca e nunca é logado de
+verdade — github.com/appwrite/appwrite/issues/2611,
+appwrite.io/integrations/native-auth-apple documenta essa mesma limitação
+e recomenda exatamente a troca feita aqui). Em vez do navegador, o iOS
+chama `ASAuthorizationAppleIDProvider` direto (sheet de Face ID puro, via
+`@capacitor-community/apple-sign-in`) e manda o identity token pra ação
+`apple-native-signin` em `client-actions` (ver seção de Functions abaixo),
+que verifica a assinatura contra as chaves públicas da Apple e devolve um
+`userId`/`secret` pro cliente trocar por sessão — sem navegador, sem deep
+link, sem `oauth-callback-listener.tsx` envolvido.
+
+Isso precisa de:
+- `com.apple.developer.applesignin` no `ios/App/App/App.entitlements`
+  (já commitado) — e a capability "Sign in with Apple" habilitada no App
+  ID principal (`com.xanthus.app`) em developer.apple.com, que quase
+  certamente já está ligada desde o passo 2 acima (a Apple exige essa
+  capability no App ID principal antes de deixar criar uma Services ID
+  vinculada a ele). Se um build assinado falhar por entitlement ausente,
+  é o primeiro lugar pra conferir.
+- A Function `client-actions` redeployada com a ação `apple-native-signin`
+  e o `--execute any` (ver seção de Functions abaixo) — sem isso, o login
+  nativo no iOS não tem como funcionar mesmo com o app buildado certo.
 
 **Exclusão de conta** (`/perfil`): obrigatória pela guideline 5.1.1(v) da
 App Store sempre que o app permite criar conta. O SDK cliente do Appwrite
@@ -176,13 +206,14 @@ então isso roda como Appwrite Function, nunca no cliente. Ver
 
 **Entrar num "longão"**, **criar a primeira linha de
 `profiles`/`profile_stats`/`place_run_stats`**, **salvar/sugerir um
-override de treinador no plano do aluno**, e **enviar o e-mail de
-boas-vindas** — cinco ações privilegiadas diferentes, cinco motivos
-diferentes pra não serem uma escrita direta do cliente (ver o comentário
-de cada handler em `appwrite-functions/client-actions/src/main.js` pro
-raciocínio específico de cada uma), mas **uma Function só**,
-`client-actions`, despachando por um campo `action` no corpo da
-requisição.
+override de treinador no plano do aluno**, **enviar o e-mail de
+boas-vindas**, e **validar o login nativo com Apple no iOS**
+(`apple-native-signin`, ver seção "Prontidão pra revisão das lojas" acima)
+— seis ações privilegiadas diferentes, seis motivos diferentes pra não
+serem uma escrita direta do cliente (ver o comentário de cada handler em
+`appwrite-functions/client-actions/src/main.js` pro raciocínio específico
+de cada uma), mas **uma Function só**, `client-actions`, despachando por
+um campo `action` no corpo da requisição.
 
 **Por que uma Function só em vez de seis**: o plano **Free** do Appwrite
 Cloud trava em **2 Functions por projeto** (conferido em
@@ -204,11 +235,34 @@ cd appwrite-functions/client-actions
 appwrite functions create \
   --function-id client-actions --name "Ações privilegiadas do cliente" \
   --runtime node-22 --entrypoint src/main.js \
-  --execute users \
+  --execute any \
   --scopes users.read --scopes users.write --scopes databases.read \
   --scopes databases.write --scopes files.write
 appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --activate
 ```
+
+**Se `client-actions` já existe** (caso normal — ela já está em produção
+desde a consolidação da auditoria LGPD, ver `PROJECT-CONTEXT.md`): o
+comando `create` acima falha porque o ID já existe, e o `create-deployment`
+sozinho não muda `--execute`/`--scopes` de uma function já criada — só o
+código. Redeploy de código novo (inclui `apple-native-signin`):
+
+```bash
+cd appwrite-functions/client-actions
+appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --activate
+```
+
+Pra mudar `--execute` de `users` pra `any` (necessário pra
+`apple-native-signin` funcionar — é a única ação que roda sem sessão
+nenhuma, ver o comentário de `PUBLIC_ACTIONS` em `main.js`): **Appwrite
+Console → Functions → client-actions → Settings → Execute Access → Any**
+(a lista de scopes acima não muda — `users.read`/`users.write` já cobrem
+`Users.create`/`Users.createToken`, que é tudo que `apple-native-signin`
+precisa além do que as outras ações já usavam). O check
+`x-appwrite-user-id` dentro de `clientActions()` continua bloqueando toda
+ação que não seja `apple-native-signin` mesmo com execução aberta pra
+`any` — abrir isso não deixa nenhuma das outras seis ações chamável
+anonimamente.
 
 Depois, no Appwrite Console → Functions → client-actions → **Settings →
 Variables**, adiciona:
@@ -217,8 +271,12 @@ Variables**, adiciona:
 - `GEMINI_API_KEY` — usada pela ação `suggest-plan-override`, mesmo valor
   já presente em `.env.local`.
 
-O `--execute users` restringe a chamada a usuários autenticados — todas as
-seis ações exigem sessão, nenhuma é pensada pra ser chamada anônima. Rode
+O `--execute any` libera a chamada pra qualquer um, autenticado ou não —
+necessário só por causa de `apple-native-signin` (a única das seis ações
+sem sessão possível). O check de sessão dentro de `clientActions()` (ver
+`PUBLIC_ACTIONS` em `main.js`) continua exigindo `x-appwrite-user-id` pra
+todas as outras cinco, então nenhuma delas passa a ser chamável anônima só
+por isso. Rode
 `npx tsx scripts/appwrite-setup.ts` depois do deploy pra garantir que
 `plan_overrides` existe e que a permissão antiga de `create` aberta em
 `profiles`/`profile_stats`/`place_run_stats` foi retirada (achado de uma
