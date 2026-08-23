@@ -74,8 +74,17 @@ const RESPONSE_SCHEMA = {
       },
     },
     note: { type: "STRING" },
+    // Coach-facing, distinct from "note" (athlete-facing tone). Exists
+    // because of a 2026-08 competitive read of Runna's coaching-quality
+    // reviews (WSJ-reported injury pattern, blog testimonials): the
+    // recurring complaint wasn't that an AI-generated plan felt generic,
+    // it's that the plan didn't visibly *react* to the runner's own signals
+    // (fatigue, a missed week, an injury note), so people ended up trusting
+    // an opaque output more than they should have. Required, not optional,
+    // specifically so the model can't skip explaining itself.
+    reasoning: { type: "STRING" },
   },
-  required: ["sessions", "note"],
+  required: ["sessions", "note", "reasoning"],
 };
 
 function welcomeEmailHtml(name) {
@@ -518,6 +527,7 @@ Monte UMA semana de treino (domingo a domingo, mas responda os 7 dias na ordem s
 - "paceZone" só quando "kind" for "quality": "easy", "marathon", "threshold", "interval" ou "repetition".
 - No máximo 1 dia "quality" e 1 dia "long" na semana — o resto fácil ou descanso (princípio 80/20 acima).
 - "note": 1-2 frases curtas em português, em tom de treinador falando com o aluno, explicando o foco da semana.
+- "reasoning": 2-3 frases curtas em português, dirigidas ao TREINADOR (não ao aluno) explicando por que essa semana ficou assim — cite os números reais da tendência acima (ex.: "subiu de 12 pra 15km nas últimas 2 semanas, then..."), não frases genéricas tipo "seguindo boas práticas". Se o treinador passou contexto, essa resposta PRECISA dizer explicitamente como esse contexto pesou na escolha (ex.: "por causa do joelho, reduzi o treino forte pra Z2 e tirei o longão") — nunca ignorar em silêncio um contexto que foi passado. Se não veio contexto nenhum, diga isso também ("sem contexto adicional, segui só a tendência de volume").
 
 Responda só o JSON pedido.`;
 
@@ -585,9 +595,16 @@ Responda só o JSON pedido.`;
     ok: true,
     sessions: finalSessions,
     note: typeof suggestion.note === "string" ? suggestion.note.slice(0, 300) : "",
+    reasoning: typeof suggestion.reasoning === "string" ? suggestion.reasoning.slice(0, 500) : "",
     totalKm: Math.round(finalSessions.reduce((sum, s) => sum + s.km, 0) * 10) / 10,
     capped,
     capKm,
+    // The model's own total before the safety cap clipped it — kept apart
+    // from the already-existing `capped`/`capKm` pair so the UI can show
+    // *both* numbers ("a IA sugeriu 28km, o teto pra essa semana era 24km")
+    // instead of only the post-cap result, which reads as the AI having
+    // suggested the safe number all along.
+    rawSuggestedTotalKm: suggestedTotalKm,
   });
 }
 

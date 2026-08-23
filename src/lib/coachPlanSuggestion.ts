@@ -16,10 +16,14 @@ import type { PlannedSession } from "./plan";
 export interface PlanSuggestion {
   sessions: PlannedSession[];
   note: string;
+  /** Coach-facing explanation of why the week looks like this — distinct tone/audience from `note`. Always non-empty (the schema requires it): references the actual weekly-km trend, and explicitly says whether/how the coach's own free-text context was factored in, rather than silently ignoring it. */
+  reasoning: string;
   totalKm: number;
   /** True when the model's own suggestion exceeded the safety cap and was scaled down to fit it — surfaced so the coach knows the numbers were adjusted, not just accepted as-is. */
   capped: boolean;
   capKm: number;
+  /** The model's own total before the cap above clipped it — only meaningful when `capped` is true. */
+  rawSuggestedTotalKm: number;
 }
 
 export type SuggestPlanOverrideReason =
@@ -66,7 +70,16 @@ export async function suggestPlanOverride(
         reason: (knownReasons as string[]).includes(reason ?? "") ? (reason as SuggestPlanOverrideReason) : "failed",
       };
     }
-    return { ok: true, sessions: responseBody.sessions, note: responseBody.note, totalKm: responseBody.totalKm, capped: responseBody.capped, capKm: responseBody.capKm };
+    return {
+      ok: true,
+      sessions: responseBody.sessions,
+      note: responseBody.note,
+      reasoning: responseBody.reasoning,
+      totalKm: responseBody.totalKm,
+      capped: responseBody.capped,
+      capKm: responseBody.capKm,
+      rawSuggestedTotalKm: responseBody.rawSuggestedTotalKm,
+    };
   } catch {
     return { ok: false, reason: "failed" };
   }

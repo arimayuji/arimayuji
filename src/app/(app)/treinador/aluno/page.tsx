@@ -461,11 +461,17 @@ function WeekPlanEditor({
     }
     setDraftSessions(result.sessions);
     setDraftNote(result.note);
-    setSuggestionNotice(
-      result.capped
-        ? `Sugestão da IA — reduzida pra ${result.capKm} km pra respeitar o limite seguro de progressão. Revise antes de salvar.`
-        : "Sugestão da IA preenchida abaixo. Revise antes de salvar.",
-    );
+    // `reasoning` always leads — it's the model's own account of what drove
+    // this week's numbers, including whether/how any context typed above
+    // was factored in (the prompt requires it to say either way, never
+    // silently ignore it). The cap sentence only appends when it actually
+    // fired, naming both numbers (what the AI suggested vs. the safety
+    // ceiling) rather than just the already-adjusted result, which used to
+    // read as if the AI had suggested the safe number all along.
+    const capNote = result.capped
+      ? ` A IA sugeriu ${result.rawSuggestedTotalKm} km ao todo, mas o limite seguro de progressão pra essa semana é ${result.capKm} km — os números acima já foram ajustados pra caber nisso.`
+      : "";
+    setSuggestionNotice(`${result.reasoning}${capNote}`);
   };
 
   return (
