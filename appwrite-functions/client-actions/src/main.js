@@ -1,4 +1,4 @@
-import { Client, Permission, Query, Role, Storage, TablesDB, Users } from "node-appwrite";
+import { Client, ID, Permission, Query, Role, Storage, TablesDB, Users } from "node-appwrite";
 
 // Same fixed ID as src/lib/appwrite.ts (APPWRITE_DATABASE_ID).
 const DATABASE_ID = "6a7cd61a00290490a79d";
@@ -74,8 +74,17 @@ const RESPONSE_SCHEMA = {
       },
     },
     note: { type: "STRING" },
+    // Coach-facing, distinct from "note" (athlete-facing tone). Exists
+    // because of a 2026-08 competitive read of Runna's coaching-quality
+    // reviews (WSJ-reported injury pattern, blog testimonials): the
+    // recurring complaint wasn't that an AI-generated plan felt generic,
+    // it's that the plan didn't visibly *react* to the runner's own signals
+    // (fatigue, a missed week, an injury note), so people ended up trusting
+    // an opaque output more than they should have. Required, not optional,
+    // specifically so the model can't skip explaining itself.
+    reasoning: { type: "STRING" },
   },
-  required: ["sessions", "note"],
+  required: ["sessions", "note", "reasoning"],
 };
 
 function welcomeEmailHtml(name) {
@@ -309,6 +318,108 @@ async function joinGroupRun({ userId, body, client, res, error }) {
   return res.json({ ok: true, groupRun });
 }
 
+/** Mirrors friendships.ts's own `pairKeyOf` exactly — same colon-joined, sorted-pair convention, so a row this Function creates dedupes against one the client created and vice versa. */
+function pairKeyOf(a, b) {
+  return [a, b].sort().join(":");
+}
+
+/**
+ * action: "pair-run-session" — the QR-pairing path for "corrida em dupla"
+ * (see PROJECT-CONTEXT.md). Scanning a session QR calls this instead of
+ * "join-group-run" directly, because that action requires the joiner to
+ * already be an accepted friend of the host — a real privacy boundary "o
+ * atleta pediu" for longão (see join-group-run's own comment), which a
+ * QR-paired stranger obviously isn't yet. Rather than carve a
+ * friendship-free exception into that boundary (reopening exactly the kind
+ * of access an LGPD audit pass already hardened), this action creates —
+ * or upgrades an existing pending one to — an ACCEPTED friendship between
+ * host and scanner first, then joins the same way join-group-run does.
+ * Physical QR scanning is a strong enough mutual-consent signal that
+ * skipping the normal request/accept dance is the deliberate trade-off
+ * here (product decision, 2026-08-23) — the two really do become friends,
+ * not just "run buddies for one session".
+ */
+async function pairRunSession({ userId, body, client, res, error }) {
+  const sessionCode = String(body.sessionCode ?? "").toUpperCase();
+  if (!sessionCode) {
+    return res.json({ error: "missing-session-code" }, 400);
+  }
+
+  const tablesDB = new TablesDB(client);
+  let groupRun;
+  try {
+    groupRun = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "group_runs", rowId: sessionCode });
+  } catch {
+    return res.json({ error: "not-found" }, 404);
+  }
+  if (groupRun.status === "closed") {
+    return res.json({ error: "closed" }, 403);
+  }
+  if (new Date(groupRun.expiresAt).getTime() < Date.now()) {
+    return res.json({ error: "expired" }, 403);
+  }
+
+  const hostId = groupRun.hostId;
+  if (hostId === userId) {
+    return res.json({ error: "self" }, 400);
+  }
+
+  const pairKey = pairKeyOf(hostId, userId);
+  try {
+    const existing = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "friendships",
+      queries: [Query.equal("pairKey", pairKey), Query.limit(1)],
+    });
+    if (existing.rows.length > 0) {
+      const row = existing.rows[0];
+      if (row.status !== "accepted") {
+        await tablesDB.updateRow({
+          databaseId: DATABASE_ID,
+          tableId: "friendships",
+          rowId: row.$id,
+          data: { status: "accepted" },
+        });
+      }
+    } else {
+      await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: "friendships",
+        rowId: ID.unique(),
+        data: { requesterId: hostId, addresseeId: userId, status: "accepted", pairKey },
+        permissions: [
+          Permission.read(Role.user(hostId)),
+          Permission.read(Role.user(userId)),
+          Permission.update(Role.user(hostId)),
+          Permission.update(Role.user(userId)),
+          Permission.delete(Role.user(hostId)),
+          Permission.delete(Role.user(userId)),
+        ],
+      });
+    }
+  } catch (err) {
+    error(`pair-run-session: falha ao criar/aceitar amizade entre ${hostId} e ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  try {
+    await tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      rowId: `${sessionCode}_${userId}`,
+      data: { sessionCode, userId, joinedAt: new Date().toISOString() },
+      permissions: [Permission.delete(Role.user(userId))],
+    });
+  } catch (err) {
+    if (err.code !== 409) {
+      error(`pair-run-session: falha ao entrar em ${sessionCode} para ${userId}: ${err.message}`);
+      return res.json({ error: "failed" }, 500);
+    }
+  }
+
+  return res.json({ ok: true, groupRun });
+}
+
 /** action: "claim-owned-row" — the only path allowed to create the first profiles/profile_stats/place_run_stats row for an account. Originally appwrite-functions/claim-owned-row. */
 async function claimOwnedRow({ userId, body, client, res, error }) {
   const { tableId } = body;
@@ -518,6 +629,7 @@ Monte UMA semana de treino (domingo a domingo, mas responda os 7 dias na ordem s
 - "paceZone" só quando "kind" for "quality": "easy", "marathon", "threshold", "interval" ou "repetition".
 - No máximo 1 dia "quality" e 1 dia "long" na semana — o resto fácil ou descanso (princípio 80/20 acima).
 - "note": 1-2 frases curtas em português, em tom de treinador falando com o aluno, explicando o foco da semana.
+- "reasoning": 2-3 frases curtas em português, dirigidas ao TREINADOR (não ao aluno) explicando por que essa semana ficou assim — cite os números reais da tendência acima (ex.: "subiu de 12 pra 15km nas últimas 2 semanas, then..."), não frases genéricas tipo "seguindo boas práticas". Se o treinador passou contexto, essa resposta PRECISA dizer explicitamente como esse contexto pesou na escolha (ex.: "por causa do joelho, reduzi o treino forte pra Z2 e tirei o longão") — nunca ignorar em silêncio um contexto que foi passado. Se não veio contexto nenhum, diga isso também ("sem contexto adicional, segui só a tendência de volume").
 
 Responda só o JSON pedido.`;
 
@@ -585,9 +697,16 @@ Responda só o JSON pedido.`;
     ok: true,
     sessions: finalSessions,
     note: typeof suggestion.note === "string" ? suggestion.note.slice(0, 300) : "",
+    reasoning: typeof suggestion.reasoning === "string" ? suggestion.reasoning.slice(0, 500) : "",
     totalKm: Math.round(finalSessions.reduce((sum, s) => sum + s.km, 0) * 10) / 10,
     capped,
     capKm,
+    // The model's own total before the safety cap clipped it — kept apart
+    // from the already-existing `capped`/`capKm` pair so the UI can show
+    // *both* numbers ("a IA sugeriu 28km, o teto pra essa semana era 24km")
+    // instead of only the post-cap result, which reads as the AI having
+    // suggested the safe number all along.
+    rawSuggestedTotalKm: suggestedTotalKm,
   });
 }
 
@@ -595,6 +714,7 @@ const ACTIONS = {
   "delete-account": deleteAccount,
   "send-welcome-email": sendWelcomeEmail,
   "join-group-run": joinGroupRun,
+  "pair-run-session": pairRunSession,
   "claim-owned-row": claimOwnedRow,
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,

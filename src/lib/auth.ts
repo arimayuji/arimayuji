@@ -26,6 +26,10 @@ export interface Profile extends Models.Row {
   leaderboardOptIn?: boolean;
   /** Shown on the *public* leaderboard view instead of `displayName` (falls back to `handle` when unset) — the friends-only view still shows the real `displayName`, same as everywhere else friends already see each other's real name. */
   publicDisplayName?: string;
+  /** Link to a running playlist (Spotify, Apple Music, whatever) — shown on /perfil and to friends on /perfil/ver. */
+  playlistUrl?: string;
+  /** Resolved once at save-time by src/lib/playlistLink.ts, not re-fetched per view — empty for a link this app doesn't know how to resolve a cover for. */
+  playlistCoverUrl?: string;
 }
 
 const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
@@ -317,10 +321,15 @@ export async function createProfile(handle: string, displayName: string): Promis
   return body.row;
 }
 
-/** Partial update of the signed-in account's own profile row — `avatarUrl`, `leaderboardOptIn`, `publicDisplayName` all go through this. No-op (returns `null`) when Appwrite isn't configured, same convention as every other function here. */
+/** Partial update of the signed-in account's own profile row — `avatarUrl`, `leaderboardOptIn`, `publicDisplayName`, `playlistUrl`/`playlistCoverUrl` all go through this. No-op (returns `null`) when Appwrite isn't configured, same convention as every other function here. */
 export async function updateProfile(
   userId: string,
-  patch: Partial<Pick<Profile, "displayName" | "avatarUrl" | "leaderboardOptIn" | "publicDisplayName">>,
+  patch: Partial<
+    Pick<
+      Profile,
+      "displayName" | "avatarUrl" | "leaderboardOptIn" | "publicDisplayName" | "playlistUrl" | "playlistCoverUrl"
+    >
+  >,
 ): Promise<Profile | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return null;

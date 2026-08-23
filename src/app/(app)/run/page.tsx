@@ -19,7 +19,16 @@ import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { listFriendConnections, type FriendConnection } from "@/lib/friendships";
 import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
-import { getActiveGroupRunCode, getGroupRun, listParticipants, type GroupRun } from "@/lib/groupRuns";
+import {
+  buildPairingUrl,
+  createGroupRun,
+  getActiveGroupRunCode,
+  getGroupRun,
+  listParticipants,
+  pairRunSession,
+  type GroupRun,
+} from "@/lib/groupRuns";
+import { PairingQrCode } from "../pairing-qr";
 import { useGroupLiveRuns, buildGroupMarkers } from "@/lib/useGroupLiveRuns";
 import { useAuth } from "@/lib/useAuth";
 import { GroupLiveMap } from "../group-live-map";
@@ -57,8 +66,8 @@ import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
-import { recordFinishedRun } from "@/lib/profileStats";
-import { updateProfile } from "@/lib/auth";
+import { recordFinishedRun, removeFinishedRun } from "@/lib/profileStats";
+import { getProfile, updateProfile } from "@/lib/auth";
 import type { RunningPlace } from "@/lib/places";
 import { projectRoute } from "@/lib/tracking/routeProjection";
 import { RouteMap } from "../route-map";
@@ -921,6 +930,80 @@ export default function RunPage() {
   /** Pre-selected on by default when there's an active longão — same reasoning `install-prompt.tsx` uses for defaults that should be visible but always a tap away from off. */
   const [shareLongao, setShareLongao] = useState(true);
 
+  /** "Correr com alguém" (QR pairing) — generating a code from this device. */
+  const [generatingPairing, setGeneratingPairing] = useState(false);
+  const [pairingGenerateError, setPairingGenerateError] = useState<string | null>(null);
+  /** An incoming pairing invite opened via `?parear=` (see src/app/parear/page.tsx and oauth-callback-listener.tsx) — resolved once on mount, confirmed explicitly rather than joined silently. */
+  const [pairingInvite, setPairingInvite] = useState<{ code: string; groupRun: GroupRun; hostName: string } | null>(
+    null,
+  );
+  const [pairingInviteBusy, setPairingInviteBusy] = useState(false);
+  const [pairingInviteError, setPairingInviteError] = useState<string | null>(null);
+
+  /**
+   * Resolves a `?parear=CODE` opened via deep link (QR scan) into a
+   * confirm prompt — never joins straight from the URL, since that would
+   * accept a friendship + expose live position with zero human confirmation
+   * on this side. Runs once; the param is a one-shot deep-link payload, not
+   * something client-side navigation should re-trigger on.
+   */
+  useEffect(() => {
+    const codigo = new URLSearchParams(window.location.search).get("parear");
+    if (!codigo) return;
+    let cancelled = false;
+    (async () => {
+      const groupRun = await getGroupRun(codigo);
+      if (cancelled) return;
+      if (!groupRun || groupRun.status !== "open" || new Date(groupRun.expiresAt).getTime() < Date.now()) {
+        setPairingInviteError("Esse convite não é mais válido — peça outro QR.");
+        return;
+      }
+      const hostProfile = await getProfile(groupRun.hostId);
+      if (cancelled) return;
+      setPairingInvite({ code: codigo, groupRun, hostName: hostProfile?.displayName ?? "Alguém" });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleGeneratePairing = async () => {
+    setGeneratingPairing(true);
+    setPairingGenerateError(null);
+    const firstName = profile?.displayName?.trim().split(/\s+/)[0];
+    const result = await createGroupRun(firstName ? `Corrida com ${firstName}` : "Corrida em dupla", Date.now());
+    setGeneratingPairing(false);
+    if (!result.ok) {
+      setPairingGenerateError("Não deu pra gerar o código agora — tenta de novo.");
+      return;
+    }
+    setLongaoSession(result.groupRun);
+    setShareLongao(true);
+  };
+
+  const handleConfirmPairing = async () => {
+    if (!pairingInvite) return;
+    setPairingInviteBusy(true);
+    setPairingInviteError(null);
+    const result = await pairRunSession(pairingInvite.code);
+    setPairingInviteBusy(false);
+    if (!result.ok) {
+      setPairingInviteError(
+        result.reason === "expired" || result.reason === "closed"
+          ? "Esse convite não é mais válido — peça outro QR."
+          : "Não deu pra parear agora — tenta de novo.",
+      );
+      return;
+    }
+    // Full navigation, not local state — the idle-refresh effect above that
+    // resolves `longaoSession` from `getActiveGroupRunCode()` only runs on
+    // mount/status-change, same reasoning already documented there; a fresh
+    // load is simpler than duplicating that logic here, and also drops the
+    // now-consumed `?parear=` param from the URL.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign("/run");
+  };
+
   /** Which metric gets the giant focus number on the tracking screen — a per-run UI choice, not persisted anywhere (defaults back to "ritmo" on the next run). */
   const [metricTemplate, setMetricTemplate] = useState<MetricId>("ritmo");
   /**
@@ -1582,6 +1665,7 @@ export default function RunPage() {
     if (!state.finishedRun) return;
     setDiscarding(true);
     await deleteCompletedRun(state.finishedRun.id);
+    if (account) void removeFinishedRun(state.finishedRun.distanceMeters);
     handleReset();
   };
 
@@ -1712,6 +1796,34 @@ export default function RunPage() {
       {state.status === "idle" && !recoverableRun && (
         <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
           <div className="mx-auto w-full max-w-sm space-y-6">
+            {pairingInvite && (
+              <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4">
+                <p className="text-sm font-semibold">{pairingInvite.hostName} te chamou pra correr</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  Vocês vão ver a posição um do outro ao vivo enquanto correm. Se ainda não são amigos
+                  no app, isso já resolve — parear aceita a amizade pra vocês.
+                </p>
+                {pairingInviteError && <p className="mt-2 text-xs text-bad">{pairingInviteError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleConfirmPairing}
+                    disabled={pairingInviteBusy}
+                    className="flex-1 rounded-full bg-accent px-3.5 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+                  >
+                    {pairingInviteBusy ? "Pareando…" : "Parear"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPairingInvite(null)}
+                    className="rounded-full border border-border px-3.5 py-2 text-xs font-medium"
+                  >
+                    Agora não
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
                 Preparar corrida
@@ -1930,13 +2042,43 @@ export default function RunPage() {
               )}
             </div>
 
+            {!longaoSession && (
+              <div className="block space-y-1.5">
+                <span className="text-sm font-medium">Correr com alguém</span>
+                <p className="text-xs text-muted">
+                  Gere um código pra parear com quem for correr com você agora — ela vê sua posição,
+                  você vê a dela, e não precisa já ser amigo no app.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGeneratePairing}
+                  disabled={generatingPairing}
+                  className="rounded-full border border-accent bg-accent/10 px-3.5 py-2 text-xs font-semibold text-accent disabled:opacity-60"
+                >
+                  {generatingPairing ? "Gerando…" : "Gerar QR"}
+                </button>
+                {pairingGenerateError && <p className="text-xs text-bad">{pairingGenerateError}</p>}
+              </div>
+            )}
+
             {longaoSession && (
               <div className="block space-y-1.5">
-                <span className="text-sm font-medium">Longão: {longaoSession.name}</span>
+                <span className="text-sm font-medium">{longaoSession.name}</span>
                 <p className="text-xs text-muted">
-                  Quem já entrou nesse longão (código {longaoSession.$id}) vê sua posição enquanto a
-                  corrida rolar.
+                  Quem entrou com esse código ({longaoSession.$id}) vê sua posição enquanto a corrida
+                  rolar.
                 </p>
+
+                {longaoSession.hostId === account?.id && (
+                  <div className="mt-1 flex flex-col items-center gap-2 rounded-2xl border border-border bg-background p-4">
+                    <PairingQrCode url={buildPairingUrl(longaoSession.$id)} className="w-40" />
+                    <p className="font-mono text-sm font-semibold tracking-wider">{longaoSession.$id}</p>
+                    <p className="text-center text-[11px] text-muted">
+                      Peça pra escanear com a câmera do celular dela
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -1947,7 +2089,7 @@ export default function RunPage() {
                         : "border-border bg-surface text-foreground hover:border-accent"
                     }`}
                   >
-                    Compartilhar com o longão
+                    Compartilhar
                   </button>
                   <button
                     type="button"

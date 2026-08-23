@@ -44,6 +44,7 @@ import { useAuth } from "@/lib/useAuth";
 import { listCoachConnections } from "@/lib/coachRelationships";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
+import { resolvePlaylistCover } from "@/lib/playlistLink";
 import type { RunningPlace } from "@/lib/places";
 
 /**
@@ -60,10 +61,10 @@ const UNITS: { value: DistanceUnit; label: string; hint: string }[] = [
   { value: "mi", label: "Milhas", hint: "mi · min/mi" },
 ];
 
-const THEMES: { value: ThemeMode; label: string }[] = [
-  { value: "light", label: "Claro" },
-  { value: "dark", label: "Escuro" },
-  { value: "system", label: "Sistema" },
+const THEMES: { id: ThemeMode; label: string }[] = [
+  { id: "light", label: "Claro" },
+  { id: "dark", label: "Escuro" },
+  { id: "system", label: "Sistema" },
 ];
 
 /** Same register as the bottom-nav icons in app-shell.tsx: stroke-only, 1.7 weight, round joins. */
@@ -739,7 +740,17 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
       {shoes === null ? (
         <div className="h-12 animate-pulse rounded-lg bg-background" />
       ) : shoes.length === 0 ? (
-        <p className="text-xs leading-relaxed text-muted">Nenhum tênis registrado ainda.</p>
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+            <img
+              src="/perfil-tenis-empty.png"
+              alt="Ilustração de um tênis de corrida esperando num caminho"
+              className="h-full w-full object-cover"
+            />
+          </div>
+          <p className="text-xs leading-relaxed text-muted">Nenhum tênis registrado ainda.</p>
+        </div>
       ) : (
         <>
           <ShoeHero shoes={shoes} summaryFor={summaryFor} unit={unit} />
@@ -831,13 +842,34 @@ function PlaceLeaderboardCard() {
   const [scanDone, setScanDone] = useState(false);
 
   const optedIn = profile?.leaderboardOptIn ?? false;
+  const [toggleError, setToggleError] = useState(false);
 
+  /**
+   * `finally` here isn't decoration — `updateProfile` throws straight from
+   * the Appwrite SDK on a permission error (no try/catch of its own), and
+   * without this, that throw would skip `setSavingToggle(false)` entirely:
+   * the switch stays visually off (never refreshed) *and* every future tap
+   * becomes a no-op forever, since `savingToggle` never clears. That's
+   * exactly what a real 2026-08-22 report ("toggle não funciona") turned
+   * out to be — surfaced as an unrecoverable stuck switch instead of a
+   * visible error, from a rowSecurity gap on the profiles table (see
+   * appwrite-setup.ts's "tighten LGPD finding #12" block for the actual
+   * fix) rather than anything wrong in this handler. Keeping the
+   * try/finally regardless: any future failure here should degrade to "try
+   * again", never to "this button is dead now".
+   */
   async function handleToggle(next: boolean) {
     if (!account || savingToggle) return;
     setSavingToggle(true);
-    await updateProfile(account.id, { leaderboardOptIn: next });
-    await refresh();
-    setSavingToggle(false);
+    setToggleError(false);
+    try {
+      await updateProfile(account.id, { leaderboardOptIn: next });
+      await refresh();
+    } catch {
+      setToggleError(true);
+    } finally {
+      setSavingToggle(false);
+    }
   }
 
   async function handleNameBlur() {
@@ -845,9 +877,17 @@ function PlaceLeaderboardCard() {
     const trimmed = publicName.trim();
     if (trimmed === (profile?.publicDisplayName ?? "")) return;
     setSavingName(true);
-    await updateProfile(account.id, { publicDisplayName: trimmed });
-    await refresh();
-    setSavingName(false);
+    try {
+      await updateProfile(account.id, { publicDisplayName: trimmed });
+      await refresh();
+    } catch {
+      // Reverts to whatever /perfil already had on the next render — no
+      // separate error UI for a field this low-stakes, same reasoning
+      // handleToggle's own comment explains for why this can't be silent
+      // in a way that leaves `savingName` stuck instead.
+    } finally {
+      setSavingName(false);
+    }
   }
 
   async function handleScan() {
@@ -898,6 +938,11 @@ function PlaceLeaderboardCard() {
             checked={optedIn}
             onChange={handleToggle}
           />
+          {toggleError && (
+            <p className="mt-2 text-xs leading-relaxed text-bad">
+              Não deu pra salvar agora — tenta de novo em instantes.
+            </p>
+          )}
 
           {optedIn && (
             <div className="mt-4 border-t border-border pt-4">
@@ -961,6 +1006,89 @@ function PlaceLeaderboardCard() {
               </div>
             </div>
           )}
+        </>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * A link to the account's running playlist, shown here for editing and on
+ * /perfil/ver for a friend viewing it. Cover art only resolves for Spotify
+ * links (see src/lib/playlistLink.ts's own comment for why) — anything else
+ * still saves and still shows as a plain link, just without a cover.
+ */
+function PlaylistCard() {
+  const { status, account, profile, refresh } = useAuth();
+  const [url, setUrl] = useState(profile?.playlistUrl ?? "");
+  const [resolvingCover, setResolvingCover] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+
+  async function handleBlur() {
+    if (!account) return;
+    const trimmed = url.trim();
+    if (trimmed === (profile?.playlistUrl ?? "")) return;
+    setSaveError(false);
+
+    if (!trimmed) {
+      try {
+        await updateProfile(account.id, { playlistUrl: "", playlistCoverUrl: "" });
+        await refresh();
+      } catch {
+        setSaveError(true);
+      }
+      return;
+    }
+
+    setResolvingCover(true);
+    try {
+      const coverUrl = await resolvePlaylistCover(trimmed);
+      await updateProfile(account.id, { playlistUrl: trimmed, playlistCoverUrl: coverUrl ?? "" });
+      await refresh();
+    } catch {
+      setSaveError(true);
+    } finally {
+      setResolvingCover(false);
+    }
+  }
+
+  return (
+    <Card className="pr-enter" style={delay(90)}>
+      <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Playlist pra corrida</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Cole o link de uma playlist (Spotify, Apple Music, o que for) — amigos que veem seu perfil
+        conseguem abrir ela direto.
+      </p>
+
+      {status !== "signed-in" ? (
+        <p className="text-xs text-muted">Precisa de conta pra salvar (Google ou Apple, em Conta acima).</p>
+      ) : (
+        <>
+          {profile?.playlistCoverUrl && (
+            <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-background p-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- an external cover URL, next/image's optimizer isn't available in a static export anyway. */}
+              <img
+                src={profile.playlistCoverUrl}
+                alt="Capa da playlist"
+                className="h-12 w-12 flex-none rounded-lg object-cover"
+              />
+              <p className="min-w-0 truncate text-xs text-muted">{profile.playlistUrl}</p>
+            </div>
+          )}
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium">Link da playlist</span>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onBlur={handleBlur}
+              placeholder="https://open.spotify.com/playlist/..."
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </label>
+          {resolvingCover && <p className="mt-1.5 text-[11px] text-muted">Buscando a capa…</p>}
+          {saveError && <p className="mt-1.5 text-[11px] text-bad">Não deu pra salvar agora — tenta de novo.</p>}
         </>
       )}
     </Card>
@@ -1035,17 +1163,7 @@ export default function PerfilPage() {
           <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
             &quot;Sistema&quot; segue o tema do aparelho e muda sozinho se você trocar por lá.
           </p>
-          <div className="flex gap-2">
-            {THEMES.map((theme) => (
-              <SegmentedButton
-                key={theme.value}
-                selected={prefs.theme === theme.value}
-                onClick={() => update({ theme: theme.value })}
-              >
-                {theme.label}
-              </SegmentedButton>
-            ))}
-          </div>
+          <PillTabs tabs={THEMES} active={prefs.theme} onChange={(theme) => update({ theme })} />
         </Card>
 
         <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
@@ -1089,6 +1207,7 @@ export default function PerfilPage() {
         </Card>
 
         <PlaceLeaderboardCard />
+        <PlaylistCard />
 
         <SectionLabel delayMs={110}>Treino</SectionLabel>
         <Card className="pr-enter" style={delay(120)}>

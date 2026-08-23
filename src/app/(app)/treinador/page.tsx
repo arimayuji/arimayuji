@@ -350,10 +350,20 @@ export default function TreinadorPage() {
                 (connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : myCoaches.length === 0 ? (
-                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
-                    Nenhum treinador ainda. Depois de aceito, você escolhe corrida por corrida o que enviar
-                    pra ele ver, na tela de detalhe de cada corrida.
-                  </p>
+                  <div className="py-2 text-center">
+                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+                      <img
+                        src="/treinador-sem-treinador-empty.png"
+                        alt="Ilustração de um corredor olhando pra outro correndo à frente"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      Nenhum treinador ainda. Depois de aceito, você escolhe corrida por corrida o que enviar
+                      pra ele ver, na tela de detalhe de cada corrida.
+                    </p>
+                  </div>
                 ) : (
                   <ul className="flex flex-col gap-3">
                     {myCoaches.map((connection) => (
@@ -373,9 +383,19 @@ export default function TreinadorPage() {
                 (connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : myStudents.length === 0 ? (
-                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
-                    Nenhum aluno ainda. Convide pelo @ acima, marcando &quot;É meu aluno&quot;.
-                  </p>
+                  <div className="py-2 text-center">
+                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+                      <img
+                        src="/treinador-sem-alunos-empty.png"
+                        alt="Ilustração de um cronômetro esperando num banco de pista vazia"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      Nenhum aluno ainda. Convide pelo @ acima, marcando &quot;É meu aluno&quot;.
+                    </p>
+                  </div>
                 ) : (
                   <ul className="flex flex-col gap-3">
                     {myStudents.map((connection) => (

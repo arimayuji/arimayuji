@@ -29,6 +29,7 @@
 import { ExecutionMethod, Permission, Query, Role, type Models } from "appwrite";
 import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getCurrentAccount, getProfile, type Profile } from "./auth";
+import { publicOrigin } from "./platform";
 
 export type GroupRunStatus = "open" | "closed";
 
@@ -142,6 +143,18 @@ export async function createGroupRun(name: string, startsAt: number): Promise<Cr
   return { ok: false, reason: "failed" };
 }
 
+/**
+ * The link a QR code encodes for "corrida em dupla" pairing —
+ * `src/app/parear/page.tsx` is the landing page it resolves to, same
+ * pattern `/convite`'s own link already uses (try the custom scheme first,
+ * fall back to a download page). A plain https URL rather than a bare code
+ * so any phone's stock camera app can already scan it with no in-app
+ * scanner needed — only the *generating* side needs the `qrcode` package.
+ */
+export function buildPairingUrl(code: string): string {
+  return `${publicOrigin()}/parear?codigo=${encodeURIComponent(code)}`;
+}
+
 export async function getGroupRun(code: string): Promise<GroupRun | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return null;
@@ -202,6 +215,45 @@ export async function joinGroupRun(code: string): Promise<JoinGroupRunResult> {
   const result = await callJoinGroupRunFunction(normalized);
   if (result.ok) setActiveGroupRunCode(normalized);
   return result;
+}
+
+type PairRunSessionFailureReason = "unavailable" | "not-found" | "expired" | "closed" | "self" | "failed";
+
+export type PairRunSessionResult = { ok: true; groupRun: GroupRun } | { ok: false; reason: PairRunSessionFailureReason };
+
+/**
+ * The QR-pairing join path for "corrida em dupla" — runs the
+ * "pair-run-session" Function instead of `joinGroupRun`'s
+ * "join-group-run", because that one requires already being an accepted
+ * friend of the host (see its own comment) and a QR-paired stranger
+ * obviously isn't yet. The Function creates/accepts that friendship first
+ * (a QR scan is treated as strong enough mutual consent to skip the normal
+ * request/accept dance — product decision, 2026-08-23) and only then joins,
+ * so this always leaves the two as real, accepted friends, not just
+ * paired for one session.
+ */
+export async function pairRunSession(code: string): Promise<PairRunSessionResult> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return { ok: false, reason: "unavailable" };
+  const normalized = normalizeJoinCode(code);
+  try {
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "pair-run-session", sessionCode: normalized }),
+    });
+    const body = JSON.parse(execution.responseBody || "{}") as
+      | { ok: true; groupRun: GroupRun }
+      | { error: PairRunSessionFailureReason };
+    if (execution.responseStatusCode >= 200 && execution.responseStatusCode < 300 && "ok" in body && body.ok) {
+      setActiveGroupRunCode(normalized);
+      return { ok: true, groupRun: body.groupRun };
+    }
+    const reason = "error" in body ? body.error : "failed";
+    return { ok: false, reason: reason ?? "failed" };
+  } catch {
+    return { ok: false, reason: "failed" };
+  }
 }
 
 export async function leaveGroupRun(code: string): Promise<boolean> {

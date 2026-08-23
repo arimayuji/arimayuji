@@ -383,9 +383,19 @@ export default function AmigosPage() {
                 (connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : friends.length === 0 ? (
-                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
-                    Nenhum amigo ainda. Adicione pelo @ acima.
-                  </p>
+                  <div className="py-2 text-center">
+                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+                      <img
+                        src="/amigos-empty.png"
+                        alt="Ilustração de dois amigos correndo juntos"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      Nenhum amigo ainda. Adicione pelo @ acima.
+                    </p>
+                  </div>
                 ) : (
                   <ul className="flex flex-col gap-3">
                     {friends.map((connection) => (

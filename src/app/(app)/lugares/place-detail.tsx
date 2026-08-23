@@ -97,11 +97,25 @@ function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
       ) : visible === undefined || visible === null ? (
         <p className="text-sm leading-relaxed text-muted">Carregando ranking…</p>
       ) : visible.length === 0 ? (
-        <p className="text-sm leading-relaxed text-muted text-pretty">
-          {scope === "public"
-            ? "Ninguém participando ainda — seja a primeira pessoa a contar uma corrida aqui."
-            : "Nenhum amigo seu participa do ranking neste lugar ainda."}
-        </p>
+        scope === "public" ? (
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+              <img
+                src="/lugares-ranking-empty.png"
+                alt="Ilustração de uma placa de trilha num caminho vazio"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <p className="text-sm leading-relaxed text-muted text-pretty">
+              Ninguém participando ainda — seja a primeira pessoa a contar uma corrida aqui.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm leading-relaxed text-muted text-pretty">
+            Nenhum amigo seu participa do ranking neste lugar ainda.
+          </p>
+        )
       ) : (
         <ol className="flex flex-col gap-2.5">
           {visible.map((entry, i) => {

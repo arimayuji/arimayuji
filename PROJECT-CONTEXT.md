@@ -511,7 +511,7 @@ importa persistir é a ação pendente:
   "Strava só que melhor/gaming" (não detalhado ainda o que isso significa
   visualmente).
 
-## Modo treinador com IA — Fase A implementada, Fase B planejada
+## Modo treinador com IA — Fases A e B implementadas, Fase C escopada
 
 Pedido do dono do projeto (2026-08-22): o "modo treinador" deveria virar
 algo mais parecido com o Runna — um treinador de verdade ajustando o plano
@@ -615,6 +615,30 @@ ainda não deployada em produção)**:
   foi deployada; instruções completas no `README.md`, incluindo o passo
   de configurar a variável `GEMINI_API_KEY` nela (usada só por essa ação,
   ao lado de `RESEND_API_KEY` usada por `send-welcome-email`).
+
+**Fase C (painel web pra vários alunos, escopo decidido em 2026-08-23,
+nada implementado ainda)** — motivação: um treinador que atende muita
+gente é um multiplicador de aquisição (1 treinador ativo traz vários
+alunos novos), diferente de um usuário comum que só puxa quem já corre
+junto — vale investir numa tela que escale além de 1-2 alunos.
+`/treinador` hoje é uma lista simples e `/treinador/aluno` abre um aluno
+por vez em coluna de celular; não escala pra quem treina 15+. Mockup
+visual em "Sala de Treino" (artifact desta sessão) propõe uma janela de
+navegador (não celular) com tira de resumo (ativos / correndo agora /
+sem contato há 7+ dias) + lista de alunos com pill de status e aderência
+à meta + a mesma "Planilha da semana" de sempre ao lado, sem navegação
+por aluno. **Decisão de escopo fechada nesta sessão**: essa superfície
+web é **só pra navegar/gerenciar** — nunca capta GPS nem roda tracking
+nenhum. Todo dado de corrida continua vindo exclusivamente do app nativo
+do aluno sincronizando pro Appwrite (`live_runs`, `runs` via
+`runsSync.ts`); o painel do treinador só lê isso. **Não é reviver o PWA
+do atleta** (esse continua morto por completo, ver "O produto, em uma
+frase" acima) — é uma superfície nova e separada, cujo público (o
+treinador) nunca precisa de GPS/tracking pra usá-la. Em aberto: se o
+login do treinador nessa web continua a mesma conta Google/Apple de
+sempre (só acessada de um navegador de desktop em vez do app nativo) e
+se isso vira uma rota nova dentro do mesmo Next.js ou uma superfície/
+deploy própria.
 
 ## Perguntas em aberto (preencher quando puder)
 

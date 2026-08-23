@@ -19,10 +19,12 @@ import {
   buildShareCardScene,
   scenarioForRun,
   SHARE_CARD_DURATION_MS,
+  SHARE_CARD_DURATION_OPTIONS,
   SHARE_CARD_HEIGHT,
   SHARE_CARD_WIDTH,
   drawShareCardFrame,
   type PhotoGridLayout,
+  type ShareCardDurationId,
   type ShareCardLayout,
   type ShareCardMusicMode,
   type ShareCardScene,
@@ -303,6 +305,8 @@ function CompartilharContent() {
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [photoFilter, setPhotoFilter] = useState<PhotoFilterId>("original");
   const [textEntrance, setTextEntrance] = useState<TextEntranceId>("bumerangue");
+  const [durationId, setDurationId] = useState<ShareCardDurationId>("padrao");
+  const durationMs = SHARE_CARD_DURATION_OPTIONS.find((o) => o.id === durationId)!.ms;
   const [albumArt, setAlbumArt] = useState<HTMLImageElement | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [shoes, setShoes] = useState<Shoe[] | null>(null);
@@ -562,6 +566,7 @@ function CompartilharContent() {
       try {
         let lastShown = 0;
         const file = await buildShareCardVideoFile(scene, {
+          durationMs,
           onProgress: (fraction) => {
             if (fraction - lastShown < 0.05 && fraction < 1) return;
             lastShown = fraction;
@@ -762,7 +767,7 @@ function CompartilharContent() {
       <Screen>
         <div className="pr-enter mx-auto w-full max-w-[300px]" style={delay(80)}>
           {scene ? (
-            <ShareCardPreview scene={scene} />
+            <ShareCardPreview scene={scene} durationMs={durationMs} />
           ) : (
             <ShareCard scenario={activeScenario} photoUrl={usingMedia ? photoUrls[0] : undefined} />
           )}
@@ -991,6 +996,33 @@ function CompartilharContent() {
               ))}
             </div>
             <p className="mt-2 px-1 text-xs text-muted">{TEXT_ENTRANCES[textEntrance].description}</p>
+          </div>
+
+          <div className="mt-4 border-t border-border pt-4">
+            <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+              Duração do vídeo
+            </span>
+            <div className="grid grid-cols-3 gap-2">
+              {SHARE_CARD_DURATION_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setDurationId(option.id)}
+                  aria-pressed={durationId === option.id}
+                  className={`rounded-xl border-2 px-2 py-2.5 text-center transition-colors ${
+                    durationId === option.id
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-muted hover:border-foreground/30"
+                  }`}
+                >
+                  <span className="block text-xs font-semibold">{option.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 px-1 text-xs text-muted">
+              Quanto mais longo, mais devagar o traçado da rota e os textos aparecem — a coreografia
+              inteira estica junto, não só a duração total.
+            </p>
           </div>
         </Card>
 
