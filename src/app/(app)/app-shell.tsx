@@ -205,7 +205,7 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                 }}
                 /* 64px+ tall target: this gets tapped mid-exercise. */
                 className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors ${
-                  active ? "font-bold text-white" : "font-medium text-white/50"
+                  active ? "font-bold text-white" : "font-medium text-white/85"
                 }`}
               >
                 <tab.icon className="h-[22px] w-[22px]" />
