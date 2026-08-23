@@ -9,6 +9,7 @@ import {
   sendFriendRequest,
 } from "@/lib/friendships";
 import { getProfileStats, type ProfileStats } from "@/lib/profileStats";
+import { parsePlaylists } from "@/lib/playlistLink";
 import { formatDistance, unitLabel } from "@/lib/units";
 import { usePreferences } from "@/lib/usePreferences";
 import { useAuth } from "@/lib/useAuth";
@@ -100,6 +101,7 @@ function VerPerfilContent() {
 
   const isFriend = friendshipId !== null;
   const isSelf = viewer !== null && profile !== null && profile !== undefined && viewer.id === profile.$id;
+  const playlists = parsePlaylists(profile?.playlists);
 
   async function handleAddFriend() {
     if (!profile) return;
@@ -233,35 +235,39 @@ function VerPerfilContent() {
           </Card>
         )}
 
-        {(isFriend || isSelf) && profile.playlistUrl && (
+        {(isFriend || isSelf) && playlists.length > 0 && (
           <Card className="pr-enter">
-            <a
-              href={profile.playlistUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="flex items-center gap-3"
-            >
-              {profile.playlistCoverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- an external cover URL, next/image's optimizer isn't available in a static export anyway.
-                <img
-                  src={profile.playlistCoverUrl}
-                  alt="Capa da playlist"
-                  className="h-12 w-12 flex-none rounded-lg object-cover"
-                />
-              ) : (
-                <div className="flex h-12 w-12 flex-none items-center justify-center rounded-lg bg-surface text-muted">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 18V5l10-2v13" />
-                    <circle cx="6" cy="18" r="3" />
-                    <circle cx="16" cy="16" r="3" />
-                  </svg>
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">Playlist pra corrida</p>
-                <p className="truncate text-xs text-muted">{profile.playlistUrl}</p>
-              </div>
-            </a>
+            <p className="mb-3 text-sm font-semibold">
+              {playlists.length > 1 ? "Playlists pra corrida" : "Playlist pra corrida"}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {playlists.map((entry, index) => (
+                <a
+                  key={`${entry.url}-${index}`}
+                  href={entry.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="block"
+                >
+                  {entry.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- an external cover URL, next/image's optimizer isn't available in a static export anyway.
+                    <img
+                      src={entry.coverUrl}
+                      alt="Capa da playlist"
+                      className="h-20 w-20 rounded-xl border border-border object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-border bg-surface text-muted">
+                      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 18V5l10-2v13" />
+                        <circle cx="6" cy="18" r="3" />
+                        <circle cx="16" cy="16" r="3" />
+                      </svg>
+                    </div>
+                  )}
+                </a>
+              ))}
+            </div>
           </Card>
         )}
 

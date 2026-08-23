@@ -36,3 +36,37 @@ export async function resolvePlaylistCover(url: string): Promise<string | null> 
     return null;
   }
 }
+
+export interface PlaylistEntry {
+  url: string;
+  coverUrl: string | null;
+}
+
+/**
+ * `profiles.playlists` stores each entry as its own JSON string (an Appwrite
+ * string array column) rather than two parallel `url`/`coverUrl` arrays —
+ * keeping the pair together means there's no index to keep in sync if a
+ * write ever fails partway, or a future migration reorders one array but
+ * not the other. Any entry that fails to parse (or has no string `url`) is
+ * dropped rather than surfaced — same "never throw over a nice-to-have"
+ * reasoning as `resolvePlaylistCover`.
+ */
+export function parsePlaylists(raw: string[] | undefined | null): PlaylistEntry[] {
+  if (!raw) return [];
+  const entries: PlaylistEntry[] = [];
+  for (const item of raw) {
+    try {
+      const parsed = JSON.parse(item) as { url?: unknown; coverUrl?: unknown };
+      if (typeof parsed.url === "string" && parsed.url) {
+        entries.push({ url: parsed.url, coverUrl: typeof parsed.coverUrl === "string" && parsed.coverUrl ? parsed.coverUrl : null });
+      }
+    } catch {
+      // Skip a malformed entry rather than losing every other playlist to it.
+    }
+  }
+  return entries;
+}
+
+export function serializePlaylists(entries: PlaylistEntry[]): string[] {
+  return entries.map((entry) => JSON.stringify({ url: entry.url, coverUrl: entry.coverUrl ?? "" }));
+}
