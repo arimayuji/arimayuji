@@ -457,6 +457,21 @@ export interface ShareCardTrack {
 }
 
 /**
+ * Athlete-dragged pixel offsets from each element's default position (in
+ * canvas units, at `SHARE_CARD_WIDTH`×`SHARE_CARD_HEIGHT` — never screen
+ * pixels), added on top of the template's own fixed layout rather than
+ * replacing it. Absent/zero means exactly today's fixed position, so a card
+ * built with no `layoutOverrides` renders identically to before this
+ * existed. `plate` covers whichever accessory is actually showing in that
+ * slot — the record medal or the shoe, never both — since they already
+ * share one slot (see drawShareCardFrame's own comment on that).
+ */
+export interface ShareCardLayoutOverrides {
+  stats?: { dx: number; dy: number };
+  plate?: { dx: number; dy: number };
+}
+
+/**
  * `"none"` never mentions the track even if the run has one logged.
  * `"chip"` keeps the usual photo/scenario background and adds a small
  * "playing" pill naming the track. `"background"` replaces the photo/scenario
@@ -500,6 +515,8 @@ export interface ShareCardInput {
   musicMode?: ShareCardMusicMode;
   /** The track's decoded artwork, already loaded — required for `musicMode: "background"`, optional (shown as a small thumbnail) for `"chip"`. */
   albumArt?: HTMLImageElement | null;
+  /** Defaults to `{}` — every element at its normal fixed position. */
+  layoutOverrides?: ShareCardLayoutOverrides;
 }
 
 interface Point {
@@ -532,6 +549,7 @@ export interface ShareCardScene {
   record: ShareCardRecord | null;
   shoe: ShareCardShoe | null;
   fontFamily: string;
+  layoutOverrides: ShareCardLayoutOverrides;
 }
 
 /** Which illustrated sky this run gets, from the hour it actually started at. */
@@ -607,6 +625,7 @@ export function buildShareCardScene({
   track = null,
   musicMode = "none",
   albumArt = null,
+  layoutOverrides = {},
 }: ShareCardInput): ShareCardScene {
   const projection = projectRoute(run.points, { viewBoxSize: 1, paddingFraction: 0.04 });
   const seconds = runMovingSeconds(run);
@@ -636,6 +655,7 @@ export function buildShareCardScene({
     record,
     shoe,
     fontFamily: numberFontFamily(),
+    layoutOverrides,
   };
 }
 
@@ -1212,6 +1232,24 @@ const TRAJETO_PLATE_POP_START = ROUTE_DRAW_END + 480;
 const NUMERO_PLATE_POP_START = 1450;
 
 /**
+ * Where the draggable stats block and plate/shoe accessory sit by default
+ * (canvas units, before any `ShareCardLayoutOverrides` offset), so the
+ * picker UI can place drag handles without duplicating the layout
+ * constants above — the one place outside this file that's allowed to know
+ * these numbers exist at all.
+ */
+export function defaultLayoutAnchors(layout: ShareCardLayout): {
+  stats: { x: number; y: number };
+  plate: { x: number; y: number };
+} {
+  const plateSlot = layout === "numero" ? NUMERO_PLATE_SLOT : TRAJETO_PLATE_SLOT;
+  return {
+    stats: { x: STAT_LEFT, y: STAT_DISTANCE_BASELINE },
+    plate: { x: plateSlot.x, y: plateSlot.y },
+  };
+}
+
+/**
  * The gem-cut plate, drawn the same way the SVG component draws it: every
  * facet of the rim is filled by *sampling* the tinted chrome ramp at the
  * position its outward normal faces the light, with no interpolation, so
@@ -1611,10 +1649,16 @@ export function drawShareCardFrame(
 
   // A record and a shoe want the same slot; the record wins, because a card
   // announcing a PR is doing a different job than one showing off the kit.
-  const [plateSlot, plateStart, shoeSlot, shoeStart] =
+  const [plateSlotBase, plateStart, shoeSlotBase, shoeStart] =
     scene.layout === "numero"
       ? [NUMERO_PLATE_SLOT, NUMERO_PLATE_POP_START, NUMERO_SHOE_SLOT, NUMERO_PLATE_POP_START]
       : [TRAJETO_PLATE_SLOT, TRAJETO_PLATE_POP_START, TRAJETO_SHOE_SLOT, TRAJETO_PLATE_POP_START];
+  // Same offset for both slots — whichever accessory is actually showing is
+  // the one the athlete dragged, and the other slot's position never
+  // matters since the two are mutually exclusive.
+  const plateOffset = scene.layoutOverrides.plate;
+  const plateSlot = plateOffset ? { ...plateSlotBase, x: plateSlotBase.x + plateOffset.dx, y: plateSlotBase.y + plateOffset.dy } : plateSlotBase;
+  const shoeSlot = plateOffset ? { ...shoeSlotBase, x: shoeSlotBase.x + plateOffset.dx, y: shoeSlotBase.y + plateOffset.dy } : shoeSlotBase;
   if (scene.record) drawPlate(ctx, scene, scene.record, t, plateSlot, plateStart);
   else if (scene.shoe) drawShoe(ctx, scene.shoe, t, shoeSlot, shoeStart);
 
@@ -1635,20 +1679,22 @@ export function drawShareCardFrame(
     );
   }
 
+  const statsOffset = scene.layoutOverrides.stats;
+  if (statsOffset) ctx.translate(statsOffset.dx, statsOffset.dy);
+
   if (scene.layout === "numero") {
     drawNumberStats(ctx, scene, t);
-    if (scene.musicMode !== "none") {
-      drawMusicChip(
-        ctx,
-        scene,
-        t,
-        SHARE_CARD_WIDTH / 2,
-        NUMERO_MUSIC_CHIP_Y,
-        "center",
-        NUMERO_MUSIC_CHIP_POP_START,
-      );
-    }
   } else {
     drawStats(ctx, scene, t);
+  }
+
+  if (statsOffset) ctx.translate(-statsOffset.dx, -statsOffset.dy);
+
+  // The music chip stays put even when the stats block is dragged — it
+  // isn't part of the "stats" element the athlete is offered a handle for
+  // (see ShareCardLayoutOverrides), just something that happens to sit near
+  // it in the default layout.
+  if (scene.layout === "numero" && scene.musicMode !== "none") {
+    drawMusicChip(ctx, scene, t, SHARE_CARD_WIDTH / 2, NUMERO_MUSIC_CHIP_Y, "center", NUMERO_MUSIC_CHIP_POP_START);
   }
 }

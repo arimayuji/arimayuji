@@ -36,6 +36,7 @@ import {
   type PhotoGridLayout,
   type ShareCardDurationId,
   type ShareCardLayout,
+  type ShareCardLayoutOverrides,
   type ShareCardMusicMode,
   type ShareCardScene,
 } from "@/lib/shareCard/renderer";
@@ -319,6 +320,8 @@ function CompartilharContent() {
   const [textEntrance, setTextEntrance] = useState<TextEntranceId>("bumerangue");
   /** On by default (the medal is the whole point of a PR share) — but the athlete may want a plainer card even on a record run, and hiding it falls back to the shoe plate below, same as any other run without a record. */
   const [showRecord, setShowRecord] = useState(true);
+  /** Where the athlete dragged the stats block/medal-or-shoe, if at all — see `ShareCardLayoutOverrides`'s own comment. Shared across every template on purpose: switching template keeps "how far I dragged it," not a per-template saved position. */
+  const [layoutOverrides, setLayoutOverrides] = useState<ShareCardLayoutOverrides>({});
   const [durationId, setDurationId] = useState<ShareCardDurationId>("padrao");
   const durationMs = SHARE_CARD_DURATION_OPTIONS.find((o) => o.id === durationId)!.ms;
   const [albumArt, setAlbumArt] = useState<HTMLImageElement | null>(null);
@@ -497,6 +500,7 @@ function CompartilharContent() {
           track: sharedTrack,
           musicMode: t.musicMode,
           albumArt,
+          layoutOverrides,
         });
         return { id: t.id, scene: built.projected.length >= 2 ? built : null };
       })
@@ -514,6 +518,7 @@ function CompartilharContent() {
     textEntrance,
     showRecord,
     headline,
+    layoutOverrides,
     shoe,
     track,
     albumArt,
@@ -792,7 +797,12 @@ function CompartilharContent() {
       <Screen>
         <div className="pr-enter mx-auto w-full max-w-[300px]" style={delay(80)}>
           {scene ? (
-            <ShareCardPreview scene={scene} durationMs={durationMs} />
+            <ShareCardPreview
+              scene={scene}
+              durationMs={durationMs}
+              layoutOverrides={layoutOverrides}
+              onLayoutOverridesChange={setLayoutOverrides}
+            />
           ) : (
             <ShareCard scenario={activeScenario} photoUrl={usingMedia ? photoUrls[0] : undefined} />
           )}
