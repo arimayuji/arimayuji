@@ -42,21 +42,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return config
     }
 
-    // @capacitor/push-notifications doesn't swizzle these three like it does
+    // @capacitor/push-notifications doesn't swizzle these like it does
     // application(_:open:) for deep links — its own README requires forwarding
     // them by hand, since only the app's own AppDelegate ever receives them
     // from iOS. Without this, PushNotifications.register() in
     // src/lib/pushNotifications.ts would hang forever: the plugin's
     // "registration" event is only ever fired from inside these forwards.
+    //
+    // No forward for didReceiveRemoteNotification (silent/data pushes
+    // delivered while the app is open) — this app never listens for that,
+    // only "registration"/"registrationError" above, and there's no
+    // `Notification.Name.capacitorDidReceiveRemoteNotification` in this
+    // Capacitor version to post to anyway (an earlier attempt to add one
+    // here didn't compile — caught only now, first CI build to touch this
+    // file since).
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
-    }
-
-    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        NotificationCenter.default.post(name: .capacitorDidReceiveRemoteNotification, object: userInfo, userInfo: ["completionHandler": completionHandler])
     }
 }
