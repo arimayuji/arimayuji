@@ -1,4 +1,4 @@
-import { Client, Permission, Query, Role, Storage, TablesDB, Users } from "node-appwrite";
+import { Client, ID, Permission, Query, Role, Storage, TablesDB, Users } from "node-appwrite";
 
 // Same fixed ID as src/lib/appwrite.ts (APPWRITE_DATABASE_ID).
 const DATABASE_ID = "6a7cd61a00290490a79d";
@@ -318,6 +318,108 @@ async function joinGroupRun({ userId, body, client, res, error }) {
   return res.json({ ok: true, groupRun });
 }
 
+/** Mirrors friendships.ts's own `pairKeyOf` exactly — same colon-joined, sorted-pair convention, so a row this Function creates dedupes against one the client created and vice versa. */
+function pairKeyOf(a, b) {
+  return [a, b].sort().join(":");
+}
+
+/**
+ * action: "pair-run-session" — the QR-pairing path for "corrida em dupla"
+ * (see PROJECT-CONTEXT.md). Scanning a session QR calls this instead of
+ * "join-group-run" directly, because that action requires the joiner to
+ * already be an accepted friend of the host — a real privacy boundary "o
+ * atleta pediu" for longão (see join-group-run's own comment), which a
+ * QR-paired stranger obviously isn't yet. Rather than carve a
+ * friendship-free exception into that boundary (reopening exactly the kind
+ * of access an LGPD audit pass already hardened), this action creates —
+ * or upgrades an existing pending one to — an ACCEPTED friendship between
+ * host and scanner first, then joins the same way join-group-run does.
+ * Physical QR scanning is a strong enough mutual-consent signal that
+ * skipping the normal request/accept dance is the deliberate trade-off
+ * here (product decision, 2026-08-23) — the two really do become friends,
+ * not just "run buddies for one session".
+ */
+async function pairRunSession({ userId, body, client, res, error }) {
+  const sessionCode = String(body.sessionCode ?? "").toUpperCase();
+  if (!sessionCode) {
+    return res.json({ error: "missing-session-code" }, 400);
+  }
+
+  const tablesDB = new TablesDB(client);
+  let groupRun;
+  try {
+    groupRun = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "group_runs", rowId: sessionCode });
+  } catch {
+    return res.json({ error: "not-found" }, 404);
+  }
+  if (groupRun.status === "closed") {
+    return res.json({ error: "closed" }, 403);
+  }
+  if (new Date(groupRun.expiresAt).getTime() < Date.now()) {
+    return res.json({ error: "expired" }, 403);
+  }
+
+  const hostId = groupRun.hostId;
+  if (hostId === userId) {
+    return res.json({ error: "self" }, 400);
+  }
+
+  const pairKey = pairKeyOf(hostId, userId);
+  try {
+    const existing = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "friendships",
+      queries: [Query.equal("pairKey", pairKey), Query.limit(1)],
+    });
+    if (existing.rows.length > 0) {
+      const row = existing.rows[0];
+      if (row.status !== "accepted") {
+        await tablesDB.updateRow({
+          databaseId: DATABASE_ID,
+          tableId: "friendships",
+          rowId: row.$id,
+          data: { status: "accepted" },
+        });
+      }
+    } else {
+      await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: "friendships",
+        rowId: ID.unique(),
+        data: { requesterId: hostId, addresseeId: userId, status: "accepted", pairKey },
+        permissions: [
+          Permission.read(Role.user(hostId)),
+          Permission.read(Role.user(userId)),
+          Permission.update(Role.user(hostId)),
+          Permission.update(Role.user(userId)),
+          Permission.delete(Role.user(hostId)),
+          Permission.delete(Role.user(userId)),
+        ],
+      });
+    }
+  } catch (err) {
+    error(`pair-run-session: falha ao criar/aceitar amizade entre ${hostId} e ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  try {
+    await tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      rowId: `${sessionCode}_${userId}`,
+      data: { sessionCode, userId, joinedAt: new Date().toISOString() },
+      permissions: [Permission.delete(Role.user(userId))],
+    });
+  } catch (err) {
+    if (err.code !== 409) {
+      error(`pair-run-session: falha ao entrar em ${sessionCode} para ${userId}: ${err.message}`);
+      return res.json({ error: "failed" }, 500);
+    }
+  }
+
+  return res.json({ ok: true, groupRun });
+}
+
 /** action: "claim-owned-row" — the only path allowed to create the first profiles/profile_stats/place_run_stats row for an account. Originally appwrite-functions/claim-owned-row. */
 async function claimOwnedRow({ userId, body, client, res, error }) {
   const { tableId } = body;
@@ -612,6 +714,7 @@ const ACTIONS = {
   "delete-account": deleteAccount,
   "send-welcome-email": sendWelcomeEmail,
   "join-group-run": joinGroupRun,
+  "pair-run-session": pairRunSession,
   "claim-owned-row": claimOwnedRow,
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,

@@ -45,6 +45,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="xanthus" android:host="convite" />
             </intent-filter>
+
+            <!-- "Corrida em dupla" QR pairing (src/app/parear/page.tsx tries
+                 this first, same fallback pattern as convite above) —
+                 android:host is matched exactly, so this needs its own
+                 intent-filter rather than reusing convite's. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="xanthus" android:host="parear" />
+            </intent-filter>
         </activity>
 
         <provider

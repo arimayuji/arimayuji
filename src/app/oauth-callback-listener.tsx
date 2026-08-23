@@ -39,6 +39,16 @@ export function OAuthCallbackListener() {
         return;
       }
 
+      // "Corrida em dupla" QR pairing (see src/app/parear/page.tsx and
+      // groupRuns.ts's buildPairingUrl/pairRunSession) — same full-navigation
+      // reasoning as the "convite" branch above.
+      if (url.startsWith("xanthus://parear")) {
+        const codigo = new URL(url).searchParams.get("codigo");
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        if (codigo) window.location.assign(`/run?parear=${encodeURIComponent(codigo)}`);
+        return;
+      }
+
       if (!url.startsWith(`${OAUTH_CALLBACK_SCHEME}://`)) return;
 
       const parsed = new URL(url);
