@@ -65,16 +65,17 @@ export const SHARE_CARD_HEIGHT = 1280;
  * Wall-clock length of the finished video. Everything after the route
  * finishes drawing (music chip, stat text, medal) is timed relative to
  * `ROUTE_DRAW_END` below, so this and `ROUTE_DRAW_MS` are kept in lockstep
- * — both raised by the same delta whenever the route draw is slowed down
- * (first +1020ms for a ~30% slowdown, then +1780ms for another ~40% on
- * top of that after the first pass still read as "muito rapido") — rather
- * than letting the route eat into the fixed runway the rest of the
- * choreography already had after it.
+ * — raised by the same delta each time the route draw is slowed down
+ * (+1020ms for ~30%, +1780ms for another ~40%, then set outright to a
+ * 15s total — the explicit target requested — with +6000ms going almost
+ * entirely into the route draw itself) rather than letting the route eat
+ * into the fixed ~2.5s runway the rest of the choreography already had
+ * after it.
  */
-export const SHARE_CARD_DURATION_MS = 9000;
+export const SHARE_CARD_DURATION_MS = 15000;
 
 const ROUTE_DRAW_START = 260;
-const ROUTE_DRAW_MS = 6200;
+const ROUTE_DRAW_MS = 12200;
 const ROUTE_DRAW_END = ROUTE_DRAW_START + ROUTE_DRAW_MS;
 
 const NUMBER_FONT_FALLBACK = "system-ui, sans-serif";
