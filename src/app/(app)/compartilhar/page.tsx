@@ -4,7 +4,17 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Chang
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useHeaderClose } from "../app-shell";
-import { Card, CardTitle, delay, ExampleBadge, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
+import {
+  Card,
+  CardTitle,
+  delay,
+  ExampleBadge,
+  NoticeBadge,
+  PreferenceToggle,
+  Screen,
+  ScreenHeader,
+  SegmentedButton,
+} from "../ui";
 import { SCENARIOS, ShareCard, type ScenarioId } from "../share-card";
 import { ShareCardPreview } from "../share-card-preview";
 import { useShareSupport } from "@/lib/share";
@@ -307,6 +317,8 @@ function CompartilharContent() {
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [photoFilter, setPhotoFilter] = useState<PhotoFilterId>("original");
   const [textEntrance, setTextEntrance] = useState<TextEntranceId>("bumerangue");
+  /** On by default (the medal is the whole point of a PR share) — but the athlete may want a plainer card even on a record run, and hiding it falls back to the shoe plate below, same as any other run without a record. */
+  const [showRecord, setShowRecord] = useState(true);
   const [durationId, setDurationId] = useState<ShareCardDurationId>("padrao");
   const durationMs = SHARE_CARD_DURATION_OPTIONS.find((o) => o.id === durationId)!.ms;
   const [albumArt, setAlbumArt] = useState<HTMLImageElement | null>(null);
@@ -444,19 +456,26 @@ function CompartilharContent() {
   const templates = useMemo(() => buildTemplateOptions(!!track), [track]);
   const activeTemplate = templates.find((t) => t.id === templateId) ?? templates[0];
 
+  /** The PR this run earned, if any — independent of `showRecord` (the toggle only decides whether it's *drawn*, not whether one exists to offer the toggle for). */
+  const headline = useMemo(() => {
+    if (!run || !runs) return null;
+    return (
+      computeRunRecords(run, runs)
+        .filter((record) => record.isNewRecord)
+        .sort((a, b) => b.targetMeters - a.targetMeters)[0] ?? null
+    );
+  }, [run, runs]);
+
   // One scene per swipeable template — cheap (a single object each, the
   // expensive part is the canvas draw the thumbnails and the big preview do
   // on their own), and it's what lets every thumbnail show the athlete's
   // real data instead of a generic icon standing in for the combo.
   const scenes = useMemo(() => {
     if (!run || !runs) return [];
-    const headline =
-      computeRunRecords(run, runs)
-        .filter((record) => record.isNewRecord)
-        .sort((a, b) => b.targetMeters - a.targetMeters)[0] ?? null;
-    const record = headline
-      ? { label: headline.label, achievement: computeAchievement(run.id, headline) }
-      : null;
+    const record =
+      showRecord && headline
+        ? { label: headline.label, achievement: computeAchievement(run.id, headline) }
+        : null;
     const sharedShoe = shoe ? { name: shoe.name, color: shoe.color } : null;
     const sharedTrack = track ? { name: track.name, artist: track.artist } : null;
 
@@ -493,6 +512,8 @@ function CompartilharContent() {
     usingMedia,
     photoFilter,
     textEntrance,
+    showRecord,
+    headline,
     shoe,
     track,
     albumArt,
@@ -1195,6 +1216,21 @@ function CompartilharContent() {
             {SCENARIOS[activeScenario].hint}
           </p>
         </Card>
+
+        {headline && (
+          <Card className="pr-enter" style={delay(210)}>
+            <PreferenceToggle
+              label="Mostrar a medalha do recorde"
+              hint={
+                showRecord
+                  ? "Essa corrida bateu recorde — a medalha aparece no card."
+                  : "Desligado: o card fica sem a medalha, mesmo essa corrida tendo batido recorde."
+              }
+              checked={showRecord}
+              onChange={setShowRecord}
+            />
+          </Card>
+        )}
 
         {shoes && shoes.length > 0 && (
           <Card className="pr-enter" style={delay(215)}>

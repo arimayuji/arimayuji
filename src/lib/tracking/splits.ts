@@ -24,10 +24,12 @@ export interface Split {
 
 /**
  * One row per full unit of distance covered (km or mile, per `unitMeters`),
- * plus a trailing partial split when there's a meaningful remainder — same
- * cumulative-distance walk `bestSplitSeconds` uses for PRs, but boundary-
- * aligned instead of sliding, since a splits table means "every km", not
- * "the fastest km found anywhere in the run".
+ * plus a trailing partial split for whatever's left over, however short —
+ * same cumulative-distance walk `bestSplitSeconds` uses for PRs, but
+ * boundary-aligned instead of sliding, since a splits table means "every
+ * km", not "the fastest km found anywhere in the run". A 5.1km run gets 5
+ * full-km rows and a 6th row for the last 100m, not 5 rows with the tail
+ * silently dropped.
  */
 export function computeSplits(
   points: Pick<StoredPoint, "lat" | "lon" | "timestamp">[],
@@ -101,8 +103,10 @@ export function computeSplits(
     target += unitMeters;
   }
 
+  // > 1m, not > 0, so GPS/floating-point noise at an exact-km finish (e.g.
+  // 5.0003km) doesn't tack on a meaningless near-zero-distance row.
   const remaining = total - splits.length * unitMeters;
-  if (remaining > unitMeters * 0.15) {
+  if (remaining > 1) {
     splits.push({
       index: splits.length + 1,
       distanceMeters: remaining,
