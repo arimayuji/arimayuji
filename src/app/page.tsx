@@ -839,6 +839,96 @@ const COMMUNITY_ITEMS = [
   },
 ];
 
+/* ------------------------------------------------------------------ */
+/* Section 04 — treinador                                              */
+/* ------------------------------------------------------------------ */
+
+const COACH_ITEMS = [
+  {
+    title: "Sugestão com contexto real",
+    body: "A IA lê o km que o aluno realmente correu nas últimas semanas — não chuta um número genérico.",
+  },
+  {
+    title: "Limite de segurança embutido",
+    body: "Nenhuma sugestão passa de +10% de volume por semana, mesmo se a IA sugerir mais — o motor corta antes de virar overtraining.",
+  },
+  {
+    title: "Quem treina sempre edita por cima",
+    body: "A palavra final é de quem treina: aceitar a sugestão, ajustar um pedaço, ou escrever a semana do zero.",
+  },
+];
+
+const COACH_FLOW_NODES = [
+  { x: 62, label: "IA sugere" },
+  { x: 180, label: "Motor trava" },
+  { x: 298, label: "Você confirma" },
+];
+
+/**
+ * Three connected chips instead of a full illustrated scene like the pilares
+ * cards below — the point here is a *sequence* (suggest → cap → confirm),
+ * which reads clearer as a flow than as a single static drawing.
+ */
+function CoachFlowArt() {
+  return (
+    <svg
+      viewBox="0 0 360 160"
+      className="pr-svg h-auto w-full text-accent"
+      role="img"
+      aria-label="Diagrama: a IA sugere um treino, o motor trava o limite seguro de progressão, e quem treina confirma antes de valer."
+    >
+      {COACH_FLOW_NODES.slice(0, -1).map((node, index) => {
+        const next = COACH_FLOW_NODES[index + 1];
+        return (
+          <line
+            key={node.label}
+            x1={node.x + 34}
+            y1={64}
+            x2={next.x - 34}
+            y2={64}
+            pathLength={1}
+            className="pr-draw stroke-accent"
+            strokeWidth="1.5"
+            strokeOpacity="0.55"
+            style={delay(160 + index * 200, { "--pr-dur": "0.6s" } as CSSProperties)}
+          />
+        );
+      })}
+
+      {COACH_FLOW_NODES.map((node, index) => (
+        <g key={node.label} style={delay(320 + index * 200)}>
+          <circle
+            cx={node.x}
+            cy={64}
+            r={30}
+            className={`pr-pop ${index === 1 ? "fill-accent" : "fill-surface stroke-accent"}`}
+            strokeWidth={index === 1 ? 0 : 1.5}
+          />
+          <text
+            x={node.x}
+            y={68}
+            textAnchor="middle"
+            className={`pr-pop font-mono ${index === 1 ? "fill-accent-foreground" : "fill-accent"}`}
+            fontSize="9"
+            fontWeight={600}
+          >
+            {String(index + 1).padStart(2, "0")}
+          </text>
+          <text
+            x={node.x}
+            y={116}
+            textAnchor="middle"
+            className="pr-pop fill-foreground font-mono"
+            fontSize="11"
+          >
+            {node.label}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function AndroidIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
@@ -1383,6 +1473,80 @@ export default function Home() {
                   </article>
                 );
               })}
+            </div>
+          </div>
+          <SeamGlow />
+        </section>
+
+        {/* ---------------- 04 · Treinador ---------------- */}
+        <section id="treinador" className="relative scroll-mt-16 snap-start border-b border-border">
+          <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-12 lg:items-center lg:gap-16">
+            <div className="order-2 lg:order-1 lg:col-span-6">
+              <div
+                data-reveal=""
+                className="rounded-3xl border border-border bg-surface/60 p-4 sm:p-6"
+              >
+                <CoachFlowArt />
+              </div>
+            </div>
+
+            <div className="order-1 lg:order-2 lg:col-span-6">
+              <p
+                data-reveal=""
+                className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent"
+              >
+                04 — treinador
+              </p>
+              <h2
+                data-reveal=""
+                style={delay(60)}
+                className="mt-5 text-balance font-mono text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
+              >
+                Se alguém treina você — ou você treina alguém — isso já está aqui.
+              </h2>
+              <p
+                data-reveal=""
+                style={delay(120)}
+                className="mt-5 text-pretty leading-relaxed text-muted"
+              >
+                O modo treinador é pra quem acompanha corredores de verdade: aceita
+                um convite, monta a semana de treino de cada aluno e vê a corrida
+                rolando ao vivo quando ela é compartilhada. Sem planilha externa,
+                sem pedir print de app nenhum.
+              </p>
+              <p
+                data-reveal=""
+                style={delay(180)}
+                className="mt-4 text-pretty leading-relaxed text-muted"
+              >
+                A IA ajuda a sugerir, mas nunca decide sozinha: toda sugestão passa
+                pelo mesmo motor de progressão que trava aumento de volume acima do
+                seguro — quem treina sempre revisa e confirma antes de valer.
+              </p>
+
+              <ul className="mt-8 space-y-px overflow-hidden rounded-2xl border border-border bg-border">
+                {COACH_ITEMS.map((item, index) => (
+                  <li
+                    key={item.title}
+                    data-reveal=""
+                    style={delay(240 + index * 80)}
+                    className="bg-background px-5 py-4"
+                  >
+                    <p className="text-sm font-semibold">{item.title}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted">
+                      {item.body}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <p
+                data-reveal=""
+                style={delay(480)}
+                className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-muted"
+              >
+                já em uso — dentro do app, em /treinador, pra quem tem pelo menos
+                um aluno vinculado
+              </p>
             </div>
           </div>
           <SeamGlow />
