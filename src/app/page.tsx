@@ -1415,10 +1415,12 @@ export default function Home() {
               Duas opções de peso igual — desde que o build 124 foi aprovado
               na Beta App Review (2026-08-23), o link público do TestFlight
               External Testing deixa qualquer pessoa entrar, não só quem já
-              tinha convite pro Internal Testing. Continua sendo um passo a
-              mais que o Android (precisa instalar o app TestFlight da Apple
-              primeiro), então o texto avisa isso em vez de prometer "baixar"
-              direto.
+              tinha convite pro Internal Testing. O botão aponta pra
+              /download/ios em vez do link cru do TestFlight, mesma razão do
+              Android apontar pra /download em vez do .apk direto: o passo
+              extra que o iOS tem (instalar o app TestFlight antes) merece
+              contexto antes do link de verdade, não um "baixar" que aterrissa
+              sem explicação em outro app.
             */}
             <div className="mt-6 grid w-full gap-4 sm:grid-cols-2">
               <article
@@ -1456,14 +1458,12 @@ export default function Home() {
                   TestFlight — instala o app TestFlight (da própria Apple) e
                   depois o Xanthus.
                 </p>
-                <a
-                  href="https://testflight.apple.com/join/RMqtChWj"
-                  target="_blank"
-                  rel="noreferrer noopener"
+                <Link
+                  href="/download/ios"
                   className="mt-1 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
                 >
                   Entrar no TestFlight
-                </a>
+                </Link>
               </article>
             </div>
           </div>
