@@ -885,7 +885,22 @@ export default function RunPage() {
   const [recoverableRun, setRecoverableRun] = useState<ActiveRunSnapshot | null>(null);
   /** Which of `goalKm`/`goalMinutes`/`goalPaceSec` actually becomes the run's goal on start — mutually exclusive in the UI (Xanthus Preparar Corrida.dc.html's "Tipo de meta" tabs) even though `RunGoal` itself supports distância+tempo together, since showing every value permanently read as "set them all" when only one was ever meant to gate the run. */
   const [goalType, setGoalType] = useState<"distancia" | "tempo" | "ritmo" | "livre">("distancia");
-  const [goalKm, setGoalKm] = useState(5);
+  /**
+   * Defaults to 5, unless the screen was opened via `?repeatKm=X` — a past
+   * run's "Repetir corrida" button (run-detail.tsx) — the only dimension of
+   * a past run's original goal this app can actually reconstruct, since
+   * `CompletedRun` never stored what goal type/target produced it in the
+   * first place (only what actually happened). Read straight from the URL
+   * as a lazy initializer rather than an effect: it's synchronous, derived
+   * once from how this mount was opened, not something to keep syncing
+   * against an external system.
+   */
+  const [goalKm, setGoalKm] = useState(() => {
+    if (typeof window === "undefined") return 5;
+    const raw = new URLSearchParams(window.location.search).get("repeatKm");
+    const km = raw ? Number(raw) : NaN;
+    return Number.isFinite(km) && km > 0 ? Math.round(km * 10) / 10 : 5;
+  });
   const [goalMinutes, setGoalMinutes] = useState(30);
   /** Target pace to hold, seconds/km — 330 = 5:30/km, a typical easy-run pace. */
   const [goalPaceSec, setGoalPaceSec] = useState(330);

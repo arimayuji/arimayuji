@@ -82,6 +82,24 @@ function ShareIcon() {
   );
 }
 
+function RepeatIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className="h-4 w-4"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 4v5h5" />
+      <path d="M4.5 9A8 8 0 1 1 4 15" />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg
@@ -672,13 +690,22 @@ export function RunDetail({ id }: { id: string }) {
         title={formatRunDate(started)}
         subtitle={`${timeFormatter.format(started)} · gravado neste aparelho`}
         badge={
-          <Link
-            href={`/compartilhar?run=${run.id}`}
-            aria-label="Compartilhar essa corrida"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:text-accent"
-          >
-            <ShareIcon />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/run?repeatKm=${(Math.round((run.distanceMeters / 1000) * 10) / 10).toFixed(1)}`}
+              aria-label="Repetir essa corrida"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:text-accent"
+            >
+              <RepeatIcon />
+            </Link>
+            <Link
+              href={`/compartilhar?run=${run.id}`}
+              aria-label="Compartilhar essa corrida"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:text-accent"
+            >
+              <ShareIcon />
+            </Link>
+          </div>
         }
       />
 
