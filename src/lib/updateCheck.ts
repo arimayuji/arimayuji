@@ -4,9 +4,18 @@
  * for the user — this is the substitute: compare the installed build
  * number against `version.json`, published alongside the APK by
  * `.github/workflows/android-build.yml` on every deploy to `main`.
+ *
+ * Android only, on purpose: `version.json`'s `versionCode` is Android's
+ * versionCode and `remote.url` is a raw `.apk` link, neither of which means
+ * anything on iOS (`App.getInfo().build` there is iOS's own CFBundleVersion
+ * — an unrelated numbering series, so comparing it against an Android
+ * versionCode is meaningless at best). iOS testers already get their own
+ * native "update available" notification from the TestFlight app itself
+ * whenever a new build finishes processing — this in-app nudge would only
+ * ever duplicate that, and worse, point at a file iOS can't even open.
  */
 import { App } from "@capacitor/app";
-import { isNativePlatform } from "@/lib/platform";
+import { isAndroidPlatform } from "@/lib/platform";
 
 const VERSION_URL = "https://xanthus.app.br/download/version.json";
 
@@ -23,7 +32,7 @@ export interface UpdateInfo {
  * app it's checking on behalf of).
  */
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
-  if (!isNativePlatform()) return null;
+  if (!isAndroidPlatform()) return null;
   try {
     const [info, response] = await Promise.all([
       App.getInfo(),
