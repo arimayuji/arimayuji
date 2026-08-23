@@ -1412,10 +1412,13 @@ export default function Home() {
             </p>
 
             {/*
-              Duas opções de peso igual. iOS não tem botão (só o badge de
-              estado): hoje só quem já foi convidado pro TestFlight Internal
-              Testing consegue instalar, um link "baixar" aqui enganaria quem
-              clicasse.
+              Duas opções de peso igual — desde que o build 124 foi aprovado
+              na Beta App Review (2026-08-23), o link público do TestFlight
+              External Testing deixa qualquer pessoa entrar, não só quem já
+              tinha convite pro Internal Testing. Continua sendo um passo a
+              mais que o Android (precisa instalar o app TestFlight da Apple
+              primeiro), então o texto avisa isso em vez de prometer "baixar"
+              direto.
             */}
             <div className="mt-6 grid w-full gap-4 sm:grid-cols-2">
               <article
@@ -1449,12 +1452,18 @@ export default function Home() {
                 </span>
                 <h3 className="font-mono text-base font-semibold">iPhone</h3>
                 <p className="flex-1 text-sm leading-relaxed text-muted">
-                  Mesma vantagem do Android pro GPS. Ainda em teste fechado —
-                  só quem já tem convite consegue instalar por enquanto.
+                  Mesma vantagem do Android pro GPS. Beta público via
+                  TestFlight — instala o app TestFlight (da própria Apple) e
+                  depois o Xanthus.
                 </p>
-                <span className="mt-1 inline-flex w-full items-center justify-center rounded-full border border-dashed border-border px-5 py-3 text-sm font-medium text-muted">
-                  Em teste fechado
-                </span>
+                <a
+                  href="https://testflight.apple.com/join/RMqtChWj"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="mt-1 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
+                >
+                  Entrar no TestFlight
+                </a>
               </article>
             </div>
           </div>
