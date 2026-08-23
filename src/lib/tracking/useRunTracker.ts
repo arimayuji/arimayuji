@@ -648,9 +648,12 @@ export function useRunTracker() {
     setState((s) => ({ ...s, error: message }));
   }, []);
 
-  const beginWatch = useCallback(() => {
-    beginGeoWatch(handleFix, handleError);
-  }, [handleError, handleFix]);
+  const beginWatch = useCallback(
+    (notification?: { title: string; message: string }) => {
+      beginGeoWatch(handleFix, handleError, notification);
+    },
+    [handleError, handleFix],
+  );
 
   /**
    * True between `prewarm()` and either `cancelPrewarm()` or `start()`
@@ -677,7 +680,9 @@ export function useRunTracker() {
     if (prewarmingRef.current) return;
     if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) return;
     prewarmingRef.current = true;
-    beginWatch();
+    // Distinct from the real-run notification below: no run has started yet,
+    // just the same GPS lock a run will use once the athlete taps Iniciar.
+    beginWatch({ title: "Buscando sinal de GPS", message: "Toque para voltar ao Xanthus." });
   }, [beginWatch]);
 
   /** Stops a prewarm watch that never turned into a real run — e.g. the athlete backed out of Preparar Corrida. Harmless no-op once `start()` has taken ownership (see `prewarmingRef`). */
@@ -746,7 +751,18 @@ export function useRunTracker() {
         ghostSeriesRef.current = options?.ghostRun ? buildDistanceTimeSeries(options.ghostRun) : null;
 
         void wakeLockRef.current.acquire();
-        if (!hadPrewarm) beginWatch();
+        if (hadPrewarm) {
+          // The watch is already running under the prewarm's "buscando
+          // sinal" text (see `prewarm()`) — flip it to the real-run copy
+          // now that the athlete has actually committed to a run, instead
+          // of restarting the watch just to change its title.
+          updateLiveNotification({
+            title: "Corrida em andamento",
+            message: "Rastreando por GPS. Toque para voltar ao Xanthus.",
+          });
+        } else {
+          beginWatch();
+        }
         // Unconditional (not gated on `!hadPrewarm`) — the Live Activity is a
         // very visible, user-facing lock-screen widget, so it should appear
         // exactly when the athlete taps "Iniciar corrida", not silently during

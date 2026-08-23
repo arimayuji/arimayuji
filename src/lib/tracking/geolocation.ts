@@ -107,14 +107,30 @@ function fixFromBackgroundLocation(location: Location): GeoFix {
 let watchStartPromise: Promise<CallbackID | void> | null = null;
 let activeBackend: "background" | "foreground" | null = null;
 
-/** Starts a watch. Any previous watch is left alone — callers already only ever call this once at a time. */
-export function beginGeoWatch(onFix: (fix: GeoFix) => void, onError: (err: GeoError) => void): void {
+/**
+ * Starts a watch. Any previous watch is left alone — callers already only
+ * ever call this once at a time. `notification` lets a caller that isn't
+ * actually tracking a run yet (see `prewarm()` in `useRunTracker.ts`) show
+ * accurate Android foreground-service text instead of defaulting to
+ * "Corrida em andamento" — that copy used to show up the instant the
+ * Preparar Corrida screen opened, before the athlete had even tapped
+ * Iniciar, which read as the app claiming a run was underway when there
+ * wasn't one yet.
+ */
+export function beginGeoWatch(
+  onFix: (fix: GeoFix) => void,
+  onError: (err: GeoError) => void,
+  notification: { title: string; message: string } = {
+    title: "Corrida em andamento",
+    message: "Rastreando por GPS. Toque para voltar ao Xanthus.",
+  },
+): void {
   if (isNativePlatform()) {
     activeBackend = "background";
     watchStartPromise = BackgroundGeolocation.start(
       {
-        backgroundTitle: "Corrida em andamento",
-        backgroundMessage: "Rastreando por GPS. Toque para voltar ao Xanthus.",
+        backgroundTitle: notification.title,
+        backgroundMessage: notification.message,
         requestPermissions: true,
         stale: false,
         distanceFilter: 0,
