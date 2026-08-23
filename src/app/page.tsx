@@ -982,12 +982,19 @@ export default function Home() {
             </svg>
             Xanthus
           </span>
-          <Link
-            href="/download"
+          {/*
+            Leva pra seção final da própria landing (Android e iPhone lado a
+            lado), não direto pro /download do Android — isso mandava
+            qualquer visitante, inclusive de iPhone, pro APK que ele nem
+            consegue instalar. Mesmo raciocínio de por que o link de bio do
+            Instagram é a landing e não um link de plataforma específica.
+          */}
+          <a
+            href="#baixar"
             className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold transition-colors hover:border-accent hover:text-accent"
           >
             Começar
-          </Link>
+          </a>
         </div>
       </header>
 
@@ -1553,7 +1560,7 @@ export default function Home() {
         </section>
 
         {/* ---------------- CTA final ---------------- */}
-        <section className="relative snap-start overflow-hidden">
+        <section id="baixar" className="relative scroll-mt-16 snap-start overflow-hidden">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/10 blur-3xl"
