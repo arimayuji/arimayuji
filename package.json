@@ -21,6 +21,7 @@
     "@capacitor/geolocation": "^8.2.2",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.5.0",
+    "@capacitor/push-notifications": "^8.1.2",
     "@capgo/background-geolocation": "file:./native-plugins/capacitor-background-geolocation",
     "@capgo/capacitor-health": "^8.10.4",
     "@protomaps/basemaps": "^5.7.2",

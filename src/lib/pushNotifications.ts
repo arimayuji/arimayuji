@@ -1,0 +1,68 @@
+/**
+ * Registers this device for native push notifications and hands the token
+ * to Appwrite, so the `client-actions` Function can later address "this
+ * account" without knowing which device(s) it's on — Appwrite resolves a
+ * `users: [userId]` push send to every registered target itself.
+ *
+ * Requires real console setup this file can't do on its own: an FCM
+ * provider (Firebase project + service account) and an APNs provider (the
+ * .p8 Auth Key, Team ID, Key ID) configured in Appwrite Console → Messaging
+ * → Providers, using the exact IDs in `PROVIDER_ID` below — plus, on iOS,
+ * the "Push Notifications" capability enabled on the App ID in
+ * developer.apple.com (same place HealthKit's capability was enabled) and
+ * present in App.entitlements. Until that's done, `requestPermissions()`
+ * still works but `createPushTarget` will fail — caught below like every
+ * other best-effort call in this file, so the app runs the same either way.
+ */
+import { ID } from "appwrite";
+import { PushNotifications } from "@capacitor/push-notifications";
+import { getAppwrite } from "./appwrite";
+import { isAndroidPlatform, isIOSPlatform, isNativePlatform } from "./platform";
+
+/** Must match the provider IDs created in Appwrite Console → Messaging → Providers — see this file's own comment. */
+const PROVIDER_ID = { android: "fcm", ios: "apns" } as const;
+
+let registered = false;
+
+/**
+ * Requests permission and registers this device's push token with
+ * Appwrite, tied to the signed-in account. A no-op on web, already
+ * registered this session, or if the athlete denies the OS permission
+ * prompt — none of those are errors, just states where push isn't
+ * available right now. Safe to call every time an account signs in; the
+ * `registered` guard just avoids piling up duplicate targets from a
+ * component re-rendering.
+ */
+export async function registerForPushNotifications(): Promise<void> {
+  if (!isNativePlatform() || registered) return;
+  const appwrite = getAppwrite();
+  if (!appwrite) return;
+
+  try {
+    const permission = await PushNotifications.checkPermissions();
+    const granted =
+      permission.receive === "granted" ||
+      (permission.receive === "prompt" && (await PushNotifications.requestPermissions()).receive === "granted");
+    if (!granted) return;
+
+    registered = true; // set before the async register() call, not after — a second sign-in racing this one shouldn't also register.
+
+    const providerId = isAndroidPlatform() ? PROVIDER_ID.android : isIOSPlatform() ? PROVIDER_ID.ios : null;
+    if (!providerId) return;
+
+    const tokenPromise = new Promise<string>((resolve, reject) => {
+      PushNotifications.addListener("registration", (token) => resolve(token.value));
+      PushNotifications.addListener("registrationError", (error) =>
+        reject(new Error(error.error || "push registration failed")),
+      );
+    });
+    await PushNotifications.register();
+    const token = await tokenPromise;
+
+    await appwrite.account.createPushTarget({ targetId: ID.unique(), identifier: token, providerId });
+  } catch {
+    // Best-effort, same as every other native-capability call in this app
+    // (geolocation, health data, live activities) — a missing provider, a
+    // denied permission, or no network shouldn't be treated as a crash.
+  }
+}

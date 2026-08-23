@@ -7,6 +7,18 @@
 	<key>com.apple.developer.healthkit.access</key>
 	<array/>
 	<!--
+	  "development" here, not "production" — Xcode/App Store Connect
+	  rewrites this to "production" automatically in a signed release
+	  archive (the same auto-swap it's always done for this entitlement),
+	  so this only ever matters for local/simulator builds. Still requires
+	  the "Push Notifications" capability enabled on the App ID itself in
+	  developer.apple.com before this does anything (same console step
+	  HealthKit's own capability needed) — src/lib/pushNotifications.ts's
+	  header has the full external-setup list.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!--
 	  Shared with RunActivityWidget.entitlements — the only channel the main
 	  app and the Live Activity widget extension (two separate processes)
 	  have to talk to each other. Used only for relaying the Live Activity's

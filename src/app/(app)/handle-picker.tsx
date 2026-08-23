@@ -10,6 +10,8 @@ import {
   type Account,
   type Profile,
 } from "@/lib/auth";
+import { sendMilestoneNotification } from "@/lib/milestoneNotifications";
+import { registerForPushNotifications } from "@/lib/pushNotifications";
 import { ModalPortal } from "./modal-portal";
 
 /**
@@ -60,6 +62,15 @@ export function HandlePicker({ account, onDone }: { account: Account; onDone: (p
     try {
       const profile = await createProfile(handle, displayName.trim());
       sendWelcomeEmail();
+      // Registers the push target first, not in parallel: PushRegistration
+      // (mounted in layout.tsx) only reacts once useAuth's status flips to
+      // "signed-in", which happens *after* onDone below updates state
+      // upstream — sending the milestone straight away would race against
+      // a target that doesn't exist yet the very first time anyone signs
+      // up. registerForPushNotifications() is idempotent (guards against
+      // double registration), so PushRegistration's own later call is a
+      // harmless no-op once this one's already run.
+      void registerForPushNotifications().then(() => sendMilestoneNotification("boas-vindas"));
       onDone(profile);
     } catch {
       setError("Não deu pra criar o perfil agora — tenta de novo em instantes.");

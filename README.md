@@ -362,6 +362,71 @@ marketing/newsletter precisa, e o Resend deve ser adicionado à lista de
 terceiros na `/privacidade` quando o primeiro envio real acontecer (ver
 achado M5 da auditoria LGPD de 2026-08-17).
 
+## Notificações push (marcos: boas-vindas, primeira corrida, novo recorde)
+
+Push nativo de verdade (chega mesmo com o app fechado), não um banner
+dentro do app — decisão tomada em 2026-08-23. Custo: **zero**. FCM
+(Android) e APNs (iOS) não cobram por notificação; APNs usa a mesma
+conta Apple Developer já paga. O envio em si passa pelo **Appwrite
+Messaging** (`node-appwrite`'s `Messaging.createPush`), não por FCM/APNs
+direto — Free plan inclui 1.000 mensagens/mês (cota compartilhada com
+e-mail/SMS, que hoje vão pelo Resend em vez disso, então essa cota fica
+quase inteira pra push), Pro ($25/mês) libera ilimitado.
+
+**Como funciona**: `src/lib/pushNotifications.ts`'s `registerForPushNotifications()`
+pede permissão e registra o token do dispositivo como um Push Target da
+própria conta Appwrite (`account.createPushTarget`, chamado direto do
+cliente — não é uma ação privilegiada, Appwrite já trata isso como algo
+que a própria conta pode fazer). `src/app/push-registration.tsx`
+(montado em `layout.tsx`) chama isso assim que `useAuth()` vira
+`"signed-in"`. O envio em si é privilegiado — só pode disparar um dos
+textos fixos definidos em `MILESTONE_MESSAGES`
+(`appwrite-functions/client-actions/src/main.js`), nunca texto livre, e
+só pra própria conta de quem chamou (`users: [userId]` sempre resolve
+pro `x-appwrite-user-id` da sessão) — ação `send-milestone-notification`
+dentro da Function consolidada, chamada via
+`src/lib/milestoneNotifications.ts`'s `sendMilestoneNotification()` nos
+pontos reais do app onde um marco acontece (`handle-picker.tsx` pro
+boas-vindas, o efeito de detecção de PR em `run/page.tsx` pra primeira
+corrida/novo recorde).
+
+**Setup (uma vez, ainda pendente — nada disso dá pra fazer só com
+código):**
+
+1. **Firebase** (Android): criar um projeto em
+   [console.firebase.google.com](https://console.firebase.google.com/)
+   (pode ser um novo, não precisa reusar o projeto GCP do OAuth), ativar
+   Cloud Messaging, baixar `google-services.json` e colocar em
+   `android/app/` — e gerar uma **chave de conta de serviço** (Project
+   Settings → Service Accounts → Generate new private key) pro passo 3.
+2. **Apple Push Notifications** (iOS): em developer.apple.com →
+   Certificates, Identifiers & Profiles → **Keys** → criar uma chave nova
+   com "Apple Push Notifications service (APNs)" marcado — anota o Key
+   ID e baixa o `.p8` (só dá pra baixar uma vez). Depois, no **App ID**
+   do bundle `com.xanthus.app` (mesmo lugar onde a capability do
+   HealthKit foi ligada), habilitar a capability **Push Notifications**.
+3. **Appwrite Console → Messaging → Providers**: criar um provider **FCM**
+   com o JSON da conta de serviço do passo 1, ID exatamente `fcm`; criar
+   um provider **APNs** com o `.p8`, Key ID, Team ID e bundle ID
+   `com.xanthus.app` do passo 2, ID exatamente `apns` — os IDs precisam
+   bater com `PROVIDER_ID` em `src/lib/pushNotifications.ts`.
+4. Adicionar o escopo **`messages.write`** na chave da Function
+   `client-actions` (mesmo lugar de `users.read`/`databases.*`, ver seção
+   de Functions acima) — sem isso, `Messaging.createPush` falha com
+   permissão negada.
+5. `npx cap sync` já rodado (plugin `@capacitor/push-notifications`
+   instalado, `AppDelegate.swift` e `App.entitlements` já atualizados) —
+   só falta o `google-services.json` real do passo 1 pro Android
+   realmente inicializar o Firebase; sem ele, `registerForPushNotifications()`
+   continua rodando sem erro, só nunca completa o registro (best-effort,
+   mesmo padrão de toda outra capability nativa deste app).
+
+Até esse setup ser feito, o código todo já está no lugar mas as
+notificações não chegam de verdade — `registerForPushNotifications()` e
+`sendMilestoneNotification()` falham silenciosamente (nunca travam nem
+mostram erro pro atleta), do mesmo jeito que qualquer outra
+funcionalidade nativa best-effort deste app.
+
 ## Rodando localmente
 
 ```bash

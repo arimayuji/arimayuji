@@ -1,4 +1,4 @@
-import { Client, ID, Permission, Query, Role, Storage, TablesDB, Users } from "node-appwrite";
+import { Client, ID, Messaging, Permission, Query, Role, Storage, TablesDB, Users } from "node-appwrite";
 
 // Same fixed ID as src/lib/appwrite.ts (APPWRITE_DATABASE_ID).
 const DATABASE_ID = "6a7cd61a00290490a79d";
@@ -85,6 +85,35 @@ const RESPONSE_SCHEMA = {
     reasoning: { type: "STRING" },
   },
   required: ["sessions", "note", "reasoning"],
+};
+
+/**
+ * Copy for `sendMilestoneNotification` below — kept server-side (not
+ * client-supplied) so a client can only ever trigger one of these fixed
+ * messages to itself, never send arbitrary push text. Each milestone has a
+ * few variants, picked at random per send — the whole point raised for
+ * building this ("a mensagem vai alterando") is that the same congrats
+ * text every time reads as a bot, not a product that noticed what you did.
+ */
+const MILESTONE_MESSAGES = {
+  "boas-vindas": [
+    { title: "Bem-vindo ao Xanthus!", body: "Sua primeira corrida está a um toque de distância — sem anúncio, sem paywall escondido." },
+    { title: "Você chegou.", body: "Aperta Iniciar corrida quando quiser e deixa o GPS fazer o resto." },
+  ],
+  "primeira-corrida": [
+    { title: "Primeira corrida registrada!", body: "Foi só o começo — compartilha esse marco com quem te acompanha." },
+    { title: "Você correu de verdade.", body: "Sua primeira corrida já está guardada no histórico. Bora compartilhar?" },
+  ],
+  "novo-recorde": [
+    (ctx) =>
+      ctx?.label
+        ? { title: "Novo recorde!", body: `Você bateu seu recorde nos ${ctx.label}. Compartilha essa conquista.` }
+        : { title: "Novo recorde!", body: "Você bateu um recorde pessoal. Compartilha essa conquista." },
+    (ctx) =>
+      ctx?.label
+        ? { title: "Recorde quebrado.", body: `${ctx.label} nunca foram tão rápidos pra você. Mostra pra todo mundo.` }
+        : { title: "Recorde quebrado.", body: "Você foi mais rápido que nunca. Mostra pra todo mundo." },
+  ],
 };
 
 function welcomeEmailHtml(name) {
@@ -710,6 +739,37 @@ Responda só o JSON pedido.`;
   });
 }
 
+/**
+ * Sends one of the fixed milestone pushes (see `MILESTONE_MESSAGES` above)
+ * to the caller's own account — never to anyone else, `users: [userId]`
+ * always resolves to the authenticated caller from `x-appwrite-user-id`.
+ * A no-op, not an error, if the account has no push target registered yet
+ * (never opened the app on a device with push set up, or denied the OS
+ * permission) — `createPush` fails in that case, and a client-side
+ * "hey, tell someone you did this" nudge that silently didn't fire is a
+ * missed nice-to-have, not a bug worth surfacing to the athlete.
+ */
+async function sendMilestoneNotification({ userId, body, client, res, error }) {
+  const variants = MILESTONE_MESSAGES[body.milestone];
+  if (!variants) {
+    return res.json({ error: "unknown-milestone" }, 400);
+  }
+  const variant = variants[Math.floor(Math.random() * variants.length)];
+  const { title, body: message } = typeof variant === "function" ? variant(body.context) : variant;
+
+  try {
+    const messaging = new Messaging(client);
+    await messaging.createPush({ messageId: ID.unique(), title, body: message, users: [userId] });
+    return res.json({ ok: true });
+  } catch (err) {
+    error(`sendMilestoneNotification failed for ${body.milestone}: ${err.message}`);
+    // Same reasoning as the "no target registered" case above — this is a
+    // best-effort extra, not core functionality the caller should retry or
+    // surface an error for.
+    return res.json({ ok: false });
+  }
+}
+
 const ACTIONS = {
   "delete-account": deleteAccount,
   "send-welcome-email": sendWelcomeEmail,
@@ -718,6 +778,7 @@ const ACTIONS = {
   "claim-owned-row": claimOwnedRow,
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,
+  "send-milestone-notification": sendMilestoneNotification,
 };
 
 /**
@@ -732,12 +793,13 @@ const ACTIONS = {
  * consolidation).
  *
  * Every action needs the caller's own session (`x-appwrite-user-id`) — none
- * of the six is meant to be called anonymously — so that check happens once
- * here rather than once per handler. The scoped per-execution key
+ * of the eight is meant to be called anonymously — so that check happens
+ * once here rather than once per handler. The scoped per-execution key
  * (`x-appwrite-key`) needs the UNION of every action's API key scopes
- * (users.read, databases.read, databases.write) configured on this one
- * Function in the Console, since Appwrite grants scopes per Function, not
- * per action — see README.md for the exact setup.
+ * (users.read, databases.read, databases.write, messages.write —
+ * the last one for send-milestone-notification's `Messaging.createPush`)
+ * configured on this one Function in the Console, since Appwrite grants
+ * scopes per Function, not per action — see README.md for the exact setup.
  */
 async function clientActions({ req, res, log, error }) {
   const userId = req.headers["x-appwrite-user-id"];
