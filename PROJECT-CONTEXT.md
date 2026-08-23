@@ -167,14 +167,19 @@ desligado por completo, ver "O produto, em uma frase" acima):
 
 1. **Android** — botão "Baixar APK", direto pro link fixo do Cloudflare.
    App instalado de verdade, GPS não pausa com tela travada.
-2. **iPhone** — **sem botão de download**, só um badge "Em teste fechado".
-   Convidados do TestFlight Internal Testing já conseguem instalar. O
-   **External Testing foi submetido pra Beta App Review em 2026-08-21**
-   (build 107, grupo "Beta") — o link público
-   (`https://testflight.apple.com/join/RMqtChWj`) só libera instalação de
-   verdade depois que a Apple aprovar; até lá continua "em teste fechado"
-   de fato. Upload automático pro TestFlight a cada push continua normal;
-   promoção pra produção continua sem prazo definido.
+2. **iPhone** — **link público já funciona de verdade** desde
+   2026-08-23: o build 124 (submetido via branch `testflight` depois do
+   build 107 sair da fila de revisão — ver "Submissão pro Beta App
+   Review" abaixo) foi **aprovado pela Apple em 2026-08-23**, aprovação
+   saiu rápido (menos de 2 dias). O link
+   (`https://testflight.apple.com/join/RMqtChWj`) agora deixa qualquer
+   pessoa entrar de verdade no teste externo — dá pra trocar o badge "Em
+   teste fechado" da landing e colocar o link na bio do Instagram.
+   Upload automático pro TestFlight a cada push continua normal; builds
+   novos não precisam de nova revisão pra continuar valendo pra esse
+   mesmo grupo (só builds novos re-submetidos exigem revisão de novo, ver
+   detalhe abaixo). Promoção pra produção (App Store completa) continua
+   sem prazo definido.
 
 ## OAuth / Login social
 
@@ -433,12 +438,13 @@ script:
 Please submit it again once it gets completed."
 ```
 A Apple só permite **um build em revisão por vez** por app — o build 107
-(submetido em 2026-08-21, ver seção "Submissão pro Beta App Review" acima
-nas perguntas em aberto) ainda estava pendente de aprovação quando esse
-teste rodou. Assim que a Apple resolver essa revisão (aprovar ou rejeitar),
-um novo push pra `testflight` deve completar a submissão normalmente —
-não precisa de nenhuma mudança de código, só esperar o build anterior
-sair da fila.
+(submetido em 2026-08-21) ainda estava pendente de aprovação quando esse
+teste rodou. Confirmado depois: assim que o 107 saiu da fila, um novo push
+pra `testflight` completou a submissão do build 124 normalmente, sem
+nenhuma mudança de código — e a Apple **aprovou o build 124 em
+2026-08-23**, menos de 2 dias depois. O link público
+(`https://testflight.apple.com/join/RMqtChWj`) hoje serve esse build de
+verdade (ver "Perguntas em aberto" abaixo).
 
 ## Auditoria LGPD/segurança — status em 2026-08-22
 
@@ -646,19 +652,24 @@ deploy própria.
       verificada. Falta só configurar o secret
       `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` e fazer o primeiro upload pro
       Play Console (fluxo já documentado no `README.md`).
-- [x] **2026-08-19: decidido, 2026-08-21: executado** — TestFlight External
-      Testing. Grupo "Beta" já existia no App Store Connect com link público
-      pronto (`https://testflight.apple.com/join/RMqtChWj`), mas sem nenhum
-      build associado (0 builds). Adicionado o build 107 ao grupo, preenchido
-      "What to Test" e **submetido pra Beta App Review em 2026-08-21** —
-      aguardando aprovação da Apple (geralmente horas a 1-2 dias). **O link
-      público só libera instalação de verdade depois que esse build for
-      aprovado** — até lá, ele existe mas não deixa ninguém entrar. Não
-      colocar na bio do Instagram antes da aprovação. Revisão de build
-      externo é por build, não por grupo: depois de aprovado, dá pra
-      adicionar/remover testadores e até criar grupos novos com esse mesmo
-      build sem precisar de nova revisão — só builds novos exigem revisão de
-      novo. Revisão completa da App Store (produção) continua sem prazo
+- [x] **2026-08-19: decidido, 2026-08-21: submetido, 2026-08-23:
+      aprovado** — TestFlight External Testing. Grupo "Beta" já existia no
+      App Store Connect com link público pronto
+      (`https://testflight.apple.com/join/RMqtChWj`), mas sem nenhum build
+      associado (0 builds). O build 107 (submetido em 2026-08-21) ficou
+      preso na fila de revisão da Apple até ser resolvido; o build 124
+      (submetido depois, pela mesma branch `testflight`) foi o que a Apple
+      efetivamente **aprovou em 2026-08-23** — aprovação saiu rápido, menos
+      de 2 dias. **O link público agora deixa qualquer pessoa entrar de
+      verdade** — dá pra colocar na bio do Instagram e trocar o badge "Em
+      teste fechado" da landing. Revisão de build externo é por build, não
+      por grupo: dá pra adicionar/remover testadores e até criar grupos
+      novos com esse mesmo build 124 sem precisar de nova revisão — mas
+      cada push novo em `main` só sobe pro Internal Testing automático (sem
+      revisão), e o link público continua servindo o build 124 até alguém
+      deliberadamente rodar o fluxo da branch `testflight` de novo pra
+      promover um build mais recente — o que aí sim exige nova revisão da
+      Apple. Revisão completa da App Store (produção) continua sem prazo
       definido.
 - [x] **2026-08-22: escopado, Fase A e Fase B implementadas** — modo
       treinador vira "os dois juntos" (IA sugere + motor determinístico
