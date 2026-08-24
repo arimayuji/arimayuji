@@ -569,13 +569,17 @@ via `curl` na REST API do Appwrite Messaging (`POST
   frente (`continue-on-error: true`) — nunca derruba o deploy do
   APK/site por causa disso.
 
-O equivalente pro iOS (tópico `ios-updates`, step no
-`ios-build.yml`) **ainda não foi adicionado** — o app não tem hoje
-nenhuma tela de "nova versão" pra abrir no iOS (`updateCheck.ts` é
-Android-only de propósito, já que o TestFlight manda sua própria
-notificação nativa de build novo) — um push nosso redundante abriria o
-app sem ter o que mostrar. Avaliar se vale a pena antes de replicar o
-step.
+O equivalente pro iOS (tópico `ios-updates`, step "Notify iOS accounts..."
+em `ios-build.yml`, logo depois do upload pro TestFlight) **também está
+implementado** — decisão explícita de não depender só da notificação
+nativa do TestFlight (que só existe enquanto o app estiver nesse canal;
+some assim que virar uma release de verdade na App Store). Mesmo mecanismo
+do Android: `messageId` chaveado no número do run do GitHub Actions
+(`GITHUB_RUN_NUMBER`, a mesma fonte do número de build do `xcodebuild
+archive` acima) pra um re-run do mesmo build não notificar duas vezes.
+`updateCheck.ts` (o sininho passivo em `/notificacoes`) continua
+Android-only — esse push não abre nenhuma tela nova no iOS, só usa o
+mesmo "puxão pra abrir o app" que o Android já tinha.
 
 ## Rodando localmente
 
