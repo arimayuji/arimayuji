@@ -3,7 +3,8 @@
  * VOICE_BANK (src/lib/tracking/voiceWords.ts) through ElevenLabs TTS,
  * using a fixed library voice and each entry's own previous/next-text
  * context, and saves them as static mp3s under
- * public/audio/voice/. Run with `npm run voice:generate` after putting
+ * public/audio/<voice's outDir>/. Run with `npm run voice:generate`
+ * (female/default) or `npm run voice:generate:male` after putting
  * ELEVENLABS_API_KEY in .env.local — that key is never committed and never
  * read by the app itself (this script lives outside src/, uses plain
  * fetch against the REST API, no SDK).
@@ -18,8 +19,22 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { VOICE_BANK } from "../src/lib/tracking/voiceWords";
 
-const VOICE_ID = "9LwXyqQB0mUwtLRsS227"; // "Bianca" — PT-verified, professional
-const OUT_DIR = new URL("../public/audio/voice/", import.meta.url);
+/**
+ * Both real ElevenLabs shared-library voices (ids confirmed against the
+ * account's own `/v1/shared-voices` API, not guessed), picked by ear from
+ * preview samples before committing to a full render: "Bianca" was the
+ * original PT-verified pick; "Rafael - Friendly Brazilian" is the male
+ * voice picked the same way. `outDir` must match the `voiceGender`-keyed
+ * base path voiceBank.ts reads from.
+ */
+const VOICES = {
+  female: { id: "9LwXyqQB0mUwtLRsS227", outDir: "voice" },
+  male: { id: "SoNeOcCfZTExy2jhBXHU", outDir: "voice-male" },
+} as const;
+
+const target = process.argv[2] === "male" ? "male" : "female";
+const VOICE_ID: string = VOICES[target].id;
+const OUT_DIR = new URL(`../public/audio/${VOICES[target].outDir}/`, import.meta.url);
 
 function loadEnvLocal(): void {
   let raw: string;

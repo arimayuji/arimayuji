@@ -1309,6 +1309,7 @@ export default function RunPage() {
   const announceMeters = preferences.announceIntervalMeters;
   const announceSeconds = preferences.announceIntervalSeconds;
   const announceMode = preferences.announceMode;
+  const voiceGender = preferences.voiceGender;
 
   /**
    * Live position sharing — a ping to whoever's watching (the chosen coach,
@@ -1588,6 +1589,7 @@ export default function RunPage() {
       announceIntervalMeters: announceMeters,
       announceIntervalSeconds: announceSeconds,
       announceMode,
+      voiceGender,
       goal:
         distanceMeters || durationSeconds || targetPaceSecPerKm
           ? { distanceMeters, durationSeconds, targetPaceSecPerKm }
@@ -2003,6 +2005,26 @@ export default function RunPage() {
                   customLabel={VOICE_PRESETS_S.includes(announceSeconds) ? null : announceSecondsLabel(announceSeconds)}
                 />
               )}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs text-muted">Voz</span>
+                <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
+                  {(["female", "male"] as const).map((gender) => (
+                    <button
+                      key={gender}
+                      type="button"
+                      onClick={() => updatePreferences({ voiceGender: gender })}
+                      aria-pressed={voiceGender === gender}
+                      className={`px-3 py-1.5 transition-colors ${
+                        voiceGender === gender
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-background text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {gender === "female" ? "Feminina" : "Masculina"}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {customSheet === "distancia" && (

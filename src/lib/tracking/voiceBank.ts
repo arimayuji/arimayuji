@@ -23,7 +23,13 @@
 import { announcementSlugs } from "./voiceWords";
 import { speak } from "./speech";
 
-const CLIP_BASE = "/audio/voice/";
+export type VoiceGender = "female" | "male";
+
+/** Matches `outDir` per voice in scripts/generate-voice-bank.ts's VOICES map — "female" (the original "Bianca" bank) keeps the original path so already-generated clips don't need moving. */
+const CLIP_BASE: Record<VoiceGender, string> = {
+  female: "/audio/voice/",
+  male: "/audio/voice-male/",
+};
 
 let audioContext: AudioContext | null = null;
 
@@ -35,23 +41,28 @@ function getAudioContext(): AudioContext | null {
   return audioContext;
 }
 
+// Keyed by "gender/slug" — the same slug means a different clip per voice, so
+// a plain slug key would let a female clip served earlier this session
+// answer a lookup for the male bank (or vice versa) after the athlete
+// switches voices between runs.
 const bufferCache = new Map<string, Promise<AudioBuffer>>();
 
-async function loadBuffer(slug: string, ctx: AudioContext): Promise<AudioBuffer> {
-  let pending = bufferCache.get(slug);
+async function loadBuffer(slug: string, gender: VoiceGender, ctx: AudioContext): Promise<AudioBuffer> {
+  const cacheKey = `${gender}/${slug}`;
+  let pending = bufferCache.get(cacheKey);
   if (!pending) {
-    pending = fetch(`${CLIP_BASE}${slug}.mp3`)
+    pending = fetch(`${CLIP_BASE[gender]}${slug}.mp3`)
       .then((res) => {
-        if (!res.ok) throw new Error(`voice clip ${slug} responded ${res.status}`);
+        if (!res.ok) throw new Error(`voice clip ${slug} (${gender}) responded ${res.status}`);
         return res.arrayBuffer();
       })
       .then((data) => ctx.decodeAudioData(data));
-    bufferCache.set(slug, pending);
+    bufferCache.set(cacheKey, pending);
   }
   try {
     return await pending;
   } catch (err) {
-    bufferCache.delete(slug); // don't let one bad fetch/decode poison every retry
+    bufferCache.delete(cacheKey); // don't let one bad fetch/decode poison every retry
     throw err;
   }
 }
@@ -112,8 +123,8 @@ function stopCurrent(): void {
   }
 }
 
-async function playSpliced(slugs: string[], ctx: AudioContext, token: number): Promise<void> {
-  const buffers = await Promise.all(slugs.map((slug) => loadBuffer(slug, ctx)));
+async function playSpliced(slugs: string[], gender: VoiceGender, ctx: AudioContext, token: number): Promise<void> {
+  const buffers = await Promise.all(slugs.map((slug) => loadBuffer(slug, gender, ctx)));
   if (token !== currentToken) return; // superseded while buffers were loading
   const spliced = concatBuffers(buffers, ctx);
 
@@ -129,7 +140,12 @@ async function playSpliced(slugs: string[], ctx: AudioContext, token: number): P
  * bank, falling back to text-to-speech when the value can't be spelled out
  * with recorded clips (e.g. distance past 99km) or a clip fails to fetch/decode.
  */
-export function announceDistancePace(kmMeters: number, paceMinutes: number, paceSeconds: number): void {
+export function announceDistancePace(
+  kmMeters: number,
+  paceMinutes: number,
+  paceSeconds: number,
+  gender: VoiceGender = "female",
+): void {
   const kmTenths = (kmMeters / 1000).toFixed(1);
   const fallbackText = `${kmTenths} quilômetros. Pace ${paceMinutes} e ${paceSeconds.toString().padStart(2, "0")}.`;
 
@@ -150,7 +166,7 @@ export function announceDistancePace(kmMeters: number, paceMinutes: number, pace
     return;
   }
 
-  playSpliced(slugs, ctx, token).catch(() => {
+  playSpliced(slugs, gender, ctx, token).catch(() => {
     if (token === currentToken) speak(fallbackText);
   });
 }

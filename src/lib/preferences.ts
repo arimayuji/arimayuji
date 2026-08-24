@@ -33,11 +33,15 @@ export type AppMode = "atleta" | "treinador";
 /** Whether the voice-announcement trigger is "every N meters" (the original behavior) or "every N seconds" — a run on a treadmill or a very winding trail can make a fixed distance interval feel unpredictable, so a time-based alternative is offered instead of replacing the distance one. */
 export type AnnounceMode = "distance" | "time";
 
+/** Which recorded voice bank speaks the announcements — see scripts/generate-voice-bank.ts's VOICES map and voiceBank.ts's CLIP_BASE for the matching clip directories. */
+export type VoiceGender = "female" | "male";
+
 export interface Preferences {
   announceIntervalMeters: number;
   /** Only read when `announceMode` is "time". Independent of `announceIntervalMeters` so switching modes back and forth doesn't lose either choice. */
   announceIntervalSeconds: number;
   announceMode: AnnounceMode;
+  voiceGender: VoiceGender;
   distanceUnit: DistanceUnit;
   /** Extra live stat tiles on /run — the run-so-far average pace and the pace of the km currently in progress. Both on by default; each is one more tile competing for space on a screen a sweaty thumb glances at mid-stride, so /perfil lets either be turned off. */
   showAveragePaceLive: boolean;
@@ -82,6 +86,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   announceIntervalMeters: 1000,
   announceIntervalSeconds: 300,
   announceMode: "distance",
+  voiceGender: "female",
   distanceUnit: "km",
   showAveragePaceLive: true,
   showCurrentKmPaceLive: true,
@@ -123,6 +128,11 @@ function sanitize(raw: unknown): Preferences {
       ? value.announceMode
       : DEFAULT_PREFERENCES.announceMode;
 
+  const voiceGender: VoiceGender =
+    value.voiceGender === "female" || value.voiceGender === "male"
+      ? value.voiceGender
+      : DEFAULT_PREFERENCES.voiceGender;
+
   const distanceUnit: DistanceUnit =
     value.distanceUnit === "mi" || value.distanceUnit === "km"
       ? value.distanceUnit
@@ -160,6 +170,7 @@ function sanitize(raw: unknown): Preferences {
     announceIntervalMeters,
     announceIntervalSeconds,
     announceMode,
+    voiceGender,
     distanceUnit,
     showAveragePaceLive,
     showCurrentKmPaceLive,

@@ -71,6 +71,8 @@ export interface StartOptions {
   announceIntervalSeconds?: number;
   /** "distance" (default) triggers on `announceIntervalMeters` covered since the last announcement; "time" triggers on `announceIntervalSeconds` elapsed instead — useful on a treadmill or a route so winding that a fixed distance interval lands unpredictably. */
   announceMode?: "distance" | "time";
+  /** Which recorded voice bank speaks the announcements — see voiceBank.ts's `VoiceGender`. */
+  voiceGender?: "female" | "male";
   goal?: RunGoal;
   /** A previously completed run to race against, compared by distance vs elapsed time only. */
   ghostRun?: CompletedRun;
@@ -217,6 +219,7 @@ export function useRunTracker() {
   const announceIntervalRef = useRef(1000);
   const announceIntervalSecondsRef = useRef(300);
   const announceModeRef = useRef<"distance" | "time">("distance");
+  const voiceGenderRef = useRef<"female" | "male">("female");
   const lastAnnounceDistanceRef = useRef(0);
   const lastAnnounceTimeRef = useRef<number | null>(null);
 
@@ -281,7 +284,7 @@ export function useRunTracker() {
           if (splitPaceSecPerKm) {
             const m = Math.floor(splitPaceSecPerKm / 60);
             const sec = Math.round(splitPaceSecPerKm % 60);
-            announceDistancePace(distanceRef.current, m, sec);
+            announceDistancePace(distanceRef.current, m, sec, voiceGenderRef.current);
           }
           lastAnnounceDistanceRef.current = distanceRef.current;
           lastAnnounceTimeRef.current = Date.now();
@@ -612,7 +615,7 @@ export function useRunTracker() {
         if (splitPaceSecPerKm) {
           const m = Math.floor(splitPaceSecPerKm / 60);
           const s = Math.round(splitPaceSecPerKm % 60);
-          announceDistancePace(distanceRef.current, m, s);
+          announceDistancePace(distanceRef.current, m, s, voiceGenderRef.current);
         }
         lastAnnounceDistanceRef.current = distanceRef.current;
         lastAnnounceTimeRef.current = timestamp;
@@ -786,6 +789,7 @@ export function useRunTracker() {
         announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
         announceIntervalSecondsRef.current = options?.announceIntervalSeconds ?? 300;
         announceModeRef.current = options?.announceMode ?? "distance";
+        voiceGenderRef.current = options?.voiceGender ?? "female";
         targetPaceSecPerKmRef.current = options?.goal?.targetPaceSecPerKm;
         vibrateOnPaceDelayRef.current = options?.vibrateOnPaceDelay ?? false;
         paceDelayAlertedRef.current = false;
@@ -892,6 +896,7 @@ export function useRunTracker() {
       announceIntervalRef.current = 1000;
       announceIntervalSecondsRef.current = 300;
       announceModeRef.current = "distance";
+      voiceGenderRef.current = "female";
       ghostSeriesRef.current = null;
       recoveringRef.current = true;
 
