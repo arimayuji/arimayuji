@@ -867,6 +867,17 @@ do app nativo, não muda nada de autenticação).
       TestFlight, fix do pace ao vivo lendo mais devagar que o real) —
       **aprovado pela Apple ainda no mesmo dia**, o link público agora
       serve esse build.
+      **Segunda atualização no mesmo dia (2026-08-24)**: build 140 (Sala
+      de Treino, fix do `iosScheme`/login nativo, fix do CTA da landing)
+      submetido pela branch `testflight` — só que na primeira tentativa
+      a Apple ainda não tinha processado o 140, então o script (que
+      sempre pega "o build mais recente já processado") submeteu o 139
+      antigo por engano. Retentado direto via re-run do job
+      `submit_for_review` (sem rebuildar nada) até o 140 aparecer como
+      processado — a segunda tentativa falhou de forma segura
+      (`INVALID_QC_STATE`, o 139 já estava em fila), a terceira pegou o
+      140 certo e submeteu com sucesso. Ainda não confirmado se a Apple
+      aprovou.
 - [x] **2026-08-22: escopado, Fase A e Fase B implementadas** — modo
       treinador vira "os dois juntos" (IA sugere + motor determinístico
       trava os limites + treinador edita por cima), ver seção própria
