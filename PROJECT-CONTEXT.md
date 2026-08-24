@@ -356,6 +356,18 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 
 - **Backlog de ideias soltas (sessão 2026-08-23, nenhuma escopada em detalhe
   ainda — só registrando pra não perder)**:
+  - **Editor do card de compartilhar com elementos arrastáveis** (pedido
+    em 2026-08-24, confirmado via pergunta direta ao dono do projeto qual
+    das telas ele queria dizer): em `/compartilhar`, poder arrastar a
+    ilustração da rota e os números grandes (distância/tempo/pace)
+    livremente dentro do card antes de exportar/postar — tipo editor de
+    story do Instagram/Stories, em vez do layout fixo atual. Confirmado
+    por leitura de código que não existe nenhum drag-and-drop hoje em
+    `src/app/(app)/compartilhar/page.tsx`/`src/lib/shareCard/` — layout é
+    inteiramente fixo. Ainda não escopado (precisa decidir: arrastar livre
+    por pixel, ou só reordenar/trocar posições entre slots fixos; se a
+    posição persiste por corrida ou é só uma preferência de template) nem
+    implementado.
   - **Repetir corrida**: no histórico, um botão "repetir corrida" que
     reabre `/run` já configurado com a mesma meta (distância/tempo/ritmo) —
     e possivelmente o mesmo trajeto, se fizer sentido — de uma corrida
@@ -446,9 +458,26 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   - **Lugares pra correr em outras capitais** (pedido nesta mesma sessão,
     confirmado "vários lugares por capital", com um critério de "pelo
     menos ~3km" de percurso que ficou cortado no áudio original — não
-    confirmado se é raio ou comprimento de circuito): ainda não iniciado
-    no momento deste registro, é o próximo item da fila assim que o dono
-    do projeto confirmar prioridade.
+    confirmado se é raio ou comprimento de circuito): **atualização
+    2026-08-24 — essa expansão de dados já aconteceu**, commit `142180d`
+    ("expandir pras 27 capitais brasileiras") adicionou 54 lugares novos
+    em 26 capitais além de São Paulo. A nota acima ficou desatualizada
+    (dizia "ainda não iniciado") — corrigida agora. **O que falta de
+    verdade**: ilustração. Só 10 dos 68 lugares no catálogo têm
+    `coverImage` (a imagem cel-shaded no topo do card/detalhe) e todos os
+    10 são de São Paulo — os 54 lugares novos (e mais 4 de SP:
+    `parque-do-carmo`, `parque-trianon`, `parque-burle-marx`,
+    `parque-da-juventude`) não têm nenhuma, porque nenhum teve ilustração
+    comissionada ainda (deliberado desde o commit original, não é bug —
+    `coverImage` já é opcional por design e a UI degrada bem sem ela).
+    Plano de execução: gerar as 58 ilustrações via Recraft na mesma
+    direção de arte já estabelecida (`SOCIAL-CONTEXT.md`), depois soltar
+    cada `.webp` em `public/lugares/` e adicionar a linha `coverImage` em
+    `src/lib/places.ts` — trabalho incremental, uma imagem por vez, não
+    precisa esperar as 58 de uma vez. Em aberto: priorizar por capital ou
+    tentar tudo de uma vez, e quem gera (o dono do projeto no Recraft
+    Studio, como as 10 já feitas, ou via API do Recraft se
+    `RECRAFT_API_KEY` for exposta a uma sessão).
 
 - **Dados de saúde do smartwatch** (escopado em 2026-08 numa sessão anterior,
   contexto recuperado do transcript bruto porque nunca foi salvo aqui —
