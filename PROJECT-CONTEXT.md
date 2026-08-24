@@ -213,9 +213,14 @@ desligado por completo, ver "O produto, em uma frase" acima):
   pro Google. **Corrigido** via substituição de build setting do Xcode
   (`$(GOOGLE_REVERSED_CLIENT_ID)`, calculado em `ios-build.yml` a partir do
   client ID já configurado — nunca precisou colar o valor real no repo) —
-  ver README pro detalhe técnico. Ainda não confirmado se resolveu de
-  verdade num aparelho real (o build com esse fix ainda não foi submetido
-  pro TestFlight).
+  ver README pro detalhe técnico. **Build 136** (com esse fix) submetido
+  pra Beta App Review em 2026-08-24 — na primeira tentativa de submissão
+  a Apple ainda não tinha processado esse build (`INVALID_QC_STATE` ao
+  tentar submeter o 134 de novo, que já tinha sido revisado — falhou de
+  forma segura, sem re-enviar o build quebrado), retentado minutos depois
+  (`rerun_failed_jobs`, sem rebuildar) já pegando o 136 certo. **Ainda não
+  confirmado se o fix resolveu de verdade num aparelho real** — depende da
+  aprovação da Apple e de alguém testar o login de novo depois.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
