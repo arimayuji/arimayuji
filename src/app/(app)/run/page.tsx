@@ -59,7 +59,6 @@ import {
   type PainCheckIn,
   type RunTrack,
   type Shoe,
-  type StoredPoint,
 } from "@/lib/tracking/storage";
 import { applyCoachOverride, computeCurrentPlanWeek, isoWeekday, paceForZone, ZONE_LABEL } from "@/lib/plan";
 import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coachPlanOverrides";
@@ -71,7 +70,6 @@ import { sendMilestoneNotification } from "@/lib/milestoneNotifications";
 import { recordFinishedRun, removeFinishedRun } from "@/lib/profileStats";
 import { getProfile, updateProfile } from "@/lib/auth";
 import type { RunningPlace } from "@/lib/places";
-import { projectRoute } from "@/lib/tracking/routeProjection";
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
@@ -753,47 +751,6 @@ function MetricCard({
         {value}
         {unit && <span className="ml-1 text-[13px] font-sans font-medium text-muted">{unit}</span>}
       </p>
-    </div>
-  );
-}
-
-/**
- * A small live preview of the route, drawn as a plain SVG polyline via the
- * same flat local projection `historico/detalhe` uses for its own thumbnail
- * — deliberately not a real tiled map here: this redraws on every GPS fix
- * while tracking, and reloading map tiles that often would cost data and
- * battery for a 76px strip nobody is navigating by. The full basemap
- * (`RouteMap`) still renders once the run is over, on the finished screen.
- */
-function RouteStrip({ points }: { points: StoredPoint[] }) {
-  const projected = points.length >= 2 ? projectRoute(points, { viewBoxSize: 100, paddingFraction: 0.14 }) : null;
-  return (
-    <div className="relative mt-3 h-[76px] shrink-0 overflow-hidden rounded-2xl border border-border bg-surface">
-      <span className="absolute top-2 left-2.5 text-[10px] font-semibold tracking-[0.06em] text-muted uppercase">
-        Rota
-      </span>
-      {projected ? (
-        <svg
-          viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
-          preserveAspectRatio="xMidYMid meet"
-          className="h-full w-full"
-        >
-          {projected.polylines.map((pts, i) => (
-            <polyline
-              key={i}
-              points={pts}
-              fill="none"
-              stroke="var(--accent)"
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={0.9}
-            />
-          ))}
-        </svg>
-      ) : (
-        <div className="flex h-full items-center justify-center text-xs text-muted">Aguardando rota…</div>
-      )}
     </div>
   );
 }
@@ -2412,7 +2369,16 @@ export default function RunPage() {
               </div>
 
               <div className="flex flex-col items-center px-3 py-6">
-                <span className="text-metal-run text-metal-run-giant text-[4.75rem] leading-none tabular-nums whitespace-nowrap">
+                <span
+                  className={`text-metal-run text-metal-run-giant leading-none tabular-nums whitespace-nowrap ${
+                    // "Tempo" past an hour ("1:23:45") or a marathon-length
+                    // "distância" ("42.195") is too wide for the bigger size
+                    // on a small phone at this weight — same size as before
+                    // for those, bumped up for the common short values
+                    // (pace, most distances/times) the request was about.
+                    metricValues[featured.id].length > 5 ? "text-[4.75rem]" : "text-[6rem]"
+                  }`}
+                >
                   {metricValues[featured.id]}
                 </span>
                 <span className="mt-2.5 text-xs font-semibold tracking-[0.1em] text-accent uppercase">
@@ -2481,8 +2447,6 @@ export default function RunPage() {
                   <MetricCard icon="ritmo" label="Pace do km atual" value={formatPace(state.currentKmPaceSecPerKm)} unit="/km" />
                 )}
               </div>
-
-              <RouteStrip points={state.points} />
 
               <div className="mt-4 flex flex-1 items-end gap-3">
                 <button
