@@ -183,8 +183,23 @@ desligado por completo, ver "O produto, em uma frase" acima):
 
 ## OAuth / Login social
 
-- **Google**: funcionando, via Appwrite (Google Cloud Console → OAuth
-  client novo depois que o projeto GCP anterior foi excluído e recriado).
+- **Google**: funcionando no Android e na web via Appwrite (Google Cloud
+  Console → OAuth client novo depois que o projeto GCP anterior foi
+  excluído e recriado). **No iOS nativo, reportado quebrado em 2026-08-24**
+  (confirmado com print do Appwrite Console: a conta é criada de verdade,
+  mas a tela nunca volta pro app — testado em dois iPhones diferentes,
+  incluindo o de um amigo do dono do projeto). Mesma causa-raiz do bug do
+  Apple abaixo (o redirect por navegador do sistema não completa a volta
+  pro app no iOS). **Corrigido no código** nesta mesma data via
+  `nativeGoogleSignIn` (`src/lib/auth.ts`, usando
+  `@capgo/capacitor-social-login`/`GIDSignIn`) — ver o README ("Google
+  Sign-In no iOS") para o desenho completo. **Bloqueado até o dono do
+  projeto criar um OAuth Client ID tipo "iOS" no Google Cloud Console**
+  (bundle `com.xanthus.app`) e configurar
+  `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` (secret do GitHub Actions) +
+  `GOOGLE_IOS_CLIENT_ID` (variável da Function `client-actions`) — sem
+  isso, o login nativo no iOS devolve um diagnóstico explícito em vez de
+  travar silenciosamente, mas continua não funcionando de verdade.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
