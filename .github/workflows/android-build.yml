@@ -308,8 +308,14 @@ jobs:
           # install compares its own build number (@capacitor/app's
           # AppInfo.build, which is versionCode on Android) against this
           # file's versionCode to decide whether to show the update banner.
+          # `url` deliberately points at the /download instructions page, not
+          # the raw .apk — the update notification used to link straight to
+          # the binary, which handed Chrome's "arquivo pode ser nocivo"
+          # interstitial to the user with zero context (same reasoning that
+          # already made the landing page's own "Baixar APK" button point
+          # here instead of the raw file — see src/app/download/page.tsx).
           cat > out/download/version.json <<EOF
-          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.app.br/download/xanthus.apk"}
+          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.app.br/download"}
           EOF
           # The download URL itself has to stay the fixed "xanthus.apk" path
           # above — that's what makes it a stable link the landing page and

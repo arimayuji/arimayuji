@@ -6,13 +6,17 @@
  * `.github/workflows/android-build.yml` on every deploy to `main`.
  *
  * Android only, on purpose: `version.json`'s `versionCode` is Android's
- * versionCode and `remote.url` is a raw `.apk` link, neither of which means
- * anything on iOS (`App.getInfo().build` there is iOS's own CFBundleVersion
- * — an unrelated numbering series, so comparing it against an Android
- * versionCode is meaningless at best). iOS testers already get their own
- * native "update available" notification from the TestFlight app itself
- * whenever a new build finishes processing — this in-app nudge would only
- * ever duplicate that, and worse, point at a file iOS can't even open.
+ * versionCode, which means nothing on iOS (`App.getInfo().build` there is
+ * iOS's own CFBundleVersion — an unrelated numbering series, so comparing it
+ * against an Android versionCode is meaningless at best). iOS testers
+ * already get their own native "update available" notification from the
+ * TestFlight app itself whenever a new build finishes processing — this
+ * in-app nudge would only ever duplicate that.
+ *
+ * `remote.url` points at `/download` (an instructions page, see
+ * src/app/download/page.tsx) rather than the raw `.apk` — linking straight
+ * at the binary handed Chrome's "arquivo pode ser nocivo" interstitial to
+ * the user with zero context.
  */
 import { App } from "@capacitor/app";
 import { isAndroidPlatform } from "@/lib/platform";
