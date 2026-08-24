@@ -1136,8 +1136,14 @@ export default function Home() {
                 className="pr-enter mt-9 flex flex-col gap-3 sm:flex-row sm:items-center"
                 style={delay(290)}
               >
-                <Link
-                  href="/download"
+                {/*
+                  Mesmo raciocínio do "Começar" no header (ver comentário
+                  ali): leva pra seção de escolha de plataforma, não direto
+                  pro /download do Android — um visitante de iPhone clicando
+                  aqui caía no APK que não consegue nem instalar.
+                */}
+                <a
+                  href="#baixar"
                   className="group relative inline-block rounded-full pb-2 focus-visible:outline-none"
                 >
                   <span
@@ -1147,7 +1153,7 @@ export default function Home() {
                   <span className="relative block -translate-y-2 rounded-full bg-accent px-8 py-4 text-base font-semibold text-accent-foreground transition-transform duration-150 ease-out group-hover:-translate-y-2.5 group-active:translate-y-0 group-active:duration-75 group-focus-visible:ring-2 group-focus-visible:ring-accent group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-background">
                     Começar a correr
                   </span>
-                </Link>
+                </a>
                 <a
                   href="#evolucao"
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-8 py-4 text-base font-medium transition-colors hover:border-accent hover:text-accent"
