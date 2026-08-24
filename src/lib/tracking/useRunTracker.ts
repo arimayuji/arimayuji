@@ -67,6 +67,10 @@ export interface RunGoal {
 
 export interface StartOptions {
   announceIntervalMeters?: number;
+  /** Only read when `announceMode` is "time". */
+  announceIntervalSeconds?: number;
+  /** "distance" (default) triggers on `announceIntervalMeters` covered since the last announcement; "time" triggers on `announceIntervalSeconds` elapsed instead — useful on a treadmill or a route so winding that a fixed distance interval lands unpredictably. */
+  announceMode?: "distance" | "time";
   goal?: RunGoal;
   /** A previously completed run to race against, compared by distance vs elapsed time only. */
   ghostRun?: CompletedRun;
@@ -211,6 +215,8 @@ export function useRunTracker() {
   const pauseStartedAtRef = useRef<number | null>(null);
 
   const announceIntervalRef = useRef(1000);
+  const announceIntervalSecondsRef = useRef(300);
+  const announceModeRef = useRef<"distance" | "time">("distance");
   const lastAnnounceDistanceRef = useRef(0);
   const lastAnnounceTimeRef = useRef<number | null>(null);
 
@@ -259,6 +265,27 @@ export function useRunTracker() {
       setState((s) => {
         if (s.status !== "tracking") return s;
         const elapsedSeconds = computeElapsedSeconds();
+
+        // Time-based voice announcements fire off the wall clock here rather
+        // than off GPS fixes (handleFix's distance-based branch above) —
+        // otherwise a stretch with sparse fixes would delay an announcement
+        // that's only supposed to depend on time elapsed.
+        if (
+          announceModeRef.current === "time" &&
+          lastAnnounceTimeRef.current !== null &&
+          Date.now() - lastAnnounceTimeRef.current >= announceIntervalSecondsRef.current * 1000
+        ) {
+          const splitDistance = distanceRef.current - lastAnnounceDistanceRef.current;
+          const splitSeconds = (Date.now() - lastAnnounceTimeRef.current) / 1000;
+          const splitPaceSecPerKm = splitSeconds > 0 && splitDistance > 0 ? (splitSeconds / splitDistance) * 1000 : null;
+          if (splitPaceSecPerKm) {
+            const m = Math.floor(splitPaceSecPerKm / 60);
+            const sec = Math.round(splitPaceSecPerKm % 60);
+            announceDistancePace(distanceRef.current, m, sec);
+          }
+          lastAnnounceDistanceRef.current = distanceRef.current;
+          lastAnnounceTimeRef.current = Date.now();
+        }
         const remainingMeters = s.goal?.distanceMeters
           ? Math.max(0, s.goal.distanceMeters - distanceRef.current)
           : null;
@@ -560,6 +587,7 @@ export function useRunTracker() {
 
       let announced = false;
       if (
+        announceModeRef.current === "distance" &&
         lastAnnounceTimeRef.current !== null &&
         distanceRef.current - lastAnnounceDistanceRef.current >= announceIntervalRef.current
       ) {
@@ -741,6 +769,8 @@ export function useRunTracker() {
         lastAnnounceDistanceRef.current = 0;
         lastAnnounceTimeRef.current = null;
         announceIntervalRef.current = options?.announceIntervalMeters ?? 1000;
+        announceIntervalSecondsRef.current = options?.announceIntervalSeconds ?? 300;
+        announceModeRef.current = options?.announceMode ?? "distance";
         targetPaceSecPerKmRef.current = options?.goal?.targetPaceSecPerKm;
         vibrateOnPaceDelayRef.current = options?.vibrateOnPaceDelay ?? false;
         paceDelayAlertedRef.current = false;
@@ -845,6 +875,8 @@ export function useRunTracker() {
       lastAnnounceDistanceRef.current = snapshot.distanceMeters;
       lastAnnounceTimeRef.current = null;
       announceIntervalRef.current = 1000;
+      announceIntervalSecondsRef.current = 300;
+      announceModeRef.current = "distance";
       ghostSeriesRef.current = null;
       recoveringRef.current = true;
 

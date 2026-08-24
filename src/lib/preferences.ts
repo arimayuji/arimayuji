@@ -30,8 +30,14 @@ export type ThemeMode = "light" | "dark" | "system";
  */
 export type AppMode = "atleta" | "treinador";
 
+/** Whether the voice-announcement trigger is "every N meters" (the original behavior) or "every N seconds" — a run on a treadmill or a very winding trail can make a fixed distance interval feel unpredictable, so a time-based alternative is offered instead of replacing the distance one. */
+export type AnnounceMode = "distance" | "time";
+
 export interface Preferences {
   announceIntervalMeters: number;
+  /** Only read when `announceMode` is "time". Independent of `announceIntervalMeters` so switching modes back and forth doesn't lose either choice. */
+  announceIntervalSeconds: number;
+  announceMode: AnnounceMode;
   distanceUnit: DistanceUnit;
   /** Extra live stat tiles on /run — the run-so-far average pace and the pace of the km currently in progress. Both on by default; each is one more tile competing for space on a screen a sweaty thumb glances at mid-stride, so /perfil lets either be turned off. */
   showAveragePaceLive: boolean;
@@ -67,8 +73,15 @@ export const ANNOUNCE_MIN_METERS = 250;
 export const ANNOUNCE_MAX_METERS = 5000;
 export const ANNOUNCE_STEP_METERS = 250;
 
+/** Slider bounds for the time-based voice-announcement interval, in seconds. */
+export const ANNOUNCE_MIN_SECONDS = 60;
+export const ANNOUNCE_MAX_SECONDS = 600;
+export const ANNOUNCE_STEP_SECONDS = 30;
+
 export const DEFAULT_PREFERENCES: Preferences = {
   announceIntervalMeters: 1000,
+  announceIntervalSeconds: 300,
+  announceMode: "distance",
   distanceUnit: "km",
   showAveragePaceLive: true,
   showCurrentKmPaceLive: true,
@@ -86,6 +99,11 @@ function clampAnnounceInterval(meters: number): number {
   return Math.min(ANNOUNCE_MAX_METERS, Math.max(ANNOUNCE_MIN_METERS, snapped));
 }
 
+function clampAnnounceSeconds(seconds: number): number {
+  const snapped = Math.round(seconds / ANNOUNCE_STEP_SECONDS) * ANNOUNCE_STEP_SECONDS;
+  return Math.min(ANNOUNCE_MAX_SECONDS, Math.max(ANNOUNCE_MIN_SECONDS, snapped));
+}
+
 function sanitize(raw: unknown): Preferences {
   if (typeof raw !== "object" || raw === null) return DEFAULT_PREFERENCES;
   const value = raw as Partial<Record<keyof Preferences, unknown>>;
@@ -94,6 +112,16 @@ function sanitize(raw: unknown): Preferences {
   const announceIntervalMeters = Number.isFinite(rawAnnounce)
     ? clampAnnounceInterval(rawAnnounce)
     : DEFAULT_PREFERENCES.announceIntervalMeters;
+
+  const rawAnnounceSeconds = Number(value.announceIntervalSeconds);
+  const announceIntervalSeconds = Number.isFinite(rawAnnounceSeconds)
+    ? clampAnnounceSeconds(rawAnnounceSeconds)
+    : DEFAULT_PREFERENCES.announceIntervalSeconds;
+
+  const announceMode: AnnounceMode =
+    value.announceMode === "distance" || value.announceMode === "time"
+      ? value.announceMode
+      : DEFAULT_PREFERENCES.announceMode;
 
   const distanceUnit: DistanceUnit =
     value.distanceUnit === "mi" || value.distanceUnit === "km"
@@ -130,6 +158,8 @@ function sanitize(raw: unknown): Preferences {
 
   return {
     announceIntervalMeters,
+    announceIntervalSeconds,
+    announceMode,
     distanceUnit,
     showAveragePaceLive,
     showCurrentKmPaceLive,
@@ -167,4 +197,10 @@ export function savePreferences(patch: Partial<Preferences>): Preferences {
 export function announceLabel(meters: number): string {
   if (meters < 1000) return `${meters} m`;
   return `${(meters / 1000).toString().replace(".", ",")} km`;
+}
+
+export function announceSecondsLabel(seconds: number): string {
+  if (seconds < 60) return `${seconds} s`;
+  if (seconds % 60 === 0) return `${seconds / 60} min`;
+  return `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")} min`;
 }

@@ -98,9 +98,13 @@ import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboardin
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
+  ANNOUNCE_MAX_SECONDS,
   ANNOUNCE_MIN_METERS,
+  ANNOUNCE_MIN_SECONDS,
   ANNOUNCE_STEP_METERS,
+  ANNOUNCE_STEP_SECONDS,
   announceLabel,
+  announceSecondsLabel,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useHeaderGpsStatus, useImmersiveMode, useTabReclick } from "../app-shell";
@@ -200,6 +204,7 @@ const DISTANCE_PRESETS_KM = [1, 3, 5, 10, 21];
 const TIME_PRESETS_MIN = [20, 30, 45, 60, 90];
 const PACE_PRESETS_SEC = [270, 300, 330, 360, 390]; // 4:30–6:30 /km
 const VOICE_PRESETS_M = [250, 500, 1000, 2000, 5000];
+const VOICE_PRESETS_S = [60, 120, 180, 300, 600];
 
 /**
  * Ending a run is the one action here with no undo — the summary screen is
@@ -905,7 +910,7 @@ export default function RunPage() {
   /** Target pace to hold, seconds/km — 330 = 5:30/km, a typical easy-run pace. */
   const [goalPaceSec, setGoalPaceSec] = useState(330);
   /** Which "Custom" chip's sheet is currently open — at most one at a time, across all four pickers on this screen. */
-  const [customSheet, setCustomSheet] = useState<"distancia" | "tempo" | "ritmo" | "voz" | null>(null);
+  const [customSheet, setCustomSheet] = useState<"distancia" | "tempo" | "ritmo" | "voz" | "voz-tempo" | null>(null);
   const [shoeName, setShoeName] = useState("");
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
@@ -1302,6 +1307,8 @@ export default function RunPage() {
    */
   const [preferences, updatePreferences] = usePreferences();
   const announceMeters = preferences.announceIntervalMeters;
+  const announceSeconds = preferences.announceIntervalSeconds;
+  const announceMode = preferences.announceMode;
 
   /**
    * Live position sharing — a ping to whoever's watching (the chosen coach,
@@ -1579,6 +1586,8 @@ export default function RunPage() {
     setActiveGhost(selectedGhost);
     start({
       announceIntervalMeters: announceMeters,
+      announceIntervalSeconds: announceSeconds,
+      announceMode,
       goal:
         distanceMeters || durationSeconds || targetPaceSecPerKm
           ? { distanceMeters, durationSeconds, targetPaceSecPerKm }
@@ -1957,14 +1966,43 @@ export default function RunPage() {
             </Card>
 
             <div className="space-y-1.5">
-              <span className="text-sm font-medium">Aviso por voz a cada</span>
-              <PresetChipRow
-                presets={VOICE_PRESETS_M.map((m) => ({ value: m, label: announceLabel(m) }))}
-                value={announceMeters}
-                onSelect={(meters) => updatePreferences({ announceIntervalMeters: meters })}
-                onOpenCustom={() => setCustomSheet("voz")}
-                customLabel={VOICE_PRESETS_M.includes(announceMeters) ? null : announceLabel(announceMeters)}
-              />
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Aviso por voz a cada</span>
+                <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
+                  {(["distance", "time"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => updatePreferences({ announceMode: mode })}
+                      aria-pressed={announceMode === mode}
+                      className={`px-3 py-1.5 transition-colors ${
+                        announceMode === mode
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-background text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {mode === "distance" ? "Distância" : "Tempo"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {announceMode === "distance" ? (
+                <PresetChipRow
+                  presets={VOICE_PRESETS_M.map((m) => ({ value: m, label: announceLabel(m) }))}
+                  value={announceMeters}
+                  onSelect={(meters) => updatePreferences({ announceIntervalMeters: meters })}
+                  onOpenCustom={() => setCustomSheet("voz")}
+                  customLabel={VOICE_PRESETS_M.includes(announceMeters) ? null : announceLabel(announceMeters)}
+                />
+              ) : (
+                <PresetChipRow
+                  presets={VOICE_PRESETS_S.map((s) => ({ value: s, label: announceSecondsLabel(s) }))}
+                  value={announceSeconds}
+                  onSelect={(seconds) => updatePreferences({ announceIntervalSeconds: seconds })}
+                  onOpenCustom={() => setCustomSheet("voz-tempo")}
+                  customLabel={VOICE_PRESETS_S.includes(announceSeconds) ? null : announceSecondsLabel(announceSeconds)}
+                />
+              )}
             </div>
 
             {customSheet === "distancia" && (
@@ -2022,6 +2060,21 @@ export default function RunPage() {
                 formatValue={announceLabel}
                 onConfirm={(meters) => {
                   updatePreferences({ announceIntervalMeters: meters });
+                  setCustomSheet(null);
+                }}
+                onClose={() => setCustomSheet(null)}
+              />
+            )}
+            {customSheet === "voz-tempo" && (
+              <CustomValueSheet
+                title="Aviso por voz personalizado"
+                value={announceSeconds}
+                min={ANNOUNCE_MIN_SECONDS}
+                max={ANNOUNCE_MAX_SECONDS}
+                step={ANNOUNCE_STEP_SECONDS}
+                formatValue={announceSecondsLabel}
+                onConfirm={(seconds) => {
+                  updatePreferences({ announceIntervalSeconds: seconds });
                   setCustomSheet(null);
                 }}
                 onClose={() => setCustomSheet(null)}
