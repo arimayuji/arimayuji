@@ -61,7 +61,16 @@ async function generateClip(
       previous_text: previousText ?? undefined,
       next_text: nextText ?? undefined,
       model_id: "eleven_multilingual_v2",
-      voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+      // stability lowered from the original 0.5 and `style`/`use_speaker_boost`
+      // added on top — per ElevenLabs' own guidance, stability at 0.5+ trends
+      // toward flat/monotone delivery, while a lower value plus a touch of
+      // `style` (natural inflection, not caricature) reads as more fluid.
+      // Unverified by ear in this environment — no speakers/audio playback
+      // here, and every render costs API credits — so treat this as the best
+      // documented starting point, not a confirmed final value; adjust and
+      // regenerate (`npm run voice:generate`, after deleting the mp3s to
+      // re-render) if it doesn't sound right once played back for real.
+      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.2, use_speaker_boost: true },
     }),
   });
   if (!res.ok) {
