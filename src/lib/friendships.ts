@@ -121,7 +121,8 @@ export async function sendFriendRequest(handle: string): Promise<SendFriendReque
       ],
     });
     return { ok: true, friendship };
-  } catch {
+  } catch (error) {
+    console.error("[friendships] sendFriendRequest failed", error);
     return { ok: false, reason: "failed" };
   }
 }
@@ -174,7 +175,8 @@ export async function respondToFriendRequest(friendshipId: string, accept: boole
       data: { status: "accepted", respondedAt: new Date().toISOString() },
     });
     return true;
-  } catch {
+  } catch (error) {
+    console.error("[friendships] respondToFriendRequest failed", error);
     return false;
   }
 }
@@ -190,7 +192,8 @@ export async function removeFriendship(friendshipId: string): Promise<boolean> {
       rowId: friendshipId,
     });
     return true;
-  } catch {
+  } catch (error) {
+    console.error("[friendships] removeFriendship failed", error);
     return false;
   }
 }
