@@ -313,32 +313,41 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
     que já corri" — mas a infra que já existe (`placeMatch.ts`,
     tarefas #74-78) só casa uma corrida contra os poucos lugares com
     `circuits` (rota rastreada) do catálogo de `places.ts`, tipicamente
-    parques. **Gap real, ainda sem solução**: uma corrida de rua que passa
-    por vários bairros não bate com nada — não tem um jeito óbvio de gerar
-    um "nome do lugar" pra esse caso (nome do bairro? do trecho mais longo?
-    do ponto de partida?). Precisa de uma sessão própria só pra pensar
-    nisso antes de construir.
+    parques, deixando de fora qualquer corrida de rua que passe por vários
+    bairros. **Decisão de produto (2026-08-24)**: quando não bate com o
+    catálogo, o **atleta digita o nome manualmente** — descartada a opção
+    de geocodificação reversa automática (evita mais uma chamada de API
+    paga/com cota por corrida). Ainda não implementado — falta o campo de
+    texto livre na tela de resumo/detalhe e usar esse valor como filtro no
+    histórico junto com os lugares já reconhecidos pelo catálogo.
   - **Sugestão de correr com amigo por proximidade**: se dois amigos
     estão com o app aberto e fisicamente perto um do outro, avisar
     ("fulano tá aí perto, bora correr junto?") — dentro do app tá OK, não
-    precisa ser push nativo. É a mais pesada das três: depende de
-    compartilhar localização em tempo real de quem só abriu o app (não de
-    quem já está numa corrida ativa, que já existe via `live_runs`), e tem
-    implicação de privacidade real (quem vê a localização de quem, e
-    quando) que precisa de decisão de produto antes de qualquer código.
+    precisa ser push nativo. Depende de compartilhar localização em tempo
+    real de quem só abriu o app (não de quem já está numa corrida ativa,
+    que já existe via `live_runs`). **Decisões de produto (2026-08-24)**:
+    opt-in explícito, desligado por padrão (mesmo padrão do ranking de
+    lugares — `leaderboardOptIn`, ligado em `/perfil`); visível **só pra
+    amigos aceitos**, nunca pra qualquer usuário do app nas redondezas.
+    Ainda não implementado — falta desenhar como/quando esse
+    compartilhamento de localização "só abri o app" liga e desliga (não é
+    o mesmo ciclo de vida de uma corrida ativa).
   - **"Trajeto da comunidade" (rotas populares agregadas)**: em vez de só
     o catálogo curado à mão (`places.ts`), minerar as rotas GPS já salvas
-    na plataforma pra achar trechos que muita gente corre em comum (a
-    ideia foi soltar um número de exemplo tipo "uns 100 usuários", não um
-    threshold fechado) e virar isso um "trajeto sugerido pela comunidade"
-    — o raciocínio do pedido: a equipe não conhece todo lugar bom pra
-    correr numa cidade, mas quem já corre lá sabe. Tecnicamente isso é
-    clustering/agregação geoespacial de trajetórias de várias contas
-    diferentes — bem mais pesado que o matching atual (que só compara
-    contra um catálogo fixo, nunca entre usuários). Levanta a mesma
-    pergunta de privacidade do item anterior: agregar não expõe
-    necessariamente a rota de ninguém individualmente, mas isso precisa
-    ser decisão de produto explícita, não suposição de quem for construir.
+    na plataforma pra achar trechos que muita gente corre em comum e virar
+    isso um "trajeto sugerido pela comunidade" — o raciocínio do pedido: a
+    equipe não conhece todo lugar bom pra correr numa cidade, mas quem já
+    corre lá sabe. Tecnicamente isso é clustering/agregação geoespacial de
+    trajetórias de várias contas — bem mais pesado que o matching atual
+    (que só compara contra um catálogo fixo, nunca entre usuários).
+    **Decisões de produto (2026-08-24)**: só entram trajetórias de quem já
+    ligou o opt-in do ranking de lugares (`leaderboardOptIn`) — nenhum
+    opt-in novo pra construir, e ninguém tem sua rota agregada sem ter
+    decidido antes que sua atividade pode aparecer pra outros; threshold
+    inicial **baixo (10-20 pessoas)**, não os "uns 100" soltos no pedido
+    original — com a base de usuários atual, esperar 100 podia nunca
+    disparar em lugar nenhum, dá pra subir depois se aparecer barulho/falso
+    positivo. Ainda não implementado.
   - ~~Ciclofaixa como "lugar pra correr" de fato~~ — **descartado** pelo
     dono do projeto em 2026-08-23, não vale reabrir sem pedido explícito
     de novo.
@@ -359,15 +368,14 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       numa voz claramente diferente do aviso padrão do app, anunciada
       como tal ("Seu treinador está pedindo pra reduzir o ritmo", "Seu
       treinador quer que você acelere nessa reta final", "Seu treinador
-      está pedindo pra você parar"). **Incompatibilidade técnica real a
-      resolver antes de construir**: o banco de voz hoje
-      (`scripts/generate-voice-bank.ts`, tarefas #82-85) é um conjunto
-      fixo de clipes pré-gravados (números 0-99 + palavras) concatenados
-      em tempo de execução — não existe TTS de texto livre no app. Mensagem
-      livre do treinador não cabe nesse mecanismo; precisa decidir entre
-      (a) TTS de verdade em tempo real (custo/latência/dependência de API
-      externa nova) ou (b) um conjunto fechado de frases pré-gravadas que
-      o treinador só escolhe, não digita.
+      está pedindo pra você parar"). **Decisão de produto (2026-08-24)**:
+      **frases pré-gravadas que o treinador só escolhe, não digita** —
+      descartado TTS de texto livre (custo/latência/dependência de API
+      externa nova). Reaproveita o banco de voz atual
+      (`scripts/generate-voice-bank.ts`, tarefas #82-85), só precisa
+      gravar as frases fixas do treinador como clipes novos no mesmo
+      pipeline — sem incompatibilidade técnica pra resolver. Ainda não
+      implementado.
     - **Previsão de chegada/tempo final ao vivo**, visível pro treinador
       (o app já expõe métricas ao vivo pro próprio atleta — conferir se
       dá pra reaproveitar o mesmo cálculo, não construir um novo).
