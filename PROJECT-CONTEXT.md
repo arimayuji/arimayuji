@@ -218,9 +218,25 @@ desligado por completo, ver "O produto, em uma frase" acima):
   a Apple ainda não tinha processado esse build (`INVALID_QC_STATE` ao
   tentar submeter o 134 de novo, que já tinha sido revisado — falhou de
   forma segura, sem re-enviar o build quebrado), retentado minutos depois
-  (`rerun_failed_jobs`, sem rebuildar) já pegando o 136 certo. **Ainda não
-  confirmado se o fix resolveu de verdade num aparelho real** — depende da
-  aprovação da Apple e de alguém testar o login de novo depois.
+  (`rerun_failed_jobs`, sem rebuildar) já pegando o 136 certo.
+  **Testado no build 136 pelo dono do projeto e por um amigo: o crash
+  sumiu, mas os dois logins nativos (Apple e Google) passaram a falhar do
+  mesmo jeito, um passo adiante** — erro da própria Appwrite no
+  `account.createSession` que fecha os dois fluxos: `"Invalid Scheme...
+  capacitor://localhost... change it to appwrite-callback-<PROJECT_ID>"`.
+  Causa: iOS roda o WebView do Capacitor sob o esquema `capacitor:` por
+  padrão (não pode virar `http`/`https`, restrição do próprio
+  Capacitor/WKWebView), e a Appwrite rejeita esse esquema pra criar
+  sessão — Android nunca teve esse problema (já roda em `https://
+  localhost`, aceito). **Corrigido** em `capacitor.config.ts`
+  (`server.iosScheme` trocado pro mesmo literal já usado no `Info.plist`,
+  `appwrite-callback-<PROJECT_ID>` — o esquema que a própria mensagem de
+  erro da Appwrite aponta como suportado) — ver README pro detalhe e pro
+  custo aceito conscientemente (troca de esquema do WebView invalida
+  histórico de corrida já salvo localmente em builds anteriores; aceitável
+  agora com poucas contas em teste fechado). **Ainda não submetido/testado
+  em build novo** — esse fix ainda não chegou num build real no
+  TestFlight.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)

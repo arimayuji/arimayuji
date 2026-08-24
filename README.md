@@ -271,6 +271,34 @@ nenhum do repo. Sem o secret configurado, essa entrada fica com o scheme
 vazio — inofensivo, já que `nativeGoogleSignIn` nem chega a chamar
 `GIDSignIn` nesse caso.
 
+**Segundo bug real, no build seguinte (136) — dessa vez os dois logins
+nativos (Apple e Google)**: depois do crash acima corrigido, os dois
+passaram a falhar do mesmo jeito, um passo adiante — no exato
+`account.createSession({userId, secret})` que fecha os dois fluxos (a
+etapa compartilhada por `nativeAppleSignIn`/`nativeGoogleSignIn`), com o
+erro da própria Appwrite: `"Invalid Scheme. The scheme used (capacitor)
+in the Origin (capacitor://localhost) is not supported... change it to
+appwrite-callback-<PROJECT_ID>"`. Causa: o Capacitor no iOS roda o WebView
+sob o esquema `capacitor:` por padrão (não pode ser trocado pra
+`http`/`https` — restrição do próprio Capacitor/WKWebView), e a Appwrite
+rejeita esse esquema pra criação de sessão. O Android nunca teve esse
+problema porque já roda em `https://localhost` por padrão, aceito sem
+configuração extra.
+
+Corrigido em `capacitor.config.ts`: `server.iosScheme` trocado pro mesmo
+literal já usado no `CFBundleURLScheme` do `Info.plist`
+(`appwrite-callback-<PROJECT_ID>`) — exatamente o esquema que a própria
+mensagem de erro da Appwrite aponta como suportado. **Custo aceito
+conscientemente**: trocar o esquema do WebView muda a origem que o
+IndexedDB/localStorage do app enxerga — todo histórico de corrida já
+salvo localmente num iPhone que rodou uma versão anterior (`capacitor://
+localhost`) fica inacessível depois dessa mudança (não apagado, só
+órfão). Aceitável agora com o app ainda em teste fechado com poucas
+contas; seria um problema real numa base de usuários maior. Não
+verificado ainda se reusar o mesmo esquema pro WebView e pro deep link
+externo causa algum conflito de navegação — só dá pra confirmar isso
+testando num aparelho real.
+
 **Exclusão de conta** (`/perfil`): obrigatória pela guideline 5.1.1(v) da
 App Store sempre que o app permite criar conta. O SDK cliente do Appwrite
 não tem um jeito de auto-excluir a conta (só `deleteSession`/
