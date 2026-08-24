@@ -596,6 +596,68 @@ fechada.
   (não avatar sintético/fotorreal) já mapeada em "Fábrica de Conteúdo",
   ver artifact da sessão.
 
+## Painel interno de conteúdo — `/interno/conteudo` (2026-08-24)
+
+Pedido do dono do projeto: não quer ficar gerando/rastreando conteúdo
+pelo chat — quer um board visual, **no próprio domínio `xanthus.app.br`**,
+acessível só por ele e um time futuro (não é feature pública do app).
+Especificação completa desenhada via plan mode antes de codar (pesquisa
+de código real via agente Explore) — spec guardada em
+`/root/.claude/plans/pure-knitting-cosmos.md` se precisar do histórico
+completo do porquê de cada decisão.
+
+**Implementado nesta sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+ainda não deployado em produção**:
+
+- Rota nova `src/app/(app)/interno/conteudo/page.tsx` — board de ideias de
+  conteúdo por pilar (produto/autêntico/autoridade/marca/comunidade, os
+  mesmos do `SOCIAL-CONTEXT.md`) e status (ideia → rascunho → agendado →
+  publicado), com link opcional pro asset onde quer que ele exista
+  (Artifact, Recraft Studio, vídeo já montado). **Deliberadamente só um
+  rastreador, não um gerador** — a geração de imagem/vídeo em si continua
+  100% fora do app, nas ferramentas externas do `SOCIAL-CONTEXT.md`.
+  Fora da bottom nav de propósito (`app-shell.tsx` não foi tocado — a
+  lista `TABS` ali só controla a nav, não é um registro de rotas; qualquer
+  rota nova dentro de `(app)` já funciona por roteamento de arquivo).
+- **Controle de acesso por lista fixa** (não é uma relação aceita entre
+  duas contas, como treinador/amigos) — primeira vez nesse projeto que
+  esse conceito existe. Duas metades, deliberadamente duplicadas (mesmo
+  padrão já usado pro teto de segurança do motor de treino entre
+  `volumeProgression.ts` e a Function `suggest-plan-override`):
+  - `src/lib/internalTeam.ts` — `INTERNAL_TEAM_ACCOUNT_IDS`, array vazio
+    por padrão, gate só de UI (cosmético — o app é build estático, sem
+    servidor, então nenhum gate de cliente é a fronteira de segurança
+    real).
+  - `scripts/appwrite-setup.ts` — o mesmo array espelhado, usado pra
+    montar as permissões da tabela `content_ideas`
+    (`Permission.read/create/update/delete(Role.user(id))` por conta) —
+    essa sim é a fronteira real. Primeira tabela do projeto com permissão
+    de conta fixa em vez de `Role.any()`/`Role.users()`/Function
+    privilegiada, porque aqui "quem pode" é uma decisão estática do dono
+    do projeto, não uma relação negociada entre duas contas.
+  - **Pendência real antes de funcionar**: `INTERNAL_TEAM_ACCOUNT_IDS`
+    está vazio nos dois lugares — precisa do `$id` real da conta do dono
+    do projeto (Appwrite Console → Auth → Users) preenchido nos dois
+    arquivos, e `scripts/appwrite-setup.ts` rodado (ou re-rodado) depois
+    disso pra tabela `content_ideas` existir com as permissões certas.
+- `src/lib/contentIdeas.ts` — CRUD direto do SDK de browser (sem Function,
+  já que a permissão é de conta fixa, não precisa de checagem
+  privilegiada). Verificado: `tsc --noEmit`, `npm run lint`, `npm run
+  build` (rota aparece na lista, sem entrar em nenhuma nav) — todos
+  limpos.
+- **Geração self-hosted (Wan2.2 via GPU alugada) ficou de fora de
+  propósito** — decisão explícita do dono do projeto de separar isso como
+  fase 2. Pesquisa feita (não implementada): `Wan-Video/Wan2.2` é o
+  modelo aberto de verdade (confirmado no GitHub, Apache 2.0); o "Wan 2.7"
+  do relatório original provavelmente só existe hospedado (fal.ai/Recraft
+  Studio) — não achei repositório oficial. Custo estimado rodando o
+  Wan2.2 em GPU por segundo (RunPod Serverless, verificado na página
+  oficial): ~US$10-15/mês em 480p, provavelmente US$30-60/mês em 720p, no
+  volume do relatório original (16 vídeos/mês) — mais barato que a rota
+  paga (Wan 2.7 via fal.ai, ~US$72-108/mês), mas exige montar/manter um
+  workflow ComfyUI containerizado e um fluxo assíncrono de job, trabalho
+  de infra real que não está escopado ainda.
+
 ## Submissão pro Beta App Review — branch `testflight` (2026-08-21)
 
 Toda push em `main` já sobe automático pro TestFlight (Internal Testing,

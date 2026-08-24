@@ -558,42 +558,35 @@ pontos reais do app onde um marco acontece (`handle-picker.tsx` pro
 boas-vindas, o efeito de detecção de PR em `run/page.tsx` pra primeira
 corrida/novo recorde).
 
-**Setup (uma vez, ainda pendente — nada disso dá pra fazer só com
-código):**
+**Setup (feito em 2026-08-23 — este README ficou desatualizado por um
+tempo dizendo "ainda pendente" depois disso; corrigido em 2026-08-24
+depois do dono do projeto mostrar print do Appwrite Console confirmando
+os dois providers `enabled`):**
 
-1. **Firebase** (Android): criar um projeto em
-   [console.firebase.google.com](https://console.firebase.google.com/)
-   (pode ser um novo, não precisa reusar o projeto GCP do OAuth), ativar
-   Cloud Messaging, baixar `google-services.json` e colocar em
-   `android/app/` — e gerar uma **chave de conta de serviço** (Project
-   Settings → Service Accounts → Generate new private key) pro passo 3.
-2. **Apple Push Notifications** (iOS): em developer.apple.com →
-   Certificates, Identifiers & Profiles → **Keys** → criar uma chave nova
-   com "Apple Push Notifications service (APNs)" marcado — anota o Key
-   ID e baixa o `.p8` (só dá pra baixar uma vez). Depois, no **App ID**
-   do bundle `com.xanthus.app` (mesmo lugar onde a capability do
-   HealthKit foi ligada), habilitar a capability **Push Notifications**.
-3. **Appwrite Console → Messaging → Providers**: criar um provider **FCM**
-   com o JSON da conta de serviço do passo 1, ID exatamente `fcm`; criar
-   um provider **APNs** com o `.p8`, Key ID, Team ID e bundle ID
-   `com.xanthus.app` do passo 2, ID exatamente `apns` — os IDs precisam
-   bater com `PROVIDER_ID` em `src/lib/pushNotifications.ts`.
-4. Adicionar o escopo **`messages.write`** na chave da Function
-   `client-actions` (mesmo lugar de `users.read`/`databases.*`, ver seção
-   de Functions acima) — sem isso, `Messaging.createPush` falha com
-   permissão negada.
-5. `npx cap sync` já rodado (plugin `@capacitor/push-notifications`
-   instalado, `AppDelegate.swift` e `App.entitlements` já atualizados) —
-   só falta o `google-services.json` real do passo 1 pro Android
-   realmente inicializar o Firebase; sem ele, `registerForPushNotifications()`
-   continua rodando sem erro, só nunca completa o registro (best-effort,
-   mesmo padrão de toda outra capability nativa deste app).
+1. **Firebase** (Android): projeto real criado (`xanthus-1ee15`), Cloud
+   Messaging ativo, `google-services.json` real commitado em
+   `android/app/` (commit `26588e8`, confirmado pacote `com.xanthus.app`).
+2. **Apple Push Notifications** (iOS): chave APNs criada em
+   developer.apple.com, capability **Push Notifications** habilitada no
+   App ID `com.xanthus.app`.
+3. **Appwrite Console → Messaging → Providers**: os dois providers
+   existem e aparecem **enabled** — `apns` ("APNs (Xanthus iOS)") e `fcm`
+   ("FCM (Xanthus Android)"), IDs batendo com `PROVIDER_ID` em
+   `src/lib/pushNotifications.ts`.
+4. Escopo **`messages.write`** na chave da Function `client-actions` —
+   **não confirmado por print ainda**; se `Messaging.createPush` voltar a
+   falhar com permissão negada, é o primeiro lugar a checar.
+5. **Testado em dispositivo Android real em 2026-08-23**: achado e
+   corrigido um bug de verdade nesse teste — faltava
+   `android.permission.POST_NOTIFICATIONS` no `AndroidManifest.xml`
+   (obrigatória desde Android 13/API 33), então a notificação de marco
+   nunca aparecia mesmo com Function/provider/gatilho todos corretos
+   (commit `8a59ac9`). iOS: implementado (`9aea2ae`), **ainda não
+   confirmado testado num aparelho real**.
 
-Até esse setup ser feito, o código todo já está no lugar mas as
-notificações não chegam de verdade — `registerForPushNotifications()` e
-`sendMilestoneNotification()` falham silenciosamente (nunca travam nem
-mostram erro pro atleta), do mesmo jeito que qualquer outra
-funcionalidade nativa best-effort deste app.
+Ou seja: ao contrário do que este arquivo dizia antes, o setup de
+console **já foi feito** — não é mais um passo pendente. O que falta
+confirmar é só o item 4 (escopo da Function) e um teste real em iPhone.
 
 ### Aviso de "nova versão disponível" (Android e iOS)
 

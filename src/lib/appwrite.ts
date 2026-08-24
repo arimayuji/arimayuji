@@ -53,6 +53,7 @@ export const TABLES = {
   runComments: "run_comments",
   groupRuns: "group_runs",
   groupRunParticipants: "group_run_participants",
+  contentIdeas: "content_ideas",
 } as const;
 
 /**
