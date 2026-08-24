@@ -269,7 +269,18 @@ jobs:
       # Console de qualquer forma — a API do Google não cria a ficha do
       # app do zero, só publica novas versões de um app que já existe por
       # lá. Este step só funciona depois desse primeiro upload manual.
-      - name: Publish AAB to Google Play (teste aberto)
+      # TEMPORÁRIO (2026-08-24): track voltado pra "internal" só até a
+      # faixa "open" existir de verdade no Play Console (ver o comentário
+      # grandão acima — criá-la é manual, ainda não foi feito). Sem isso,
+      # nenhum build novo chega no Play Console nenhuma faixa, incluindo o
+      # fix de permissões do Health Connect em
+      # android/app/src/main/AndroidManifest.xml, que só passa a valer na
+      # declaração de Saúde do Play Console depois que ALGUM .aab pós-fix
+      # for processado com sucesso — não importa qual faixa. Reverter pra
+      # `track: open` assim que a faixa Aberta existir (ver comentário
+      # acima pro raciocínio completo de por que "open" e não "internal"
+      # como destino final).
+      - name: Publish AAB to Google Play (teste interno — temporário)
         uses: r0adkll/upload-google-play@v1
         if: steps.release_signing.outputs.signed == 'true' && steps.play_secret_check.outputs.configured == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         # Best-effort, same as the Cloudflare publish steps below: a failure
@@ -285,7 +296,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.xanthus.app
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: open
+          track: internal
           status: completed
 
       # No debug APK to fall back to in this job anymore (that's the other
