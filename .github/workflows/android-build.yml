@@ -237,19 +237,29 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Sobe pro track "internal" — o único que já existe por padrão em
-      # qualquer app novo no Play Console, sem precisar criar nada na mão
-      # antes (ao contrário de tracks de teste fechado/aberto, que exigem
-      # nome e configuração prévia). Promover pra teste fechado (os 20
-      # testadores) ou produção continua sendo um passo manual no Play
-      # Console — mesmo modelo do TestFlight, onde o upload é automático
-      # mas o "enviar pra revisão externa" é feito à mão.
+      # Sobe pro track "production" — decisão do dono do projeto em
+      # 2026-08-24: "internal" nunca aparece na ficha pública da Play
+      # Store (só quem está numa lista de testadores cadastrada à mão
+      # consegue abrir o link), o que tornava inútil apontar a
+      # notificação de "nova versão" pra lá — um usuário qualquer via
+      # "não encontrado". Produção é a única faixa que resolve isso de
+      # verdade. Duas coisas que o CI não controla e continuam manuais no
+      # Play Console: (1) a ficha da loja precisa estar completa
+      # (screenshots, descrição, classificação indicativa, formulário de
+      # segurança de dados) — sem isso a API rejeita o upload com um erro
+      # de validação, não silencioso feito o de API desabilitada já visto
+      # antes; (2) a primeira vez que um app chega em produção passa por
+      # uma revisão do Google que pode levar de horas a alguns dias, ao
+      # contrário do upload em si (instantâneo). Confirmar no primeiro run
+      # depois desta mudança se o step abaixo realmente teve sucesso —
+      # ver a nota de `continue-on-error` logo abaixo pra por que uma
+      # falha aqui não é óbvia só de olhar o resumo do Actions.
       #
       # A PRIMEIRA versão do app precisa ser enviada manualmente pelo Play
       # Console de qualquer forma — a API do Google não cria a ficha do
       # app do zero, só publica novas versões de um app que já existe por
       # lá. Este step só funciona depois desse primeiro upload manual.
-      - name: Publish AAB to Google Play (teste interno)
+      - name: Publish AAB to Google Play (produção)
         uses: r0adkll/upload-google-play@v1
         if: steps.release_signing.outputs.signed == 'true' && steps.play_secret_check.outputs.configured == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         # Best-effort, same as the Cloudflare publish steps below: a failure
@@ -265,7 +275,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.xanthus.app
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
+          track: production
           status: completed
 
       # No debug APK to fall back to in this job anymore (that's the other

@@ -117,6 +117,33 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
   (Android/web não são afetados, só a publicação automática no Play).
   Distribuição Android pro público geral continua por APK direto
   (sideload, link acima) até isso avançar pra teste fechado/produção.
+  **Atualização 2026-08-24 — API já habilitada, resolvido sozinho**:
+  confirmado no log do run #161 (push em `main`) que o step de publicação
+  teve sucesso de ponta a ponta, sem nenhum erro de API — não ficou claro
+  quando exatamente alguém habilitou `androidpublisher.googleapis.com`,
+  só que já está propagado e funcionando. **Mas o problema de fundo pro
+  usuário final continuava**: a faixa publicada era `internal` (Teste
+  Interno) — invisível na ficha pública da Play Store, só abre pra quem
+  está numa lista de testadores cadastrada à mão no Play Console. Um
+  usuário qualquer clicando em
+  `play.google.com/store/apps/details?id=com.xanthus.app` via a
+  notificação de "nova versão" via `/download` (ver "Onde cada
+  plataforma está no funil de lançamento" acima) via essa faixa
+  simplesmente não conseguia baixar nada — decisão do dono do projeto:
+  mudar `track: internal` pra `track: production` em
+  `.github/workflows/android-build.yml`, já que é a única faixa visível
+  no link público sem precisar de lista de convidados. **Dois
+  pré-requisitos que o CI não cobre, continuam manuais no Play Console**:
+  (1) a ficha da loja precisa estar completa (screenshots, descrição,
+  classificação indicativa, formulário de segurança de dados) — sem isso
+  a API deve rejeitar o upload com um erro de validação novo, ainda não
+  visto; (2) a primeira vez que um app chega em produção passa por uma
+  revisão do Google que pode levar de horas a dias (diferente do upload
+  em si, que é instantâneo, e diferente do Teste Interno, que nunca
+  precisou de revisão). **Ainda não confirmado se o primeiro push com
+  `track: production` teve sucesso** — conferir o próximo run do
+  `android-build.yml` em `main` antes de considerar o link da Play Store
+  pronto pra usar na notificação de atualização.
   **Bug real achado nessa primeira tentativa de upload**: `gradlew
   bundleRelease` builda com sucesso e sem nenhum warning, mas o `.aab`
   saía **sem nenhuma assinatura jar embutida** mesmo com
