@@ -714,6 +714,52 @@ ainda não deployado em produção**:
   workflow ComfyUI containerizado e um fluxo assíncrono de job, trabalho
   de infra real que não está escopado ainda.
 
+## Bug crítico encontrado e corrigido: Functions sem escopo `rows.*` (2026-08-24)
+
+Relato real do dono do projeto: login com Apple funcionou (depois do fix
+de `node_modules` abaixo + de apagar a conta travada no Appwrite Console
+pra forçar um teste limpo), mas criar o perfil em seguida falhou com "tenta
+de novo" — o Appwrite Console mostrava o erro de verdade:
+```
+claim-owned-row failed for profiles/<rowId>: app.<project>@service...
+missing scopes (["rows.write","documents.write"])
+```
+**Causa raiz**: as duas Functions consolidadas (`client-actions` e
+`row-events`) só tinham `databases.read`/`databases.write` nos escopos —
+que no Appwrite atual **não cobrem operações de linha** na API de
+Tables/Rows (`TablesDB`/`tablesDB.createRow`/`updateRow`/`deleteRow`/
+`listRows`/`getRow`, usada em todo o código das duas Functions). Essas
+duas permissões controlam só operações de schema (criar/alterar tabela,
+coluna) — ler/escrever linhas precisa dos escopos separados `rows.read`/
+`rows.write`, que nunca foram concedidos desde a criação das Functions em
+2026-08-22. **Isso significa que toda operação de linha nas duas
+Functions esteve quebrada desde sempre** — não só `claim-owned-row`
+(criação de perfil), mas também `delete-account`, `join-group-run`,
+`set-plan-override`, `suggest-plan-override`, e as duas limpezas por
+evento em `row-events` (`revoke-coach-run-access`,
+`revoke-live-audience`). Só não tinha aparecido antes porque: (1) o bug
+de `node_modules` (seção abaixo) bloqueava as Functions por inteiro até
+horas atrás, mascarando qualquer erro de escopo por trás de um 503 mais
+básico; (2) `claim-owned-row` foi a primeira ação de escrita de linha
+realmente exercitada depois desse fix.
+
+**Corrigido** via `appwrite functions update` nas duas Functions,
+adicionando `rows.read`+`rows.write` aos escopos existentes (mantendo
+tudo mais igual — nome, entrypoint, `commands`, `execute`/`events`,
+scopes anteriores — já que o `update` do CLI não faz patch parcial,
+substitui os campos informados). Confirmado depois: execução de teste em
+`client-actions` (`action: "__healthcheck__"`) respondendo
+`400 {"error":"unknown-action"}` normalmente (Function saudável, não é
+esse o teste que valida o fix em si — o teste real é o dono do projeto
+tentar criar o perfil de novo no app). **Ainda não confirmado por teste
+real** — mesma pendência de sempre, precisa ser confirmado num aparelho
+de verdade.
+
+**Lição pro README**: a lista de escopos documentada lá (`databases.read`/
+`databases.write` apenas) está desatualizada — precisa registrar
+`rows.read`/`rows.write` como parte do conjunto obrigatório pra qualquer
+Function que use `TablesDB`, não só `databases.*`.
+
 ## Bug crítico encontrado e corrigido: Functions sem `node_modules` (2026-08-24)
 
 Relato real do dono do projeto: login com Apple no iPhone, logo depois do
