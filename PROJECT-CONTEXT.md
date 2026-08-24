@@ -553,6 +553,49 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   linkado em `/perfil` (card "Instagram"). A bio do Instagram é o lugar
   combinado pra colocar os links de download (APK/TestFlight), não o app.
 
+## Persona da mascote (esboço, 2026-08-24 — ainda não decidido em definitivo)
+
+Ideia levantada nesta sessão pra dar personalidade de conteúdo ao cavalo
+que já existe como brand mark (`src/app/horse-mark.tsx`) — hoje só usado
+estático/geométrico (logo, emblemas com tint cromado por tier), nunca como
+personagem em conteúdo. Nada disso foi implementado ainda — é um rascunho
+de branding, registrado aqui pra não se perder, não uma decisão de produto
+fechada.
+
+- **O gancho central**: na mitologia grega, Xanthus é um dos dois cavalos
+  imortais de Aquiles (presente de Poseidon), a quem Hera deu o dom da
+  fala — no momento mais dramático da Ilíada é Xanthus quem avisa Aquiles,
+  chorando, que ele vai morrer em batalha, e mesmo assim corre ao lado
+  dele até o fim. Um cavalo que **fala verdade difícil e corre junto mesmo
+  sabendo o preço** — bate direto com a ideia-guia já usada pro
+  posicionamento do produto ("o app de corrida que não te trai depois que
+  você confiou nele"). O nome do produto já carrega essa referência; hoje
+  ela não é contada em lugar nenhum do app/marketing.
+- **Traço de personalidade proposto**: fala verdade mesmo quando dói (feedback
+  real de pace/treino, não hype vazio de "você é incrível" toda hora);
+  corre do lado, nunca de cima pra baixo como um "coach"; bom humor
+  autodepreciativo ("eu já corri isso mil vezes e ainda dói") em vez de
+  mascote sempre-animado-demais; apego vem de confiabilidade/recorrência,
+  não de ser "fofo" — mesmo raciocínio de produto do app (GPS confiável >
+  GPS bonito).
+- **Visual**: reaproveitar a silhueta rampante (empinada, heráldica) já
+  desenhada em `horse-mark.tsx` como âncora de identidade pra qualquer
+  geração de imagem/vídeo (é o que ferramentas de consistência de
+  personagem tipo Nano Banana Pro precisam) — nunca redesenhar o cavalo do
+  zero, só recolorir/reposar a partir dela. Cores continuam vindo do
+  sistema de tier já existente (cobre→prisma dos emblemas), não uma
+  paleta nova de mascote. Valeria comissionar no Recraft um sheet de poses
+  novas (descanso, galope, ofegante/cansado, "ouvindo") — hoje só existe a
+  pose rampante e o corpo completo de perfil.
+- **Onde apareceria**: reagindo a marcos reais do usuário (PR, emblema
+  novo — a mesma cena de "unboxing" que já existe no app, só filmada de
+  fora); um segmento recorrente curto tipo "o Xanthus resenha seu treino
+  da semana" (recorrência gera apego, não uma peça isolada); nunca em
+  conteúdo de conversão dura (CTA de baixar) — aí ele apresenta o app, não
+  o app empresta a cara dele pra vender. Encaixa na linha de produção real
+  (não avatar sintético/fotorreal) já mapeada em "Fábrica de Conteúdo",
+  ver artifact da sessão.
+
 ## Submissão pro Beta App Review — branch `testflight` (2026-08-21)
 
 Toda push em `main` já sobe automático pro TestFlight (Internal Testing,
