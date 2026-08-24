@@ -356,6 +356,18 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 
 - **Backlog de ideias soltas (sessão 2026-08-23, nenhuma escopada em detalhe
   ainda — só registrando pra não perder)**:
+  - **Editor do card de compartilhar com elementos arrastáveis** (pedido
+    em 2026-08-24, confirmado via pergunta direta ao dono do projeto qual
+    das telas ele queria dizer): em `/compartilhar`, poder arrastar a
+    ilustração da rota e os números grandes (distância/tempo/pace)
+    livremente dentro do card antes de exportar/postar — tipo editor de
+    story do Instagram/Stories, em vez do layout fixo atual. Confirmado
+    por leitura de código que não existe nenhum drag-and-drop hoje em
+    `src/app/(app)/compartilhar/page.tsx`/`src/lib/shareCard/` — layout é
+    inteiramente fixo. Ainda não escopado (precisa decidir: arrastar livre
+    por pixel, ou só reordenar/trocar posições entre slots fixos; se a
+    posição persiste por corrida ou é só uma preferência de template) nem
+    implementado.
   - **Repetir corrida**: no histórico, um botão "repetir corrida" que
     reabre `/run` já configurado com a mesma meta (distância/tempo/ritmo) —
     e possivelmente o mesmo trajeto, se fizer sentido — de uma corrida
@@ -446,9 +458,26 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   - **Lugares pra correr em outras capitais** (pedido nesta mesma sessão,
     confirmado "vários lugares por capital", com um critério de "pelo
     menos ~3km" de percurso que ficou cortado no áudio original — não
-    confirmado se é raio ou comprimento de circuito): ainda não iniciado
-    no momento deste registro, é o próximo item da fila assim que o dono
-    do projeto confirmar prioridade.
+    confirmado se é raio ou comprimento de circuito): **atualização
+    2026-08-24 — essa expansão de dados já aconteceu**, commit `142180d`
+    ("expandir pras 27 capitais brasileiras") adicionou 54 lugares novos
+    em 26 capitais além de São Paulo. A nota acima ficou desatualizada
+    (dizia "ainda não iniciado") — corrigida agora. **O que falta de
+    verdade**: ilustração. Só 10 dos 68 lugares no catálogo têm
+    `coverImage` (a imagem cel-shaded no topo do card/detalhe) e todos os
+    10 são de São Paulo — os 54 lugares novos (e mais 4 de SP:
+    `parque-do-carmo`, `parque-trianon`, `parque-burle-marx`,
+    `parque-da-juventude`) não têm nenhuma, porque nenhum teve ilustração
+    comissionada ainda (deliberado desde o commit original, não é bug —
+    `coverImage` já é opcional por design e a UI degrada bem sem ela).
+    Plano de execução: gerar as 58 ilustrações via Recraft na mesma
+    direção de arte já estabelecida (`SOCIAL-CONTEXT.md`), depois soltar
+    cada `.webp` em `public/lugares/` e adicionar a linha `coverImage` em
+    `src/lib/places.ts` — trabalho incremental, uma imagem por vez, não
+    precisa esperar as 58 de uma vez. Em aberto: priorizar por capital ou
+    tentar tudo de uma vez, e quem gera (o dono do projeto no Recraft
+    Studio, como as 10 já feitas, ou via API do Recraft se
+    `RECRAFT_API_KEY` for exposta a uma sessão).
 
 - **Dados de saúde do smartwatch** (escopado em 2026-08 numa sessão anterior,
   contexto recuperado do transcript bruto porque nunca foi salvo aqui —
@@ -552,6 +581,194 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 - Instagram: **[@xanthus.oficial](https://instagram.com/xanthus.oficial)** —
   linkado em `/perfil` (card "Instagram"). A bio do Instagram é o lugar
   combinado pra colocar os links de download (APK/TestFlight), não o app.
+
+## Persona da mascote (esboço, 2026-08-24 — ainda não decidido em definitivo)
+
+Ideia levantada nesta sessão pra dar personalidade de conteúdo ao cavalo
+que já existe como brand mark (`src/app/horse-mark.tsx`) — hoje só usado
+estático/geométrico (logo, emblemas com tint cromado por tier), nunca como
+personagem em conteúdo. Nada disso foi implementado ainda — é um rascunho
+de branding, registrado aqui pra não se perder, não uma decisão de produto
+fechada.
+
+- **O gancho central**: na mitologia grega, Xanthus é um dos dois cavalos
+  imortais de Aquiles (presente de Poseidon), a quem Hera deu o dom da
+  fala — no momento mais dramático da Ilíada é Xanthus quem avisa Aquiles,
+  chorando, que ele vai morrer em batalha, e mesmo assim corre ao lado
+  dele até o fim. Um cavalo que **fala verdade difícil e corre junto mesmo
+  sabendo o preço** — bate direto com a ideia-guia já usada pro
+  posicionamento do produto ("o app de corrida que não te trai depois que
+  você confiou nele"). O nome do produto já carrega essa referência; hoje
+  ela não é contada em lugar nenhum do app/marketing.
+- **Traço de personalidade proposto**: fala verdade mesmo quando dói (feedback
+  real de pace/treino, não hype vazio de "você é incrível" toda hora);
+  corre do lado, nunca de cima pra baixo como um "coach"; bom humor
+  autodepreciativo ("eu já corri isso mil vezes e ainda dói") em vez de
+  mascote sempre-animado-demais; apego vem de confiabilidade/recorrência,
+  não de ser "fofo" — mesmo raciocínio de produto do app (GPS confiável >
+  GPS bonito).
+- **Visual**: reaproveitar a silhueta rampante (empinada, heráldica) já
+  desenhada em `horse-mark.tsx` como âncora de identidade pra qualquer
+  geração de imagem/vídeo (é o que ferramentas de consistência de
+  personagem tipo Nano Banana Pro precisam) — nunca redesenhar o cavalo do
+  zero, só recolorir/reposar a partir dela. Cores continuam vindo do
+  sistema de tier já existente (cobre→prisma dos emblemas), não uma
+  paleta nova de mascote. Valeria comissionar no Recraft um sheet de poses
+  novas (descanso, galope, ofegante/cansado, "ouvindo") — hoje só existe a
+  pose rampante e o corpo completo de perfil.
+- **Onde apareceria**: reagindo a marcos reais do usuário (PR, emblema
+  novo — a mesma cena de "unboxing" que já existe no app, só filmada de
+  fora); um segmento recorrente curto tipo "o Xanthus resenha seu treino
+  da semana" (recorrência gera apego, não uma peça isolada); nunca em
+  conteúdo de conversão dura (CTA de baixar) — aí ele apresenta o app, não
+  o app empresta a cara dele pra vender. Encaixa na linha de produção real
+  (não avatar sintético/fotorreal) já mapeada em "Fábrica de Conteúdo",
+  ver artifact da sessão.
+
+## Painel interno de conteúdo — `/interno/conteudo` (2026-08-24)
+
+Pedido do dono do projeto: não quer ficar gerando/rastreando conteúdo
+pelo chat — quer um board visual, **no próprio domínio `xanthus.app.br`**,
+acessível só por ele e um time futuro (não é feature pública do app).
+Especificação completa desenhada via plan mode antes de codar (pesquisa
+de código real via agente Explore) — spec guardada em
+`/root/.claude/plans/pure-knitting-cosmos.md` se precisar do histórico
+completo do porquê de cada decisão.
+
+**Implementado nesta sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+ainda não deployado em produção**:
+
+- Rota nova `src/app/(app)/interno/conteudo/page.tsx` — board de ideias de
+  conteúdo por pilar (produto/autêntico/autoridade/marca/comunidade, os
+  mesmos do `SOCIAL-CONTEXT.md`) e status (ideia → rascunho → agendado →
+  publicado), com link opcional pro asset onde quer que ele exista
+  (Artifact, Recraft Studio, vídeo já montado). **Deliberadamente só um
+  rastreador, não um gerador** — a geração de imagem/vídeo em si continua
+  100% fora do app, nas ferramentas externas do `SOCIAL-CONTEXT.md`.
+  Fora da bottom nav de propósito (`app-shell.tsx` não foi tocado — a
+  lista `TABS` ali só controla a nav, não é um registro de rotas; qualquer
+  rota nova dentro de `(app)` já funciona por roteamento de arquivo).
+- **Controle de acesso por lista fixa** (não é uma relação aceita entre
+  duas contas, como treinador/amigos) — primeira vez nesse projeto que
+  esse conceito existe. Duas metades, deliberadamente duplicadas (mesmo
+  padrão já usado pro teto de segurança do motor de treino entre
+  `volumeProgression.ts` e a Function `suggest-plan-override`):
+  - `src/lib/internalTeam.ts` — `INTERNAL_TEAM_ACCOUNT_IDS`, array vazio
+    por padrão, gate só de UI (cosmético — o app é build estático, sem
+    servidor, então nenhum gate de cliente é a fronteira de segurança
+    real).
+  - `scripts/appwrite-setup.ts` — o mesmo array espelhado, usado pra
+    montar as permissões da tabela `content_ideas`
+    (`Permission.read/create/update/delete(Role.user(id))` por conta) —
+    essa sim é a fronteira real. Primeira tabela do projeto com permissão
+    de conta fixa em vez de `Role.any()`/`Role.users()`/Function
+    privilegiada, porque aqui "quem pode" é uma decisão estática do dono
+    do projeto, não uma relação negociada entre duas contas.
+  - **Pendência real antes de funcionar**: `INTERNAL_TEAM_ACCOUNT_IDS`
+    está vazio nos dois lugares — precisa do `$id` real da conta do dono
+    do projeto (Appwrite Console → Auth → Users) preenchido nos dois
+    arquivos, e `scripts/appwrite-setup.ts` rodado (ou re-rodado) depois
+    disso pra tabela `content_ideas` existir com as permissões certas.
+- `src/lib/contentIdeas.ts` — CRUD direto do SDK de browser (sem Function,
+  já que a permissão é de conta fixa, não precisa de checagem
+  privilegiada). Verificado: `tsc --noEmit`, `npm run lint`, `npm run
+  build` (rota aparece na lista, sem entrar em nenhuma nav) — todos
+  limpos.
+- **Geração self-hosted (Wan2.2 via GPU alugada) ficou de fora de
+  propósito** — decisão explícita do dono do projeto de separar isso como
+  fase 2. Pesquisa feita (não implementada): `Wan-Video/Wan2.2` é o
+  modelo aberto de verdade (confirmado no GitHub, Apache 2.0); o "Wan 2.7"
+  do relatório original provavelmente só existe hospedado (fal.ai/Recraft
+  Studio) — não achei repositório oficial. Custo estimado rodando o
+  Wan2.2 em GPU por segundo (RunPod Serverless, verificado na página
+  oficial): ~US$10-15/mês em 480p, provavelmente US$30-60/mês em 720p, no
+  volume do relatório original (16 vídeos/mês) — mais barato que a rota
+  paga (Wan 2.7 via fal.ai, ~US$72-108/mês), mas exige montar/manter um
+  workflow ComfyUI containerizado e um fluxo assíncrono de job, trabalho
+  de infra real que não está escopado ainda.
+
+## Bug crítico encontrado e corrigido: Functions sem `node_modules` (2026-08-24)
+
+Relato real do dono do projeto: login com Apple no iPhone, logo depois do
+Face ID, voltava pro app com um erro mostrando "503". Investigação real
+via Appwrite Console → Functions → `client-actions` → Executions revelou
+o log de erro de verdade:
+
+```
+Failed to load module: Cannot find package 'node-appwrite' imported from /mnt/code/src/main.js
+```
+
+**Causa raiz**: as duas Functions consolidadas deste projeto
+(`client-actions` e `row-events`) foram criadas sem o parâmetro
+`--commands "npm install"` — sem isso, o Appwrite sobe só o código-fonte
+puro e **nunca instala as dependências** (`node-appwrite`, `jose`).
+Confirmado via `appwrite functions list-deployments`: todos os deploys de
+`client-actions` até então tinham ~4s de build e 25-38KB de tamanho —
+`row-events` tinha um único deploy de 6KB — nenhum dos dois nunca teve
+`node_modules` de verdade. Isso significa que **toda ação dessas duas
+Functions esteve quebrada desde que foram criadas** (2026-08-22): login
+nativo Apple/Google, planilha de treinador (Fase A/B), boas-vindas por
+e-mail, exclusão de conta, entrar num longão, e as duas limpezas de
+acesso por evento (revogar leitura de ex-treinador, revogar espectador de
+longão) — não só o login com Apple que gerou o relato original.
+
+**Corrigido** via Appwrite CLI direto (instalado nesta sessão,
+`npm install -g appwrite-cli`, configurado com as credenciais já em
+`.env.local`):
+```bash
+appwrite functions update --function-id client-actions --commands "npm install" ... # (demais flags iguais aos já configurados)
+appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --commands "npm install" --activate
+```
+(mesma coisa pra `row-events`). Confirmado depois: builds novos com
+~2MB (não mais KB) e uma chamada de teste em `client-actions` respondendo
+`400 {"error":"unknown-action"}` de verdade (não mais um crash) — a
+Function agora carrega e roda o dispatcher normalmente.
+
+`README.md` atualizado (seção de cada Function) pra documentar
+`--commands "npm install"` como obrigatório nos comandos de
+`create`/`create-deployment`, com uma nota explícita pra sempre conferir
+que um deploy novo tem tamanho de MB (não KB/poucos segundos de build) —
+esse é o sinal de que o `npm install` não rodou.
+
+**Ainda não confirmado por teste real**: o dono do projeto ainda precisa
+tentar o login com Apple/Google de novo no iPhone pra confirmar que o 503
+não acontece mais — o healthcheck confirma que a Function não crasha mais,
+mas não substitui o teste ponta a ponta num aparelho real.
+
+**Achado em 2026-08-24, investigando um relato separado ("não recebi
+push nativo de nova versão no iOS")**: é a mesma causa raiz, não um bug
+novo — confirmado direto via Appwrite CLI (`appwrite messaging
+list-subscribers`/`list-topics`, `appwrite users list-targets`):
+- Os dois tópicos (`android-updates`, `ios-updates`) existem, os dois
+  providers (`fcm`, `apns`) existem e estão `enabled` — nada errado de
+  configuração de console.
+- **Zero inscritos em qualquer um dos dois tópicos** — nenhum dispositivo,
+  Android ou iOS, jamais completou `subscribe-update-topic` com sucesso,
+  porque essa ação também passa pela mesma `client-actions` quebrada.
+- A conta Apple do próprio relato (`vc6ntw8s9s@privaterelay.appleid.com`)
+  tem **zero push targets registrados** — não é só a inscrição no tópico
+  que falhou, o dispositivo nunca chegou a se registrar de verdade.
+  Motivo: `nativeAppleSignIn` (`src/lib/auth.ts:275`) chama
+  `client-actions` (`action: "apple-native-signin"`) pra validar o JWT da
+  Apple **antes** de `account.createSession` — como toda tentativa real
+  desse login bateu no 503, a sessão nunca foi criada de verdade nessa
+  conta a partir do iPhone, `useAuth()` nunca virou `"signed-in"` nesse
+  dispositivo, e `PushRegistration` (que só roda quando `status ===
+  "signed-in"`) nunca chegou a disparar `registerForPushNotifications()`.
+  Ou seja: o relato de "não recebo push de nova versão" e o relato
+  original de "503 depois do Face ID" são **o mesmo bug**, não dois.
+- Confirmado também: o escopo `messages.write` na chave da Function
+  (item 4 do checklist de push no `README.md`, marcado como "não
+  confirmado por print ainda") **está presente** —
+  `appwrite functions get --function-id client-actions` lista
+  `messages.write` entre os scopes. Esse item pode ser fechado.
+- **Nenhuma mudança de código foi necessária pra isso** — como o fix de
+  `--commands "npm install"` já corrigiu `client-actions` de ponta a
+  ponta, a próxima tentativa de login com Apple no iPhone deve completar
+  o `createSession` normalmente, o que por sua vez dispara o registro de
+  push e a inscrição no tópico automaticamente. **Ainda não confirmado
+  por teste real** — mesma pendência do item acima, mesmo teste resolve
+  os dois relatos de uma vez.
 
 ## Submissão pro Beta App Review — branch `testflight` (2026-08-21)
 
@@ -867,6 +1084,17 @@ do app nativo, não muda nada de autenticação).
       TestFlight, fix do pace ao vivo lendo mais devagar que o real) —
       **aprovado pela Apple ainda no mesmo dia**, o link público agora
       serve esse build.
+      **Segunda atualização no mesmo dia (2026-08-24)**: build 140 (Sala
+      de Treino, fix do `iosScheme`/login nativo, fix do CTA da landing)
+      submetido pela branch `testflight` — só que na primeira tentativa
+      a Apple ainda não tinha processado o 140, então o script (que
+      sempre pega "o build mais recente já processado") submeteu o 139
+      antigo por engano. Retentado direto via re-run do job
+      `submit_for_review` (sem rebuildar nada) até o 140 aparecer como
+      processado — a segunda tentativa falhou de forma segura
+      (`INVALID_QC_STATE`, o 139 já estava em fila), a terceira pegou o
+      140 certo e submeteu com sucesso. Ainda não confirmado se a Apple
+      aprovou.
 - [x] **2026-08-22: escopado, Fase A e Fase B implementadas** — modo
       treinador vira "os dois juntos" (IA sugere + motor determinístico
       trava os limites + treinador edita por cima), ver seção própria

@@ -111,8 +111,20 @@ function NotificationCard({
     "pr-enter flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left";
 
   if (external) {
+    // target="_blank" (same convention as the Instagram link on /perfil,
+    // evidence sources on /estudos, etc.) so this opens outside the app's
+    // own WebView instead of navigating it away from the running app — this
+    // used to be a raw .apk link, where that didn't matter (a file download
+    // never navigates the WebView), but it's an HTML page now.
     return (
-      <a href={href} onClick={onNavigate} className={className} style={delay(delayMs)}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer noopener"
+        onClick={onNavigate}
+        className={className}
+        style={delay(delayMs)}
+      >
         {content}
       </a>
     );
@@ -173,7 +185,7 @@ export default function NotificacoesPage() {
               <NotificationCard
                 icon={<UpdateIcon className="h-5 w-5" />}
                 title="Nova versão disponível"
-                detail={`Versão ${update.versionName} — toque pra baixar`}
+                detail={`Versão ${update.versionName} — toque pra atualizar`}
                 unread={updateUnread}
                 href={update.url}
                 external

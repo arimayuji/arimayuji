@@ -698,6 +698,86 @@ async function main() {
     }),
   );
 
+  // -------------------------------------------------------- content_ideas
+  console.log("\ncontent_ideas");
+  // Fixed allowlist, duplicated on purpose from src/lib/internalTeam.ts —
+  // this script deliberately never imports from src/ (see file header
+  // above), so the two lists are kept in sync by hand. This is the first
+  // table in this project where "who may read/write" is a short, static
+  // set rather than Role.any()/Role.users()/an empty array gated behind a
+  // Function: unlike a friendship or coach relationship, membership here
+  // isn't negotiated between two accounts, so Role.user(id) can express
+  // it directly at the table level.
+  const INTERNAL_TEAM_ACCOUNT_IDS: string[] = [
+    // Manter em sincronia manual com src/lib/internalTeam.ts.
+  ];
+  if (INTERNAL_TEAM_ACCOUNT_IDS.length === 0) {
+    console.warn(
+      "  WARNING: INTERNAL_TEAM_ACCOUNT_IDS is empty — content_ideas will have no permissions until this is filled in (here and in src/lib/internalTeam.ts) and the script is re-run.",
+    );
+  }
+  const contentIdeasPermissions = INTERNAL_TEAM_ACCOUNT_IDS.flatMap((id) => [
+    Permission.read(Role.user(id)),
+    Permission.create(Role.user(id)),
+    Permission.update(Role.user(id)),
+    Permission.delete(Role.user(id)),
+  ]);
+  await ensure("table content_ideas", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "content_ideas",
+      name: "content_ideas",
+      permissions: contentIdeasPermissions,
+      rowSecurity: true,
+    }),
+  );
+  // Runs unconditionally, not swallowed behind ensure()'s 409 check — the
+  // whole point of a fixed allowlist is that it changes (adding a
+  // teammate), and a 409 on an already-existing table skips re-applying
+  // `permissions` entirely. That's the exact bug "tightening LGPD finding
+  // #12" below already had to fix once for profiles/place_run_stats/
+  // profile_stats, so this table pays that cost up front instead.
+  await tablesDB.updateTable({
+    databaseId: DATABASE_ID,
+    tableId: "content_ideas",
+    permissions: contentIdeasPermissions,
+    rowSecurity: true,
+  });
+  await ensure("content_ideas.title", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "content_ideas", key: "title", size: 120, required: true }),
+  );
+  // Same 5 pillars documented in SOCIAL-CONTEXT.md — keep the two in sync.
+  await ensure("content_ideas.pillar", () =>
+    tablesDB.createEnumColumn({
+      databaseId: DATABASE_ID,
+      tableId: "content_ideas",
+      key: "pillar",
+      elements: ["produto", "autentico", "autoridade", "marca", "comunidade"],
+      required: true,
+    }),
+  );
+  await ensure("content_ideas.status", () =>
+    tablesDB.createEnumColumn({
+      databaseId: DATABASE_ID,
+      tableId: "content_ideas",
+      key: "status",
+      elements: ["ideia", "rascunho", "agendado", "publicado"],
+      required: true,
+    }),
+  );
+  await ensure("content_ideas.notes", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "content_ideas", key: "notes", size: 2000, required: false }),
+  );
+  // Link to wherever the actual asset lives (an Artifact, Recraft Studio,
+  // a finished video) — this table only tracks the idea, never hosts the
+  // file itself.
+  await ensure("content_ideas.assetUrl", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "content_ideas", key: "assetUrl", size: 500, required: false }),
+  );
+  await ensure("content_ideas.createdBy", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "content_ideas", key: "createdBy", size: 36, required: true }),
+  );
+
   // ------------------------------------------------------------- avatars
   // Checked with getBucket() first, not just a create-and-catch-409 like
   // `ensure()` does for tables/columns: Appwrite Cloud's Free plan also
