@@ -117,6 +117,40 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
   (Android/web não são afetados, só a publicação automática no Play).
   Distribuição Android pro público geral continua por APK direto
   (sideload, link acima) até isso avançar pra teste fechado/produção.
+  **Atualização 2026-08-24 — API já habilitada, resolvido sozinho**:
+  confirmado no log do run #161 (push em `main`) que o step de publicação
+  teve sucesso de ponta a ponta, sem nenhum erro de API — não ficou claro
+  quando exatamente alguém habilitou `androidpublisher.googleapis.com`,
+  só que já está propagado e funcionando. **Mas o problema de fundo pro
+  usuário final continuava**: a faixa publicada era `internal` (Teste
+  Interno) — invisível na ficha pública da Play Store, só abre pra quem
+  está numa lista de testadores cadastrada à mão no Play Console. Um
+  usuário qualquer clicando em
+  `play.google.com/store/apps/details?id=com.xanthus.app` via a
+  notificação de "nova versão" via `/download` (ver "Onde cada
+  plataforma está no funil de lançamento" acima) via essa faixa
+  simplesmente não conseguia baixar nada — primeira decisão do dono do
+  projeto: mudar `track: internal` pra `track: production`. **Revista
+  ainda no mesmo dia**, antes de qualquer push: contas de desenvolvedor
+  novas (a nossa foi aprovada em 2026-08-21) precisam completar um teste
+  fechado com pelo menos 12 testadores por 14 dias corridos antes do
+  Google liberar o primeiro envio pra produção — exigência de conta, não
+  algo que o CI resolve sozinho, e bem provável que essa conta ainda não
+  cumpriu. **Decisão final: `track: open`** (Teste Aberto) — fica de fora
+  dessa trava de conta nova e já tem link público de opt-in, o
+  equivalente direto do grupo externo "Beta" do TestFlight no iOS (link
+  público, sem lista de testadores cadastrada à mão). Dois pré-requisitos
+  que o CI não cobre, continuam manuais no Play Console: (1) a faixa de
+  Teste Aberto precisa existir e ter um link de opt-in publicado antes
+  desse step funcionar — diferente do Teste Interno, que já vem pronto
+  por padrão em todo app novo; (2) a ficha da loja precisa estar
+  minimamente completa (descrição, classificação indicativa, formulário
+  de segurança de dados) — sem isso a API deve rejeitar o upload com um
+  erro de validação novo, ainda não visto. **Ainda não confirmado se
+  algum push com `track: open` teve sucesso** — conferir o próximo run do
+  `android-build.yml` em `main` (ainda não mergeado com essa mudança)
+  antes de considerar o link da Play Store pronto pra usar na notificação
+  de atualização.
   **Bug real achado nessa primeira tentativa de upload**: `gradlew
   bundleRelease` builda com sucesso e sem nenhum warning, mas o `.aab`
   saía **sem nenhuma assinatura jar embutida** mesmo com
@@ -686,6 +720,52 @@ ainda não deployado em produção**:
   paga (Wan 2.7 via fal.ai, ~US$72-108/mês), mas exige montar/manter um
   workflow ComfyUI containerizado e um fluxo assíncrono de job, trabalho
   de infra real que não está escopado ainda.
+
+## Bug crítico encontrado e corrigido: Functions sem escopo `rows.*` (2026-08-24)
+
+Relato real do dono do projeto: login com Apple funcionou (depois do fix
+de `node_modules` abaixo + de apagar a conta travada no Appwrite Console
+pra forçar um teste limpo), mas criar o perfil em seguida falhou com "tenta
+de novo" — o Appwrite Console mostrava o erro de verdade:
+```
+claim-owned-row failed for profiles/<rowId>: app.<project>@service...
+missing scopes (["rows.write","documents.write"])
+```
+**Causa raiz**: as duas Functions consolidadas (`client-actions` e
+`row-events`) só tinham `databases.read`/`databases.write` nos escopos —
+que no Appwrite atual **não cobrem operações de linha** na API de
+Tables/Rows (`TablesDB`/`tablesDB.createRow`/`updateRow`/`deleteRow`/
+`listRows`/`getRow`, usada em todo o código das duas Functions). Essas
+duas permissões controlam só operações de schema (criar/alterar tabela,
+coluna) — ler/escrever linhas precisa dos escopos separados `rows.read`/
+`rows.write`, que nunca foram concedidos desde a criação das Functions em
+2026-08-22. **Isso significa que toda operação de linha nas duas
+Functions esteve quebrada desde sempre** — não só `claim-owned-row`
+(criação de perfil), mas também `delete-account`, `join-group-run`,
+`set-plan-override`, `suggest-plan-override`, e as duas limpezas por
+evento em `row-events` (`revoke-coach-run-access`,
+`revoke-live-audience`). Só não tinha aparecido antes porque: (1) o bug
+de `node_modules` (seção abaixo) bloqueava as Functions por inteiro até
+horas atrás, mascarando qualquer erro de escopo por trás de um 503 mais
+básico; (2) `claim-owned-row` foi a primeira ação de escrita de linha
+realmente exercitada depois desse fix.
+
+**Corrigido** via `appwrite functions update` nas duas Functions,
+adicionando `rows.read`+`rows.write` aos escopos existentes (mantendo
+tudo mais igual — nome, entrypoint, `commands`, `execute`/`events`,
+scopes anteriores — já que o `update` do CLI não faz patch parcial,
+substitui os campos informados). Confirmado depois: execução de teste em
+`client-actions` (`action: "__healthcheck__"`) respondendo
+`400 {"error":"unknown-action"}` normalmente (Function saudável, não é
+esse o teste que valida o fix em si — o teste real é o dono do projeto
+tentar criar o perfil de novo no app). **Ainda não confirmado por teste
+real** — mesma pendência de sempre, precisa ser confirmado num aparelho
+de verdade.
+
+**Lição pro README**: a lista de escopos documentada lá (`databases.read`/
+`databases.write` apenas) está desatualizada — precisa registrar
+`rows.read`/`rows.write` como parte do conjunto obrigatório pra qualquer
+Function que use `TablesDB`, não só `databases.*`.
 
 ## Bug crítico encontrado e corrigido: Functions sem `node_modules` (2026-08-24)
 

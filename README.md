@@ -340,9 +340,22 @@ appwrite functions create \
   --commands "npm install" \
   --execute any \
   --scopes users.read --scopes users.write --scopes databases.read \
-  --scopes databases.write --scopes files.write
+  --scopes databases.write --scopes rows.read --scopes rows.write \
+  --scopes files.write
 appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --commands "npm install" --activate
 ```
+
+**`rows.read`/`rows.write` também não são opcionais** — `databases.read`/
+`databases.write` só cobrem operações de schema (criar/alterar tabela ou
+coluna); ler/escrever linhas de verdade via `TablesDB`
+(`tablesDB.createRow`/`updateRow`/`deleteRow`/`listRows`/`getRow`, usado
+em quase toda ação deste dispatcher) precisa dos dois escopos separados
+acima. Faltando eles, a Function sobe e roda normalmente (não é o mesmo
+sintoma do bug de `node_modules` logo abaixo) até a primeira ação que
+realmente toque uma linha, que falha com
+`missing scopes (["rows.write","documents.write"])` — bug real encontrado
+em 2026-08-24 (ver `PROJECT-CONTEXT.md`), corrigido via
+`appwrite functions update --scopes ...` incluindo os dois.
 
 **`--commands "npm install"` não é opcional** — sem isso o Appwrite sobe
 só o código-fonte e nunca instala `node-appwrite`/`jose`, e a Function
@@ -421,12 +434,18 @@ appwrite functions create \
   --commands "npm install" \
   --events "databases.*.tables.coach_relationships.rows.*.delete" \
   --events "databases.*.tables.group_run_participants.rows.*.delete" \
-  --scopes databases.read --scopes databases.write
+  --scopes databases.read --scopes databases.write \
+  --scopes rows.read --scopes rows.write
 appwrite functions create-deployment --function-id row-events --code . --entrypoint src/main.js --commands "npm install" --activate
 ```
 
 Sem `--execute`, porque nada além do próprio evento do banco deve chamar
-essa Function. **`--commands "npm install"` aqui também não é opcional**
+essa Function. **`rows.read`/`rows.write` aqui também não são opcionais**
+— mesma nota de cima em `client-actions`: sem eles, `tablesDB.listRows`/
+`updateRow` (usados nos dois handlers deste dispatcher) falham com
+`missing scopes`, mesmo com `databases.read`/`databases.write`
+concedidos — achado real em 2026-08-24, ver `PROJECT-CONTEXT.md`.
+**`--commands "npm install"` aqui também não é opcional**
 — ver a mesma nota logo acima em `client-actions`, achado no mesmo dia
 (essa Function tinha o mesmo bug: um único deploy de 6KB, sem
 `node_modules`, então toda revogação de acesso — ex-treinador, ex-membro

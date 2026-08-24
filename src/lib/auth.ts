@@ -181,6 +181,30 @@ let googleSocialLoginInitialized = false;
  * it against Google's public keys and mint a session token, exchanged for
  * a real session right here — same shape as `nativeAppleSignIn` end to end.
  */
+/**
+ * Turns `client-actions`'s `apple-native-signin`/`google-native-signin`
+ * error codes into something an athlete can actually act on, instead of
+ * showing the raw code in parentheses (reported directly — an error
+ * reading "Falha ao validar o login com Apple (user-create-failed)" tells
+ * a non-technical person nothing they can do about it). Falls back to the
+ * status code for anything not explicitly named here rather than throwing,
+ * since new codes can be added on the Function side without this staying
+ * perfectly in sync.
+ */
+function describeNativeSignInError(provider: "Apple" | "Google", code: string | undefined, statusCode: number): string {
+  switch (code) {
+    case "email-already-in-use":
+      return `Esse e-mail já tem uma conta — entra pelo mesmo jeito que você usou da primeira vez (Google, Apple, ou o link que chegou no seu e-mail).`;
+    case "invalid-identity-token":
+    case "invalid-id-token":
+    case "missing-identity-token":
+    case "missing-id-token":
+      return `Não deu pra confirmar seu login com a ${provider} — tenta de novo.`;
+    default:
+      return `Não deu pra entrar com a ${provider} agora — tenta de novo em alguns instantes (${code ?? statusCode}).`;
+  }
+}
+
 async function nativeGoogleSignIn(returnTo: string): Promise<string | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return "Appwrite não configurado (NEXT_PUBLIC_APPWRITE_ENDPOINT/PROJECT_ID ausentes neste build).";
@@ -218,7 +242,7 @@ async function nativeGoogleSignIn(returnTo: string): Promise<string | null> {
 
   const result = JSON.parse(execution.responseBody || "{}") as GoogleNativeSignInResult;
   if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !result.ok) {
-    return `Falha ao validar o login com Google (${result.error ?? execution.responseStatusCode}).`;
+    return describeNativeSignInError("Google", result.error, execution.responseStatusCode);
   }
   if (!result.userId || !result.secret) return "client-actions não devolveu userId/secret.";
 
@@ -310,7 +334,7 @@ async function nativeAppleSignIn(returnTo: string): Promise<string | null> {
 
   const result = JSON.parse(execution.responseBody || "{}") as AppleNativeSignInResult;
   if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !result.ok) {
-    return `Falha ao validar o login com Apple (${result.error ?? execution.responseStatusCode}).`;
+    return describeNativeSignInError("Apple", result.error, execution.responseStatusCode);
   }
   if (!result.userId || !result.secret) return "client-actions não devolveu userId/secret.";
 

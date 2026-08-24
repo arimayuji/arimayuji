@@ -898,6 +898,16 @@ async function appleNativeSignIn({ body, client, res, error }) {
     try {
       await users.create({ userId, email, name });
     } catch (err) {
+      // 409 here means Appwrite already has a *different* user with this
+      // same email — from signing up earlier via Google, the browser
+      // OAuth2 redirect flow, or phone — since this provider's own
+      // deterministic userId (derived from Apple's `sub`) came back as
+      // genuinely new above. Worth telling apart from any other failure:
+      // the fix for this one is "sign in with whatever you used the first
+      // time", not "try again"/"something broke".
+      if (err.code === 409) {
+        return res.json({ error: "email-already-in-use" }, 409);
+      }
       error(`apple-native-signin: falha ao criar usuário ${userId}: ${err.message}`);
       return res.json({ error: "user-create-failed" }, 500);
     }
@@ -976,6 +986,12 @@ async function googleNativeSignIn({ body, client, res, error }) {
     try {
       await users.create({ userId, email, name });
     } catch (err) {
+      // Same "email already tied to a different account" case documented
+      // in apple-native-signin above — same fix (sign in the original way),
+      // not the same failure at all as the generic 500 below.
+      if (err.code === 409) {
+        return res.json({ error: "email-already-in-use" }, 409);
+      }
       error(`google-native-signin: falha ao criar usuário ${userId}: ${err.message}`);
       return res.json({ error: "user-create-failed" }, 500);
     }
