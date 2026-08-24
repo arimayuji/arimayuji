@@ -78,6 +78,50 @@ Não usar em copy: números inventados, "o melhor GPS do mercado" sem prova,
 comparação direta com concorrente por marca (a não ser em tom de resenha/
 review honesta, nunca ataque vazio).
 
+## Pilares de conteúdo (evita ficar perdido em storytelling/formato)
+
+Preocupação real levantada em 2026-08-24: nem toda ideia precisa virar
+vídeo/gravação de tela — isso é lento e trava o ritmo. Toda ideia nova
+passa primeiro por essa categorização; se não encaixa em nenhum pilar,
+não é conteúdo do Xanthus ainda. Formato de cada pilar é o mais leve que
+resolve, não o mais impressionante.
+
+1. **Produto** — feature real do app. Formato: gravação de tela + narração
+   (ver "Formatos" abaixo).
+2. **Autêntico** — você correndo, sua voz, sua história real (ex.: o bug
+   caçado com `adb logcat`). Formato: vídeo real, sem geração de IA.
+3. **Autoridade/ciência** — reagir a notícia real do nicho (recorde
+   quebrado, estudo novo) cruzando com o que o Xanthus já sabe de
+   verdade (`src/lib/evidence/facts.ts`, a mesma base citada em `/plano`
+   e `/estudos`). Formato: **slide/carrossel estático**, não precisa de
+   vídeo — é o pilar mais rápido de produzir e o que dá autoridade sem
+   inventar conhecimento novo. Exemplo real usado como teste: Yomif
+   Kejelcha quebrou o recorde mundial da meia maratona em 23/08/2026
+   (Buenos Aires, 56:51) — ver rascunho de slide feito nesta sessão.
+   **Descoberta de pauta**: World Athletics tem RSS oficial de notícias
+   (`worldathletics.org/news`) — verificado. LetsRun.com **não** tem RSS
+   oficial (confirmado por busca) — pra ele, usar um gerador de terceiros
+   (ex. rss.app) ou só visitar manualmente. `feedspot.com` mantém um
+   diretório curado de RSS de corrida/atletismo como ponto de partida pra
+   achar mais fontes — nenhuma URL de feed específica de lá foi
+   verificada ainda, checar antes de configurar automação em cima disso.
+4. **Marca/mascote** — animação ilustrada da persona (ver seção acima).
+   Formato: imagem Recraft → Wan 2.7/Vidu Q3. Único pilar que depende do
+   pipeline de IA-vídeo mais caro/lento — não é o pilar de estreia.
+5. **Comunidade/humor** — meme sobre dor real de corredor, repost de
+   conquista de usuário (com permissão). Formato: slide/imagem, rápido,
+   mantém a conta viva entre os pilares mais pesados.
+
+## Onde produzir cada peça (decisão de fluxo, 2026-08-24)
+
+Conteúdo estático (slide, carrossel, meme — pilares 3 e 5 acima) nasce
+como um **artifact visual** (canvas de design), não como texto descrito
+no chat — dá pra ver o resultado de verdade e ajustar direto ali em vez
+de rodadas de ida-e-volta em texto. Roteiro/copy de vídeo continua sendo
+escrito aqui (é texto mesmo, vira input pras ferramentas externas de
+vídeo). Geração de vídeo em si sempre nas ferramentas externas do stack
+abaixo, nunca dentro do chat.
+
 ## Os 5 arquétipos de gancho, já aplicados ao Xanthus
 
 Framework validado na pesquisa (retenção "assistiu vs. passou reto" cai
