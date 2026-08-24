@@ -29,6 +29,7 @@ import {
   type GroupRun,
 } from "@/lib/groupRuns";
 import { PairingQrCode } from "../pairing-qr";
+import { AccountPrompt } from "../account-prompt";
 import { useGroupLiveRuns, buildGroupMarkers } from "@/lib/useGroupLiveRuns";
 import { useAuth } from "@/lib/useAuth";
 import { GroupLiveMap } from "../group-live-map";
@@ -97,9 +98,13 @@ import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboardin
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
+  ANNOUNCE_MAX_SECONDS,
   ANNOUNCE_MIN_METERS,
+  ANNOUNCE_MIN_SECONDS,
   ANNOUNCE_STEP_METERS,
+  ANNOUNCE_STEP_SECONDS,
   announceLabel,
+  announceSecondsLabel,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useHeaderGpsStatus, useImmersiveMode, useTabReclick } from "../app-shell";
@@ -199,6 +204,7 @@ const DISTANCE_PRESETS_KM = [1, 3, 5, 10, 21];
 const TIME_PRESETS_MIN = [20, 30, 45, 60, 90];
 const PACE_PRESETS_SEC = [270, 300, 330, 360, 390]; // 4:30–6:30 /km
 const VOICE_PRESETS_M = [250, 500, 1000, 2000, 5000];
+const VOICE_PRESETS_S = [60, 120, 180, 300, 600];
 
 /**
  * Ending a run is the one action here with no undo — the summary screen is
@@ -884,12 +890,27 @@ export default function RunPage() {
   const [recoverableRun, setRecoverableRun] = useState<ActiveRunSnapshot | null>(null);
   /** Which of `goalKm`/`goalMinutes`/`goalPaceSec` actually becomes the run's goal on start — mutually exclusive in the UI (Xanthus Preparar Corrida.dc.html's "Tipo de meta" tabs) even though `RunGoal` itself supports distância+tempo together, since showing every value permanently read as "set them all" when only one was ever meant to gate the run. */
   const [goalType, setGoalType] = useState<"distancia" | "tempo" | "ritmo" | "livre">("distancia");
-  const [goalKm, setGoalKm] = useState(5);
+  /**
+   * Defaults to 5, unless the screen was opened via `?repeatKm=X` — a past
+   * run's "Repetir corrida" button (run-detail.tsx) — the only dimension of
+   * a past run's original goal this app can actually reconstruct, since
+   * `CompletedRun` never stored what goal type/target produced it in the
+   * first place (only what actually happened). Read straight from the URL
+   * as a lazy initializer rather than an effect: it's synchronous, derived
+   * once from how this mount was opened, not something to keep syncing
+   * against an external system.
+   */
+  const [goalKm, setGoalKm] = useState(() => {
+    if (typeof window === "undefined") return 5;
+    const raw = new URLSearchParams(window.location.search).get("repeatKm");
+    const km = raw ? Number(raw) : NaN;
+    return Number.isFinite(km) && km > 0 ? Math.round(km * 10) / 10 : 5;
+  });
   const [goalMinutes, setGoalMinutes] = useState(30);
   /** Target pace to hold, seconds/km — 330 = 5:30/km, a typical easy-run pace. */
   const [goalPaceSec, setGoalPaceSec] = useState(330);
   /** Which "Custom" chip's sheet is currently open — at most one at a time, across all four pickers on this screen. */
-  const [customSheet, setCustomSheet] = useState<"distancia" | "tempo" | "ritmo" | "voz" | null>(null);
+  const [customSheet, setCustomSheet] = useState<"distancia" | "tempo" | "ritmo" | "voz" | "voz-tempo" | null>(null);
   const [shoeName, setShoeName] = useState("");
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
@@ -934,6 +955,8 @@ export default function RunPage() {
   /** "Correr com alguém" (QR pairing) — generating a code from this device. */
   const [generatingPairing, setGeneratingPairing] = useState(false);
   const [pairingGenerateError, setPairingGenerateError] = useState<string | null>(null);
+  /** Hosting a pairing session needs an account (createGroupRun's own "unavailable" reason) — same gate /longao already shows for the same underlying reason, just triggered from this shortcut instead of a dedicated signed-out screen. */
+  const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   /** An incoming pairing invite opened via `?parear=` (see src/app/parear/page.tsx and oauth-callback-listener.tsx) — resolved once on mount, confirmed explicitly rather than joined silently. */
   const [pairingInvite, setPairingInvite] = useState<{ code: string; groupRun: GroupRun; hostName: string } | null>(
     null,
@@ -969,6 +992,10 @@ export default function RunPage() {
   }, []);
 
   const handleGeneratePairing = async () => {
+    if (!account) {
+      setShowAccountPrompt(true);
+      return;
+    }
     setGeneratingPairing(true);
     setPairingGenerateError(null);
     const firstName = profile?.displayName?.trim().split(/\s+/)[0];
@@ -1280,6 +1307,9 @@ export default function RunPage() {
    */
   const [preferences, updatePreferences] = usePreferences();
   const announceMeters = preferences.announceIntervalMeters;
+  const announceSeconds = preferences.announceIntervalSeconds;
+  const announceMode = preferences.announceMode;
+  const voiceGender = preferences.voiceGender;
 
   /**
    * Live position sharing — a ping to whoever's watching (the chosen coach,
@@ -1557,6 +1587,9 @@ export default function RunPage() {
     setActiveGhost(selectedGhost);
     start({
       announceIntervalMeters: announceMeters,
+      announceIntervalSeconds: announceSeconds,
+      announceMode,
+      voiceGender,
       goal:
         distanceMeters || durationSeconds || targetPaceSecPerKm
           ? { distanceMeters, durationSeconds, targetPaceSecPerKm }
@@ -1935,14 +1968,63 @@ export default function RunPage() {
             </Card>
 
             <div className="space-y-1.5">
-              <span className="text-sm font-medium">Aviso por voz a cada</span>
-              <PresetChipRow
-                presets={VOICE_PRESETS_M.map((m) => ({ value: m, label: announceLabel(m) }))}
-                value={announceMeters}
-                onSelect={(meters) => updatePreferences({ announceIntervalMeters: meters })}
-                onOpenCustom={() => setCustomSheet("voz")}
-                customLabel={VOICE_PRESETS_M.includes(announceMeters) ? null : announceLabel(announceMeters)}
-              />
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Aviso por voz a cada</span>
+                <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
+                  {(["distance", "time"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => updatePreferences({ announceMode: mode })}
+                      aria-pressed={announceMode === mode}
+                      className={`px-3 py-1.5 transition-colors ${
+                        announceMode === mode
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-background text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {mode === "distance" ? "Distância" : "Tempo"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {announceMode === "distance" ? (
+                <PresetChipRow
+                  presets={VOICE_PRESETS_M.map((m) => ({ value: m, label: announceLabel(m) }))}
+                  value={announceMeters}
+                  onSelect={(meters) => updatePreferences({ announceIntervalMeters: meters })}
+                  onOpenCustom={() => setCustomSheet("voz")}
+                  customLabel={VOICE_PRESETS_M.includes(announceMeters) ? null : announceLabel(announceMeters)}
+                />
+              ) : (
+                <PresetChipRow
+                  presets={VOICE_PRESETS_S.map((s) => ({ value: s, label: announceSecondsLabel(s) }))}
+                  value={announceSeconds}
+                  onSelect={(seconds) => updatePreferences({ announceIntervalSeconds: seconds })}
+                  onOpenCustom={() => setCustomSheet("voz-tempo")}
+                  customLabel={VOICE_PRESETS_S.includes(announceSeconds) ? null : announceSecondsLabel(announceSeconds)}
+                />
+              )}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs text-muted">Voz</span>
+                <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
+                  {(["female", "male"] as const).map((gender) => (
+                    <button
+                      key={gender}
+                      type="button"
+                      onClick={() => updatePreferences({ voiceGender: gender })}
+                      aria-pressed={voiceGender === gender}
+                      className={`px-3 py-1.5 transition-colors ${
+                        voiceGender === gender
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-background text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {gender === "female" ? "Feminina" : "Masculina"}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {customSheet === "distancia" && (
@@ -2000,6 +2082,21 @@ export default function RunPage() {
                 formatValue={announceLabel}
                 onConfirm={(meters) => {
                   updatePreferences({ announceIntervalMeters: meters });
+                  setCustomSheet(null);
+                }}
+                onClose={() => setCustomSheet(null)}
+              />
+            )}
+            {customSheet === "voz-tempo" && (
+              <CustomValueSheet
+                title="Aviso por voz personalizado"
+                value={announceSeconds}
+                min={ANNOUNCE_MIN_SECONDS}
+                max={ANNOUNCE_MAX_SECONDS}
+                step={ANNOUNCE_STEP_SECONDS}
+                formatValue={announceSecondsLabel}
+                onConfirm={(seconds) => {
+                  updatePreferences({ announceIntervalSeconds: seconds });
                   setCustomSheet(null);
                 }}
                 onClose={() => setCustomSheet(null)}
@@ -2911,6 +3008,8 @@ export default function RunPage() {
           </div>
         </ModalPortal>
       )}
+
+      {showAccountPrompt && <AccountPrompt onClose={() => setShowAccountPrompt(false)} returnTo="/run" />}
     </div>
   );
 }

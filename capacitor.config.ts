@@ -12,6 +12,23 @@ const config: CapacitorConfig = {
     // work around on its own. See its README.
     useLegacyBridge: true,
   },
+  plugins: {
+    // Only Google is wired up (src/lib/auth.ts's nativeGoogleSignIn) — Apple
+    // login already goes through its own dedicated plugin
+    // (@capacitor-community/apple-sign-in), and this app has no
+    // Facebook/Twitter login at all. Disabling the unused providers here
+    // keeps their SDKs (and, for Facebook specifically, its AD_ID-related
+    // permissions — see this plugin's own Play Console troubleshooting
+    // notes) out of the native builds entirely, not just unused in JS.
+    SocialLogin: {
+      providers: {
+        google: true,
+        facebook: false,
+        apple: false,
+        twitter: false,
+      },
+    },
+  },
 };
 
 export default config;

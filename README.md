@@ -197,6 +197,51 @@ Isso precisa de:
   e o `--execute any` (ver seção de Functions abaixo) — sem isso, o login
   nativo no iOS não tem como funcionar mesmo com o app buildado certo.
 
+**Google Sign-In no iOS** (`nativeGoogleSignIn`, mesmo arquivo): reportado
+pelo dono do projeto e por um amigo dele testando — no iPhone, tocar em
+"Entrar com Google" cria a conta de verdade no Appwrite (visível no
+Console, e-mail verificado) mas a tela nunca volta pro app, fica em loading
+infinito; no Android o fluxo de sempre (`startOAuthSignIn`) funciona normal.
+Mesma classe de bug do Apple acima — o `SFSafariViewController` que o
+navegador do sistema abre no iOS não devolve o controle de forma confiável
+pro custom URL scheme do app, pra nenhum dos dois provedores — só que o
+Google não tem o atalho "chame a API do sistema direto" que a Apple tem
+via `ASAuthorizationAppleIDProvider`; a correção usa o SDK nativo do Google
+(`GIDSignIn`) via `@capgo/capacitor-social-login` (mesmo fabricante do
+plugin de GPS/saúde já usados neste projeto), que manda o `idToken` pra
+ação `google-native-signin` em `client-actions` — mesmo desenho de
+`apple-native-signin`, com a vantagem de que o token do Google já vem com
+`email`/`name` verificados, sem precisar confiar em nada que o cliente
+mandou.
+
+**Isso precisa de um OAuth Client ID do tipo "iOS" no Google Cloud, que só
+o dono do projeto pode criar** (mesmo projeto GCP do login Google/Appwrite
+já em uso):
+
+1. [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
+   → **+ Create Credentials** → **OAuth client ID**.
+2. Tipo de aplicativo: **iOS**.
+3. Bundle ID: `com.xanthus.app` (o mesmo de sempre).
+4. Criar → copiar o **Client ID** gerado (termina em
+   `.apps.googleusercontent.com` — não tem client secret, tipo "iOS" não
+   gera um).
+5. Colocar esse valor em **dois** lugares (o mesmo valor nos dois):
+   - Secret do GitHub Actions `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` (repo →
+     Settings → Secrets → Actions) — `ios-build.yml` já injeta essa env
+     var no `npm run build`.
+   - Variável `GOOGLE_IOS_CLIENT_ID` na Function `client-actions`
+     (Appwrite Console → Functions → client-actions → Variables) — é
+     contra esse valor que `google-native-signin` confere o `aud` do
+     token.
+
+Sem isso configurado, `nativeGoogleSignIn` devolve o diagnóstico "Google
+não devolveu um idToken"/"NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID ausente" em vez
+de travar silenciosamente — o mesmo padrão de todo early-return desse
+arquivo (ver comentário de `startOAuthSignIn`). `npx cap sync` já registra
+o plugin no projeto iOS (só Google habilitado — Facebook/Apple/Twitter
+desligados em `capacitor.config.ts`, este app não usa nenhum dos três por
+esse plugin).
+
 **Exclusão de conta** (`/perfil`): obrigatória pela guideline 5.1.1(v) da
 App Store sempre que o app permite criar conta. O SDK cliente do Appwrite
 não tem um jeito de auto-excluir a conta (só `deleteSession`/
@@ -253,16 +298,16 @@ appwrite functions create-deployment --function-id client-actions --code . --ent
 ```
 
 Pra mudar `--execute` de `users` pra `any` (necessário pra
-`apple-native-signin` funcionar — é a única ação que roda sem sessão
-nenhuma, ver o comentário de `PUBLIC_ACTIONS` em `main.js`): **Appwrite
-Console → Functions → client-actions → Settings → Execute Access → Any**
-(a lista de scopes acima não muda — `users.read`/`users.write` já cobrem
-`Users.create`/`Users.createToken`, que é tudo que `apple-native-signin`
-precisa além do que as outras ações já usavam). O check
-`x-appwrite-user-id` dentro de `clientActions()` continua bloqueando toda
-ação que não seja `apple-native-signin` mesmo com execução aberta pra
-`any` — abrir isso não deixa nenhuma das outras seis ações chamável
-anonimamente.
+`apple-native-signin`/`google-native-signin` funcionarem — são as duas
+únicas ações que rodam sem sessão nenhuma, ver o comentário de
+`PUBLIC_ACTIONS` em `main.js`): **Appwrite Console → Functions →
+client-actions → Settings → Execute Access → Any** (a lista de scopes
+acima não muda — `users.read`/`users.write` já cobrem
+`Users.create`/`Users.createToken`, que é tudo que as duas precisam além
+do que as outras ações já usavam). O check `x-appwrite-user-id` dentro de
+`clientActions()` continua bloqueando toda ação que não esteja em
+`PUBLIC_ACTIONS` mesmo com execução aberta pra `any` — abrir isso não
+deixa nenhuma das outras nove ações chamável anonimamente.
 
 Depois, no Appwrite Console → Functions → client-actions → **Settings →
 Variables**, adiciona:
@@ -270,13 +315,15 @@ Variables**, adiciona:
   transacional (Resend)" abaixo pra como conseguir uma).
 - `GEMINI_API_KEY` — usada pela ação `suggest-plan-override`, mesmo valor
   já presente em `.env.local`.
+- `GOOGLE_IOS_CLIENT_ID` — usada pela ação `google-native-signin`, ver
+  "Google Sign-In no iOS" acima pra como conseguir.
 
 O `--execute any` libera a chamada pra qualquer um, autenticado ou não —
-necessário só por causa de `apple-native-signin` (a única das seis ações
-sem sessão possível). O check de sessão dentro de `clientActions()` (ver
-`PUBLIC_ACTIONS` em `main.js`) continua exigindo `x-appwrite-user-id` pra
-todas as outras cinco, então nenhuma delas passa a ser chamável anônima só
-por isso. Rode
+necessário só por causa de `apple-native-signin`/`google-native-signin`
+(as únicas ações sem sessão possível). O check de sessão dentro de
+`clientActions()` (ver `PUBLIC_ACTIONS` em `main.js`) continua exigindo
+`x-appwrite-user-id` pra todas as outras, então nenhuma delas passa a ser
+chamável anônima só por isso. Rode
 `npx tsx scripts/appwrite-setup.ts` depois do deploy pra garantir que
 `plan_overrides` existe e que a permissão antiga de `create` aberta em
 `profiles`/`profile_stats`/`place_run_stats` foi retirada (achado de uma
@@ -355,6 +402,7 @@ resto do app — a URL a colar nas duas lojas é
 | `ELEVENLABS_API_KEY` | `.env.local`, só usada por `scripts/generate-voice-bank.ts` (nunca em runtime) | Baixa prioridade — não roda em produção | Gerar nova no ElevenLabs, atualizar `.env.local` |
 | `GEMINI_API_KEY` | `.env.local` **e** Appwrite Console → Functions → client-actions → Variables (dois lugares independentes, ver seção de Functions acima) | Se abusada ou ao trocar de modelo | Gerar nova no Google AI Studio, atualizar os dois lugares |
 | `RECRAFT_API_KEY` | `.env.local`, server-only, sem uso em código ainda | N/A enquanto não usada | Revogar se decidir não usar; gerar nova quando a feature que a usa for construída |
+| `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` / `GOOGLE_IOS_CLIENT_ID` | Secret do GitHub Actions (`ios-build.yml`) **e** Appwrite Console → Functions → client-actions → Variables (mesmo valor, dois lugares independentes — ver "Google Sign-In no iOS" acima) | Só se abusada — não é secreta por natureza (client ID "iOS" não tem client secret) | Criar um novo OAuth client "iOS" no Google Cloud Console, atualizar os dois lugares |
 | Secrets do GitHub Actions (`APP_STORE_CONNECT_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, keystores Android) | GitHub → Settings → Secrets | Seguindo a expiração de cada credencial (ex.: chave `.p8` da Apple não expira sozinha; conta de serviço do Google Play, conforme política do Google Cloud) | Gerar nova nas respectivas consoles, atualizar o secret no GitHub, nunca commitar o arquivo bruto |
 
 Toda chave server-only (sem prefixo `NEXT_PUBLIC_`) já vive só em
@@ -489,6 +537,49 @@ notificações não chegam de verdade — `registerForPushNotifications()` e
 `sendMilestoneNotification()` falham silenciosamente (nunca travam nem
 mostram erro pro atleta), do mesmo jeito que qualquer outra
 funcionalidade nativa best-effort deste app.
+
+### Aviso de "nova versão disponível" (Android e iOS)
+
+Empurra quem já está logado e com push registrado pra abrir o app assim
+que um build novo termina de publicar — diferente do sininho passivo em
+`/notificacoes` (que só quem abre o app vê), esse chega mesmo com o app
+fechado. **Alcance real: só contas logadas** — o app grava corrida sem
+conta pra maioria dos atletas, e registrar um Push Target sempre exige
+uma sessão Appwrite; sem repensar a arquitetura de sessão anônima pro app
+inteiro (fora de escopo aqui), quem nunca fez login continua só vendo o
+sininho passivo no Android e a notificação nativa do TestFlight no iOS.
+
+Mecanismo: dois **tópicos** do Appwrite Messaging, `android-updates` e
+`ios-updates` (criados uma vez via script, ver git history de
+`.setup-update-topics.mjs` — um tópico é agnóstico de provider FCM/APNs,
+só agrupa alvos). `registerForPushNotifications()` inscreve o Push Target
+recém-criado no tópico do seu SO chamando a ação `subscribe-update-topic`
+em `client-actions`. O CI (`.github/workflows/android-build.yml`, job
+`release`, step "Notify Android accounts...") dispara o aviso pro tópico
+`android-updates` assim que o link público do APK é confirmado — direto
+via `curl` na REST API do Appwrite Messaging (`POST
+/messaging/messages/push`), não pelo SDK, pra não precisar instalar
+`node-appwrite` só nesse step do CI. Precisa de um secret novo no GitHub:
+
+- **`APPWRITE_MESSAGING_API_KEY`** — chave de API do Appwrite Console
+  (Overview → API Keys) com **só** o escopo `messages.write` marcado
+  (não reusar a `APPWRITE_SETUP_API_KEY` aqui — essa é de uso local, sem
+  escopo restrito, e não devia circular em mais lugares do que precisa).
+  Sem esse secret configurado, o step avisa com `::warning::` e segue em
+  frente (`continue-on-error: true`) — nunca derruba o deploy do
+  APK/site por causa disso.
+
+O equivalente pro iOS (tópico `ios-updates`, step "Notify iOS accounts..."
+em `ios-build.yml`, logo depois do upload pro TestFlight) **também está
+implementado** — decisão explícita de não depender só da notificação
+nativa do TestFlight (que só existe enquanto o app estiver nesse canal;
+some assim que virar uma release de verdade na App Store). Mesmo mecanismo
+do Android: `messageId` chaveado no número do run do GitHub Actions
+(`GITHUB_RUN_NUMBER`, a mesma fonte do número de build do `xcodebuild
+archive` acima) pra um re-run do mesmo build não notificar duas vezes.
+`updateCheck.ts` (o sininho passivo em `/notificacoes`) continua
+Android-only — esse push não abre nenhuma tela nova no iOS, só usa o
+mesmo "puxão pra abrir o app" que o Android já tinha.
 
 ## Rodando localmente
 

@@ -107,6 +107,15 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- Required on Android 13+ (API 33) for any notification to display at
+         all — without this, PushNotifications.requestPermissions() in
+         src/lib/pushNotifications.ts silently can't be granted and FCM
+         delivery to this device never surfaces in the system tray, even
+         though everything server-side (provider, milestone trigger) reports
+         success. Missing this was the actual cause of "notificação de marco
+         não aparece" on Android — nothing else in the send path was broken. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- @capgo/capacitor-health — read-only, matching REQUIRED_READ_TYPES in
          health.ts exactly. Declaring these doesn't grant them: Health
          Connect still shows its own consent screen the first time

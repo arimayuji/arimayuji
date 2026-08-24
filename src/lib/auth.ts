@@ -7,6 +7,7 @@
  */
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { Browser } from "@capacitor/browser";
+import { SocialLogin } from "@capgo/capacitor-social-login";
 import { ExecutionMethod, ID, type Models, OAuthProvider, Query } from "appwrite";
 import {
   APPWRITE_DATABASE_ID,
@@ -21,6 +22,17 @@ import { isIOSPlatform, isNativePlatform } from "./platform";
 
 /** The app's own bundle ID — also the `aud` claim Apple's native identity token carries on iOS, since `ASAuthorizationAppleIDProvider` (no browser, no Services ID) authenticates as the app itself. Kept as its own constant since two spots below need the exact same literal. */
 const APPLE_BUNDLE_ID = "com.xanthus.app";
+
+/**
+ * Google Cloud's "iOS" OAuth client for this app — created against the
+ * `com.xanthus.app` bundle ID (see README's "Google Sign-In nativo no iOS"
+ * section for the exact console steps). Not a secret: an OAuth client ID is
+ * meant to be embedded in a public client, same trust level as
+ * `NEXT_PUBLIC_MAPTILER_KEY`. `client-actions` needs the identical value
+ * (as `GOOGLE_IOS_CLIENT_ID`) to check the `aud` claim on the identity
+ * token this produces — see `googleNativeSignIn` in main.js.
+ */
+const GOOGLE_IOS_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
 export interface Profile extends Models.Row {
   handle: string;
@@ -128,7 +140,86 @@ async function startOAuthSignIn(provider: OAuthProvider, returnTo: string): Prom
  * `startOAuthSignIn`'s own doc comment for exactly what "success" covers.
  */
 export function signInWithGoogle(returnTo: string): Promise<string | null> {
+  if (isIOSPlatform()) return nativeGoogleSignIn(returnTo);
   return startOAuthSignIn(OAuthProvider.Google, returnTo);
+}
+
+interface GoogleNativeSignInResult {
+  ok?: boolean;
+  userId?: string;
+  secret?: string;
+  error?: string;
+}
+
+let googleSocialLoginInitialized = false;
+
+/**
+ * iOS-only replacement for the browser-redirect Google OAuth2 flow —
+ * reported blank/stuck-loading on iOS specifically (Android keeps using
+ * `startOAuthSignIn` above without issue). Google's flow isn't the
+ * `response_mode=form_post` case `nativeAppleSignIn`'s doc comment
+ * describes for Apple, but the failure is the same shape: the consent step
+ * inside `startOAuthSignIn`'s `SFSafariViewController` never reliably hands
+ * control back to this app's custom URL scheme on iOS, for either
+ * provider.
+ *
+ * Goes through Google's own native SDK (`GIDSignIn`, via
+ * `@capgo/capacitor-social-login`) instead of a browser redirect —  no
+ * `SFSafariViewController`, no deep link, no `oauth-callback-listener.tsx`
+ * involved. The identity token this returns is handed to the
+ * `google-native-signin` action in `client-actions` (the other action, next
+ * to `apple-native-signin`, allowed to run with no session yet) to verify
+ * it against Google's public keys and mint a session token, exchanged for
+ * a real session right here — same shape as `nativeAppleSignIn` end to end.
+ */
+async function nativeGoogleSignIn(returnTo: string): Promise<string | null> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return "Appwrite não configurado (NEXT_PUBLIC_APPWRITE_ENDPOINT/PROJECT_ID ausentes neste build).";
+  if (!GOOGLE_IOS_CLIENT_ID) return "NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID ausente neste build nativo.";
+
+  if (!googleSocialLoginInitialized) {
+    await SocialLogin.initialize({ google: { iOSClientId: GOOGLE_IOS_CLIENT_ID, mode: "online" } });
+    googleSocialLoginInitialized = true;
+  }
+
+  let login;
+  try {
+    login = await SocialLogin.login({ provider: "google", options: { scopes: ["email", "profile"] } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/cancel/i.test(message)) return null;
+    return message;
+  }
+
+  // Always "online" (never requested offline mode above), but the SDK's
+  // return type is a union across both — narrow explicitly rather than cast.
+  const idToken = login.result.responseType === "online" ? login.result.idToken : null;
+  if (!idToken) return "Google não devolveu um idToken.";
+
+  let execution;
+  try {
+    execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "google-native-signin", idToken }),
+    });
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  const result = JSON.parse(execution.responseBody || "{}") as GoogleNativeSignInResult;
+  if (execution.responseStatusCode < 200 || execution.responseStatusCode >= 300 || !result.ok) {
+    return `Falha ao validar o login com Google (${result.error ?? execution.responseStatusCode}).`;
+  }
+  if (!result.userId || !result.secret) return "client-actions não devolveu userId/secret.";
+
+  try {
+    await appwrite.account.createSession({ userId: result.userId, secret: result.secret });
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  window.location.assign(returnTo);
+  return null;
 }
 
 /**

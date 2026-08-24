@@ -68,6 +68,11 @@ jobs:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
           NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
+          # Native Google Sign-In (src/lib/auth.ts's nativeGoogleSignIn) —
+          # unset until the secret is added, in which case the build falls
+          # back to `nativeGoogleSignIn` returning its own "not configured"
+          # diagnostic instead of a broken login. See README.
+          NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
 
       - name: Type-check and lint
         run: |
@@ -287,6 +292,34 @@ jobs:
             --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
 
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
+
+      - name: Notify iOS accounts that a new version shipped
+        # Same mechanism as Android's own step (android-build.yml) — see
+        # its comment for the full reasoning. Added on request: TestFlight's
+        # own native "new build" notification only reaches TestFlight
+        # testers and disappears once this app ever moves to a full App
+        # Store release, so this push isn't meant to be a redundant nudge on
+        # top of TestFlight — it's the same account-reach mechanism as
+        # Android, independent of whichever distribution channel iOS is on.
+        # `messageId` keyed off `GITHUB_RUN_NUMBER` (this workflow's own
+        # build-number source, see the archive step above) so a re-run for
+        # the same build can't double-notify.
+        if: steps.testflight.outputs.uploaded == 'true'
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
+          APPWRITE_MESSAGING_API_KEY: ${{ secrets.APPWRITE_MESSAGING_API_KEY }}
+        run: |
+          if [ -z "$APPWRITE_MESSAGING_API_KEY" ]; then
+            echo "::warning::APPWRITE_MESSAGING_API_KEY não configurado — pulando o aviso de nova versão. Veja o README."
+            exit 0
+          fi
+          curl -sS --fail-with-body -X POST "$NEXT_PUBLIC_APPWRITE_ENDPOINT/messaging/messages/push" \
+            -H "Content-Type: application/json" \
+            -H "X-Appwrite-Project: $NEXT_PUBLIC_APPWRITE_PROJECT_ID" \
+            -H "X-Appwrite-Key: $APPWRITE_MESSAGING_API_KEY" \
+            -d "{\"messageId\":\"ios-update-${GITHUB_RUN_NUMBER}\",\"title\":\"Nova versão disponível\",\"body\":\"Abre o Xanthus pra baixar a atualização.\",\"topics\":[\"ios-updates\"]}"
 
   # Deliberately separate from `testflight` above and from every push to
   # `main`: submitting a build for Apple's Beta App Review is its own

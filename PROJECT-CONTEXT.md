@@ -183,8 +183,23 @@ desligado por completo, ver "O produto, em uma frase" acima):
 
 ## OAuth / Login social
 
-- **Google**: funcionando, via Appwrite (Google Cloud Console → OAuth
-  client novo depois que o projeto GCP anterior foi excluído e recriado).
+- **Google**: funcionando no Android e na web via Appwrite (Google Cloud
+  Console → OAuth client novo depois que o projeto GCP anterior foi
+  excluído e recriado). **No iOS nativo, reportado quebrado em 2026-08-24**
+  (confirmado com print do Appwrite Console: a conta é criada de verdade,
+  mas a tela nunca volta pro app — testado em dois iPhones diferentes,
+  incluindo o de um amigo do dono do projeto). Mesma causa-raiz do bug do
+  Apple abaixo (o redirect por navegador do sistema não completa a volta
+  pro app no iOS). **Corrigido no código** nesta mesma data via
+  `nativeGoogleSignIn` (`src/lib/auth.ts`, usando
+  `@capgo/capacitor-social-login`/`GIDSignIn`) — ver o README ("Google
+  Sign-In no iOS") para o desenho completo. **Bloqueado até o dono do
+  projeto criar um OAuth Client ID tipo "iOS" no Google Cloud Console**
+  (bundle `com.xanthus.app`) e configurar
+  `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` (secret do GitHub Actions) +
+  `GOOGLE_IOS_CLIENT_ID` (variável da Function `client-actions`) — sem
+  isso, o login nativo no iOS devolve um diagnóstico explícito em vez de
+  travar silenciosamente, mas continua não funcionando de verdade.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
@@ -301,6 +316,102 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 `/perfil` — está marcado como tal no próprio código, não finge ser real.
 
 ## Funcionalidades planejadas, ainda não implementadas
+
+- **Backlog de ideias soltas (sessão 2026-08-23, nenhuma escopada em detalhe
+  ainda — só registrando pra não perder)**:
+  - **Repetir corrida**: no histórico, um botão "repetir corrida" que
+    reabre `/run` já configurado com a mesma meta (distância/tempo/ritmo) —
+    e possivelmente o mesmo trajeto, se fizer sentido — de uma corrida
+    passada. Escopo pequeno, não iniciado.
+  - **Nomear/filtrar o histórico pelo lugar onde a corrida aconteceu**:
+    pedido do dono do projeto pra poder filtrar o histórico por "lugares
+    que já corri" — mas a infra que já existe (`placeMatch.ts`,
+    tarefas #74-78) só casa uma corrida contra os poucos lugares com
+    `circuits` (rota rastreada) do catálogo de `places.ts`, tipicamente
+    parques, deixando de fora qualquer corrida de rua que passe por vários
+    bairros. **Decisão de produto (2026-08-24)**: quando não bate com o
+    catálogo, o **atleta digita o nome manualmente** — descartada a opção
+    de geocodificação reversa automática (evita mais uma chamada de API
+    paga/com cota por corrida). Ainda não implementado — falta o campo de
+    texto livre na tela de resumo/detalhe e usar esse valor como filtro no
+    histórico junto com os lugares já reconhecidos pelo catálogo.
+  - **Sugestão de correr com amigo por proximidade**: se dois amigos
+    estão com o app aberto e fisicamente perto um do outro, avisar
+    ("fulano tá aí perto, bora correr junto?") — dentro do app tá OK, não
+    precisa ser push nativo. Depende de compartilhar localização em tempo
+    real de quem só abriu o app (não de quem já está numa corrida ativa,
+    que já existe via `live_runs`). **Decisões de produto (2026-08-24)**:
+    opt-in explícito, desligado por padrão (mesmo padrão do ranking de
+    lugares — `leaderboardOptIn`, ligado em `/perfil`); visível **só pra
+    amigos aceitos**, nunca pra qualquer usuário do app nas redondezas.
+    Ainda não implementado — falta desenhar como/quando esse
+    compartilhamento de localização "só abri o app" liga e desliga (não é
+    o mesmo ciclo de vida de uma corrida ativa).
+  - **"Trajeto da comunidade" (rotas populares agregadas)**: em vez de só
+    o catálogo curado à mão (`places.ts`), minerar as rotas GPS já salvas
+    na plataforma pra achar trechos que muita gente corre em comum e virar
+    isso um "trajeto sugerido pela comunidade" — o raciocínio do pedido: a
+    equipe não conhece todo lugar bom pra correr numa cidade, mas quem já
+    corre lá sabe. Tecnicamente isso é clustering/agregação geoespacial de
+    trajetórias de várias contas — bem mais pesado que o matching atual
+    (que só compara contra um catálogo fixo, nunca entre usuários).
+    **Decisões de produto (2026-08-24)**: só entram trajetórias de quem já
+    ligou o opt-in do ranking de lugares (`leaderboardOptIn`) — nenhum
+    opt-in novo pra construir, e ninguém tem sua rota agregada sem ter
+    decidido antes que sua atividade pode aparecer pra outros; threshold
+    inicial **baixo (10-20 pessoas)**, não os "uns 100" soltos no pedido
+    original — com a base de usuários atual, esperar 100 podia nunca
+    disparar em lugar nenhum, dá pra subir depois se aparecer barulho/falso
+    positivo. Ainda não implementado.
+  - ~~Ciclofaixa como "lugar pra correr" de fato~~ — **descartado** pelo
+    dono do projeto em 2026-08-23, não vale reabrir sem pedido explícito
+    de novo.
+  - **"Coach ao vivo" — treinador acompanhando e falando com o aluno durante
+    a corrida em tempo real** (pedido em 2026-08-23, nada escopado em
+    detalhe, ideia rica com vários pedaços):
+    - **Acesso a dado de saúde ao vivo pro treinador** (FC/zona de esforço,
+      possivelmente outros dados do smartwatch) durante uma corrida
+      compartilhada — **consentimento próprio, começando desligado por
+      padrão, o aluno ativa manualmente quando quiser** (explicitamente
+      pedido pelo dono do projeto) — **separado** do consentimento geral
+      de dados de saúde já existente (`healthDataConsent`,
+      `HEALTH_DATA_ENABLED`, ver seção de smartwatch acima): aquele é
+      "o app lê meu HealthKit/Health Connect", este seria "meu treinador
+      específico vê isso ao vivo enquanto eu corro" — duas permissões
+      concentricamente diferentes, não a mesma flag reaproveitada.
+    - **Treinador manda mensagem → vira voz durante a corrida do aluno**,
+      numa voz claramente diferente do aviso padrão do app, anunciada
+      como tal ("Seu treinador está pedindo pra reduzir o ritmo", "Seu
+      treinador quer que você acelere nessa reta final", "Seu treinador
+      está pedindo pra você parar"). **Decisão de produto (2026-08-24)**:
+      **frases pré-gravadas que o treinador só escolhe, não digita** —
+      descartado TTS de texto livre (custo/latência/dependência de API
+      externa nova). Reaproveita o banco de voz atual
+      (`scripts/generate-voice-bank.ts`, tarefas #82-85), só precisa
+      gravar as frases fixas do treinador como clipes novos no mesmo
+      pipeline — sem incompatibilidade técnica pra resolver. Ainda não
+      implementado.
+    - **Previsão de chegada/tempo final ao vivo**, visível pro treinador
+      (o app já expõe métricas ao vivo pro próprio atleta — conferir se
+      dá pra reaproveitar o mesmo cálculo, não construir um novo).
+    - **Analogia usada pelo dono do projeto**: "treinador de time de
+      quadra orientando posicionamento do jogador ao vivo, só que pra
+      corrida" — acompanhado do notebook ou celular.
+    - **Problema de escala reconhecido pelo próprio dono do projeto**: fácil
+      com 1 aluno; com vários simultâneos, uma visão única fica poluída de
+      informação. Preferência dele: visão geral simples (quem tá correndo
+      agora) + entrar no perfil de UM aluno por vez pra ver o live
+      detalhado e mandar mensagem — não um painel único mostrando tudo de
+      todo mundo ao mesmo tempo. **Isso é literalmente o mesmo problema já
+      escopado na Fase C do "Modo treinador com IA"** (painel web "Sala de
+      Treino", ver seção própria acima) — vale desenhar as duas coisas
+      juntas, não em paralelo sem se falar.
+  - **Lugares pra correr em outras capitais** (pedido nesta mesma sessão,
+    confirmado "vários lugares por capital", com um critério de "pelo
+    menos ~3km" de percurso que ficou cortado no áudio original — não
+    confirmado se é raio ou comprimento de circuito): ainda não iniciado
+    no momento deste registro, é o próximo item da fila assim que o dono
+    do projeto confirmar prioridade.
 
 - **Dados de saúde do smartwatch** (escopado em 2026-08 numa sessão anterior,
   contexto recuperado do transcript bruto porque nunca foi salvo aqui —

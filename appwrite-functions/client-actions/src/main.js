@@ -16,6 +16,14 @@ const APPLE_BUNDLE_ID = "com.xanthus.app";
 // cache, so a warm container (the common case under real traffic) reuses
 // this across executions instead of hitting appleid.apple.com every time.
 const APPLE_JWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
+// Same idea as APPLE_JWKS above, for Google's native Sign-In identity token
+// (see src/lib/auth.ts's nativeGoogleSignIn). Unlike APPLE_BUNDLE_ID (a
+// fixed literal — the app's own bundle ID never changes), the Google OAuth
+// client id is an external value only the account owner can create in
+// Google Cloud Console, so it's a Function variable rather than baked in
+// here — see this Function's README section for the exact console steps.
+const GOOGLE_JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
+const GOOGLE_IOS_CLIENT_ID = process.env.GOOGLE_IOS_CLIENT_ID;
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const WEEK_START_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -782,6 +790,42 @@ async function sendMilestoneNotification({ userId, body, client, res, error }) {
   }
 }
 
+// Same IDs as the ones created once via the one-off Messaging topic setup
+// script (see README's push-notification section) — one topic per platform
+// since a topic is provider-agnostic and CI decides which one to notify
+// based on which platform's build just shipped.
+const UPDATE_TOPIC_ID = { android: "android-updates", ios: "ios-updates" };
+
+/**
+ * action: "subscribe-update-topic" — ties this device's push target to the
+ * "new version shipped" broadcast for its platform, called right after
+ * `registerForPushNotifications()` creates the target (src/lib/
+ * pushNotifications.ts). Doesn't verify the target actually belongs to
+ * `userId` — the only thing subscribing gets you is the same fixed "nova
+ * versão" ping every other subscriber on that platform gets, so there's no
+ * meaningful privilege to steal by naming someone else's target here,
+ * unlike `sendMilestoneNotification` above (which sends to `users:
+ * [userId]`, the authenticated caller only).
+ */
+async function subscribeUpdateTopic({ body, client, res, error }) {
+  const topicId = UPDATE_TOPIC_ID[body.platform];
+  const targetId = String(body.targetId ?? "");
+  if (!topicId || !targetId) {
+    return res.json({ error: "invalid-platform-or-target" }, 400);
+  }
+  try {
+    const messaging = new Messaging(client);
+    await messaging.createSubscriber({ topicId, subscriberId: ID.unique(), targetId });
+    return res.json({ ok: true });
+  } catch (err) {
+    error(`subscribeUpdateTopic failed for ${body.platform}/${targetId}: ${err.message}`);
+    // Best-effort, same reasoning as sendMilestoneNotification above — a
+    // missed subscription just means one device doesn't get a nice-to-have
+    // nudge, not something worth failing registration over.
+    return res.json({ ok: false });
+  }
+}
+
 /**
  * Derives a stable, valid Appwrite user ID from Apple's `sub` claim (the
  * one identifier Apple guarantees is stable per app + Apple account,
@@ -870,6 +914,84 @@ async function appleNativeSignIn({ body, client, res, error }) {
   return res.json({ ok: true, userId: token.userId, secret: token.secret });
 }
 
+/**
+ * Same hashing scheme as `appleUserId` — a stable per-provider derivation of
+ * Google's `sub` claim into an Appwrite-legal user id. A different function
+ * (not a shared helper) so a Google account and an Apple account can never
+ * collide even in the astronomically unlikely case their raw provider ids
+ * happened to match — each hash's input space is provider-specific by
+ * construction (Google `sub`s are pure digits; Apple's look nothing like
+ * that), so this is about legibility, not closing a real risk.
+ */
+function googleUserId(sub) {
+  return createHash("sha256").update(sub).digest("hex").slice(0, 32);
+}
+
+/**
+ * action: "google-native-signin" — the Google counterpart to
+ * "apple-native-signin" above (see that one's own comment for the full
+ * "why native instead of the browser-redirect OAuth2 flow" reasoning;
+ * short version: iOS's SFSafariViewController consent step doesn't
+ * reliably hand control back to this app for either provider). Also
+ * allowed to run with no caller session yet — see `PUBLIC_ACTIONS` below.
+ *
+ * Unlike Apple's identity token, Google's already carries verified
+ * `email`/`name` claims directly — no separate unverified client-supplied
+ * name to trust here.
+ */
+async function googleNativeSignIn({ body, client, res, error }) {
+  if (!GOOGLE_IOS_CLIENT_ID) {
+    error("google-native-signin: GOOGLE_IOS_CLIENT_ID não configurado nesta Function.");
+    return res.json({ error: "google-ios-client-id-not-configured" }, 500);
+  }
+
+  const idToken = String(body.idToken ?? "");
+  if (!idToken) {
+    return res.json({ error: "missing-id-token" }, 400);
+  }
+
+  let payload;
+  try {
+    ({ payload } = await jwtVerify(idToken, GOOGLE_JWKS, {
+      issuer: ["https://accounts.google.com", "accounts.google.com"],
+      audience: GOOGLE_IOS_CLIENT_ID,
+    }));
+  } catch (err) {
+    error(`google-native-signin: id token inválido: ${err.message}`);
+    return res.json({ error: "invalid-id-token" }, 401);
+  }
+
+  if (typeof payload.sub !== "string" || !payload.sub) {
+    return res.json({ error: "invalid-id-token" }, 401);
+  }
+
+  const userId = googleUserId(payload.sub);
+  const users = new Users(client);
+
+  try {
+    await users.get({ userId });
+  } catch {
+    const name = typeof payload.name === "string" && payload.name ? payload.name : undefined;
+    const email = typeof payload.email === "string" ? payload.email : undefined;
+    try {
+      await users.create({ userId, email, name });
+    } catch (err) {
+      error(`google-native-signin: falha ao criar usuário ${userId}: ${err.message}`);
+      return res.json({ error: "user-create-failed" }, 500);
+    }
+  }
+
+  let token;
+  try {
+    token = await users.createToken({ userId });
+  } catch (err) {
+    error(`google-native-signin: falha ao criar token de sessão para ${userId}: ${err.message}`);
+    return res.json({ error: "token-create-failed" }, 500);
+  }
+
+  return res.json({ ok: true, userId: token.userId, secret: token.secret });
+}
+
 const ACTIONS = {
   "delete-account": deleteAccount,
   "send-welcome-email": sendWelcomeEmail,
@@ -879,14 +1001,16 @@ const ACTIONS = {
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,
   "send-milestone-notification": sendMilestoneNotification,
+  "subscribe-update-topic": subscribeUpdateTopic,
   "apple-native-signin": appleNativeSignIn,
+  "google-native-signin": googleNativeSignIn,
 };
 
-// The one action allowed to run with no `x-appwrite-user-id` at all — see
-// apple-native-signin's own comment for why. Every other action keeps
+// The only two actions allowed to run with no `x-appwrite-user-id` at all —
+// see apple-native-signin's own comment for why. Every other action keeps
 // requiring a real session, checked once below rather than once per
 // handler.
-const PUBLIC_ACTIONS = new Set(["apple-native-signin"]);
+const PUBLIC_ACTIONS = new Set(["apple-native-signin", "google-native-signin"]);
 
 /**
  * One Appwrite Function backing every privileged, client-invoked write this
