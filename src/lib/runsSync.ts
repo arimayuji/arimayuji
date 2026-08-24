@@ -153,3 +153,34 @@ export async function listRunsSharedByStudent(studentId: string): Promise<Synced
     return [];
   }
 }
+
+/**
+ * The same shared-runs read as `listRunsSharedByStudent`, batched across
+ * every student at once for `/treinador/sala` — one query instead of N,
+ * grouped back by `userId` since a single `Query.equal` with a list can't
+ * keep each student's own `Query.limit`/ordering separate. Capped at 300
+ * rows total (not 100 per student): the dashboard only needs "last run" /
+ * "last 7 days" per student, not each one's full paginated history — a
+ * coach with many active students would otherwise pull thousands of rows
+ * for a summary strip that shows a handful of facts per person.
+ */
+export async function listRunsSharedByStudents(studentIds: string[]): Promise<Map<string, SyncedRun[]>> {
+  const appwrite = getAppwrite();
+  const byStudent = new Map<string, SyncedRun[]>();
+  if (!appwrite || studentIds.length === 0) return byStudent;
+  try {
+    const result = await appwrite.tablesDB.listRows<SyncedRun>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.runs,
+      queries: [Query.equal("userId", studentIds), Query.orderDesc("startedAt"), Query.limit(300)],
+    });
+    for (const run of result.rows) {
+      const forStudent = byStudent.get(run.userId);
+      if (forStudent) forStudent.push(run);
+      else byStudent.set(run.userId, [run]);
+    }
+    return byStudent;
+  } catch {
+    return byStudent;
+  }
+}

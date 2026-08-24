@@ -171,6 +171,30 @@ export async function getActiveLiveSession(studentId: string): Promise<LiveRun |
 }
 
 /**
+ * A coach's "who's running right now" view across every student at once —
+ * the summary strip on `/treinador/sala`. One query with `Query.equal` on
+ * a list, same batching approach as `listRunsSharedByStudents` below;
+ * exactly the same row-permission model as `getActiveLiveSession` still
+ * applies per row, so this only ever returns students who actually shared
+ * live access with this coach. `studentIds` empty just short-circuits —
+ * Appwrite's `Query.equal` with an empty array isn't a query worth sending.
+ */
+export async function listLiveRunsForStudents(studentIds: string[]): Promise<LiveRun[]> {
+  const appwrite = getAppwrite();
+  if (!appwrite || studentIds.length === 0) return [];
+  try {
+    const result = await appwrite.tablesDB.listRows<LiveRun>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.liveRuns,
+      queries: [Query.equal("userId", studentIds), Query.limit(studentIds.length)],
+    });
+    return result.rows;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Every athlete currently live within one "longão" session — the group
  * live map's whole data source. Deliberately just a query on `sessionCode`
  * with no extra filtering: row permissions already restrict this to rows

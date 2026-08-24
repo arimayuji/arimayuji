@@ -218,9 +218,25 @@ desligado por completo, ver "O produto, em uma frase" acima):
   a Apple ainda não tinha processado esse build (`INVALID_QC_STATE` ao
   tentar submeter o 134 de novo, que já tinha sido revisado — falhou de
   forma segura, sem re-enviar o build quebrado), retentado minutos depois
-  (`rerun_failed_jobs`, sem rebuildar) já pegando o 136 certo. **Ainda não
-  confirmado se o fix resolveu de verdade num aparelho real** — depende da
-  aprovação da Apple e de alguém testar o login de novo depois.
+  (`rerun_failed_jobs`, sem rebuildar) já pegando o 136 certo.
+  **Testado no build 136 pelo dono do projeto e por um amigo: o crash
+  sumiu, mas os dois logins nativos (Apple e Google) passaram a falhar do
+  mesmo jeito, um passo adiante** — erro da própria Appwrite no
+  `account.createSession` que fecha os dois fluxos: `"Invalid Scheme...
+  capacitor://localhost... change it to appwrite-callback-<PROJECT_ID>"`.
+  Causa: iOS roda o WebView do Capacitor sob o esquema `capacitor:` por
+  padrão (não pode virar `http`/`https`, restrição do próprio
+  Capacitor/WKWebView), e a Appwrite rejeita esse esquema pra criar
+  sessão — Android nunca teve esse problema (já roda em `https://
+  localhost`, aceito). **Corrigido** em `capacitor.config.ts`
+  (`server.iosScheme` trocado pro mesmo literal já usado no `Info.plist`,
+  `appwrite-callback-<PROJECT_ID>` — o esquema que a própria mensagem de
+  erro da Appwrite aponta como suportado) — ver README pro detalhe e pro
+  custo aceito conscientemente (troca de esquema do WebView invalida
+  histórico de corrida já salvo localmente em builds anteriores; aceitável
+  agora com poucas contas em teste fechado). **Ainda não submetido/testado
+  em build novo** — esse fix ainda não chegou num build real no
+  TestFlight.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
@@ -755,7 +771,8 @@ ainda não deployada em produção)**:
   ao lado de `RESEND_API_KEY` usada por `send-welcome-email`).
 
 **Fase C (painel web pra vários alunos, escopo decidido em 2026-08-23,
-nada implementado ainda)** — motivação: um treinador que atende muita
+implementada em 2026-08-24, branch `claude/strava-competitor-feedback-cyvop8`,
+ainda não deployada em produção)** — motivação: um treinador que atende muita
 gente é um multiplicador de aquisição (1 treinador ativo traz vários
 alunos novos), diferente de um usuário comum que só puxa quem já corre
 junto — vale investir numa tela que escale além de 1-2 alunos.
@@ -777,6 +794,48 @@ login do treinador nessa web continua a mesma conta Google/Apple de
 sempre (só acessada de um navegador de desktop em vez do app nativo) e
 se isso vira uma rota nova dentro do mesmo Next.js ou uma superfície/
 deploy própria.
+
+**Implementação real (2026-08-24)**: nova rota `/treinador/sala`, dentro do
+mesmo Next.js/mesmo deploy — nenhuma superfície separada, mesma pergunta
+em aberto acima resolvida na direção mais simples. Login continua sendo a
+mesma conta Google/Apple de sempre (só que acessada num navegador em vez
+do app nativo, não muda nada de autenticação).
+
+- `WeekPlanEditor` (o card "Planilha da semana" inteiro, com o botão
+  "Sugerir com IA" da Fase B incluso) foi extraído de dentro de
+  `/treinador/aluno` pro arquivo compartilhado
+  `src/app/(app)/treinador/week-plan-editor.tsx` — usado agora tanto por
+  `/treinador/aluno` (um aluno, sem navegação de lista) quanto por
+  `/treinador/sala` (o painel do aluno selecionado). Mesmo componente,
+  nenhuma lógica duplicada entre as duas telas.
+- `src/lib/liveRuns.ts` ganhou `listLiveRunsForStudents(studentIds)` —
+  mesma ideia de `listSessionLiveRuns`, uma query batched em vez de N
+  polls individuais; `src/lib/runsSync.ts` ganhou
+  `listRunsSharedByStudents(studentIds)`, batched do mesmo jeito e
+  agrupado de volta por `userId` no cliente (Appwrite não tem `GROUP BY`).
+  Ambas continuam sob controle 100% de permissão por linha — um treinador
+  só recebe de volta o que cada aluno realmente compartilhou com ele.
+- `/treinador/sala`: tira de resumo (Ativos / Correndo agora / Sem
+  contato há 7+ dias), lista de alunos com pill de status (Ao vivo /
+  data da última corrida compartilhada / "sem corrida"), clique num
+  aluno abre um painel abaixo com o card ao vivo (se estiver correndo)
+  + a mesma planilha da semana — nunca um mapa único com todo mundo ao
+  mesmo tempo, exatamente a decisão de produto documentada acima.
+  `/treinador` ganhou um card de entrada linkando pra lá, visível só
+  quando o treinador já tem pelo menos um aluno aceito.
+- **Corte de escopo consciente**: o mockup original citava "aderência à
+  meta" como parte do pill de status de cada aluno na lista — não
+  implementado assim. A limitação de arquitetura já registrada acima (o
+  treinador não vê o plano que o motor calculou pro aluno, só overrides
+  que ele mesmo criou) significa que não existe uma "meta" pra comparar
+  aderência a menos que já exista um override pra semana atual — calcular
+  isso por aluno na lista exigiria uma chamada extra por aluno (perdendo
+  o ganho de ter batched as duas queries principais). Fica como possível
+  refinamento futuro, não bloqueou o resto da tela.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` (incluindo
+  `/treinador/sala` na lista de rotas geradas) — todos limpos. Não
+  testado em navegador real (ambiente remoto sem esse dev server visível
+  pro dono do projeto) nem contra dados reais de múltiplos alunos.
 
 ## Perguntas em aberto (preencher quando puder)
 

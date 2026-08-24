@@ -188,6 +188,22 @@ export default function TreinadorPage() {
 
         {status === "signed-in" && (
           <>
+            {connections !== null && connections.some((c) => c.myRole === "coach" && c.relationship.status === "accepted") && (
+              <Link
+                href="/treinador/sala"
+                className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4"
+                style={delay(20)}
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-accent">Sala de Treino</span>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    Veja todos os seus alunos de uma vez — quem está correndo agora, planilha da semana.
+                  </span>
+                </span>
+                <span className="shrink-0 text-accent">→</span>
+              </Link>
+            )}
+
             <Card className="pr-enter" style={delay(40)}>
               <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>Convidar</CardTitle>
               <div className="mb-3 flex gap-2">
