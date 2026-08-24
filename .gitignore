@@ -46,6 +46,14 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Appwrite CLI's own local client config (`appwrite client --endpoint ...`)
+# — just a projectId, no secret, but this repo deliberately never adopted
+# tracking it (see README.md's note on `create-deployment` vs `push
+# functions` for why an `appwrite.config.json` here wouldn't even have the
+# function list `push` needs). Regenerate locally with `appwrite client`
+# whenever the CLI is used against this project.
+appwrite.config.json
+
 # vercel
 .vercel
 
