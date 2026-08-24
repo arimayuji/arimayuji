@@ -171,7 +171,11 @@ desligado por completo, ver "O produto, em uma frase" acima):
    2026-08-23: o build 124 (submetido via branch `testflight` depois do
    build 107 sair da fila de revisão — ver "Submissão pro Beta App
    Review" abaixo) foi **aprovado pela Apple em 2026-08-23**, aprovação
-   saiu rápido (menos de 2 dias). O link
+   saiu rápido (menos de 2 dias). **Build 134** (Google Sign-In nativo no
+   iOS + push de "nova versão" independente do TestFlight + fix do pace
+   ao vivo, tudo desta mesma leva de sessão) foi submetido pela mesma
+   branch `testflight` em 2026-08-24 e **aprovado pela Apple ainda no
+   mesmo dia** — aprovação saiu rápido de novo. O link
    (`https://testflight.apple.com/join/RMqtChWj`) agora deixa qualquer
    pessoa entrar de verdade no teste externo — dá pra trocar o badge "Em
    teste fechado" da landing e colocar o link na bio do Instagram.
@@ -782,6 +786,11 @@ deploy própria.
       promover um build mais recente — o que aí sim exige nova revisão da
       Apple. Revisão completa da App Store (produção) continua sem prazo
       definido.
+      **Atualização 2026-08-24**: rodado de novo (build 134 — Google
+      Sign-In nativo no iOS, push de "nova versão" independente do
+      TestFlight, fix do pace ao vivo lendo mais devagar que o real) —
+      **aprovado pela Apple ainda no mesmo dia**, o link público agora
+      serve esse build.
 - [x] **2026-08-22: escopado, Fase A e Fase B implementadas** — modo
       treinador vira "os dois juntos" (IA sugere + motor determinístico
       trava os limites + treinador edita por cima), ver seção própria
