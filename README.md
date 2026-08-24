@@ -337,11 +337,24 @@ cd appwrite-functions/client-actions
 appwrite functions create \
   --function-id client-actions --name "Ações privilegiadas do cliente" \
   --runtime node-22 --entrypoint src/main.js \
+  --commands "npm install" \
   --execute any \
   --scopes users.read --scopes users.write --scopes databases.read \
   --scopes databases.write --scopes files.write
-appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --activate
+appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --commands "npm install" --activate
 ```
+
+**`--commands "npm install"` não é opcional** — sem isso o Appwrite sobe
+só o código-fonte e nunca instala `node-appwrite`/`jose`, e a Function
+crasha em toda chamada com `503`/`Cannot find package 'node-appwrite'`
+(bug real encontrado e corrigido em 2026-08-24: os quatro deploys feitos
+até então tinham ~30KB e ~4s de build — sem `node_modules` nenhum — porque
+o comando original usado pra criar a Function nunca passou `--commands`,
+então ficou permanentemente vazio até ser corrigido via `appwrite
+functions update --commands "npm install"` seguido de um novo deploy,
+esse sim com ~2MB e `node_modules` de verdade). Confirmar sempre que um
+deploy novo tem tamanho de MB, não de KB — um build de poucos segundos e
+poucos KB é sinal de que o `npm install` não rodou.
 
 **Se `client-actions` já existe** (caso normal — ela já está em produção
 desde a consolidação da auditoria LGPD, ver `PROJECT-CONTEXT.md`): o
@@ -351,7 +364,7 @@ código. Redeploy de código novo (inclui `apple-native-signin`):
 
 ```bash
 cd appwrite-functions/client-actions
-appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --activate
+appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --commands "npm install" --activate
 ```
 
 Pra mudar `--execute` de `users` pra `any` (necessário pra
@@ -405,14 +418,20 @@ cd appwrite-functions/row-events
 appwrite functions create \
   --function-id row-events --name "Revogar acesso ao sair" \
   --runtime node-22 --entrypoint src/main.js \
+  --commands "npm install" \
   --events "databases.*.tables.coach_relationships.rows.*.delete" \
   --events "databases.*.tables.group_run_participants.rows.*.delete" \
   --scopes databases.read --scopes databases.write
-appwrite functions create-deployment --function-id row-events --code . --entrypoint src/main.js --activate
+appwrite functions create-deployment --function-id row-events --code . --entrypoint src/main.js --commands "npm install" --activate
 ```
 
 Sem `--execute`, porque nada além do próprio evento do banco deve chamar
-essa Function.
+essa Function. **`--commands "npm install"` aqui também não é opcional**
+— ver a mesma nota logo acima em `client-actions`, achado no mesmo dia
+(essa Function tinha o mesmo bug: um único deploy de 6KB, sem
+`node_modules`, então toda revogação de acesso — ex-treinador, ex-membro
+de longão — vinha falhando silenciosamente desde que essa Function foi
+criada).
 
 **Nota sobre `create-deployment` em vez de `appwrite push functions`**:
 o comando `push functions` lê a lista de functions de um

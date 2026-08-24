@@ -658,6 +658,54 @@ ainda não deployado em produção**:
   workflow ComfyUI containerizado e um fluxo assíncrono de job, trabalho
   de infra real que não está escopado ainda.
 
+## Bug crítico encontrado e corrigido: Functions sem `node_modules` (2026-08-24)
+
+Relato real do dono do projeto: login com Apple no iPhone, logo depois do
+Face ID, voltava pro app com um erro mostrando "503". Investigação real
+via Appwrite Console → Functions → `client-actions` → Executions revelou
+o log de erro de verdade:
+
+```
+Failed to load module: Cannot find package 'node-appwrite' imported from /mnt/code/src/main.js
+```
+
+**Causa raiz**: as duas Functions consolidadas deste projeto
+(`client-actions` e `row-events`) foram criadas sem o parâmetro
+`--commands "npm install"` — sem isso, o Appwrite sobe só o código-fonte
+puro e **nunca instala as dependências** (`node-appwrite`, `jose`).
+Confirmado via `appwrite functions list-deployments`: todos os deploys de
+`client-actions` até então tinham ~4s de build e 25-38KB de tamanho —
+`row-events` tinha um único deploy de 6KB — nenhum dos dois nunca teve
+`node_modules` de verdade. Isso significa que **toda ação dessas duas
+Functions esteve quebrada desde que foram criadas** (2026-08-22): login
+nativo Apple/Google, planilha de treinador (Fase A/B), boas-vindas por
+e-mail, exclusão de conta, entrar num longão, e as duas limpezas de
+acesso por evento (revogar leitura de ex-treinador, revogar espectador de
+longão) — não só o login com Apple que gerou o relato original.
+
+**Corrigido** via Appwrite CLI direto (instalado nesta sessão,
+`npm install -g appwrite-cli`, configurado com as credenciais já em
+`.env.local`):
+```bash
+appwrite functions update --function-id client-actions --commands "npm install" ... # (demais flags iguais aos já configurados)
+appwrite functions create-deployment --function-id client-actions --code . --entrypoint src/main.js --commands "npm install" --activate
+```
+(mesma coisa pra `row-events`). Confirmado depois: builds novos com
+~2MB (não mais KB) e uma chamada de teste em `client-actions` respondendo
+`400 {"error":"unknown-action"}` de verdade (não mais um crash) — a
+Function agora carrega e roda o dispatcher normalmente.
+
+`README.md` atualizado (seção de cada Function) pra documentar
+`--commands "npm install"` como obrigatório nos comandos de
+`create`/`create-deployment`, com uma nota explícita pra sempre conferir
+que um deploy novo tem tamanho de MB (não KB/poucos segundos de build) —
+esse é o sinal de que o `npm install` não rodou.
+
+**Ainda não confirmado por teste real**: o dono do projeto ainda precisa
+tentar o login com Apple/Google de novo no iPhone pra confirmar que o 503
+não acontece mais — o healthcheck confirma que a Function não crasha mais,
+mas não substitui o teste ponta a ponta num aparelho real.
+
 ## Submissão pro Beta App Review — branch `testflight` (2026-08-21)
 
 Toda push em `main` já sobe automático pro TestFlight (Internal Testing,
