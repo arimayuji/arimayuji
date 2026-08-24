@@ -549,7 +549,22 @@ export function useRunTracker() {
       // short trailing window instead of a whole split — smooths normal
       // per-fix position noise without ever being able to inherit a
       // sensor-level speed bias.
-      paceWindowRef.current.push({ t: timestamp, d: distanceRef.current });
+      //
+      // Feeds this window `distanceRef.current` PLUS whatever's still
+      // sitting in `pendingDriftMetersRef` — not the credited total alone.
+      // Real movement that hasn't yet cleared the drift floor (see that
+      // ref's own comment) sits uncredited for a fix or two before landing
+      // in `distanceRef.current` in one lump sum; that lag barely matters
+      // for the run's real distance, but over this window's short 20s span
+      // it's proportionally large enough to read as a live pace
+      // *persistently slower* than what's actually happening — reported
+      // directly as "a tela ao vivo mostra [pace] maior que o
+      // falado/realizado". Any temporary overcount (pending distance that
+      // later turns out to be jitter, not movement) self-corrects within a
+      // fix or two, the same speed the credited total itself discards it —
+      // this only removes the display lag, it doesn't touch the
+      // stationary-detection logic that decides what's real movement.
+      paceWindowRef.current.push({ t: timestamp, d: distanceRef.current + pendingDriftMetersRef.current });
       const paceWindowCutoff = timestamp - FILTER_CONFIG.livePaceWindowMs;
       while (paceWindowRef.current.length > 1 && paceWindowRef.current[0].t < paceWindowCutoff) {
         paceWindowRef.current.shift();
