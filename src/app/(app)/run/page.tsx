@@ -2121,8 +2121,13 @@ export default function RunPage() {
                   type="button"
                   onClick={handleGeneratePairing}
                   disabled={generatingPairing}
-                  className="rounded-full border border-accent bg-accent/10 px-3.5 py-2 text-xs font-semibold text-accent disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent/10 px-3.5 py-2 text-xs font-semibold text-accent disabled:opacity-60"
                 >
+                  {generatingPairing && (
+                    <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true">
+                      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth={2.5} fill="none" strokeDasharray="24 44" strokeLinecap="round" />
+                    </svg>
+                  )}
                   {generatingPairing ? "Gerando…" : "Gerar QR"}
                 </button>
                 {pairingGenerateError && <p className="text-xs text-bad">{pairingGenerateError}</p>}
