@@ -1557,9 +1557,26 @@ export default function Home() {
                 style={delay(480)}
                 className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-muted"
               >
-                já em uso — dentro do app, em /treinador, pra quem tem pelo menos
-                um aluno vinculado
+                já em uso — em /treinador, pra quem tem pelo menos um aluno
+                vinculado
               </p>
+              {/*
+                A tela do treinador não depende de GPS/tracking nenhum — só o
+                lado do app que precisa ser nativo (ver o parágrafo do CTA
+                final, mais abaixo) é a gravação da corrida em si. Por isso
+                esse link aponta pro navegador mesmo, não pro download: quem
+                treina consegue montar a planilha da semana num notebook,
+                mesma conta de sempre, sem instalar nada.
+              */}
+              <Link
+                href="/treinador"
+                data-reveal=""
+                style={delay(540)}
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline"
+              >
+                Abrir no navegador do computador
+                <span aria-hidden="true">→</span>
+              </Link>
             </div>
           </div>
           <SeamGlow />
