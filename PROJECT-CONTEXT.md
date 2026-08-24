@@ -735,6 +735,41 @@ tentar o login com Apple/Google de novo no iPhone pra confirmar que o 503
 não acontece mais — o healthcheck confirma que a Function não crasha mais,
 mas não substitui o teste ponta a ponta num aparelho real.
 
+**Achado em 2026-08-24, investigando um relato separado ("não recebi
+push nativo de nova versão no iOS")**: é a mesma causa raiz, não um bug
+novo — confirmado direto via Appwrite CLI (`appwrite messaging
+list-subscribers`/`list-topics`, `appwrite users list-targets`):
+- Os dois tópicos (`android-updates`, `ios-updates`) existem, os dois
+  providers (`fcm`, `apns`) existem e estão `enabled` — nada errado de
+  configuração de console.
+- **Zero inscritos em qualquer um dos dois tópicos** — nenhum dispositivo,
+  Android ou iOS, jamais completou `subscribe-update-topic` com sucesso,
+  porque essa ação também passa pela mesma `client-actions` quebrada.
+- A conta Apple do próprio relato (`vc6ntw8s9s@privaterelay.appleid.com`)
+  tem **zero push targets registrados** — não é só a inscrição no tópico
+  que falhou, o dispositivo nunca chegou a se registrar de verdade.
+  Motivo: `nativeAppleSignIn` (`src/lib/auth.ts:275`) chama
+  `client-actions` (`action: "apple-native-signin"`) pra validar o JWT da
+  Apple **antes** de `account.createSession` — como toda tentativa real
+  desse login bateu no 503, a sessão nunca foi criada de verdade nessa
+  conta a partir do iPhone, `useAuth()` nunca virou `"signed-in"` nesse
+  dispositivo, e `PushRegistration` (que só roda quando `status ===
+  "signed-in"`) nunca chegou a disparar `registerForPushNotifications()`.
+  Ou seja: o relato de "não recebo push de nova versão" e o relato
+  original de "503 depois do Face ID" são **o mesmo bug**, não dois.
+- Confirmado também: o escopo `messages.write` na chave da Function
+  (item 4 do checklist de push no `README.md`, marcado como "não
+  confirmado por print ainda") **está presente** —
+  `appwrite functions get --function-id client-actions` lista
+  `messages.write` entre os scopes. Esse item pode ser fechado.
+- **Nenhuma mudança de código foi necessária pra isso** — como o fix de
+  `--commands "npm install"` já corrigiu `client-actions` de ponta a
+  ponta, a próxima tentativa de login com Apple no iPhone deve completar
+  o `createSession` normalmente, o que por sua vez dispara o registro de
+  push e a inscrição no tópico automaticamente. **Ainda não confirmado
+  por teste real** — mesma pendência do item acima, mesmo teste resolve
+  os dois relatos de uma vez.
+
 ## Submissão pro Beta App Review — branch `testflight` (2026-08-21)
 
 Toda push em `main` já sobe automático pro TestFlight (Internal Testing,

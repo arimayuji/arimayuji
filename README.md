@@ -593,8 +593,8 @@ os dois providers `enabled`):**
    ("FCM (Xanthus Android)"), IDs batendo com `PROVIDER_ID` em
    `src/lib/pushNotifications.ts`.
 4. Escopo **`messages.write`** na chave da Function `client-actions` —
-   **não confirmado por print ainda**; se `Messaging.createPush` voltar a
-   falhar com permissão negada, é o primeiro lugar a checar.
+   **confirmado em 2026-08-24** via `appwrite functions get --function-id
+   client-actions` (CLI), listado entre os scopes.
 5. **Testado em dispositivo Android real em 2026-08-23**: achado e
    corrigido um bug de verdade nesse teste — faltava
    `android.permission.POST_NOTIFICATIONS` no `AndroidManifest.xml`
