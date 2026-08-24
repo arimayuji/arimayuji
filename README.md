@@ -197,6 +197,51 @@ Isso precisa de:
   e o `--execute any` (ver seção de Functions abaixo) — sem isso, o login
   nativo no iOS não tem como funcionar mesmo com o app buildado certo.
 
+**Google Sign-In no iOS** (`nativeGoogleSignIn`, mesmo arquivo): reportado
+pelo dono do projeto e por um amigo dele testando — no iPhone, tocar em
+"Entrar com Google" cria a conta de verdade no Appwrite (visível no
+Console, e-mail verificado) mas a tela nunca volta pro app, fica em loading
+infinito; no Android o fluxo de sempre (`startOAuthSignIn`) funciona normal.
+Mesma classe de bug do Apple acima — o `SFSafariViewController` que o
+navegador do sistema abre no iOS não devolve o controle de forma confiável
+pro custom URL scheme do app, pra nenhum dos dois provedores — só que o
+Google não tem o atalho "chame a API do sistema direto" que a Apple tem
+via `ASAuthorizationAppleIDProvider`; a correção usa o SDK nativo do Google
+(`GIDSignIn`) via `@capgo/capacitor-social-login` (mesmo fabricante do
+plugin de GPS/saúde já usados neste projeto), que manda o `idToken` pra
+ação `google-native-signin` em `client-actions` — mesmo desenho de
+`apple-native-signin`, com a vantagem de que o token do Google já vem com
+`email`/`name` verificados, sem precisar confiar em nada que o cliente
+mandou.
+
+**Isso precisa de um OAuth Client ID do tipo "iOS" no Google Cloud, que só
+o dono do projeto pode criar** (mesmo projeto GCP do login Google/Appwrite
+já em uso):
+
+1. [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
+   → **+ Create Credentials** → **OAuth client ID**.
+2. Tipo de aplicativo: **iOS**.
+3. Bundle ID: `com.xanthus.app` (o mesmo de sempre).
+4. Criar → copiar o **Client ID** gerado (termina em
+   `.apps.googleusercontent.com` — não tem client secret, tipo "iOS" não
+   gera um).
+5. Colocar esse valor em **dois** lugares (o mesmo valor nos dois):
+   - Secret do GitHub Actions `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` (repo →
+     Settings → Secrets → Actions) — `ios-build.yml` já injeta essa env
+     var no `npm run build`.
+   - Variável `GOOGLE_IOS_CLIENT_ID` na Function `client-actions`
+     (Appwrite Console → Functions → client-actions → Variables) — é
+     contra esse valor que `google-native-signin` confere o `aud` do
+     token.
+
+Sem isso configurado, `nativeGoogleSignIn` devolve o diagnóstico "Google
+não devolveu um idToken"/"NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID ausente" em vez
+de travar silenciosamente — o mesmo padrão de todo early-return desse
+arquivo (ver comentário de `startOAuthSignIn`). `npx cap sync` já registra
+o plugin no projeto iOS (só Google habilitado — Facebook/Apple/Twitter
+desligados em `capacitor.config.ts`, este app não usa nenhum dos três por
+esse plugin).
+
 **Exclusão de conta** (`/perfil`): obrigatória pela guideline 5.1.1(v) da
 App Store sempre que o app permite criar conta. O SDK cliente do Appwrite
 não tem um jeito de auto-excluir a conta (só `deleteSession`/
@@ -253,16 +298,16 @@ appwrite functions create-deployment --function-id client-actions --code . --ent
 ```
 
 Pra mudar `--execute` de `users` pra `any` (necessário pra
-`apple-native-signin` funcionar — é a única ação que roda sem sessão
-nenhuma, ver o comentário de `PUBLIC_ACTIONS` em `main.js`): **Appwrite
-Console → Functions → client-actions → Settings → Execute Access → Any**
-(a lista de scopes acima não muda — `users.read`/`users.write` já cobrem
-`Users.create`/`Users.createToken`, que é tudo que `apple-native-signin`
-precisa além do que as outras ações já usavam). O check
-`x-appwrite-user-id` dentro de `clientActions()` continua bloqueando toda
-ação que não seja `apple-native-signin` mesmo com execução aberta pra
-`any` — abrir isso não deixa nenhuma das outras seis ações chamável
-anonimamente.
+`apple-native-signin`/`google-native-signin` funcionarem — são as duas
+únicas ações que rodam sem sessão nenhuma, ver o comentário de
+`PUBLIC_ACTIONS` em `main.js`): **Appwrite Console → Functions →
+client-actions → Settings → Execute Access → Any** (a lista de scopes
+acima não muda — `users.read`/`users.write` já cobrem
+`Users.create`/`Users.createToken`, que é tudo que as duas precisam além
+do que as outras ações já usavam). O check `x-appwrite-user-id` dentro de
+`clientActions()` continua bloqueando toda ação que não esteja em
+`PUBLIC_ACTIONS` mesmo com execução aberta pra `any` — abrir isso não
+deixa nenhuma das outras nove ações chamável anonimamente.
 
 Depois, no Appwrite Console → Functions → client-actions → **Settings →
 Variables**, adiciona:
@@ -270,13 +315,15 @@ Variables**, adiciona:
   transacional (Resend)" abaixo pra como conseguir uma).
 - `GEMINI_API_KEY` — usada pela ação `suggest-plan-override`, mesmo valor
   já presente em `.env.local`.
+- `GOOGLE_IOS_CLIENT_ID` — usada pela ação `google-native-signin`, ver
+  "Google Sign-In no iOS" acima pra como conseguir.
 
 O `--execute any` libera a chamada pra qualquer um, autenticado ou não —
-necessário só por causa de `apple-native-signin` (a única das seis ações
-sem sessão possível). O check de sessão dentro de `clientActions()` (ver
-`PUBLIC_ACTIONS` em `main.js`) continua exigindo `x-appwrite-user-id` pra
-todas as outras cinco, então nenhuma delas passa a ser chamável anônima só
-por isso. Rode
+necessário só por causa de `apple-native-signin`/`google-native-signin`
+(as únicas ações sem sessão possível). O check de sessão dentro de
+`clientActions()` (ver `PUBLIC_ACTIONS` em `main.js`) continua exigindo
+`x-appwrite-user-id` pra todas as outras, então nenhuma delas passa a ser
+chamável anônima só por isso. Rode
 `npx tsx scripts/appwrite-setup.ts` depois do deploy pra garantir que
 `plan_overrides` existe e que a permissão antiga de `create` aberta em
 `profiles`/`profile_stats`/`place_run_stats` foi retirada (achado de uma
@@ -355,6 +402,7 @@ resto do app — a URL a colar nas duas lojas é
 | `ELEVENLABS_API_KEY` | `.env.local`, só usada por `scripts/generate-voice-bank.ts` (nunca em runtime) | Baixa prioridade — não roda em produção | Gerar nova no ElevenLabs, atualizar `.env.local` |
 | `GEMINI_API_KEY` | `.env.local` **e** Appwrite Console → Functions → client-actions → Variables (dois lugares independentes, ver seção de Functions acima) | Se abusada ou ao trocar de modelo | Gerar nova no Google AI Studio, atualizar os dois lugares |
 | `RECRAFT_API_KEY` | `.env.local`, server-only, sem uso em código ainda | N/A enquanto não usada | Revogar se decidir não usar; gerar nova quando a feature que a usa for construída |
+| `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` / `GOOGLE_IOS_CLIENT_ID` | Secret do GitHub Actions (`ios-build.yml`) **e** Appwrite Console → Functions → client-actions → Variables (mesmo valor, dois lugares independentes — ver "Google Sign-In no iOS" acima) | Só se abusada — não é secreta por natureza (client ID "iOS" não tem client secret) | Criar um novo OAuth client "iOS" no Google Cloud Console, atualizar os dois lugares |
 | Secrets do GitHub Actions (`APP_STORE_CONNECT_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, keystores Android) | GitHub → Settings → Secrets | Seguindo a expiração de cada credencial (ex.: chave `.p8` da Apple não expira sozinha; conta de serviço do Google Play, conforme política do Google Cloud) | Gerar nova nas respectivas consoles, atualizar o secret no GitHub, nunca commitar o arquivo bruto |
 
 Toda chave server-only (sem prefixo `NEXT_PUBLIC_`) já vive só em

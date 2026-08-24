@@ -68,6 +68,11 @@ jobs:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
           NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
+          # Native Google Sign-In (src/lib/auth.ts's nativeGoogleSignIn) —
+          # unset until the secret is added, in which case the build falls
+          # back to `nativeGoogleSignIn` returning its own "not configured"
+          # diagnostic instead of a broken login. See README.
+          NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
 
       - name: Type-check and lint
         run: |

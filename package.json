@@ -26,6 +26,7 @@
     "@capacitor/push-notifications": "^8.1.2",
     "@capgo/background-geolocation": "file:./native-plugins/capacitor-background-geolocation",
     "@capgo/capacitor-health": "^8.10.4",
+    "@capgo/capacitor-social-login": "^8.4.5",
     "@protomaps/basemaps": "^5.7.2",
     "appwrite": "^26.2.0",
     "maplibre-gl": "^5.24.0",
