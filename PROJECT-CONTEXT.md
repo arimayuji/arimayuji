@@ -129,21 +129,28 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
   `play.google.com/store/apps/details?id=com.xanthus.app` via a
   notificação de "nova versão" via `/download` (ver "Onde cada
   plataforma está no funil de lançamento" acima) via essa faixa
-  simplesmente não conseguia baixar nada — decisão do dono do projeto:
-  mudar `track: internal` pra `track: production` em
-  `.github/workflows/android-build.yml`, já que é a única faixa visível
-  no link público sem precisar de lista de convidados. **Dois
-  pré-requisitos que o CI não cobre, continuam manuais no Play Console**:
-  (1) a ficha da loja precisa estar completa (screenshots, descrição,
-  classificação indicativa, formulário de segurança de dados) — sem isso
-  a API deve rejeitar o upload com um erro de validação novo, ainda não
-  visto; (2) a primeira vez que um app chega em produção passa por uma
-  revisão do Google que pode levar de horas a dias (diferente do upload
-  em si, que é instantâneo, e diferente do Teste Interno, que nunca
-  precisou de revisão). **Ainda não confirmado se o primeiro push com
-  `track: production` teve sucesso** — conferir o próximo run do
-  `android-build.yml` em `main` antes de considerar o link da Play Store
-  pronto pra usar na notificação de atualização.
+  simplesmente não conseguia baixar nada — primeira decisão do dono do
+  projeto: mudar `track: internal` pra `track: production`. **Revista
+  ainda no mesmo dia**, antes de qualquer push: contas de desenvolvedor
+  novas (a nossa foi aprovada em 2026-08-21) precisam completar um teste
+  fechado com pelo menos 12 testadores por 14 dias corridos antes do
+  Google liberar o primeiro envio pra produção — exigência de conta, não
+  algo que o CI resolve sozinho, e bem provável que essa conta ainda não
+  cumpriu. **Decisão final: `track: open`** (Teste Aberto) — fica de fora
+  dessa trava de conta nova e já tem link público de opt-in, o
+  equivalente direto do grupo externo "Beta" do TestFlight no iOS (link
+  público, sem lista de testadores cadastrada à mão). Dois pré-requisitos
+  que o CI não cobre, continuam manuais no Play Console: (1) a faixa de
+  Teste Aberto precisa existir e ter um link de opt-in publicado antes
+  desse step funcionar — diferente do Teste Interno, que já vem pronto
+  por padrão em todo app novo; (2) a ficha da loja precisa estar
+  minimamente completa (descrição, classificação indicativa, formulário
+  de segurança de dados) — sem isso a API deve rejeitar o upload com um
+  erro de validação novo, ainda não visto. **Ainda não confirmado se
+  algum push com `track: open` teve sucesso** — conferir o próximo run do
+  `android-build.yml` em `main` (ainda não mergeado com essa mudança)
+  antes de considerar o link da Play Store pronto pra usar na notificação
+  de atualização.
   **Bug real achado nessa primeira tentativa de upload**: `gradlew
   bundleRelease` builda com sucesso e sem nenhum warning, mas o `.aab`
   saía **sem nenhuma assinatura jar embutida** mesmo com
