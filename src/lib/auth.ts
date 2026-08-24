@@ -19,6 +19,15 @@ import {
   oauth2TokenUrl,
 } from "./appwrite";
 import { isIOSPlatform, isNativePlatform } from "./platform";
+import { withTimeout } from "./timeout";
+
+/**
+ * `account.get()`/`getRow()` calls that gate the app's loading screens
+ * (`useAuth`) — a hung request here, not just a failed one, is what leaves
+ * a screen stuck on "Verificando…" forever (reported on iPhone cellular,
+ * never on Wi-Fi; the Appwrite SDK sets no fetch timeout of its own).
+ */
+const ACCOUNT_CHECK_TIMEOUT_MS = 10_000;
 
 /** The app's own bundle ID — also the `aud` claim Apple's native identity token carries on iOS, since `ASAuthorizationAppleIDProvider` (no browser, no Services ID) authenticates as the app itself. Kept as its own constant since two spots below need the exact same literal. */
 const APPLE_BUNDLE_ID = "com.xanthus.app";
@@ -423,7 +432,7 @@ export async function getCurrentAccount(): Promise<Account | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return null;
   try {
-    const user = await appwrite.account.get();
+    const user = await withTimeout(appwrite.account.get(), ACCOUNT_CHECK_TIMEOUT_MS);
     return { id: user.$id, name: user.name };
   } catch {
     return null;
@@ -435,11 +444,14 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return null;
   try {
-    return await appwrite.tablesDB.getRow<Profile>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.profiles,
-      rowId: userId,
-    });
+    return await withTimeout(
+      appwrite.tablesDB.getRow<Profile>({
+        databaseId: APPWRITE_DATABASE_ID,
+        tableId: TABLES.profiles,
+        rowId: userId,
+      }),
+      ACCOUNT_CHECK_TIMEOUT_MS,
+    );
   } catch {
     return null;
   }
