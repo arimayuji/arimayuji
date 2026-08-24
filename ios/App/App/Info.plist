@@ -136,6 +136,25 @@
 				<string>xanthus</string>
 			</array>
 		</dict>
+		<!-- Required by GIDSignIn itself (src/lib/auth.ts's nativeGoogleSignIn,
+		     via @capgo/capacitor-social-login): GoogleSignIn-iOS asserts this
+		     scheme is registered the instant sign-in starts, before presenting
+		     any UI; without it, GIDSignIn raises an uncaught NSException and the
+		     whole app crashes (SIGABRT) on tap, confirmed by a real TestFlight
+		     crash log on build 134. $(GOOGLE_REVERSED_CLIENT_ID) is an Xcode
+		     build-setting substitution, same mechanism CURRENT_PROJECT_VERSION
+		     already uses in ios-build.yml, resolved at archive time from the
+		     NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID secret so the actual client id
+		     never has to be hardcoded here. Left unset (blank scheme, harmless)
+		     when that secret isn't configured: nativeGoogleSignIn's own
+		     "ausente" check already stops the call from reaching GIDSignIn at
+		     all in that case. -->
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

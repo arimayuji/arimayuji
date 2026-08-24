@@ -245,6 +245,7 @@ jobs:
           KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
         run: |
           if [ -z "$KEY_ID" ] || [ -z "$ISSUER_ID" ] || [ -z "$KEY_P8_BASE64" ]; then
             echo "::warning::APP_STORE_CONNECT_KEY_ID/ISSUER_ID/API_KEY_P8 não configurados — pulando o upload pro TestFlight. Veja o README."
@@ -258,6 +259,21 @@ jobs:
 
           AUTH_FLAGS=(-authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER_ID" -allowProvisioningUpdates)
 
+          # Google's iOS OAuth client ids are always
+          # "<digits>-<hash>.apps.googleusercontent.com" — the URL scheme
+          # GIDSignIn requires in Info.plist (see that file's own comment on
+          # CFBundleURLTypes) is that exact string with the labels reversed,
+          # e.g. "com.googleusercontent.apps.<digits>-<hash>". Computed here
+          # instead of ever hardcoding the client id itself into the repo.
+          # Left blank when the secret isn't configured — Info.plist's own
+          # `$(GOOGLE_REVERSED_CLIENT_ID)` then just resolves to an empty
+          # scheme, harmless since nativeGoogleSignIn already refuses to
+          # call GIDSignIn at all without a configured client id.
+          GOOGLE_REVERSED_CLIENT_ID=""
+          if [ -n "$GOOGLE_IOS_CLIENT_ID" ]; then
+            GOOGLE_REVERSED_CLIENT_ID="com.googleusercontent.apps.${GOOGLE_IOS_CLIENT_ID%.apps.googleusercontent.com}"
+          fi
+
           xcodebuild archive \
             -project App.xcodeproj -scheme App -configuration Release \
             -archivePath build/App.xcarchive -destination "generic/platform=iOS" \
@@ -265,7 +281,8 @@ jobs:
             DEVELOPMENT_TEAM=6YJ97VWT8V CODE_SIGN_STYLE=Automatic \
             CODE_SIGN_IDENTITY=- AD_HOC_CODE_SIGNING_ALLOWED=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            GOOGLE_REVERSED_CLIENT_ID="$GOOGLE_REVERSED_CLIENT_ID"
 
           cat > ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>

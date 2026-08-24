@@ -242,6 +242,35 @@ o plugin no projeto iOS (só Google habilitado — Facebook/Apple/Twitter
 desligados em `capacitor.config.ts`, este app não usa nenhum dos três por
 esse plugin).
 
+**Bug real encontrado no build 134 (primeira tentativa em produção)**: o
+app inteiro fechava (crash, não tela travada) no instante em que tocava
+"Entrar com Google" — confirmado por um crash log de verdade baixado do
+TestFlight (App Store Connect → TestFlight → Crashes/Feedback), não só
+suposição. Stack trace: `EXC_CRASH (SIGABRT)` dentro de `-[GIDSignIn
+signInWithOptions:]`, chamado por `GoogleProvider.swift` (o plugin) — o
+próprio SDK do Google (`GIDSignIn`) levanta uma `NSException` não
+capturada assim que o login começa, **antes** de mostrar qualquer UI, se
+o app não tiver um `CFBundleURLTypes`/`CFBundleURLSchemes` registrado com
+o "client ID invertido" no `Info.plist` — uma exigência do próprio SDK do
+Google, independente do plugin Capacitor, que passou despercebida na
+implementação original (a documentação do plugin só menciona
+Info.plist/AppDelegate pro provedor Facebook, não pro Google, o que
+sugeriu erroneamente que não precisava).
+
+Corrigido em `ios/App/App/Info.plist`: uma terceira entrada em
+`CFBundleURLTypes` com `$(GOOGLE_REVERSED_CLIENT_ID)` — uma substituição
+de build setting do Xcode (mesmo mecanismo que `CURRENT_PROJECT_VERSION`
+já usa nesse workflow), resolvida em `ios-build.yml` no step "Build &
+upload signed archive to TestFlight" a partir do
+`NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` já configurado — client IDs "iOS" do
+Google sempre têm o formato `<números>-<hash>.apps.googleusercontent.com`,
+e o "invertido" que o `GIDSignIn` exige é sempre
+`com.googleusercontent.apps.<números>-<hash>`, calculado com um simples
+strip de sufixo em bash, sem precisar colar o client ID real em lugar
+nenhum do repo. Sem o secret configurado, essa entrada fica com o scheme
+vazio — inofensivo, já que `nativeGoogleSignIn` nem chega a chamar
+`GIDSignIn` nesse caso.
+
 **Exclusão de conta** (`/perfil`): obrigatória pela guideline 5.1.1(v) da
 App Store sempre que o app permite criar conta. O SDK cliente do Appwrite
 não tem um jeito de auto-excluir a conta (só `deleteSession`/

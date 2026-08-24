@@ -171,7 +171,11 @@ desligado por completo, ver "O produto, em uma frase" acima):
    2026-08-23: o build 124 (submetido via branch `testflight` depois do
    build 107 sair da fila de revisão — ver "Submissão pro Beta App
    Review" abaixo) foi **aprovado pela Apple em 2026-08-23**, aprovação
-   saiu rápido (menos de 2 dias). O link
+   saiu rápido (menos de 2 dias). **Build 134** (Google Sign-In nativo no
+   iOS + push de "nova versão" independente do TestFlight + fix do pace
+   ao vivo, tudo desta mesma leva de sessão) foi submetido pela mesma
+   branch `testflight` em 2026-08-24 e **aprovado pela Apple ainda no
+   mesmo dia** — aprovação saiu rápido de novo. O link
    (`https://testflight.apple.com/join/RMqtChWj`) agora deixa qualquer
    pessoa entrar de verdade no teste externo — dá pra trocar o badge "Em
    teste fechado" da landing e colocar o link na bio do Instagram.
@@ -193,13 +197,25 @@ desligado por completo, ver "O produto, em uma frase" acima):
   pro app no iOS). **Corrigido no código** nesta mesma data via
   `nativeGoogleSignIn` (`src/lib/auth.ts`, usando
   `@capgo/capacitor-social-login`/`GIDSignIn`) — ver o README ("Google
-  Sign-In no iOS") para o desenho completo. **Bloqueado até o dono do
-  projeto criar um OAuth Client ID tipo "iOS" no Google Cloud Console**
-  (bundle `com.xanthus.app`) e configurar
-  `NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID` (secret do GitHub Actions) +
-  `GOOGLE_IOS_CLIENT_ID` (variável da Function `client-actions`) — sem
-  isso, o login nativo no iOS devolve um diagnóstico explícito em vez de
-  travar silenciosamente, mas continua não funcionando de verdade.
+  Sign-In no iOS") para o desenho completo. Client ID criado pelo dono do
+  projeto e configurado nos dois lugares (`NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID`
+  no GitHub Actions, `GOOGLE_IOS_CLIENT_ID` na Function `client-actions`) —
+  confirmado via API do Appwrite que a variável da Function está presente.
+  **Bug real na primeira tentativa em produção (build 134, 2026-08-24)**:
+  em vez de logar, o app inteiro **crashava** ao tocar "Entrar com Google" —
+  confirmado por crash log de verdade baixado do TestFlight (App Store
+  Connect → TestFlight → Crashes/Feedback): `EXC_CRASH (SIGABRT)`,
+  `NSException` não capturada dentro de `-[GIDSignIn signInWithOptions:]`,
+  antes de qualquer UI aparecer. Causa: faltava um `CFBundleURLTypes` com o
+  client ID invertido no `Info.plist` — exigência do próprio SDK do Google
+  (`GIDSignIn`), não do plugin Capacitor; passou despercebido porque a
+  documentação do plugin só menciona esse passo pro provedor Facebook, não
+  pro Google. **Corrigido** via substituição de build setting do Xcode
+  (`$(GOOGLE_REVERSED_CLIENT_ID)`, calculado em `ios-build.yml` a partir do
+  client ID já configurado — nunca precisou colar o valor real no repo) —
+  ver README pro detalhe técnico. Ainda não confirmado se resolveu de
+  verdade num aparelho real (o build com esse fix ainda não foi submetido
+  pro TestFlight).
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
@@ -782,6 +798,11 @@ deploy própria.
       promover um build mais recente — o que aí sim exige nova revisão da
       Apple. Revisão completa da App Store (produção) continua sem prazo
       definido.
+      **Atualização 2026-08-24**: rodado de novo (build 134 — Google
+      Sign-In nativo no iOS, push de "nova versão" independente do
+      TestFlight, fix do pace ao vivo lendo mais devagar que o real) —
+      **aprovado pela Apple ainda no mesmo dia**, o link público agora
+      serve esse build.
 - [x] **2026-08-22: escopado, Fase A e Fase B implementadas** — modo
       treinador vira "os dois juntos" (IA sugere + motor determinístico
       trava os limites + treinador edita por cima), ver seção própria
