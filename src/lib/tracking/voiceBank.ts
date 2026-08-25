@@ -68,25 +68,51 @@ async function loadBuffer(slug: string, gender: VoiceGender, ctx: AudioContext):
 }
 
 /**
- * Splices a sequence of already-decoded clips into one buffer, sample by
- * sample — `decodeAudioData` resamples every clip to the AudioContext's own
- * sample rate on the way in, so they're always compatible here regardless of
- * the source file's original rate.
+ * Splices a sequence of already-decoded clips into one buffer — `decodeAudioData`
+ * resamples every clip to the AudioContext's own sample rate on the way in, so
+ * they're always compatible here regardless of the source file's original rate.
+ *
+ * A short linear crossfade at each splice, rather than a hard sample-accurate
+ * cut, softens the residual level jump between clips (each clip is an
+ * independent ElevenLabs render — measured up to ~8dB apart even after
+ * generate-voice-bank.ts's own loudness normalization pass, since a per-clip
+ * gain cap keeps sharper-attack words from clipping instead of matching them
+ * exactly). This can't fix pitch-contour discontinuity between separately
+ * rendered clips — no shared acoustic state exists to blend — but it removes
+ * the click/level-jump a bare concat leaves at every boundary.
  */
+const CROSSFADE_SECONDS = 0.015;
+
 function concatBuffers(buffers: AudioBuffer[], ctx: AudioContext): AudioBuffer {
   const channels = Math.max(...buffers.map((b) => b.numberOfChannels));
-  const totalLength = buffers.reduce((sum, b) => sum + b.length, 0);
+  const crossfadeSamples = Math.round(CROSSFADE_SECONDS * ctx.sampleRate);
+  // Capped by both neighbors' own length so a crossfade never outlasts the shorter clip.
+  const overlaps = buffers.slice(0, -1).map((buf, i) => Math.min(crossfadeSamples, buf.length, buffers[i + 1].length));
+
+  const totalLength = buffers.reduce((sum, b) => sum + b.length, 0) - overlaps.reduce((sum, o) => sum + o, 0);
   const out = ctx.createBuffer(channels, totalLength, ctx.sampleRate);
+
   let offset = 0;
-  for (const buf of buffers) {
+  buffers.forEach((buf, i) => {
+    const fadeIn = i === 0 ? 0 : overlaps[i - 1];
+    const fadeOut = i === buffers.length - 1 ? 0 : overlaps[i];
     for (let ch = 0; ch < channels; ch++) {
       // Mono clip feeding a stereo (or wider) output: reuse channel 0 for
       // every output channel rather than leaving the extra ones silent.
       const source = buf.getChannelData(Math.min(ch, buf.numberOfChannels - 1));
-      out.getChannelData(ch).set(source, offset);
+      const outData = out.getChannelData(ch);
+      for (let s = 0; s < buf.length; s++) {
+        let gain = 1;
+        if (s < fadeIn) gain = (s + 1) / (fadeIn + 1);
+        else if (s >= buf.length - fadeOut) gain = (buf.length - s) / (fadeOut + 1);
+        // `+=`, not `=`: the leading fade-in region overlaps positions the
+        // previous clip's trailing fade-out already wrote — this is what
+        // actually blends the two instead of one silently overwriting the other.
+        outData[offset + s] += source[s] * gain;
+      }
     }
-    offset += buf.length;
-  }
+    offset += buf.length - fadeOut;
+  });
   return out;
 }
 

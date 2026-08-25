@@ -10,6 +10,8 @@
     "setup:appwrite": "tsx scripts/appwrite-setup.ts",
     "voice:generate": "tsx scripts/generate-voice-bank.ts female",
     "voice:generate:male": "tsx scripts/generate-voice-bank.ts male",
+    "voice:normalize": "tsx scripts/generate-voice-bank.ts female --normalize-only",
+    "voice:normalize:male": "tsx scripts/generate-voice-bank.ts male --normalize-only",
     "cap:sync": "next build && npx cap sync",
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:ios": "npm run cap:sync && npx cap open ios"

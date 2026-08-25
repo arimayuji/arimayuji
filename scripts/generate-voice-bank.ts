@@ -13,6 +13,10 @@
  * adding a new word (or after a previous run got cut off partway through,
  * e.g. by hitting the account's ElevenLabs quota) only pays for what's
  * missing. Delete a file to force a re-render of just that clip.
+ *
+ * `--normalize-only` skips ElevenLabs entirely and just re-levels whatever
+ * mp3s already exist for the target voice (`npm run voice:normalize` /
+ * `voice:normalize:male`) — no API key needed, no credits spent.
  */
 import { mkdirSync, existsSync, writeFileSync, readFileSync, renameSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -162,14 +166,79 @@ function trimSilence(path: string): void {
   renameSync(tmpPath, path);
 }
 
+/**
+ * Each clip is its own ElevenLabs render, and the model doesn't hold level
+ * consistent across separate calls — measured directly against this
+ * project's own clips (`ffmpeg -af volumedetect`): mean loudness swings as
+ * much as ~8dB between two words in the *same* voice bank (e.g. female
+ * "quilômetros" at -24dB vs "cinco" in the pace slot at -32dB). Splicing
+ * those back to back with no correction reads as a volume jump on top of
+ * whatever "junção de blocos" the missing crossfade already causes below —
+ * two separate, additive symptoms of the same root cause (each clip is an
+ * independent render with no shared state).
+ *
+ * `loudnorm`'s LUFS measurement needs a few seconds of audio to gate on and
+ * returns `-inf` on clips this short (confirmed: every single-word clip
+ * here does) — so this targets mean sample volume instead, via
+ * `volumedetect`, which works fine on sub-second audio. A per-clip gain
+ * cap keeps the result from clipping: some words (sharper consonant
+ * attacks) have a much higher peak-to-mean ratio than others, and forcing
+ * their mean up to the shared target would drive their peak over 0dBFS —
+ * capping means that word ends up a little quieter than the target
+ * instead of distorted, which is the right tradeoff.
+ */
+const PEAK_CEILING_DB = -1.0;
+
+function measureVolume(path: string): { mean: number; max: number } {
+  const { stderr } = run("ffmpeg", ["-i", path, "-af", "volumedetect", "-f", "null", "-"]);
+  const meanMatch = stderr.match(/mean_volume:\s*(-?[\d.]+) dB/);
+  const maxMatch = stderr.match(/max_volume:\s*(-?[\d.]+) dB/);
+  if (!meanMatch || !maxMatch) throw new Error(`could not parse volumedetect output for ${path}`);
+  return { mean: parseFloat(meanMatch[1]), max: parseFloat(maxMatch[1]) };
+}
+
+function normalizeLoudness(path: string, targetMeanDb: number): void {
+  const { mean, max } = measureVolume(path);
+  const desiredGain = targetMeanDb - mean;
+  const maxAllowedGain = PEAK_CEILING_DB - max;
+  const gain = Math.min(desiredGain, maxAllowedGain);
+  if (Math.abs(gain) < 0.1) return; // not worth a re-encode for a fraction of a dB
+
+  const tmpPath = `${path}.normalized.mp3`;
+  run("ffmpeg", ["-y", "-i", path, "-af", `volume=${gain.toFixed(2)}dB`, "-c:a", "libmp3lame", "-q:a", "2", tmpPath]);
+  renameSync(tmpPath, path);
+}
+
+/** Picked from this project's own measured ranges (see normalizeLoudness's comment) — female clips render quieter than male ones at the same voice_settings, so each gets its own target rather than one shared number. */
+const LOUDNESS_TARGET_DB: Record<"female" | "male", number> = { female: -27, male: -19 };
+
 async function main(): Promise<void> {
+  mkdirSync(OUT_DIR, { recursive: true });
+
+  // Re-levels whatever's already on disk without touching ElevenLabs at
+  // all — added once normalizeLoudness existed, so the 270 clips already
+  // rendered before it could be fixed without spending credits re-rendering
+  // audio that was already fine content-wise, just inconsistently loud.
+  if (process.argv.includes("--normalize-only")) {
+    let normalized = 0;
+    let checked = 0;
+    for (const entry of VOICE_BANK) {
+      const outPath = fileURLToPath(new URL(`${entry.slug}.mp3`, OUT_DIR));
+      if (!existsSync(outPath)) continue;
+      checked++;
+      const before = measureVolume(outPath).mean;
+      normalizeLoudness(outPath, LOUDNESS_TARGET_DB[target]);
+      if (measureVolume(outPath).mean !== before) normalized++;
+    }
+    console.log(`done: ${normalized}/${checked} clips re-leveled for target=${target} (no ElevenLabs calls made).`);
+    return;
+  }
+
   loadEnvLocal();
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error("ELEVENLABS_API_KEY missing from .env.local");
   }
-
-  mkdirSync(OUT_DIR, { recursive: true });
 
   let generated = 0;
   let skipped = 0;
@@ -182,7 +251,9 @@ async function main(): Promise<void> {
     console.log(`generating "${entry.slug}" ("${entry.text}", prev=${entry.previousText}, next=${entry.nextText})...`);
     const audio = await generateClip(entry.text, entry.previousText, entry.nextText, apiKey);
     writeFileSync(outPath, Buffer.from(audio));
-    trimSilence(fileURLToPath(outPath));
+    const path = fileURLToPath(outPath);
+    trimSilence(path);
+    normalizeLoudness(path, LOUDNESS_TARGET_DB[target]);
     generated++;
     // ElevenLabs rate-limits aggressive back-to-back calls on lower tiers.
     await new Promise((resolve) => setTimeout(resolve, 400));
