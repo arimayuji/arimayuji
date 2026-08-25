@@ -567,6 +567,45 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   formulário, onde essa sugestão fica salva pro atleta sem treinador —
   hoje `plan_overrides` é sempre `coachId`+`studentId`, aqui não existe
   treinador nenhum na relação) nem implementado.
+- **Calendário de corridas de rua por cidade** — pedido em 2026-08-25: a
+  pessoa poder ver quais maratonas/corridas de rua vão acontecer na cidade
+  dela dentro do app, em vez de precisar procurar espalhado pela internet.
+  **Não existe fonte estruturada (RSS/API) pra isso no Brasil** — diferente
+  do World Athletics RSS já usado no pilar de conteúdo (`SOCIAL-CONTEXT.md`),
+  calendário de corrida de rua local não tem feed padronizado; os sites que
+  listam isso (Melhor Corrida, Ticket Sports, prefeituras) precisariam de
+  scraping por site, frágil (quebra a cada mudança de layout) e com risco
+  de ToS. **Decisão do dono do projeto (2026-08-25): seguir mesmo assim
+  pela via de scraping** (rodando com frequência semanal), em vez de
+  esperar uma API — mas ainda **falta a pesquisa de quais sites/fontes são
+  viáveis de raspar antes de escopar a implementação**; nada verificado
+  ainda sobre confiabilidade de fonte nenhuma.
+- **Sincronização opcional do plano/perfil entre aparelhos (pra ver no
+  desktop o que foi montado no celular, com gráfico/calendário melhor)** —
+  pedido em 2026-08-25, avaliado em conjunto nesta sessão. **O bloqueio
+  real não é visualização, é dado**: `RunnerProfile` (meta, tempo de prova,
+  dias de treino) e o histórico de corrida vivem só em `localStorage`/
+  IndexedDB do aparelho que gravou, sem sync nenhum hoje — é a mesma causa
+  raiz já documentada na limitação de arquitetura do modo treinador acima
+  ("o treinador não consegue ver o plano que o motor já calculou pro
+  aluno"), só que agora é o próprio atleta batendo nisso ao abrir
+  `xanthus.app.br` num notebook. **Decisão de produto confirmada nesta
+  sessão**: login continua nunca sincronizando isso por padrão — mesmo
+  quem já loga hoje só pra usar amigos/treinador não deve ver o plano
+  virar sincronizado de surpresa. Precisa de um **consentimento explícito
+  separado**, próprio dessa feature (mesmo padrão de `healthDataConsent`/
+  `leaderboardOptIn`), distinto de simplesmente "estar logado". Ônus real
+  levantado nesta sessão, pra pesar antes de escopar: (1) hoje o app só
+  sabe empurrar dado de um jeito (compartilhar uma corrida específica),
+  nunca sincronizar um estado mutável entre aparelhos — sincronizar
+  `RunnerProfile` de verdade abre problema novo de conflito (editar a meta
+  no celular e no notebook ao mesmo tempo, ou offline); (2) pra virar
+  gráfico de progressão de verdade (não só a meta atual), precisaria
+  também sincronizar um resumo de cada corrida (pace/distância/data, não o
+  traçado GPS) a cada corrida gravada, não só ocasionalmente; (3) mais uma
+  tabela Appwrite, mais uma seção de política de privacidade. Vale desenhar
+  junto com a limitação do treinador (mesma causa raiz) em vez de separado.
+  Ainda não escopado em detalhe nem implementado.
 - **Backlog de ideias soltas (sessão 2026-08-23, nenhuma escopada em detalhe
   ainda — só registrando pra não perder)**:
   - **Editor do card de compartilhar com elementos arrastáveis** (pedido
