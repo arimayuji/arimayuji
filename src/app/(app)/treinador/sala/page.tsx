@@ -107,12 +107,13 @@ export default function SalaDeTreinoPage() {
   return (
     <>
       <ScreenHeader
+        wide
         title="Sala de Treino"
         badge={<NoticeBadge>dados reais</NoticeBadge>}
         subtitle="Visão geral de quem você treina — clique num aluno pra ver a planilha da semana e a corrida ao vivo, se houver."
       />
 
-      <Screen>
+      <Screen wide>
         {status === "loading" && (
           <Card className="pr-enter" style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>
@@ -160,6 +161,18 @@ export default function SalaDeTreinoPage() {
               </div>
             </Card>
 
+            {/*
+              Stacked on mobile (list, then the selected student's panel
+              underneath — same as before). At `lg:` this becomes an actual
+              two-pane dashboard, list on the left / panel on the right,
+              instead of the same phone-width column just stretched wider —
+              this is the "ao lado" layout the Fase C mockup in
+              PROJECT-CONTEXT.md always described; the shipped version
+              stacked them for lack of screen-width to spare on a phone,
+              which is no longer the constraint once this only renders on a
+              desktop browser.
+            */}
+            <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[22rem_1fr] lg:items-start lg:gap-6">
             <Card className="pr-enter !p-0" style={delay(60)}>
               <ul>
                 {myStudents.map((connection) => {
@@ -206,9 +219,17 @@ export default function SalaDeTreinoPage() {
               </ul>
             </Card>
 
-            {selected && (
+            {selected ? (
               <StudentPanel key={selected.otherId} connection={selected} live={isLive(selected.otherId)} unit={unit} />
+            ) : (
+              // Only worth showing on the two-pane desktop layout — on
+              // mobile, nothing selected means nothing to show below the
+              // list at all, same as before this grid existed.
+              <p className="hidden text-sm text-muted lg:flex lg:h-full lg:min-h-40 lg:items-center lg:justify-center lg:rounded-2xl lg:border lg:border-dashed lg:border-border">
+                Selecione um aluno pra ver a planilha da semana
+              </p>
             )}
+            </div>
           </>
         )}
       </Screen>
