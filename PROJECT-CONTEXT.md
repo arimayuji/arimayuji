@@ -721,6 +721,70 @@ ainda não deployado em produção**:
   workflow ComfyUI containerizado e um fluxo assíncrono de job, trabalho
   de infra real que não está escopado ainda.
 
+## Bug corrigido e confirmado: Health Connect declarava 47 permissões, não 9 (2026-08-24)
+
+Achado direto pelo dono do projeto preenchendo o formulário de
+declaração de permissões de Saúde do Play Console: a tela pedia
+justificativa pra **47 permissões**, mas `REQUIRED_READ_TYPES`
+(`src/lib/health.ts`) só lista 9 tipos que o app de fato lê (steps,
+distance, totalCalories, heartRate, workouts, restingHeartRate,
+heartRateVariability, vo2Max, sleep).
+
+**Causa raiz**: `@capgo/capacitor-health` traz seu próprio
+`AndroidManifest.xml`
+(`node_modules/@capgo/capacitor-health/android/src/main/AndroidManifest.xml`)
+declarando um superconjunto bem maior de permissões (todas as `WRITE_*`
+mais 15 `READ_*` que o app nunca usa — calorias em atividade, peso,
+ritmo respiratório, saturação de oxigênio, pressão arterial, glicemia,
+temperatura corporal, altura, andares subidos, gordura corporal,
+temperatura basal, taxa metabólica basal, mindfulness, hidratação,
+nutrição). O merge de manifests do Android injeta esse superconjunto no
+app final, **independente** do que o código do app realmente pede — a
+declaração do Play Console reflete o manifest resultante, não
+`REQUIRED_READ_TYPES`.
+
+**Fix**: `android/app/src/main/AndroidManifest.xml` ganhou
+`xmlns:tools="http://schemas.android.com/tools"` na raiz e 38
+`<uses-permission ... tools:node="remove" />` (as 23 `WRITE_*` — o app é
+só leitura por design — mais as 15 `READ_*` não usadas), removendo cada
+uma explicitamente do manifest final via merge override.
+
+**Confirmado em produção (2026-08-25)**: depois do build #163 (branch
+`main`, commit `6ef211e`) ser processado no Play Console — faixa
+Internal Testing, mesmo build que carregava esse fix — a declaração de
+Saúde recalculou sozinha e passou a pedir justificativa só pras 9
+permissões reais (`READ_STEPS`, `READ_DISTANCE`,
+`READ_TOTAL_CALORIES_BURNED`, `READ_HEART_RATE`, `READ_EXERCISE`,
+`READ_RESTING_HEART_RATE`, `READ_HEART_RATE_VARIABILITY`,
+`READ_VO2_MAX`, `READ_SLEEP`) — bate exatamente com
+`REQUIRED_READ_TYPES`. Fechado, sem pendência.
+
+## Bug encontrado, fix aplicado, causa raiz ainda não confirmada: pedido de amizade falhando silenciosamente (2026-08-24/25)
+
+Relato real do dono do projeto: um pedido de amizade entre duas contas
+reais falhou com "tenta de novo", sem nenhuma informação de diagnóstico.
+Verificado via Appwrite CLI (`tables-db get-table`/`list-columns`/
+`list-indexes`) que a configuração das tabelas `friendships`
+(`rowSecurity: true`, permissões corretas) e `profiles`
+(`rowSecurity: true`, `read("any")`) está certa, tamanho de coluna
+correto (`pairKey` = 73 = 36+1+36) e o índice único
+(`unique_pair_key`) existe — **não é bug de configuração**.
+
+`sendFriendRequest`/`respondToFriendRequest`/`removeFriendship`
+(`src/lib/friendships.ts`) seguiam a mesma convenção do resto do backend
+layer (engolir qualquer exceção e devolver `{ok:false}`/`false`, "já que
+nada disso é necessário pra gravar uma corrida") — mas isso deixa um bug
+de escrita real tão silencioso quanto um erro esperado. Adicionado
+`console.error("[friendships] ...")` nas três funções de escrita
+(mantido silencioso só o lookup de leitura em `getProfileByHandle`,
+mesma convenção de "degradar graciosamente em leitura" já usada em
+outro lugar do arquivo).
+
+**Ainda pendente**: essa mudança só tem efeito depois de um build novo
+(é código de cliente, não backend) — falta reproduzir o bug de novo e
+conferir `adb logcat` por `[friendships] sendFriendRequest failed` pra
+achar a causa raiz de verdade.
+
 ## Bug crítico encontrado e corrigido: Functions sem escopo `rows.*` (2026-08-24)
 
 Relato real do dono do projeto: login com Apple funcionou (depois do fix
