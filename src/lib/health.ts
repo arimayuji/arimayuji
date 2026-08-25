@@ -46,13 +46,16 @@ export const HEALTH_DATA_ENABLED = true;
  * GPS trace and doesn't need the watch's), no nutrition/blood pressure/
  * blood glucose despite the plugin supporting them (nothing here would use
  * them, and requesting a permission this app can't explain the point of is
- * its own small LGPD smell).
+ * its own small LGPD smell). `distance` used to be here too, before this
+ * module actually read anything from a `Workout`'s own distance field —
+ * dropped for the same reason (found while filling out Play Console's
+ * Health Connect permission-justification form, which has no honest answer
+ * for a permission nothing here consumes).
  */
 const REQUIRED_READ_TYPES: HealthDataType[] = [
   "workouts",
   "heartRate",
   "totalCalories",
-  "distance",
   "steps",
   "restingHeartRate",
   "heartRateVariability",
