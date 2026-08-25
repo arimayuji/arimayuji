@@ -62,6 +62,7 @@ import {
 } from "@/lib/tracking/storage";
 import { applyCoachOverride, computeCurrentPlanWeek, isoWeekday, paceForZone, ZONE_LABEL } from "@/lib/plan";
 import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coachPlanOverrides";
+import { getSelfPlanOverride } from "@/lib/selfPlanOverride";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
@@ -1251,8 +1252,18 @@ export default function RunPage() {
     if (completedRunsForPlan === null) return null;
     return computeCurrentPlanWeek(runnerProfile, completedRunsForPlan, painCheckInsForPlan);
   }, [runnerProfile, completedRunsForPlan, painCheckInsForPlan]);
-  /** A coach's explicit choice for this week (if any) wins here too — same override /plano applies, so "treino de hoje" never contradicts what the athlete's own plan screen shows. */
-  const todaysWeek = todaysPlan ? applyCoachOverride(todaysPlan.currentWeek, coachOverrides.get(todaysPlan.currentWeek.startDate)) : undefined;
+  /**
+   * A coach's explicit choice for this week (if any) wins here too — same
+   * override /plano applies, so "treino de hoje" never contradicts what the
+   * athlete's own plan screen shows. A self-suggested AI override (see
+   * selfPlanOverride.ts) applies the same way when there's no coach
+   * override — same precedence /plano uses.
+   */
+  const todaysCoachOverride = todaysPlan ? coachOverrides.get(todaysPlan.currentWeek.startDate) : undefined;
+  const todaysSelfOverride = todaysPlan ? getSelfPlanOverride(todaysPlan.currentWeek.startDate) : null;
+  const todaysWeek = todaysPlan
+    ? applyCoachOverride(todaysPlan.currentWeek, todaysCoachOverride ?? todaysSelfOverride ?? undefined)
+    : undefined;
   const todaysSession = todaysWeek?.sessions[isoWeekday(new Date())];
   const todaysPlannedSession = todaysSession && todaysSession.kind !== "rest" ? todaysSession : null;
 

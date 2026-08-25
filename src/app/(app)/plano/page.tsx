@@ -17,6 +17,7 @@ import { getEvidenceById, getEvidenceForTopicRanked } from "@/lib/evidence";
 import { EvidenceFactRow } from "../evidence-row";
 import { GoalDatePicker } from "../date-picker";
 import {
+  activePainSignal,
   applyCoachOverride,
   computeCurrentPlanWeek,
   weekAdherence,
@@ -25,9 +26,12 @@ import {
   type PlannedSession as EngineSession,
   type PaceZoneName,
   type PaceZones,
+  type PainSeverity,
   type SessionOutcome,
 } from "@/lib/plan";
 import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coachPlanOverrides";
+import { getSelfPlanOverride, removeSelfPlanOverride, setSelfPlanOverride, type SelfPlanOverride } from "@/lib/selfPlanOverride";
+import { suggestPlanForSelf, type PlanSuggestion, type SuggestPlanForSelfReason } from "@/lib/selfPlanSuggestion";
 import { useAuth } from "@/lib/useAuth";
 import { currentMondayIsoDate, GOAL_DISTANCE_OPTIONS, type RunnerProfile } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
@@ -39,6 +43,8 @@ import {
   type PainCheckIn,
 } from "@/lib/tracking/storage";
 import { formatPace } from "@/lib/tracking/geoFilter";
+import { weeklyBuckets } from "@/lib/tracking/stats";
+import { ModalPortal } from "../modal-portal";
 
 /**
  * The plan screen has two real modes, not a mockup-vs-real toggle a person
@@ -256,6 +262,221 @@ function PaceZonesCard({ zones }: { zones: PaceZones }) {
           </div>
         ))}
       </div>
+    </Card>
+  );
+}
+
+const SELF_SUGGEST_ERROR_LABEL: Record<SuggestPlanForSelfReason, string> = {
+  unavailable: "IA indisponível nesse build.",
+  "no-history": "Precisa de pelo menos uma semana de corrida registrada pra pedir uma sugestão.",
+  "missing-goal": "Falta configurar objetivo e data da prova antes de pedir uma sugestão.",
+  "ai-not-configured": "IA não configurada nesse ambiente.",
+  "ai-unavailable": "IA indisponível agora — tenta de novo em instantes.",
+  "ai-invalid-response": "A IA devolveu algo inesperado — tenta de novo.",
+  failed: "Não deu pra pedir a sugestão agora — tenta de novo.",
+};
+
+/**
+ * The self-service twin of `week-plan-editor.tsx`'s "Sugerir com IA" —
+ * same underlying mechanism (`selfPlanSuggestion.ts`), but the athlete asks
+ * about their own current week, and — unlike the coach flow, where a human
+ * still reviews/edits the draft before saving — the suggestion here only
+ * ever takes effect after the athlete clicks through the disclaimer modal
+ * below. Never rendered when a coach override already exists for this week
+ * (see the call site in `PlanoPage`): a coach's explicit choice always wins.
+ */
+function SelfPlanSuggestionCard({
+  weekStartDate,
+  recentWeeksKm,
+  goalDistanceMeters,
+  goalDate,
+  weeklyRunDays,
+  recentRace,
+  painSignal,
+  signedIn,
+  override,
+  onApplied,
+  onRemoved,
+}: {
+  weekStartDate: string;
+  recentWeeksKm: number[];
+  goalDistanceMeters: number;
+  goalDate: string;
+  weeklyRunDays?: number;
+  recentRace?: { distanceMeters: number; timeSeconds: number };
+  painSignal?: { severity: PainSeverity; region?: string };
+  signedIn: boolean;
+  override: SelfPlanOverride | null;
+  onApplied: (override: SelfPlanOverride) => void;
+  onRemoved: () => void;
+}) {
+  const [athleteNote, setAthleteNote] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+  const [pendingSuggestion, setPendingSuggestion] = useState<PlanSuggestion | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  const handleSuggest = async () => {
+    setSuggesting(true);
+    setSuggestError(null);
+    const result = await suggestPlanForSelf({
+      weekStartDate,
+      recentWeeksKm,
+      goalDistanceMeters,
+      goalDate,
+      weeklyRunDays,
+      recentRace,
+      painSignal,
+      athleteNote: athleteNote.trim() || undefined,
+    });
+    setSuggesting(false);
+    if (!result.ok) {
+      setSuggestError(SELF_SUGGEST_ERROR_LABEL[result.reason]);
+      return;
+    }
+    setPendingSuggestion(result);
+  };
+
+  /** Only reachable from the disclaimer modal's own "Estou ciente" button — never called on the suggest response directly. */
+  const handleAccept = () => {
+    if (!pendingSuggestion) return;
+    const accepted: SelfPlanOverride = {
+      weekStartDate,
+      totalKm: pendingSuggestion.totalKm,
+      sessions: pendingSuggestion.sessions,
+      note: pendingSuggestion.note || null,
+      reasoning: pendingSuggestion.reasoning,
+      generatedAt: Date.now(),
+    };
+    setSelfPlanOverride(accepted);
+    setPendingSuggestion(null);
+    setAthleteNote("");
+    onApplied(accepted);
+  };
+
+  const handleRemove = () => {
+    setRemoving(true);
+    removeSelfPlanOverride(weekStartDate);
+    setRemoving(false);
+    onRemoved();
+  };
+
+  if (!signedIn) {
+    return (
+      <Card className="pr-enter" style={delay(230)}>
+        <CardTitle aside={<NoticeBadge>experimental</NoticeBadge>}>Sugestão de treino com IA</CardTitle>
+        <p className="text-sm leading-relaxed text-muted text-pretty">
+          Entra na sua conta pra pedir uma sugestão pra essa semana, grounded nos mesmos estudos
+          citados acima.
+        </p>
+      </Card>
+    );
+  }
+
+  if (override) {
+    return (
+      <Card className="pr-enter" style={delay(230)}>
+        <CardTitle aside={<NoticeBadge>sugerido por ia</NoticeBadge>}>
+          Você aplicou uma sugestão de IA nessa semana
+        </CardTitle>
+        {override.reasoning && (
+          <p className="mb-4 text-sm leading-relaxed text-pretty">{override.reasoning}</p>
+        )}
+        <button
+          type="button"
+          onClick={handleRemove}
+          disabled={removing}
+          className="rounded-full border border-bad/30 px-4 py-2 text-xs font-semibold text-bad disabled:opacity-40"
+        >
+          {removing ? "Removendo…" : "Remover sugestão"}
+        </button>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="pr-enter" style={delay(230)}>
+      <CardTitle aside={<NoticeBadge>experimental</NoticeBadge>}>Sugestão de treino com IA</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Pede uma sugestão pra essa semana específica, grounded nos mesmos estudos citados acima —
+        travada pelo mesmo limite seguro de progressão que o resto do app usa. Só 1 sugestão por
+        semana.
+      </p>
+      <textarea
+        value={athleteNote}
+        onChange={(event) => setAthleteNote(event.target.value.slice(0, 300))}
+        placeholder="Alguma coisa que eu deveria saber? (opcional, ex.: voltando de lesão)"
+        rows={2}
+        className="mb-3 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-xs outline-none focus:border-accent"
+      />
+      <button
+        type="button"
+        onClick={handleSuggest}
+        disabled={suggesting}
+        className="w-full rounded-xl border border-accent px-4 py-3 text-sm font-semibold text-accent disabled:opacity-40"
+      >
+        {suggesting ? "Pensando…" : "Sugerir com IA"}
+      </button>
+      {suggestError && <p className="mt-3 text-xs leading-relaxed text-bad text-pretty">{suggestError}</p>}
+
+      {pendingSuggestion && (
+        <ModalPortal>
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+            onClick={() => setPendingSuggestion(null)}
+          >
+            <div
+              role="dialog"
+              aria-label="Sugestão de IA — aviso"
+              onClick={(event) => event.stopPropagation()}
+              className="w-full max-w-sm rounded-t-3xl bg-background p-5 pb-8 text-foreground sm:rounded-3xl"
+            >
+              <div className="mx-auto mb-5 h-1 w-9 rounded-full bg-border" />
+              <p className="mb-3 text-base font-bold">Antes de aplicar</p>
+              <p className="mb-4 text-sm leading-relaxed text-muted text-pretty">
+                Isso é uma sugestão gerada por IA, baseada nos mesmos estudos citados em{" "}
+                <Link href="/estudos" className="underline underline-offset-2">
+                  /estudos
+                </Link>
+                , mas travada pelo mesmo motor de segurança do app — nunca sobe mais que o limite
+                seguro de progressão.{" "}
+                <strong className="text-foreground">
+                  Não substitui orientação de um profissional de saúde/educação física.
+                </strong>
+              </p>
+              {pendingSuggestion.reasoning && (
+                <p className="mb-4 rounded-xl bg-surface p-3 text-xs leading-relaxed text-pretty">
+                  {pendingSuggestion.reasoning}
+                  {pendingSuggestion.capped && (
+                    <>
+                      {" "}
+                      A IA sugeriu {pendingSuggestion.rawSuggestedTotalKm} km ao todo, mas o limite
+                      seguro pra essa semana é {pendingSuggestion.capKm} km — os números acima já
+                      foram ajustados pra caber nisso.
+                    </>
+                  )}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingSuggestion(null)}
+                  className="flex-1 rounded-full border border-border px-4 py-3 text-sm font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAccept}
+                  className="flex-1 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground"
+                >
+                  Estou ciente, aplicar essa semana
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
     </Card>
   );
 }
@@ -652,6 +873,7 @@ export default function PlanoPage() {
   const [completedRuns, setCompletedRuns] = useState<CompletedRun[] | null>(null);
   const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [coachOverrides, setCoachOverrides] = useState<Map<string, ParsedPlanOverride>>(new Map());
+  const [selfOverride, setSelfOverrideState] = useState<SelfPlanOverride | null>(null);
   const [planRevealed, setPlanRevealed] = useState(false);
   const [showExample, setShowExample] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
@@ -707,7 +929,30 @@ export default function PlanoPage() {
    * real-adherence reprojection — see `applyCoachOverride`'s own comment.
    */
   const coachOverride = current ? coachOverrides.get(current.currentWeek.startDate) : undefined;
-  const currentWeek = current ? applyCoachOverride(current.currentWeek, coachOverride) : undefined;
+  /**
+   * A self-suggested override (accepted through the disclaimer in
+   * `SelfPlanSuggestionCard`) applies the same way a coach's does, but only
+   * when there isn't one — a coach's explicit choice is a human decision
+   * and always wins over an unsupervised AI suggestion, see
+   * /root/.claude/plans/cronograma-ia-autoatendimento.md.
+   */
+  const effectiveOverride = coachOverride ?? selfOverride ?? undefined;
+  const currentWeek = current ? applyCoachOverride(current.currentWeek, effectiveOverride) : undefined;
+
+  // Local-only, unlike coachOverrides above — see selfPlanOverride.ts. Read
+  // during render rather than an effect (the "adjusting state when a
+  // dependency changes" pattern React's own docs describe): a plain
+  // `localStorage` read is synchronous and side-effect-free from React's
+  // point of view, so there's nothing here an effect would add — this only
+  // needs to re-run the one time `currentWeek.startDate` actually changes,
+  // which the `loadedWeekKey` guard below detects without needing useEffect
+  // at all (and without the extra render+flash an effect would cost).
+  const weekKey = current?.currentWeek.startDate ?? null;
+  const [loadedWeekKey, setLoadedWeekKey] = useState<string | null>(null);
+  if (weekKey !== loadedWeekKey) {
+    setLoadedWeekKey(weekKey);
+    setSelfOverrideState(weekKey ? getSelfPlanOverride(weekKey) : null);
+  }
   const adherence = useMemo(
     () => (currentWeek && completedRuns ? weekAdherence(currentWeek, completedRuns) : null),
     [currentWeek, completedRuns],
@@ -752,6 +997,22 @@ export default function PlanoPage() {
     const actualKmSoFar = current?.weeksActualKm[current.currentWeekIndex] ?? null;
     const qualityCount = currentWeek.sessions.filter((s) => s.kind === "quality").length;
     const runCount = currentWeek.sessions.filter((s) => s.km > 0).length;
+    /**
+     * The same real weekly-volume numbers `generatePlan`'s own ramp is built
+     * from — computed here, not read from any server table, since this
+     * athlete's history already lives entirely on this device (see
+     * `SelfPlanSuggestionCard`'s own comment). The last (current, partial)
+     * week is dropped: only weeks strictly before the one being suggested
+     * count as "trend", same convention `suggest-plan-override` follows
+     * server-side for the coach flow.
+     */
+    const recentWeeksKm = completedRuns
+      ? weeklyBuckets(completedRuns, 5)
+          .slice(0, 4)
+          .map((bucket) => Math.round((bucket.distanceMeters / 1000) * 10) / 10)
+      : [];
+    const activePain = activePainSignal(painCheckIns);
+    const painSignalForAi = activePain ? { severity: activePain.severity, region: activePain.region } : undefined;
 
     return (
       <>
@@ -801,6 +1062,16 @@ export default function PlanoPage() {
                   : "O volume e as sessões abaixo vieram direto do seu treinador, não do cálculo automático."}
               </p>
             </Card>
+          ) : selfOverride ? (
+            <Card className="pr-enter border-accent/30 bg-accent/5" style={delay(95)}>
+              <CardTitle aside={<NoticeBadge>sugerido por ia</NoticeBadge>}>
+                Você aplicou uma sugestão de IA nessa semana
+              </CardTitle>
+              <p className="text-sm leading-relaxed text-pretty">
+                {selfOverride.note ||
+                  "O volume e as sessões abaixo vieram da sugestão que você aceitou, não do cálculo automático."}
+              </p>
+            </Card>
           ) : (
             current?.wasReprojected && (
               <Card className="pr-enter border-accent/30 bg-accent/5" style={delay(95)}>
@@ -817,7 +1088,13 @@ export default function PlanoPage() {
           )}
 
           <Card className="pr-enter" style={delay(110)}>
-            <CardTitle aside={<NoticeBadge>{coachOverride ? "treinador" : "dados reais"}</NoticeBadge>}>
+            <CardTitle
+              aside={
+                <NoticeBadge>
+                  {coachOverride ? "treinador" : selfOverride ? "sugerido por ia" : "dados reais"}
+                </NoticeBadge>
+              }
+            >
               Semana {currentWeek.weekNumber} — {PHASE_LABEL[currentWeek.phase]}
             </CardTitle>
             <WeekStatsRow volumeKm={currentWeek.totalKm} sessions={runCount} hard={qualityCount} />
@@ -863,6 +1140,26 @@ export default function PlanoPage() {
               Ver todos os estudos por trás do plano
             </Link>
           </Card>
+
+          {!coachOverride && (
+            <SelfPlanSuggestionCard
+              weekStartDate={currentWeek.startDate}
+              recentWeeksKm={recentWeeksKm}
+              goalDistanceMeters={profile.goalDistanceMeters!}
+              goalDate={profile.goalDate!}
+              weeklyRunDays={profile.weeklyRunDays}
+              recentRace={
+                profile.recentRaceDistanceMeters && profile.recentRaceTimeSeconds
+                  ? { distanceMeters: profile.recentRaceDistanceMeters, timeSeconds: profile.recentRaceTimeSeconds }
+                  : undefined
+              }
+              painSignal={painSignalForAi}
+              signedIn={Boolean(account)}
+              override={selfOverride}
+              onApplied={setSelfOverrideState}
+              onRemoved={() => setSelfOverrideState(null)}
+            />
+          )}
 
           <GoalCard profile={profile} updateProfile={updateProfile} />
         </Screen>

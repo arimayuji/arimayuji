@@ -580,9 +580,37 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   função. Continua exigindo login (mesmo padrão de amigos/treinador/
   ranking, pra não abrir a primeira ação paga sem autenticação do
   dispatcher) — não fere a promessa de "sem login pra gravar corrida",
-  já que isso é extra, não core. Ainda não implementado; algumas perguntas
-  de design ficaram em aberto na spec (frequência de uso, expiração do
-  override, hierarquia se coexistir com override de treinador).
+  já que isso é extra, não core. **Implementado em 2026-08-25, branch
+  `claude/strava-competitor-feedback-cyvop8`, ainda não deployado em
+  produção** — as 4 perguntas em aberto da spec foram decididas (1
+  sugestão por semana, override preso à semana com remoção manual, override
+  de treinador sempre vence, nomes `suggest-plan-for-self`/
+  `xanthus:self-plan-override:{weekStartDate}`) e codadas:
+  - `appwrite-functions/client-actions/src/main.js`: nova action
+    `suggest-plan-for-self`, gêmea de `suggest-plan-override` mas sem
+    nenhum lookup em tabela (nem `coach_relationships`, nem `runs`) — só
+    valida o corpo, monta o mesmo prompt/schema/teto de segurança
+    reaproveitando `EVIDENCE_EXCERPT`/`RESPONSE_SCHEMA`/`capNextWeekKm` já
+    existentes.
+  - `src/lib/selfPlanSuggestion.ts` (novo): chama a action acima,
+    reaproveita o tipo `PlanSuggestion` de `coachPlanSuggestion.ts`.
+  - `src/lib/selfPlanOverride.ts` (novo): CRUD 100% local
+    (`localStorage`, sem Appwrite) do override aceito, uma chave por
+    semana.
+  - `/plano`: novo card "Sugestão de treino com IA" (campo de contexto
+    livre opcional + botão, ou a sugestão já aplicada + "Remover"),
+    modal de disclaimer obrigatório antes de `setSelfPlanOverride`
+    (nunca aplica direto na resposta da IA), badge "sugerido por ia" nos
+    lugares que já mostravam "treinador"/"dados reais". Override efetivo
+    agora é `coachOverride ?? selfOverride` tanto em `/plano` quanto no
+    chip "Treino de hoje" em `/run` — treinador sempre vence quando os
+    dois existem pra mesma semana.
+  - Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` (rota
+    `/oauth-callback` já existia; nenhuma rota nova aqui, é tudo dentro
+    de `/plano`/`/run`) — todos limpos. **Não testado em produção** —
+    precisa de login real + histórico real + `GEMINI_API_KEY` já
+    configurada (reaproveitada, nenhum secret novo) pra confirmar o
+    fluxo ponta a ponta.
 - **Calendário de corridas de rua por cidade** — pedido em 2026-08-25: a
   pessoa poder ver quais maratonas/corridas de rua vão acontecer na cidade
   dela dentro do app, em vez de precisar procurar espalhado pela internet.

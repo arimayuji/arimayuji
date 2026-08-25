@@ -760,6 +760,172 @@ Responda só o JSON pedido.`;
 }
 
 /**
+ * action: "suggest-plan-for-self" — the athlete's own self-service version
+ * of `suggestPlanOverride` above: same RAG-grounded Gemini call, same
+ * evidence excerpt, same safety cap, same response shape — but with no
+ * coach in the loop at all. See the spec at
+ * /root/.claude/plans/cronograma-ia-autoatendimento.md for the full
+ * reasoning; the short version:
+ *
+ * - No `coach_relationships` check — the caller is asking about their own
+ *   account, not a student's.
+ * - No `runs` table read. The athlete's own recent volume already lives
+ *   entirely on their own device (IndexedDB) — the client computes
+ *   `recentWeeksKm` locally (see `src/lib/tracking/stats.ts`'s
+ *   `weeklyBuckets`) and sends it in the request body, the same numbers
+ *   `suggestPlanOverride` would otherwise have had to reconstruct from a
+ *   table only a *shared* run ever reaches. This is why this feature never
+ *   needed the cross-device sync work considered (and shelved) for the
+ *   coach dashboard.
+ * - Still requires a session (not in `PUBLIC_ACTIONS`) even though it reads
+ *   no privileged table — calling Gemini costs real money per request, and
+ *   gating it behind the same login amigos/treinador/ranking already
+ *   require is a cheap abuse guard, not a break from "sem login pra
+ *   gravar corrida" (this is an enhancement, not core tracking).
+ * - The result is never written here — same "suggests, never saves"
+ *   contract as the coach version. The client is responsible for showing
+ *   the mandatory disclaimer and, only after explicit acceptance, storing
+ *   the accepted week as a local override (`src/lib/selfPlanOverride.ts`)
+ *   — there is no Appwrite table for this at all, by design.
+ */
+async function suggestPlanForSelf({ body, res, error }) {
+  if (!process.env.GEMINI_API_KEY) {
+    return res.json({ error: "ai-not-configured" }, 500);
+  }
+
+  const { weekStartDate, goalDistanceMeters, goalDate, weeklyRunDays, recentRace, painSignal } = body;
+  const athleteNote = typeof body.athleteNote === "string" ? body.athleteNote.trim().slice(0, 300) : "";
+
+  if (typeof weekStartDate !== "string" || !WEEK_START_DATE_RE.test(weekStartDate)) {
+    return res.json({ error: "invalid-week-start-date" }, 400);
+  }
+
+  const recentWeeksKm = Array.isArray(body.recentWeeksKm) ? body.recentWeeksKm : [];
+  const validWeeks = recentWeeksKm.every(
+    (km) => typeof km === "number" && Number.isFinite(km) && km >= 0 && km <= MAX_KM_PER_WEEK,
+  );
+  if (recentWeeksKm.length === 0 || !validWeeks) {
+    return res.json({ error: "no-history" }, 422);
+  }
+
+  if (typeof goalDistanceMeters !== "number" || !Number.isFinite(goalDistanceMeters) || goalDistanceMeters <= 0) {
+    return res.json({ error: "missing-goal" }, 400);
+  }
+  if (typeof goalDate !== "string" || !WEEK_START_DATE_RE.test(goalDate)) {
+    return res.json({ error: "missing-goal" }, 400);
+  }
+
+  const lastWeek = recentWeeksKm[recentWeeksKm.length - 1];
+  const twoWeeksAgo = recentWeeksKm.length >= 2 ? recentWeeksKm[recentWeeksKm.length - 2] : lastWeek;
+  const capKm = Math.round(Math.min(lastWeek * WEEKLY_STEP, twoWeeksAgo * TWO_WEEK_CEILING) * 10) / 10;
+
+  const weeksUntilGoal = Math.max(
+    0,
+    Math.round((new Date(`${goalDate}T00:00:00Z`).getTime() - new Date(`${weekStartDate}T00:00:00Z`).getTime()) / (7 * MS_PER_DAY)),
+  );
+
+  const evidenceBlock = EVIDENCE_EXCERPT.map((f) => `- [${f.strength}] ${f.claim}`).join("\n");
+  const trendBlock = recentWeeksKm
+    .map((km, i) => `Semana -${recentWeeksKm.length - i}: ${km} km reais`)
+    .join("\n");
+  const goalKm = Math.round((goalDistanceMeters / 1000) * 10) / 10;
+  const prompt = `Evidência científica disponível (use como base, não invente números além destes):
+${evidenceBlock}
+
+Histórico real de volume semanal do próprio atleta (mais recente por último):
+${trendBlock}
+
+Objetivo do atleta: uma prova de ${goalKm} km em ${goalDate}, faltando aproximadamente ${weeksUntilGoal} semana(s) a partir da semana a planejar.
+${weeklyRunDays ? `Dias de corrida por semana disponíveis: ${weeklyRunDays}.` : ""}
+${recentRace?.distanceMeters && recentRace?.timeSeconds ? `Prova/treino forte recente: ${Math.round((recentRace.distanceMeters / 1000) * 10) / 10} km em ${Math.round(recentRace.timeSeconds / 60)} min.` : ""}
+${painSignal?.severity ? `Sinal de dor/desconforto ativo, sinalizado pelo próprio atleta: intensidade "${painSignal.severity}"${painSignal.region ? ` na região "${painSignal.region}"` : ""} — leve isso a sério, é o fator de risco mais forte pra nova lesão.` : "Nenhuma dor/desconforto ativo sinalizado."}
+Semana a planejar: começa em ${weekStartDate} (segunda-feira).
+Limite de segurança pra essa semana: no máximo ${capKm} km no total — esse limite já reflete a evidência acima (progressão gradual + teto de 30%/2 semanas) e será aplicado de qualquer forma depois da sua resposta, então sugira dentro dele.
+${athleteNote ? `Contexto que o próprio atleta passou sobre si/essa semana: "${athleteNote}"` : "O atleta não passou nenhum contexto adicional."}
+
+Monte UMA semana de treino (responda os 7 dias na ordem segunda a domingo) pra esse atleta:
+- "kind": "rest" (descanso), "easy" (corrida leve), "quality" (treino forte — intervalado/limiar), ou "long" (longão).
+- "km": distância do dia (0 se for descanso).
+- "paceZone" só quando "kind" for "quality": "easy", "marathon", "threshold", "interval" ou "repetition".
+- No máximo 1 dia "quality" e 1 dia "long" na semana — o resto fácil ou descanso (princípio 80/20 acima).
+- "note": 1-2 frases curtas em português, em tom de treinador falando diretamente com o atleta, explicando o foco da semana.
+- "reasoning": 2-3 frases curtas em português, explicando pro próprio atleta por que essa semana ficou assim — cite os números reais da tendência acima, não frases genéricas tipo "seguindo boas práticas". Se o atleta passou contexto ou há dor/desconforto ativo sinalizado, essa resposta PRECISA dizer explicitamente como isso pesou na escolha — nunca ignorar em silêncio um sinal que foi passado.
+
+Responda só o JSON pedido.`;
+
+  let geminiResponse;
+  try {
+    geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json", responseSchema: RESPONSE_SCHEMA, temperature: 0.4 },
+        }),
+      },
+    );
+  } catch (err) {
+    error(`suggest-plan-for-self: Gemini request failed: ${err.message}`);
+    return res.json({ error: "ai-unavailable" }, 502);
+  }
+
+  if (!geminiResponse.ok) {
+    const errorText = await geminiResponse.text().catch(() => "");
+    error(`suggest-plan-for-self: Gemini returned ${geminiResponse.status}: ${errorText.slice(0, 500)}`);
+    return res.json({ error: "ai-unavailable" }, 502);
+  }
+
+  const geminiBody = await geminiResponse.json();
+  const text = geminiBody.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  let suggestion;
+  try {
+    suggestion = JSON.parse(text ?? "");
+  } catch {
+    return res.json({ error: "ai-invalid-response" }, 502);
+  }
+
+  const sessions = suggestion.sessions;
+  if (!Array.isArray(sessions) || sessions.length !== 7) {
+    return res.json({ error: "ai-invalid-response" }, 502);
+  }
+  const cleanSessions = [];
+  for (const session of sessions) {
+    const validKind = VALID_KINDS.includes(session?.kind);
+    const validKm = typeof session?.km === "number" && Number.isFinite(session.km) && session.km >= 0;
+    if (!validKind || !validKm) {
+      return res.json({ error: "ai-invalid-response" }, 502);
+    }
+    const clean = { kind: session.kind, km: Math.round(session.km * 10) / 10 };
+    if (session.kind === "quality" && VALID_ZONES.includes(session.paceZone)) {
+      clean.paceZone = session.paceZone;
+    }
+    cleanSessions.push(clean);
+  }
+
+  const suggestedTotalKm = Math.round(cleanSessions.reduce((sum, s) => sum + s.km, 0) * 10) / 10;
+  const finalTotalKm = capNextWeekKm(recentWeeksKm, suggestedTotalKm);
+  const capped = finalTotalKm < suggestedTotalKm;
+  const scale = suggestedTotalKm > 0 ? finalTotalKm / suggestedTotalKm : 1;
+  const finalSessions = capped
+    ? cleanSessions.map((s) => ({ ...s, km: Math.round(s.km * scale * 10) / 10 }))
+    : cleanSessions;
+
+  return res.json({
+    ok: true,
+    sessions: finalSessions,
+    note: typeof suggestion.note === "string" ? suggestion.note.slice(0, 300) : "",
+    reasoning: typeof suggestion.reasoning === "string" ? suggestion.reasoning.slice(0, 500) : "",
+    totalKm: Math.round(finalSessions.reduce((sum, s) => sum + s.km, 0) * 10) / 10,
+    capped,
+    capKm,
+    rawSuggestedTotalKm: suggestedTotalKm,
+  });
+}
+
+/**
  * Sends one of the fixed milestone pushes (see `MILESTONE_MESSAGES` above)
  * to the caller's own account — never to anyone else, `users: [userId]`
  * always resolves to the authenticated caller from `x-appwrite-user-id`.
@@ -1016,6 +1182,7 @@ const ACTIONS = {
   "claim-owned-row": claimOwnedRow,
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,
+  "suggest-plan-for-self": suggestPlanForSelf,
   "send-milestone-notification": sendMilestoneNotification,
   "subscribe-update-topic": subscribeUpdateTopic,
   "apple-native-signin": appleNativeSignIn,
