@@ -167,6 +167,49 @@ const TREINADOR_TAB: TabDefinition = {
   ),
 };
 
+/**
+ * The `lg:` sidebar's own navigation — a desktop-width browser visit to
+ * this app is, in practice, always a coach at a laptop (see
+ * PROJECT-CONTEXT.md's "web é um produto à parte": decision/planning,
+ * grounded in data the coach already has on their students, never GPS
+ * tracking — there is no browser equivalent of a run in progress).
+ * Reusing the athlete's 5 tabs here at first — Corrida included, which
+ * just opens `/run`'s recording setup with nothing to record — made this
+ * sidebar a reskinned copy of the phone's nav instead of navigation that
+ * fits what a desktop visit is actually for. Kept independent of `TABS`/
+ * `TREINADOR_TAB` above (a couple of icons duplicated) rather than
+ * indexing into that array, since this list answers a different question
+ * ("what does a coach need at a desk") and shouldn't silently drift if
+ * the athlete tab set ever changes shape.
+ */
+const DESKTOP_TABS: TabDefinition[] = [
+  {
+    href: "/treinador/sala",
+    label: "Sala de Treino",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
+        <path d="M4 15.5 9.5 10l3.5 3.5L20 6" />
+        <path d="M14.5 6h5.5v5.5" />
+      </svg>
+    ),
+  },
+  {
+    href: "/treinador",
+    label: "Alunos & convites",
+    icon: TREINADOR_TAB.icon,
+  },
+  {
+    href: "/perfil",
+    label: "Perfil",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
+        <circle cx="12" cy="8.25" r="3.75" />
+        <path d="M4.5 20.25a7.5 7.5 0 0 1 15 0" />
+      </svg>
+    ),
+  },
+];
+
 function isActive(pathname: string, tab: TabDefinition): boolean {
   const candidates = [tab.href, ...(tab.alsoMatches ?? [])];
   return candidates.some(
@@ -221,11 +264,15 @@ function BottomNav({ hidden }: { hidden: boolean }) {
         <span className="font-mono text-base font-semibold tracking-wide text-foreground">Xanthus</span>
       </div>
 
-      <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)] lg:mx-0 lg:max-w-none lg:flex-col lg:items-stretch lg:gap-1 lg:px-3 lg:py-4">
+      {/* Mobile/native tab bar — the athlete's 5 tabs (or the treinador swap-in
+          for tab 0), unchanged from before this file had a `lg:` mode at all.
+          Hidden outright at `lg:`, where the sidebar list below takes over
+          with its own, different set of destinations. */}
+      <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)] lg:hidden">
         {tabs.map((tab) => {
           const active = isActive(pathname, tab);
           return (
-            <li key={tab.href} className="flex-1 lg:flex-none">
+            <li key={tab.href} className="flex-1">
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
@@ -233,20 +280,43 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                   if (active) window.dispatchEvent(new CustomEvent(TAB_RECLICK_EVENT, { detail: tab.href }));
                 }}
                 /* 64px+ tall target: this gets tapped mid-exercise. */
-                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors lg:h-10 lg:min-h-0 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-lg lg:px-3 lg:py-0 lg:text-sm ${
-                  active
-                    ? "font-bold text-white lg:bg-accent/10 lg:font-semibold lg:text-accent"
-                    : "font-medium text-white/85 lg:text-muted lg:hover:bg-background/60 lg:hover:text-foreground"
+                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors ${
+                  active ? "font-bold text-white" : "font-medium text-white/85"
                 }`}
               >
                 <tab.icon className="h-[22px] w-[22px]" />
                 {tab.label}
-                {/* Selection indicator: a thin underline, not a pill behind the icon — tested, a background pill there read as visually busy. Width transitions in/out instead of a hard cut. Hidden on the sidebar, where the row's own background (above) already marks the active item. */}
+                {/* Selection indicator: a thin underline, not a pill behind the icon — tested, a background pill there read as visually busy. Width transitions in/out instead of a hard cut. */}
                 <span
-                  className="h-[3px] rounded-full bg-white transition-[width] duration-200 ease-out lg:hidden"
+                  className="h-[3px] rounded-full bg-white transition-[width] duration-200 ease-out"
                   style={{ width: active ? "16px" : "0px" }}
                   aria-hidden="true"
                 />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Desktop sidebar list — DESKTOP_TABS, not `tabs`: see that constant's
+          own comment for why this is a genuinely different destination set,
+          not the athlete tabs reskinned. Own background-highlight active
+          state instead of the mobile underline, which reads oddly on a
+          horizontal row of icon+label rather than a stacked icon-over-label. */}
+      <ul className="hidden lg:flex lg:flex-col lg:items-stretch lg:gap-1 lg:px-3 lg:py-4">
+        {DESKTOP_TABS.map((tab) => {
+          const active = isActive(pathname, tab);
+          return (
+            <li key={tab.href}>
+              <Link
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
+                  active ? "bg-accent/10 font-semibold text-accent" : "text-muted hover:bg-background/60 hover:text-foreground"
+                }`}
+              >
+                <tab.icon className="h-[22px] w-[22px]" />
+                {tab.label}
               </Link>
             </li>
           );
