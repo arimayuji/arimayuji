@@ -129,9 +129,11 @@ export function PillTabs<T extends string>({
 }
 
 /** Neutral counterpart for things that are real but not yet persisted. */
-export function NoticeBadge({ children }: { children: ReactNode }) {
+export function NoticeBadge({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <span className="inline-block rounded-full border border-border bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+    <span
+      className={`inline-block rounded-full border border-border bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted ${className}`}
+    >
       {children}
     </span>
   );
@@ -150,21 +152,43 @@ export function NoticeBadge({ children }: { children: ReactNode }) {
  */
 const SCREEN_WIDTH = "max-w-md";
 const SCREEN_WIDTH_WIDE = "max-w-md lg:max-w-6xl";
+/**
+ * A third option besides the phone-narrow default and the `wide` dashboard
+ * grid: a moderate reading width that, critically, drops the `mx-auto`
+ * centering at `lg:` (`lg:mx-0`) instead of just widening it. A handful of
+ * short cards centered inside a `wide` 6xl column still reads as "floating
+ * in the middle of a mostly-empty screen" — this anchors them to the left
+ * edge (under the sidebar) like an actual desktop settings panel, at a
+ * width that keeps prose/labels from stretching edge-to-edge. Only makes
+ * sense paired with content that's deliberately short (see /perfil), never
+ * a substitute for `wide`'s own multi-column dashboards.
+ */
+const SCREEN_WIDTH_PANEL = "max-w-md lg:mx-0 lg:max-w-2xl";
 
 export function ScreenHeader({
   title,
   subtitle,
   badge,
   wide = false,
+  compactOnWide = false,
 }: {
   title: string;
   subtitle?: ReactNode;
   badge?: ReactNode;
   wide?: boolean;
+  /**
+   * Collapses this whole header at `lg:` — for a page whose `title` is
+   * already the exact label the desktop sidebar shows for it (app-shell.tsx's
+   * DESKTOP_TABS — "Perfil" the tab, "Perfil" the h1 right below it), where
+   * repeating it as a giant heading is redundant chrome, not information.
+   * Never affects the native app/narrow browser, which has no sidebar this
+   * would double up with in the first place.
+   */
+  compactOnWide?: boolean;
 }) {
   return (
     <header
-      className="pr-enter px-5 pb-5"
+      className={`pr-enter px-5 pb-5 ${compactOnWide ? "lg:hidden" : ""}`}
       // The top safe-area inset AND the gradient AppHeader's own height
       // (app-shell.tsx) are both handled once, as padding on the shell's
       // scroll container — every screen that uses ScreenHeader renders
@@ -186,11 +210,23 @@ export function ScreenHeader({
   );
 }
 
-/** Standard content column for every app screen: one max-width, one gutter — see `wide`'s own comment above `SCREEN_WIDTH`. */
-export function Screen({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+/** Standard content column for every app screen: one max-width, one gutter — see `wide`'s own comment above `SCREEN_WIDTH`, and `panel`'s above `SCREEN_WIDTH_PANEL`. `wide` and `panel` are mutually exclusive; `wide` wins if both are somehow passed. */
+export function Screen({
+  children,
+  wide = false,
+  panel = false,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+  panel?: boolean;
+}) {
   return (
     <main className="flex flex-1 flex-col px-5 pb-10">
-      <div className={`mx-auto flex w-full flex-1 flex-col gap-4 ${wide ? SCREEN_WIDTH_WIDE : SCREEN_WIDTH}`}>{children}</div>
+      <div
+        className={`mx-auto flex w-full flex-1 flex-col gap-4 ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH}`}
+      >
+        {children}
+      </div>
     </main>
   );
 }

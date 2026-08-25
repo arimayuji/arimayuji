@@ -277,6 +277,104 @@ desligado por completo, ver "O produto, em uma frase" acima):
   agora com poucas contas em teste fechado). **Ainda não submetido/testado
   em build novo** — esse fix ainda não chegou num build real no
   TestFlight.
+- **Web (Sala de Treino/`/treinador` no navegador desktop): login falha com
+  "guests" mesmo depois do OAuth completar de verdade, achado em 2026-08-25**.
+  Relato real do dono do projeto: clicou "Entrar", completou o consentimento
+  do Google (aceitou acesso ao Gmail de verdade), voltou pro navegador na
+  tela do treinador e continuava pedindo login. Confirmado via DevTools:
+  toda chamada `GET account` depois do redirect volta
+  `401 general_unauthorized_scope`, `"User (role: guests) missing scopes
+  ([\"account\"])"` — ou seja, o Appwrite nunca viu o Google recusar nada, o
+  problema é depois: o app não reconhece a sessão que o próprio Appwrite
+  acabou de criar.
+  **Causa raiz**: `NEXT_PUBLIC_APPWRITE_ENDPOINT` (`.env.local`) é
+  `https://nyc.cloud.appwrite.io/v1` — domínio diferente de
+  `xanthus.app.br`. O cookie de sessão do `createOAuth2Session` fica
+  hospedado em `nyc.cloud.appwrite.io`; quando o app (rodando em
+  `xanthus.app.br`) chama `account.get()` depois do redirect, isso é uma
+  request cross-site pro domínio do Appwrite — navegadores com bloqueio de
+  cookie de terceiros (padrão crescente em Chrome/Firefox/Safari, ou
+  extensão de privacidade) descartam esse cookie, então toda chamada
+  seguinte lê como visitante. É puramente sobre a chamada `account.get()`
+  do lado do app, não sobre CORS (a resposta 401 chega normal, só que como
+  "guests") nem sobre o OAuth em si (que termina certinho do lado do
+  Google/Appwrite). **Só afeta o navegador desktop** — o app nativo
+  (Android/iOS) nunca teve esse sintoma porque usa o fluxo de *token*
+  (`oauth2TokenUrl`/`Browser.open`, ver comentário em `auth.ts`), que nunca
+  depende de cookie cross-site pra começo de conversa.
+  **Fix tentado e revertido (2026-08-25)**: domínio customizado da API no Appwrite
+  Console (Project Settings → Domains), subdomínio `cloud.xanthus.app.br` —
+  não por CNAME, o Appwrite pediu delegação por **NS** desse subdomínio
+  específico (`ns1.appwrite.zone`/`ns2.appwrite.zone`, dois registros NS
+  criados na zona `xanthus.app.br` na Cloudflare, sem afetar o resto do
+  domínio). **Verificado com sucesso no Appwrite Console pelo dono do projeto** —
+  status "Verified" tanto no Appwrite Console quanto na própria Cloudflare
+  (os dois registros NS na zona `xanthus.app.br` conferidos nas duas
+  telas; a delegação é só desse subdomínio, dentro da zona já delegada do
+  Registro.br pra Cloudflare — não mexe no domínio raiz nem precisa de
+  nada no Registro.br). Endpoint chegou a ir pro ar de verdade (secret do
+  GitHub Actions atualizado + deploy manual via `workflow_dispatch` do
+  `android-build.yml`, run #170, 2026-08-25) — mas o certificado SSL desse
+  subdomínio nunca saiu do lado do Appwrite: 3+ horas depois do DNS
+  verificado, o navegador ainda recebia erro de certificado (via Fastly,
+  a CDN que o Appwrite usa por trás — "host does not match any SAN on TLS
+  certificate", ou seja, o roteamento chega até o Appwrite mas o
+  certificado desse domínio específico nunca carregou do lado deles).
+  Sem opção de forçar/reemitir certificado na aba Settings do domínio no
+  Console. **Revertido em 2026-08-25** — `.env.local` voltou pra
+  `https://nyc.cloud.appwrite.io/v1`; o secret do GitHub Actions também
+  precisa voltar (mesma trilha manual) e rodar outro deploy pra valer em
+  produção. Volta o problema original de "guests" em navegador com
+  bloqueio de cookie de terceiro (achado acima), mas sem quebrar o login
+  por completo com erro de certificado. **`cloud.xanthus.app.br` fica
+  registrado no Appwrite Console pra retomar depois** — se o certificado
+  eventualmente sair sozinho (ou o suporte do Appwrite destravar
+  manualmente), é só trocar o endpoint de volta, sem refazer DNS nenhum.
+  **Pesquisa adicional (2026-08-25)**: confirmado no fórum oficial do
+  Appwrite que certificado nunca ser emitido é um problema **recorrente**
+  da plataforma deles (vários threads idênticos, um citando literalmente
+  "reached the max number of certificates" do lado da Fastly) — não é
+  peculiaridade desse domínio. Também confirmado que a CA usada
+  (`certainly.com`, no CAA gerado automaticamente) é a própria CA da
+  Fastly — ou seja, o erro que aparecia (SAN mismatch via Fastly) é 100%
+  interno à dupla Appwrite+Fastly, sem nada a mais pra ajustar do lado do
+  DNS. Apagar e recriar o domínio no Console (sugestão recorrente nos
+  threads) não resolveu nesse caso — tentado, ainda travado.
+  **Fix definitivo aplicado (2026-08-25), sem depender do Appwrite**:
+  `worker/index.js`, um Worker de verdade na frente do Cloudflare Workers
+  Assets (antes o deploy era só arquivos estáticos, sem nenhum código) —
+  qualquer chamada sob `/v1/*` (exatamente o que o SDK do Appwrite já
+  chama) é repassada pelo próprio Worker pro endpoint real do Appwrite
+  (`nyc.cloud.appwrite.io`), never o navegador falando direto com ele.
+  Do ponto de vista do navegador isso é same-origin (só fala com
+  `xanthus.app.br`) — o cookie de sessão nunca é cross-site, resolve o
+  bug de "guests" sem esperar certificado nenhum de terceiro. Detalhes:
+  - `src/lib/appwrite.ts`: endpoint agora é escolhido por plataforma —
+    `NEXT_PUBLIC_APPWRITE_ENDPOINT` (endpoint real do Appwrite) continua
+    valendo sem mudança nenhuma pro app nativo (nunca teve esse bug,
+    WebView não é sujeito a bloqueio de cookie de terceiro do jeito que
+    Safari/Chrome desktop são); `NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT`
+    (`https://xanthus.app.br/v1`, novo) só é usado quando
+    `isNativePlatform()` é falso.
+  - `worker/index.js`: proxy simples — clona o request pra
+    `https://nyc.cloud.appwrite.io` mantendo path/método/headers/corpo
+    (mesmo idioma que a própria Cloudflare documenta, inclusive cobre
+    upgrade de WebSocket automaticamente — usado pelo Appwrite Realtime,
+    corrida ao vivo); remove qualquer `Domain=` explícito dos
+    `Set-Cookie` de volta, forçando cookie host-only pro
+    `xanthus.app.br` (sem isso, um `Domain=` apontando pro host real do
+    Appwrite faria o navegador descartar o cookie por mismatch).
+  - `wrangler.jsonc`: ganhou `"main": "worker/index.js"` +
+    `"assets": {"binding": "ASSETS", ...}` — o script roda primeiro,
+    delega pros assets estáticos (`env.ASSETS.fetch`) sempre que a rota
+    não é `/v1/*`.
+  - Testado localmente via `wrangler dev`: assets estáticos (`/`,
+    `/perfil/`) continuam servindo normal, `/v1/health` e `/v1/account`
+    retornam resposta real do Appwrite (não erro de rede) — confirma que
+    o proxy está de fato alcançando o backend real. **Não testado**: o
+    fluxo de OAuth completo de verdade num navegador (precisa de deploy
+    real + login real do Google, não dá pra simular headless aqui) — o
+    dono do projeto precisa confirmar isso depois do deploy.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)

@@ -24,8 +24,8 @@ import Link from "next/link";
  * joining the group alone doesn't enroll anyone; they still need to accept
  * on the Play link afterward. This section renders nothing until both are set.
  */
-const BETA_GROUP_URL: string | null = null;
-const BETA_OPTIN_URL: string | null = null;
+const BETA_GROUP_URL: string | null = "https://groups.google.com/g/xanthus-runner-tester";
+const BETA_OPTIN_URL: string | null = "https://play.google.com/apps/testing/com.xanthus.app";
 
 interface VersionInfo {
   versionCode: number;
