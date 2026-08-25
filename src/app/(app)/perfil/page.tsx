@@ -191,12 +191,16 @@ function DiscoveryRow({
  * A plain label, not a `Card` — this screen collects a lot of unrelated
  * settings in one scroll, and grouping them under a few named clusters is
  * what actually addresses that ("muito poluída"), not moving cards around
- * without changing what the page reads like.
+ * without changing what the page reads like. Always spans both columns of
+ * the `lg:` grid below (see `PerfilPage`) — a section header sitting inside
+ * a single grid cell, next to unrelated cards, wouldn't read as a header at
+ * all on desktop; `lg:col-span-2` is a no-op on the single-column mobile/
+ * native layout, where it's already full-width by default.
  */
 function SectionLabel({ children, delayMs }: { children: React.ReactNode; delayMs: number }) {
   return (
     <p
-      className="pr-enter mt-2 px-1 text-xs font-semibold tracking-[0.14em] text-muted uppercase first:mt-0"
+      className="pr-enter mt-2 px-1 text-xs font-semibold tracking-[0.14em] text-muted uppercase first:mt-0 lg:col-span-2 lg:mt-4"
       style={delay(delayMs)}
     >
       {children}
@@ -1200,203 +1204,233 @@ export default function PerfilPage() {
   return (
     <>
       <ScreenHeader
+        wide
         title="Perfil"
         subtitle="Preferências que já valem de verdade, e o que ainda é maquete."
       />
 
-      <Screen>
-        <AccountCard />
-        <AppModeCard />
+      {/*
+        Two real columns at `lg:` instead of the phone-width single column
+        (the athlete's own layout, correct there) just stretched wider — a
+        wide browser window is a coach at a desk, same reasoning as
+        `/treinador/sala`'s own grid, and this page has enough independent
+        setting groups to actually fill two columns instead of one long
+        scroll. `SectionLabel` always spans both columns (see its own
+        comment) so a header never sits inside a lopsided single cell.
+        `lg:items-start` keeps a short card from stretching to match a much
+        taller neighbor in the same row. Every `lg:` class here is a no-op
+        on the native app/narrow browser, which never reports a viewport
+        wide enough to trigger it — the stacked single column is unchanged
+        there.
+      */}
+      <Screen wide>
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 lg:gap-y-5">
+          <div className="lg:col-span-2">
+            <AccountCard />
+          </div>
+          <AppModeCard />
 
-        <SectionLabel delayMs={20}>Aparência</SectionLabel>
-        <Card className="pr-enter" style={delay(30)}>
-          <CardTitle>Tema</CardTitle>
-          <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-            &quot;Sistema&quot; segue o tema do aparelho e muda sozinho se você trocar por lá.
-          </p>
-          <PillTabs tabs={THEMES} active={prefs.theme} onChange={(theme) => update({ theme })} />
-        </Card>
-
-        <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
-        <Card className="pr-enter" style={delay(50)}>
-          <DiscoveryRow
-            href="/lugares"
-            icon={<PlacesIcon className="h-4.5 w-4.5" />}
-            label="Lugares pra correr"
-            caption="Parques e rotas avaliados por quem já correu lá"
-            tag="São Paulo"
-          />
-          <DiscoveryRow
-            href="/amigos"
-            icon={<FriendsIcon className="h-4.5 w-4.5" />}
-            label="Amigos"
-            caption="Adicione quem você corre junto pelo @"
-            tag="precisa de conta"
-          />
-          <DiscoveryRow
-            href="/treinador"
-            icon={<CoachIcon className="h-4.5 w-4.5" />}
-            label="Treinador"
-            caption="Conecte com quem te treina ou com quem você treina"
-            tag="precisa de conta"
-          />
-          <DiscoveryRow
-            href="/longao"
-            icon={<LongaoIcon className="h-4.5 w-4.5" />}
-            label="Longão"
-            caption="Corrida em grupo com código — só amigos entram"
-            tag="precisa de conta"
-          />
-          <DiscoveryRow
-            href="https://instagram.com/xanthus.oficial"
-            external
-            icon={<InstagramIcon className="h-4.5 w-4.5" />}
-            label="Instagram"
-            caption="@xanthus.oficial · corridas de quem já usa o app"
-            tag="conectar"
-          />
-        </Card>
-
-        <PlaceLeaderboardCard />
-        <PlaylistCard />
-
-        <SectionLabel delayMs={110}>Treino</SectionLabel>
-        <Card className="pr-enter" style={delay(120)}>
-          <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
-            Preferências de corrida
-          </CardTitle>
-
-          <fieldset>
-            <legend className="text-sm font-medium">Aviso por voz a cada</legend>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              Valor inicial da tela de corrida. Dá pra mudar antes de cada treino.
+          <SectionLabel delayMs={20}>Aparência</SectionLabel>
+          <Card className="pr-enter" style={delay(30)}>
+            <CardTitle>Tema</CardTitle>
+            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+              &quot;Sistema&quot; segue o tema do aparelho e muda sozinho se você trocar por lá.
             </p>
-            <PillSlider
-              className="mt-4"
-              min={ANNOUNCE_MIN_METERS}
-              max={ANNOUNCE_MAX_METERS}
-              step={ANNOUNCE_STEP_METERS}
-              value={prefs.announceIntervalMeters}
-              onChange={(meters) => update({ announceIntervalMeters: meters })}
-              formatValue={announceLabel}
+            <PillTabs tabs={THEMES} active={prefs.theme} onChange={(theme) => update({ theme })} />
+          </Card>
+
+          <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
+          <Card className="pr-enter" style={delay(50)}>
+            <DiscoveryRow
+              href="/lugares"
+              icon={<PlacesIcon className="h-4.5 w-4.5" />}
+              label="Lugares pra correr"
+              caption="Parques e rotas avaliados por quem já correu lá"
+              tag="São Paulo"
             />
-            <div className="mt-1.5 flex justify-between font-mono text-[10px] text-muted">
-              <span>{announceLabel(ANNOUNCE_MIN_METERS)}</span>
-              <span>{announceLabel(ANNOUNCE_MAX_METERS)}</span>
-            </div>
-          </fieldset>
+            <DiscoveryRow
+              href="/amigos"
+              icon={<FriendsIcon className="h-4.5 w-4.5" />}
+              label="Amigos"
+              caption="Adicione quem você corre junto pelo @"
+              tag="precisa de conta"
+            />
+            <DiscoveryRow
+              href="/treinador"
+              icon={<CoachIcon className="h-4.5 w-4.5" />}
+              label="Treinador"
+              caption="Conecte com quem te treina ou com quem você treina"
+              tag="precisa de conta"
+            />
+            <DiscoveryRow
+              href="/longao"
+              icon={<LongaoIcon className="h-4.5 w-4.5" />}
+              label="Longão"
+              caption="Corrida em grupo com código — só amigos entram"
+              tag="precisa de conta"
+            />
+            <DiscoveryRow
+              href="https://instagram.com/xanthus.oficial"
+              external
+              icon={<InstagramIcon className="h-4.5 w-4.5" />}
+              label="Instagram"
+              caption="@xanthus.oficial · corridas de quem já usa o app"
+              tag="conectar"
+            />
+          </Card>
 
-          <fieldset className="mt-6 border-t border-border pt-5">
-            <legend className="text-sm font-medium">Unidade de distância</legend>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              Aplicada no histórico. A tela de corrida segue em km enquanto o tracking está em
-              validação.
-            </p>
-            <div className="mt-3">
-              <PillTabs
-                tabs={UNITS.map((unit) => ({ id: unit.value, label: unit.label }))}
-                active={prefs.distanceUnit}
-                onChange={(value) => update({ distanceUnit: value })}
-              />
-              <p className="mt-1.5 font-mono text-[10px] text-muted">
-                {UNITS.find((unit) => unit.value === prefs.distanceUnit)?.hint}
+          <PlaceLeaderboardCard />
+          <PlaylistCard />
+
+          <SectionLabel delayMs={110}>Treino</SectionLabel>
+          <div className="lg:col-span-2">
+            <Card className="pr-enter" style={delay(120)}>
+              <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
+                Preferências de corrida
+              </CardTitle>
+
+              {/* Own 2-up sub-grid at `lg:` — four independent fieldsets read
+                  as one continuous form when squeezed into a single half-width
+                  column; side by side they fit this card's now-doubled width
+                  without wasting it as empty margin. */}
+              <div className="lg:grid lg:grid-cols-2 lg:gap-x-8">
+                <fieldset>
+                  <legend className="text-sm font-medium">Aviso por voz a cada</legend>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">
+                    Valor inicial da tela de corrida. Dá pra mudar antes de cada treino.
+                  </p>
+                  <PillSlider
+                    className="mt-4"
+                    min={ANNOUNCE_MIN_METERS}
+                    max={ANNOUNCE_MAX_METERS}
+                    step={ANNOUNCE_STEP_METERS}
+                    value={prefs.announceIntervalMeters}
+                    onChange={(meters) => update({ announceIntervalMeters: meters })}
+                    formatValue={announceLabel}
+                  />
+                  <div className="mt-1.5 flex justify-between font-mono text-[10px] text-muted">
+                    <span>{announceLabel(ANNOUNCE_MIN_METERS)}</span>
+                    <span>{announceLabel(ANNOUNCE_MAX_METERS)}</span>
+                  </div>
+                </fieldset>
+
+                <fieldset className="mt-6 border-t border-border pt-5 lg:mt-0 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
+                  <legend className="text-sm font-medium">Unidade de distância</legend>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">
+                    Aplicada no histórico. A tela de corrida segue em km enquanto o tracking está em
+                    validação.
+                  </p>
+                  <div className="mt-3">
+                    <PillTabs
+                      tabs={UNITS.map((unit) => ({ id: unit.value, label: unit.label }))}
+                      active={prefs.distanceUnit}
+                      onChange={(value) => update({ distanceUnit: value })}
+                    />
+                    <p className="mt-1.5 font-mono text-[10px] text-muted">
+                      {UNITS.find((unit) => unit.value === prefs.distanceUnit)?.hint}
+                    </p>
+                  </div>
+                </fieldset>
+
+                <fieldset className="mt-6 border-t border-border pt-5">
+                  <legend className="text-sm font-medium">Estatísticas na tela de corrida</legend>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">
+                    Além do pace ao vivo, que fica sempre em destaque.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-3">
+                    <PreferenceToggle
+                      label="Pace total"
+                      hint="média da corrida inteira até agora"
+                      checked={prefs.showAveragePaceLive}
+                      onChange={(checked) => update({ showAveragePaceLive: checked })}
+                    />
+                    <PreferenceToggle
+                      label="Pace do km atual"
+                      hint="desde a última marca de km fechado"
+                      checked={prefs.showCurrentKmPaceLive}
+                      onChange={(checked) => update({ showCurrentKmPaceLive: checked })}
+                    />
+                  </div>
+                </fieldset>
+
+                <fieldset className="mt-6 border-t border-border pt-5 lg:border-l lg:pl-8">
+                  <legend className="text-sm font-medium">Vibração</legend>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">
+                    Só tem efeito com uma corrida de meta &quot;Ritmo&quot;: o celular vibra quando você
+                    acumula 20s de atraso sobre o ritmo alvo — pra olhar a tela sem depender do aviso por
+                    voz.
+                  </p>
+                  <div className="mt-3">
+                    <PreferenceToggle
+                      label="Vibrar quando atrasar do ritmo"
+                      hint="silencioso o resto do tempo, mesmo com meta de ritmo ativa"
+                      checked={prefs.vibrateOnPaceDelay}
+                      onChange={(checked) => update({ vibrateOnPaceDelay: checked })}
+                    />
+                  </div>
+                </fieldset>
+              </div>
+
+              <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">
+                Meta de prova e tempo recente ficam na aba{" "}
+                <Link href="/plano" className="text-accent underline underline-offset-2">
+                  Plano
+                </Link>
+                , perto de onde eles são usados.
+              </p>
+            </Card>
+          </div>
+
+          <SectionLabel delayMs={175}>Equipamento</SectionLabel>
+          <div className="lg:col-span-2">
+            <ShoesCard unit={prefs.distanceUnit} />
+          </div>
+
+          <SectionLabel delayMs={260}>Compartilhar e dados</SectionLabel>
+          <Card className="pr-enter" style={delay(270)}>
+            <CardTitle>Card pra compartilhar</CardTitle>
+            <Link href="/compartilhar" className="block rounded-xl focus:outline-accent">
+              <ShareCardTeaser />
+              <span className="mt-4 block w-full rounded-full border border-border bg-background px-6 py-3.5 text-center text-sm font-semibold">
+                Abrir prévia do card
+              </span>
+            </Link>
+          </Card>
+
+          <Card className="pr-enter" style={delay(300)}>
+            <CardTitle aside={<NoticeBadge>{prefs.healthDataConsent ? "ativado" : "desligado"}</NoticeBadge>}>
+              Dados de saúde do smartwatch
+            </CardTitle>
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+                <HeartbeatIcon className="h-5 w-5" />
+              </span>
+              <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
+                Frequência cardíaca, calorias medidas de verdade, passos, FC em repouso, HRV, VO2
+                máx e sono — lidos do HealthKit (iPhone) ou do Health Connect (Android) e atrelados a
+                cada corrida no Histórico.
               </p>
             </div>
-          </fieldset>
-
-          <fieldset className="mt-6 border-t border-border pt-5">
-            <legend className="text-sm font-medium">Estatísticas na tela de corrida</legend>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              Além do pace ao vivo, que fica sempre em destaque.
-            </p>
-            <div className="mt-3 flex flex-col gap-3">
-              <PreferenceToggle
-                label="Pace total"
-                hint="média da corrida inteira até agora"
-                checked={prefs.showAveragePaceLive}
-                onChange={(checked) => update({ showAveragePaceLive: checked })}
-              />
-              <PreferenceToggle
-                label="Pace do km atual"
-                hint="desde a última marca de km fechado"
-                checked={prefs.showCurrentKmPaceLive}
-                onChange={(checked) => update({ showCurrentKmPaceLive: checked })}
-              />
-            </div>
-          </fieldset>
-
-          <fieldset className="mt-6 border-t border-border pt-5">
-            <legend className="text-sm font-medium">Vibração</legend>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              Só tem efeito com uma corrida de meta &quot;Ritmo&quot;: o celular vibra quando você
-              acumula 20s de atraso sobre o ritmo alvo — pra olhar a tela sem depender do aviso por
-              voz.
-            </p>
-            <div className="mt-3">
-              <PreferenceToggle
-                label="Vibrar quando atrasar do ritmo"
-                hint="silencioso o resto do tempo, mesmo com meta de ritmo ativa"
-                checked={prefs.vibrateOnPaceDelay}
-                onChange={(checked) => update({ vibrateOnPaceDelay: checked })}
-              />
-            </div>
-          </fieldset>
-
-          <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">
-            Meta de prova e tempo recente ficam na aba{" "}
-            <Link href="/plano" className="text-accent underline underline-offset-2">
-              Plano
+            <Link
+              href="/perfil/relogio"
+              className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm"
+            >
+              <span className="text-muted">Como funciona, e onde aparece</span>
+              <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
             </Link>
-            , perto de onde eles são usados.
-          </p>
-        </Card>
+          </Card>
 
-        <SectionLabel delayMs={175}>Equipamento</SectionLabel>
-        <ShoesCard unit={prefs.distanceUnit} />
-
-        <SectionLabel delayMs={260}>Compartilhar e dados</SectionLabel>
-        <Card className="pr-enter" style={delay(270)}>
-          <CardTitle>Card pra compartilhar</CardTitle>
-          <Link href="/compartilhar" className="block rounded-xl focus:outline-accent">
-            <ShareCardTeaser />
-            <span className="mt-4 block w-full rounded-full border border-border bg-background px-6 py-3.5 text-center text-sm font-semibold">
-              Abrir prévia do card
-            </span>
-          </Link>
-        </Card>
-
-
-        <Card className="pr-enter" style={delay(300)}>
-          <CardTitle aside={<NoticeBadge>{prefs.healthDataConsent ? "ativado" : "desligado"}</NoticeBadge>}>
-            Dados de saúde do smartwatch
-          </CardTitle>
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-              <HeartbeatIcon className="h-5 w-5" />
-            </span>
-            <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-              Frequência cardíaca, calorias medidas de verdade, passos, FC em repouso, HRV, VO2
-              máx e sono — lidos do HealthKit (iPhone) ou do Health Connect (Android) e atrelados a
-              cada corrida no Histórico.
-            </p>
+          <div className="lg:col-span-2">
+            <Card className="pr-enter" style={delay(310)}>
+              <CardTitle>Seus dados</CardTitle>
+              <p className="text-sm leading-relaxed text-muted text-pretty">
+                Corridas e preferências ficam no armazenamento deste aparelho, offline. Não há
+                conta, login nem envio pra servidor — e por isso também não há sincronização entre
+                aparelhos ainda.
+              </p>
+            </Card>
           </div>
-          <Link
-            href="/perfil/relogio"
-            className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm"
-          >
-            <span className="text-muted">Como funciona, e onde aparece</span>
-            <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
-          </Link>
-        </Card>
-
-        <Card className="pr-enter" style={delay(310)}>
-          <CardTitle>Seus dados</CardTitle>
-          <p className="text-sm leading-relaxed text-muted text-pretty">
-            Corridas e preferências ficam no armazenamento deste aparelho, offline. Não há
-            conta, login nem envio pra servidor — e por isso também não há sincronização entre
-            aparelhos ainda.
-          </p>
-        </Card>
+        </div>
       </Screen>
     </>
   );
