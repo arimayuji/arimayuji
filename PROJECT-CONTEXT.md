@@ -541,6 +541,32 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
 
 ## Funcionalidades planejadas, ainda não implementadas
 
+- **Cronograma de treino com IA pro atleta comum (autoatendimento)** —
+  pedido em 2026-08-25: o atleta preenche um formulário prévio (perfil de
+  corredor — experiência, objetivo, dias disponíveis, lesões/dores
+  recentes, o que hoje só existe manualmente espalhado por `/perfil` e
+  `runnerProfile.ts`) e recebe um cronograma de treino sugerido pela IA,
+  grounded nos mesmos estudos de `src/lib/evidence/facts.ts`. Não é uma
+  feature nova do zero — é essencialmente **a Fase B do modo treinador
+  (`suggest-plan-override`, ver "Modo treinador com IA" acima) reaberta
+  pro atleta comum acionar sozinho**, sem precisar de um treinador
+  cadastrado: mesmo Gemini Flash grounded no recorte de `facts.ts`, mesmo
+  teto de segurança do motor determinístico (`volumeProgression.ts`)
+  travando a sugestão antes dela virar plano de verdade. **Decisões de
+  produto confirmadas nesta sessão**: (1) manter a mesma honestidade já
+  documentada no `SOCIAL-CONTEXT.md` — nunca vender como "plano 100%
+  gerado por IA" nem esconder que existe um motor determinístico travando
+  os limites por trás, mesmo raciocínio que já vale pro Runna sendo citado
+  como referência de ambição, não de cópia; (2) fluxo de Q&A — questionário
+  prévio antes da sugestão, não um único prompt de texto livre; (3) tela de
+  disclaimer com aceite explícito obrigatório (a pessoa precisa confirmar
+  que está ciente antes do plano sugerido virar válido) — mesmo padrão de
+  consentimento explícito já usado pra dado de saúde
+  (`healthDataConsent`)/ranking de lugares (`leaderboardOptIn`), nunca um
+  toggle "ligado por padrão". Ainda não escopado em detalhe (schema do
+  formulário, onde essa sugestão fica salva pro atleta sem treinador —
+  hoje `plan_overrides` é sempre `coachId`+`studentId`, aqui não existe
+  treinador nenhum na relação) nem implementado.
 - **Backlog de ideias soltas (sessão 2026-08-23, nenhuma escopada em detalhe
   ainda — só registrando pra não perder)**:
   - **Editor do card de compartilhar com elementos arrastáveis** (pedido
