@@ -136,21 +136,27 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
   fechado com pelo menos 12 testadores por 14 dias corridos antes do
   Google liberar o primeiro envio pra produção — exigência de conta, não
   algo que o CI resolve sozinho, e bem provável que essa conta ainda não
-  cumpriu. **Decisão final: `track: open`** (Teste Aberto) — fica de fora
-  dessa trava de conta nova e já tem link público de opt-in, o
-  equivalente direto do grupo externo "Beta" do TestFlight no iOS (link
-  público, sem lista de testadores cadastrada à mão). Dois pré-requisitos
-  que o CI não cobre, continuam manuais no Play Console: (1) a faixa de
-  Teste Aberto precisa existir e ter um link de opt-in publicado antes
-  desse step funcionar — diferente do Teste Interno, que já vem pronto
-  por padrão em todo app novo; (2) a ficha da loja precisa estar
-  minimamente completa (descrição, classificação indicativa, formulário
-  de segurança de dados) — sem isso a API deve rejeitar o upload com um
-  erro de validação novo, ainda não visto. **Ainda não confirmado se
-  algum push com `track: open` teve sucesso** — conferir o próximo run do
-  `android-build.yml` em `main` (ainda não mergeado com essa mudança)
-  antes de considerar o link da Play Store pronto pra usar na notificação
-  de atualização.
+  cumpriu. **Decisão inicial (2026-08-24, corrigida em 2026-08-25 — ver
+  abaixo): `track: open`** — a suposição na hora foi que Teste Aberto
+  ficava de fora da trava de conta nova, por analogia direta com o grupo
+  externo "Beta" do TestFlight no iOS. **Essa suposição estava errada.**
+  Confirmado direto na UI do Play Console em 2026-08-25 (a aba "Teste
+  aberto" mostra um ícone de cadeado com o texto literal: "O teste aberto
+  fica disponível quando você tem o acesso de produção"): no Android, ao
+  contrário do iOS, a faixa Aberta **também** exige ter primeiro o acesso
+  de Produção — que por sua vez exige o teste fechado de 12
+  testadores/14 dias. **Não existe atalho nenhum pra pular essa trava de
+  conta nova** — nem Aberto nem Produção funcionam sem passar pelo Teste
+  Fechado primeiro. `track: internal` (Teste Interno) continua sendo o
+  único caminho viável pro CI publicar automaticamente enquanto isso não
+  for cumprido — a tentativa de mudar pra `track: open` nunca chegou a
+  rodar de verdade (o CI já tinha achado a faixa inexistente antes,
+  então o "ainda não confirmado se teve sucesso" abaixo nunca vai ser
+  confirmado, porque a premissa era falsa). **Próximo passo real**:
+  publicar uma versão na faixa de Teste Fechado, convidar de verdade 12+
+  testadores que aceitem entrar (não basta cadastrar e-mail, precisa
+  aceitar o convite), e esperar 14 dias corridos com o teste rodando —
+  só depois disso Produção (e provavelmente Aberto junto) destranca.
   **Bug real achado nessa primeira tentativa de upload**: `gradlew
   bundleRelease` builda com sucesso e sem nenhum warning, mas o `.aab`
   saía **sem nenhuma assinatura jar embutida** mesmo com
