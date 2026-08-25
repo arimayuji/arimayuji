@@ -302,22 +302,34 @@ desligado por completo, ver "O produto, em uma frase" acima):
   (Android/iOS) nunca teve esse sintoma porque usa o fluxo de *token*
   (`oauth2TokenUrl`/`Browser.open`, ver comentário em `auth.ts`), que nunca
   depende de cookie cross-site pra começo de conversa.
-  **Fix em andamento (2026-08-25)**: domínio customizado da API no Appwrite
+  **Fix tentado e revertido (2026-08-25)**: domínio customizado da API no Appwrite
   Console (Project Settings → Domains), subdomínio `cloud.xanthus.app.br` —
   não por CNAME, o Appwrite pediu delegação por **NS** desse subdomínio
   específico (`ns1.appwrite.zone`/`ns2.appwrite.zone`, dois registros NS
   criados na zona `xanthus.app.br` na Cloudflare, sem afetar o resto do
-  domínio). **Verificado com sucesso no Appwrite Console pelo dono do
-  projeto.** `.env.local` já atualizado
-  (`NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.xanthus.app.br/v1`).
-  **Ainda falta**: atualizar o mesmo secret no GitHub Actions (Settings →
-  Secrets and variables → Actions) — só o dono do projeto consegue, nenhuma
-  ferramenta desta sessão mexe em secrets do GitHub — e rodar um novo
-  build/deploy depois disso pra valer em produção. Sem acesso de rede real
-  nesta sessão (tráfego passa por um proxy interno que intercepta TLS) pra
-  confirmar o domínio funcionando de fora — o teste que vale é o próprio
-  dono do projeto tentando o login de novo no navegador depois do secret
-  atualizado e de um deploy novo.
+  domínio). **Verificado com sucesso no Appwrite Console pelo dono do projeto** —
+  status "Verified" tanto no Appwrite Console quanto na própria Cloudflare
+  (os dois registros NS na zona `xanthus.app.br` conferidos nas duas
+  telas; a delegação é só desse subdomínio, dentro da zona já delegada do
+  Registro.br pra Cloudflare — não mexe no domínio raiz nem precisa de
+  nada no Registro.br). Endpoint chegou a ir pro ar de verdade (secret do
+  GitHub Actions atualizado + deploy manual via `workflow_dispatch` do
+  `android-build.yml`, run #170, 2026-08-25) — mas o certificado SSL desse
+  subdomínio nunca saiu do lado do Appwrite: 3+ horas depois do DNS
+  verificado, o navegador ainda recebia erro de certificado (via Fastly,
+  a CDN que o Appwrite usa por trás — "host does not match any SAN on TLS
+  certificate", ou seja, o roteamento chega até o Appwrite mas o
+  certificado desse domínio específico nunca carregou do lado deles).
+  Sem opção de forçar/reemitir certificado na aba Settings do domínio no
+  Console. **Revertido em 2026-08-25** — `.env.local` voltou pra
+  `https://nyc.cloud.appwrite.io/v1`; o secret do GitHub Actions também
+  precisa voltar (mesma trilha manual) e rodar outro deploy pra valer em
+  produção. Volta o problema original de "guests" em navegador com
+  bloqueio de cookie de terceiro (achado acima), mas sem quebrar o login
+  por completo com erro de certificado. **`cloud.xanthus.app.br` fica
+  registrado no Appwrite Console pra retomar depois** — se o certificado
+  eventualmente sair sozinho (ou o suporte do Appwrite destravar
+  manualmente), é só trocar o endpoint de volta, sem refazer DNS nenhum.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
