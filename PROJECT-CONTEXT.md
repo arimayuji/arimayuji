@@ -277,6 +277,42 @@ desligado por completo, ver "O produto, em uma frase" acima):
   agora com poucas contas em teste fechado). **Ainda não submetido/testado
   em build novo** — esse fix ainda não chegou num build real no
   TestFlight.
+- **Web (Sala de Treino/`/treinador` no navegador desktop): login falha com
+  "guests" mesmo depois do OAuth completar de verdade, achado em 2026-08-25**.
+  Relato real do dono do projeto: clicou "Entrar", completou o consentimento
+  do Google (aceitou acesso ao Gmail de verdade), voltou pro navegador na
+  tela do treinador e continuava pedindo login. Confirmado via DevTools:
+  toda chamada `GET account` depois do redirect volta
+  `401 general_unauthorized_scope`, `"User (role: guests) missing scopes
+  ([\"account\"])"` — ou seja, o Appwrite nunca viu o Google recusar nada, o
+  problema é depois: o app não reconhece a sessão que o próprio Appwrite
+  acabou de criar.
+  **Causa raiz**: `NEXT_PUBLIC_APPWRITE_ENDPOINT` (`.env.local`) é
+  `https://nyc.cloud.appwrite.io/v1` — domínio diferente de
+  `xanthus.app.br`. O cookie de sessão do `createOAuth2Session` fica
+  hospedado em `nyc.cloud.appwrite.io`; quando o app (rodando em
+  `xanthus.app.br`) chama `account.get()` depois do redirect, isso é uma
+  request cross-site pro domínio do Appwrite — navegadores com bloqueio de
+  cookie de terceiros (padrão crescente em Chrome/Firefox/Safari, ou
+  extensão de privacidade) descartam esse cookie, então toda chamada
+  seguinte lê como visitante. É puramente sobre a chamada `account.get()`
+  do lado do app, não sobre CORS (a resposta 401 chega normal, só que como
+  "guests") nem sobre o OAuth em si (que termina certinho do lado do
+  Google/Appwrite). **Só afeta o navegador desktop** — o app nativo
+  (Android/iOS) nunca teve esse sintoma porque usa o fluxo de *token*
+  (`oauth2TokenUrl`/`Browser.open`, ver comentário em `auth.ts`), que nunca
+  depende de cookie cross-site pra começo de conversa.
+  **Fix recomendado, ainda não aplicado**: configurar um domínio
+  customizado da API no Appwrite Console (Project Settings → Domains) num
+  subdomínio de `xanthus.app.br` (ex.: `cloud.xanthus.app.br`, via CNAME no
+  Cloudflare) e trocar `NEXT_PUBLIC_APPWRITE_ENDPOINT` pra apontar pra lá —
+  isso faz o cookie de sessão virar same-site do ponto de vista do
+  navegador (mesmo eTLD+1 de `xanthus.app.br`), resolvendo pra qualquer
+  navegador sem depender de configuração de privacidade de quem usa. Passos
+  de Console/DNS que só o dono do projeto consegue fazer — nenhuma mudança
+  de código além de trocar o valor do endpoint (no `.env.local` e nos
+  secrets do GitHub Actions) depois que o domínio customizado estiver
+  validado.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
