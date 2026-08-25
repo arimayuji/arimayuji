@@ -587,9 +587,9 @@ export default function DadosPessoaisPage() {
 
   return (
     <>
-      <ScreenHeader title="Dados pessoais" subtitle="Peso e dores — propriedades suas, não do app." />
+      <ScreenHeader panel title="Dados pessoais" subtitle="Peso e dores — propriedades suas, não do app." />
 
-      <Screen>
+      <Screen panel>
         <PainCard />
 
         <WeightCard profile={profile} updateProfile={updateProfile} />

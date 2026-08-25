@@ -15,11 +15,12 @@ export default function PrivacidadePage() {
   return (
     <>
       <ScreenHeader
+        panel
         title="Privacidade"
         subtitle="O que o Xanthus guarda, onde, e como apagar tudo quando quiser."
       />
 
-      <Screen>
+      <Screen panel>
         <Card className="pr-enter" style={delay(40)}>
           <CardTitle>Dados guardados só no seu aparelho</CardTitle>
           <p className="text-sm leading-relaxed text-muted">

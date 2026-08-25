@@ -160,8 +160,10 @@ const SCREEN_WIDTH_WIDE = "max-w-md lg:max-w-6xl";
  * in the middle of a mostly-empty screen" — this anchors them to the left
  * edge (under the sidebar) like an actual desktop settings panel, at a
  * width that keeps prose/labels from stretching edge-to-edge. Only makes
- * sense paired with content that's deliberately short (see /perfil), never
- * a substitute for `wide`'s own multi-column dashboards.
+ * sense paired with content that's deliberately short (see /perfil,
+ * /perfil/dados, /privacidade), never a substitute for `wide`'s own
+ * multi-column dashboards. `ScreenHeader` accepts the same prop so a
+ * subpage's title lines up flush with the panel below it.
  */
 const SCREEN_WIDTH_PANEL = "max-w-md lg:mx-0 lg:max-w-2xl";
 
@@ -170,12 +172,15 @@ export function ScreenHeader({
   subtitle,
   badge,
   wide = false,
+  panel = false,
   compactOnWide = false,
 }: {
   title: string;
   subtitle?: ReactNode;
   badge?: ReactNode;
   wide?: boolean;
+  /** Matches `Screen`'s own `panel` — for a subpage reached by drilling into a desktop screen (e.g. /perfil/dados, /privacidade from Conta) rather than a sidebar tab in its own right, so `compactOnWide` doesn't apply (there's no redundant sidebar label to collapse against) but the header should still line up flush-left with the panel-width content below it instead of sitting centered above a left-anchored column. Mutually exclusive with `wide`, same as `Screen`. */
+  panel?: boolean;
   /**
    * Collapses this whole header at `lg:` — for a page whose `title` is
    * already the exact label the desktop sidebar shows for it (app-shell.tsx's
@@ -197,7 +202,7 @@ export function ScreenHeader({
       // clear anything.
       style={delay(0, { paddingTop: "1.25rem" })}
     >
-      <div className={`mx-auto w-full ${wide ? SCREEN_WIDTH_WIDE : SCREEN_WIDTH}`}>
+      <div className={`mx-auto w-full ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">{title}</h1>
           {badge}
