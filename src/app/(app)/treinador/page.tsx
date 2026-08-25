@@ -144,12 +144,13 @@ export default function TreinadorPage() {
   return (
     <>
       <ScreenHeader
+        wide
         title="Treinador"
         badge={<NoticeBadge>precisa de conta</NoticeBadge>}
         subtitle="Convide pelo @ quem treina você, ou quem você treina. Depois de aceito, cada corrida só é vista se você escolher enviá-la."
       />
 
-      <Screen>
+      <Screen wide>
         {status === "loading" && (
           <Card className="pr-enter" style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>

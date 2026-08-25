@@ -129,7 +129,7 @@ function AlunoContent() {
 
   if (!studentId) {
     return (
-      <Screen>
+      <Screen wide>
         <Card>
           <CardTitle>Nenhum aluno selecionado</CardTitle>
           <Link href="/treinador" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
@@ -143,11 +143,12 @@ function AlunoContent() {
   return (
     <>
       <ScreenHeader
+        wide
         title={profile?.displayName ?? "Corredor(a)"}
         subtitle={profile ? `@${profile.handle} · corridas que decidiu compartilhar com você` : undefined}
       />
 
-      <Screen>
+      <Screen wide>
         <WeekPlanEditor
           key={weekStartIso}
           studentId={studentId}

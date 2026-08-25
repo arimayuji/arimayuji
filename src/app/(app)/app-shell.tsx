@@ -181,6 +181,17 @@ const BOTTOMNAV_HEIGHT = "4.5rem";
 /** Fired when a tab already active gets tapped again — `Link` to the same URL is a router no-op, so a page sitting in some non-idle state (the run summary, mid-scroll) needs its own way to hear "take me back to start" from that tap. See `useTabReclick` in run/page.tsx for the one listener that currently cares. */
 const TAB_RECLICK_EVENT = "xanthus:tab-reclick";
 
+/**
+ * Width of the `lg:` sidebar this becomes on a wide (desktop browser)
+ * viewport — kept as one constant since the scroll container's own left
+ * padding (in AppShell below) has to match it exactly, and AppHeader's
+ * left offset does too. Never applies on the native app: Capacitor's
+ * WebView never reports a viewport this wide, so every `lg:` class below
+ * is a pure no-op there, and on any narrow browser window.
+ */
+const SIDEBAR_WIDTH_CLASS = "lg:w-60";
+const SIDEBAR_OFFSET_CLASS = "lg:left-60";
+
 function BottomNav({ hidden }: { hidden: boolean }) {
   const pathname = usePathname() ?? "";
   const [{ appMode }] = usePreferences();
@@ -189,14 +200,20 @@ function BottomNav({ hidden }: { hidden: boolean }) {
   return (
     <nav
       aria-label="Navegação principal"
-      className="chrome-gradient-nav absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-transform duration-200 ease-out"
-      style={{ transform: hidden ? "translateY(100%)" : "translateY(0)" }}
+      // Bottom tab bar on mobile/native, sliding off-screen on scroll (the
+      // `hidden`-driven translate classes below); a persistent left sidebar
+      // on `lg:` instead — a coach's dashboard has no reason to hide its own
+      // nav on scroll, and `lg:translate-x-0 lg:translate-y-0` overrides
+      // whatever the mobile scroll-hide state was, unconditionally.
+      className={`chrome-gradient-nav absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-transform duration-200 ease-out ${
+        hidden ? "translate-y-full" : "translate-y-0"
+      } lg:inset-y-0 lg:right-auto lg:bottom-auto lg:top-0 ${SIDEBAR_WIDTH_CLASS} lg:translate-x-0 lg:translate-y-0 lg:rounded-none lg:shadow-[8px_0_28px_-10px_rgba(0,0,0,0.45)]`}
     >
-      <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)]">
+      <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)] lg:mx-0 lg:h-full lg:max-w-none lg:flex-col lg:items-stretch lg:gap-1 lg:pb-4 lg:pt-6">
         {tabs.map((tab) => {
           const active = isActive(pathname, tab);
           return (
-            <li key={tab.href} className="flex-1">
+            <li key={tab.href} className="flex-1 lg:flex-none lg:px-3">
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
@@ -204,15 +221,15 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                   if (active) window.dispatchEvent(new CustomEvent(TAB_RECLICK_EVENT, { detail: tab.href }));
                 }}
                 /* 64px+ tall target: this gets tapped mid-exercise. */
-                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors ${
-                  active ? "font-bold text-white" : "font-medium text-white/85"
+                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors lg:h-11 lg:min-h-0 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 lg:py-0 lg:text-sm ${
+                  active ? "font-bold text-white lg:bg-white/14" : "font-medium text-white/85"
                 }`}
               >
                 <tab.icon className="h-[22px] w-[22px]" />
                 {tab.label}
-                {/* Selection indicator: a thin underline, not a pill behind the icon — tested, a background pill there read as visually busy. Width transitions in/out instead of a hard cut. */}
+                {/* Selection indicator: a thin underline, not a pill behind the icon — tested, a background pill there read as visually busy. Width transitions in/out instead of a hard cut. Hidden on the sidebar, where the row's own background (above) already marks the active item. */}
                 <span
-                  className="h-[3px] rounded-full bg-white transition-[width] duration-200 ease-out"
+                  className="h-[3px] rounded-full bg-white transition-[width] duration-200 ease-out lg:hidden"
                   style={{ width: active ? "16px" : "0px" }}
                   aria-hidden="true"
                 />
@@ -290,7 +307,10 @@ function AppHeader({
 
   return (
     <header
-      className="chrome-gradient-header absolute inset-x-0 top-0 z-40 overflow-hidden rounded-b-[36px] shadow-[0_12px_28px_-8px_rgba(74,120,224,0.4)] transition-transform duration-200 ease-out"
+      // `lg:left-60` clears the sidebar BottomNav becomes at that same
+      // breakpoint (SIDEBAR_OFFSET_CLASS below it) — without this the two
+      // would overlap in the top-left corner, since both sit at z-40.
+      className={`chrome-gradient-header absolute inset-x-0 top-0 z-40 overflow-hidden rounded-b-[36px] shadow-[0_12px_28px_-8px_rgba(74,120,224,0.4)] transition-transform duration-200 ease-out lg:rounded-bl-none ${SIDEBAR_OFFSET_CLASS}`}
       style={{
         transform: hidden ? "translateY(-100%)" : "translateY(0)",
         paddingTop: "env(safe-area-inset-top)",
@@ -422,7 +442,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           */}
           <div
             ref={setScrollEl}
-            className={immersive ? "flex h-full flex-col" : "h-full overflow-y-auto overscroll-y-contain"}
+            // `lg:pl-60` clears the sidebar BottomNav becomes at that
+            // breakpoint — the bottom padding below (still sized for the
+            // now-gone bottom tab bar) is left as a small amount of unused
+            // space at that width rather than reworked, since it's set via
+            // inline `style` below and an inline style always wins over any
+            // `lg:` class here regardless of specificity, so overriding it
+            // per-breakpoint isn't possible without restructuring that
+            // scroll/immersive padding scheme — which this file's own
+            // comments already flag as having broken run-tracking once
+            // (see the `{children}` tree-position note above) and isn't
+            // worth the risk for a few pixels of harmless dead space.
+            className={
+              immersive ? "flex h-full flex-col" : "h-full overflow-y-auto overscroll-y-contain lg:pl-60"
+            }
             style={
               immersive
                 ? undefined

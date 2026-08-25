@@ -137,14 +137,30 @@ export function NoticeBadge({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The phone-card width every screen uses by default — correct for the
+ * native app (always phone-narrow) and for a browser window of any
+ * realistic size, EXCEPT the handful of screens (today: /treinador and its
+ * children) that are actually meant to be opened on a desktop browser by
+ * someone managing several students at once, where clamping to a phone's
+ * width just wastes the screen. `lg:` only ever matches a wide viewport —
+ * the native WebView never reports one, so `wide` is a pure no-op there
+ * and on any narrow browser window; nothing about the default (non-wide)
+ * path changes for the ~30 other screens that don't pass it.
+ */
+const SCREEN_WIDTH = "max-w-md";
+const SCREEN_WIDTH_WIDE = "max-w-md lg:max-w-6xl";
+
 export function ScreenHeader({
   title,
   subtitle,
   badge,
+  wide = false,
 }: {
   title: string;
   subtitle?: ReactNode;
   badge?: ReactNode;
+  wide?: boolean;
 }) {
   return (
     <header
@@ -157,7 +173,7 @@ export function ScreenHeader({
       // clear anything.
       style={delay(0, { paddingTop: "1.25rem" })}
     >
-      <div className="mx-auto w-full max-w-md">
+      <div className={`mx-auto w-full ${wide ? SCREEN_WIDTH_WIDE : SCREEN_WIDTH}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">{title}</h1>
           {badge}
@@ -170,11 +186,11 @@ export function ScreenHeader({
   );
 }
 
-/** Standard content column for every app screen: one max-width, one gutter. */
-export function Screen({ children }: { children: ReactNode }) {
+/** Standard content column for every app screen: one max-width, one gutter — see `wide`'s own comment above `SCREEN_WIDTH`. */
+export function Screen({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
     <main className="flex flex-1 flex-col px-5 pb-10">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4">{children}</div>
+      <div className={`mx-auto flex w-full flex-1 flex-col gap-4 ${wide ? SCREEN_WIDTH_WIDE : SCREEN_WIDTH}`}>{children}</div>
     </main>
   );
 }
