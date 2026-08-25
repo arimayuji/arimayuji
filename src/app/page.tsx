@@ -982,19 +982,34 @@ export default function Home() {
             </svg>
             Xanthus
           </span>
-          {/*
-            Leva pra seção final da própria landing (Android e iPhone lado a
-            lado), não direto pro /download do Android — isso mandava
-            qualquer visitante, inclusive de iPhone, pro APK que ele nem
-            consegue instalar. Mesmo raciocínio de por que o link de bio do
-            Instagram é a landing e não um link de plataforma específica.
-          */}
-          <a
-            href="#baixar"
-            className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold transition-colors hover:border-accent hover:text-accent"
-          >
-            Começar
-          </a>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/*
+              Vai direto pro app (/treinador), não pra âncora #treinador da
+              própria landing — quem já sabe que é treinador não precisa
+              rolar a página pra achar essa entrada. A rota já lida com
+              visitante deslogado sozinha (AccountPrompt, mesmo OAuth do
+              resto do app), então não tem nada a mais pra fazer aqui.
+            */}
+            <Link
+              href="/treinador"
+              className="hidden rounded-full px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-accent sm:inline-block"
+            >
+              Sou treinador
+            </Link>
+            {/*
+              Leva pra seção final da própria landing (Android e iPhone lado a
+              lado), não direto pro /download do Android — isso mandava
+              qualquer visitante, inclusive de iPhone, pro APK que ele nem
+              consegue instalar. Mesmo raciocínio de por que o link de bio do
+              Instagram é a landing e não um link de plataforma específica.
+            */}
+            <a
+              href="#baixar"
+              className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold transition-colors hover:border-accent hover:text-accent"
+            >
+              Começar
+            </a>
+          </div>
         </div>
       </header>
 
@@ -1557,9 +1572,26 @@ export default function Home() {
                 style={delay(480)}
                 className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-muted"
               >
-                já em uso — dentro do app, em /treinador, pra quem tem pelo menos
-                um aluno vinculado
+                já em uso — em /treinador, pra quem tem pelo menos um aluno
+                vinculado
               </p>
+              {/*
+                A tela do treinador não depende de GPS/tracking nenhum — só o
+                lado do app que precisa ser nativo (ver o parágrafo do CTA
+                final, mais abaixo) é a gravação da corrida em si. Por isso
+                esse link aponta pro navegador mesmo, não pro download: quem
+                treina consegue montar a planilha da semana num notebook,
+                mesma conta de sempre, sem instalar nada.
+              */}
+              <Link
+                href="/treinador"
+                data-reveal=""
+                style={delay(540)}
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline"
+              >
+                Abrir no navegador do computador
+                <span aria-hidden="true">→</span>
+              </Link>
             </div>
           </div>
           <SeamGlow />
