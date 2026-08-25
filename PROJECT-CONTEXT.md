@@ -375,6 +375,55 @@ desligado por completo, ver "O produto, em uma frase" acima):
     fluxo de OAuth completo de verdade num navegador (precisa de deploy
     real + login real do Google, não dá pra simular headless aqui) — o
     dono do projeto precisa confirmar isso depois do deploy.
+  **Deploy do proxy confirmado com sucesso (run #172, 2026-08-25) — mas o
+  bug de "guests" continuou** (mesmo erro `general_unauthorized_scope`),
+  reportado pelo dono do projeto testando de verdade em
+  `xanthus.app.br/treinador`. **Causa raiz real, achada só depois do teste
+  de verdade**: o proxy nunca chega a proteger a etapa que mais importa. O
+  fluxo antigo (`account.createOAuth2Session`, cookie-based) faz o
+  navegador navegar de verdade por 3 saltos: `xanthus.app.br` (proxied) →
+  Google → **de volta direto pro domínio real do Appwrite**
+  (`nyc.cloud.appwrite.io/v1/account/sessions/oauth2/callback/...`, a URL
+  de callback que o próprio Appwrite registrou no client OAuth do Google
+  Console, fixa, **nunca reescrita pelo nosso proxy** porque esse salto é
+  o navegador indo direto pro Google/Appwrite, não uma chamada que o
+  código deste app faz). É **nesse** salto que o cookie de sessão é
+  setado — e ele é setado pro domínio real do Appwrite, não pro
+  `xanthus.app.br`, porque o navegador nunca passou pelo nosso Worker
+  nessa requisição específica. O proxy só ajuda chamadas que o próprio
+  código do app faz via `fetch`/XHR (como `account.get()` depois) — não
+  ajuda em nada uma navegação de página inteira disparada pelo próprio
+  Google/Appwrite de volta pro domínio deles.
+  **Fix de verdade (2026-08-25)**: trocar o fluxo web inteiro de
+  cookie-based (`createOAuth2Session`) pra **token-based**
+  (`/account/tokens/oauth2/*`) — o mesmo mecanismo que o nativo já usa há
+  tempos (ver `nativeGoogleSignIn`/`nativeAppleSignIn` e
+  `oauth-callback-listener.tsx`), só que adaptado pra navegador em vez de
+  deep link:
+  - `src/lib/auth.ts` (`startOAuthSignIn`): o branch web agora chama
+    `oauth2TokenUrl(provider, success, failure)` (a mesma função já usada
+    pelo nativo) em vez de `account.createOAuth2Session` — `success`
+    aponta pra uma página nova, `/oauth-callback?returnTo=...`, em vez de
+    `returnTo` direto.
+  - `src/app/oauth-callback/page.tsx` (novo): a versão web do que
+    `oauth-callback-listener.tsx` já faz no `appUrlOpen` nativo — lê
+    `userId`/`secret` da própria query string (que o Appwrite anexa na
+    URL de `success` depois do login, sem cookie nenhum nessa etapa) e
+    chama `account.createSession({userId, secret})` **por conta própria**.
+    A diferença crucial: essa chamada é um `fetch`/XHR que o código deste
+    app de fato faz — vai pro `ENDPOINT` configurado
+    (`NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT`, o proxy), então o `Set-Cookie`
+    de resposta **passa pelo `worker/index.js`** de verdade dessa vez, cai
+    same-origin em `xanthus.app.br`, exatamente como o proxy foi desenhado
+    pra fazer. O restante do fluxo (Appwrite ↔ Google, incluindo o salto
+    de volta pro domínio real do Appwrite) continua igual — só que agora
+    não seta cookie nenhum ali, só devolve `userId`/`secret` na URL, então
+    não importa que esse salto não passe pelo proxy.
+  - Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` (rota
+    `/oauth-callback` aparece na lista de rotas geradas) — todos limpos.
+    **Ainda não testado em produção** (precisa de deploy + login real de
+    novo) — mesma pendência de sempre, só o dono do projeto testando de
+    verdade fecha isso.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)

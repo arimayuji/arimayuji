@@ -105,18 +105,34 @@ export function suggestHandle(name: string): string {
  * far as actually navigating away or opening the system browser; it does
  * NOT mean the login itself succeeded — there is no way to know that yet
  * on this side of the redirect.
+ *
+ * Web used to call `account.createOAuth2Session` directly — Appwrite's
+ * cookie-based flow — on the assumption that proxying /v1/* through
+ * worker/index.js would be enough to keep the resulting session cookie
+ * first-party. It wasn't: the OAuth provider's callback lands on Appwrite's
+ * own real endpoint (nyc.cloud.appwrite.io) directly, a hop this app's code
+ * never touches (it's Google/Apple redirecting the browser, not a fetch()
+ * this app makes), so that leg never goes through the proxy — the session
+ * cookie still ends up scoped to Appwrite's site, not xanthus.app.br, and
+ * every following `account.get()` reads back "guests" regardless of the
+ * proxy. Web now uses the same *token* flow the native branch below already
+ * relies on: Appwrite hands back `userId`/`secret` as query params instead
+ * of a cookie, and src/app/oauth-callback/page.tsx makes the actual
+ * `account.createSession()` call itself — a same-origin request that *does*
+ * go through the proxy, so its Set-Cookie response lands correctly on
+ * xanthus.app.br. See PROJECT-CONTEXT.md's "Web (Sala de Treino...)" entry
+ * for the full history.
  */
 async function startOAuthSignIn(provider: OAuthProvider, returnTo: string): Promise<string | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return "Appwrite não configurado (NEXT_PUBLIC_APPWRITE_ENDPOINT/PROJECT_ID ausentes neste build).";
 
   if (!isNativePlatform()) {
-    const url = `${window.location.origin}${returnTo}`;
-    try {
-      appwrite.account.createOAuth2Session({ provider, success: url, failure: url });
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
+    const success = `${window.location.origin}/oauth-callback?${OAUTH_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}`;
+    const failure = `${window.location.origin}${returnTo}`;
+    const url = oauth2TokenUrl(provider, success, failure);
+    if (!url) return "oauth2TokenUrl() devolveu null (ENDPOINT/PROJECT_ID ausentes neste build).";
+    window.location.assign(url);
     return null;
   }
 
