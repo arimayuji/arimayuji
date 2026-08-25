@@ -302,17 +302,22 @@ desligado por completo, ver "O produto, em uma frase" acima):
   (Android/iOS) nunca teve esse sintoma porque usa o fluxo de *token*
   (`oauth2TokenUrl`/`Browser.open`, ver comentário em `auth.ts`), que nunca
   depende de cookie cross-site pra começo de conversa.
-  **Fix recomendado, ainda não aplicado**: configurar um domínio
-  customizado da API no Appwrite Console (Project Settings → Domains) num
-  subdomínio de `xanthus.app.br` (ex.: `cloud.xanthus.app.br`, via CNAME no
-  Cloudflare) e trocar `NEXT_PUBLIC_APPWRITE_ENDPOINT` pra apontar pra lá —
-  isso faz o cookie de sessão virar same-site do ponto de vista do
-  navegador (mesmo eTLD+1 de `xanthus.app.br`), resolvendo pra qualquer
-  navegador sem depender de configuração de privacidade de quem usa. Passos
-  de Console/DNS que só o dono do projeto consegue fazer — nenhuma mudança
-  de código além de trocar o valor do endpoint (no `.env.local` e nos
-  secrets do GitHub Actions) depois que o domínio customizado estiver
-  validado.
+  **Fix em andamento (2026-08-25)**: domínio customizado da API no Appwrite
+  Console (Project Settings → Domains), subdomínio `cloud.xanthus.app.br` —
+  não por CNAME, o Appwrite pediu delegação por **NS** desse subdomínio
+  específico (`ns1.appwrite.zone`/`ns2.appwrite.zone`, dois registros NS
+  criados na zona `xanthus.app.br` na Cloudflare, sem afetar o resto do
+  domínio). **Verificado com sucesso no Appwrite Console pelo dono do
+  projeto.** `.env.local` já atualizado
+  (`NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.xanthus.app.br/v1`).
+  **Ainda falta**: atualizar o mesmo secret no GitHub Actions (Settings →
+  Secrets and variables → Actions) — só o dono do projeto consegue, nenhuma
+  ferramenta desta sessão mexe em secrets do GitHub — e rodar um novo
+  build/deploy depois disso pra valer em produção. Sem acesso de rede real
+  nesta sessão (tráfego passa por um proxy interno que intercepta TLS) pra
+  confirmar o domínio funcionando de fora — o teste que vale é o próprio
+  dono do projeto tentando o login de novo no navegador depois do secret
+  atualizado e de um deploy novo.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
