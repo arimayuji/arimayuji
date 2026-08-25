@@ -563,10 +563,26 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   que está ciente antes do plano sugerido virar válido) — mesmo padrão de
   consentimento explícito já usado pra dado de saúde
   (`healthDataConsent`)/ranking de lugares (`leaderboardOptIn`), nunca um
-  toggle "ligado por padrão". Ainda não escopado em detalhe (schema do
-  formulário, onde essa sugestão fica salva pro atleta sem treinador —
-  hoje `plan_overrides` é sempre `coachId`+`studentId`, aqui não existe
-  treinador nenhum na relação) nem implementado.
+  toggle "ligado por padrão". **Escopado em detalhe em 2026-08-25** —
+  spec completa em `/root/.claude/plans/cronograma-ia-autoatendimento.md`.
+  Achado principal do escopo: o "formulário prévio" imaginado no pedido
+  original **já existe quase todo** em `/plano` (objetivo, data, dias
+  disponíveis, tempo recente) e `/perfil/dados` (dor/lesão ativa) — só
+  falta um campo de contexto livre opcional. E a arquitetura acaba **bem
+  mais simples** que a sincronização de plano entre aparelhos (outra ideia
+  registrada abaixo): como é o próprio atleta pedindo sobre os próprios
+  dados (já 100% locais no aparelho dele), a sugestão não precisa de
+  tabela Appwrite nova nem de sincronizar nada — só uma action nova no
+  dispatcher `client-actions` (mesmo teto de 2 Functions do Free de
+  sempre) que recebe o volume recente calculado localmente, e o resultado
+  aceito vira um override guardado só em `localStorage`, reaproveitando
+  `applyCoachOverride` (já genérico, apesar do nome) sem mudar essa
+  função. Continua exigindo login (mesmo padrão de amigos/treinador/
+  ranking, pra não abrir a primeira ação paga sem autenticação do
+  dispatcher) — não fere a promessa de "sem login pra gravar corrida",
+  já que isso é extra, não core. Ainda não implementado; algumas perguntas
+  de design ficaram em aberto na spec (frequência de uso, expiração do
+  override, hierarquia se coexistir com override de treinador).
 - **Calendário de corridas de rua por cidade** — pedido em 2026-08-25: a
   pessoa poder ver quais maratonas/corridas de rua vão acontecer na cidade
   dela dentro do app, em vez de precisar procurar espalhado pela internet.
