@@ -45,7 +45,7 @@ export function NotificationBell() {
     <Link
       href="/notificacoes"
       aria-label={unreadCount > 0 ? `Notificações (${unreadCount} novas)` : "Notificações"}
-      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/16 text-white"
+      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/16 text-white lg:bg-surface lg:text-muted lg:hover:text-foreground"
     >
       <BellIcon className="h-4.5 w-4.5" />
       {unreadCount > 0 && (
