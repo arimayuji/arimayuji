@@ -207,13 +207,25 @@ function BottomNav({ hidden }: { hidden: boolean }) {
       // whatever the mobile scroll-hide state was, unconditionally.
       className={`chrome-gradient-nav absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-transform duration-200 ease-out ${
         hidden ? "translate-y-full" : "translate-y-0"
-      } lg:inset-y-0 lg:right-auto lg:bottom-auto lg:top-0 ${SIDEBAR_WIDTH_CLASS} lg:translate-x-0 lg:translate-y-0 lg:rounded-none lg:shadow-[8px_0_28px_-10px_rgba(0,0,0,0.45)]`}
+      } lg:inset-y-0 lg:right-auto lg:top-0 ${SIDEBAR_WIDTH_CLASS} lg:translate-x-0 lg:translate-y-0 lg:rounded-none lg:shadow-none`}
     >
-      <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)] lg:mx-0 lg:h-full lg:max-w-none lg:flex-col lg:items-stretch lg:gap-1 lg:pb-4 lg:pt-6">
+      {/* Brand mark, sidebar-only — the flat desktop rail carries its own
+          identity instead of doubling it with the header's, so the header
+          (below) hides its copy at this breakpoint via SIDEBAR_OFFSET_CLASS's
+          sibling `lg:hidden`. */}
+      <div className="hidden items-center gap-2.5 border-b border-border px-5 py-5 lg:flex">
+        <svg viewBox="0 0 100 100" className="h-6 w-6 text-accent" aria-hidden="true">
+          <path d={HORSE_BUST_BODY_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
+          <path d={HORSE_BUST_LEGS_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
+        </svg>
+        <span className="font-mono text-base font-semibold tracking-wide text-foreground">Xanthus</span>
+      </div>
+
+      <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)] lg:mx-0 lg:max-w-none lg:flex-col lg:items-stretch lg:gap-1 lg:px-3 lg:py-4">
         {tabs.map((tab) => {
           const active = isActive(pathname, tab);
           return (
-            <li key={tab.href} className="flex-1 lg:flex-none lg:px-3">
+            <li key={tab.href} className="flex-1 lg:flex-none">
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
@@ -221,8 +233,10 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                   if (active) window.dispatchEvent(new CustomEvent(TAB_RECLICK_EVENT, { detail: tab.href }));
                 }}
                 /* 64px+ tall target: this gets tapped mid-exercise. */
-                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors lg:h-11 lg:min-h-0 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 lg:py-0 lg:text-sm ${
-                  active ? "font-bold text-white lg:bg-white/14" : "font-medium text-white/85"
+                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors lg:h-10 lg:min-h-0 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-lg lg:px-3 lg:py-0 lg:text-sm ${
+                  active
+                    ? "font-bold text-white lg:bg-accent/10 lg:font-semibold lg:text-accent"
+                    : "font-medium text-white/85 lg:text-muted lg:hover:bg-background/60 lg:hover:text-foreground"
                 }`}
               >
                 <tab.icon className="h-[22px] w-[22px]" />
@@ -277,7 +291,7 @@ function GpsStatusBadge({ quality }: { quality: GpsQuality }) {
       role="status"
       aria-label={label}
       title={label}
-      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16"
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16 lg:bg-surface"
     >
       <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${ready ? "bg-good" : "bg-warn animate-pulse"}`} />
     </span>
@@ -310,23 +324,28 @@ function AppHeader({
       // `lg:left-60` clears the sidebar BottomNav becomes at that same
       // breakpoint (SIDEBAR_OFFSET_CLASS below it) — without this the two
       // would overlap in the top-left corner, since both sit at z-40.
-      className={`chrome-gradient-header absolute inset-x-0 top-0 z-40 overflow-hidden rounded-b-[36px] shadow-[0_12px_28px_-8px_rgba(74,120,224,0.4)] transition-transform duration-200 ease-out lg:rounded-bl-none ${SIDEBAR_OFFSET_CLASS}`}
+      // Shadow lives in the class list (not inline style, which would always
+      // beat `lg:shadow-none` below regardless of breakpoint) — a tinted
+      // "floating pill" shadow on mobile/native, none at all on the flat
+      // desktop bar, where that blue tint would show up as a stray smudge
+      // under the new neutral background.
+      className={`chrome-gradient-header absolute inset-x-0 top-0 z-40 overflow-hidden rounded-b-[36px] transition-transform duration-200 ease-out lg:rounded-none lg:shadow-none ${
+        hidden ? "shadow-none" : "shadow-[0_12px_28px_-8px_rgba(74,120,224,0.4),inset_0_1px_0_rgba(255,255,255,0.12)]"
+      } ${SIDEBAR_OFFSET_CLASS}`}
       style={{
         transform: hidden ? "translateY(-100%)" : "translateY(0)",
         paddingTop: "env(safe-area-inset-top)",
-        boxShadow: hidden
-          ? undefined
-          : "0 12px 28px -8px rgba(74,120,224,0.4), inset 0 1px 0 rgba(255,255,255,0.12)",
       }}
     >
-      {/* Purely decorative — partially clipped by the header's own rounded/opaque bounds via overflow-hidden above. */}
+      {/* Purely decorative — partially clipped by the header's own rounded/opaque bounds via overflow-hidden above. A highlight tuned for the blue gradient, so it's hidden at `lg:`, where the header is flat and this would just read as a stray light smudge. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/8"
+        className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/8 lg:hidden"
       />
 
-      <div className="relative flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-2.5">
+      {/* Brand mark: this header's own copy on mobile/native, hidden at `lg:` where the sidebar (BottomNav) carries it instead — one identity mark per screen, not two. `lg:justify-end`: with the left block gone, `justify-between` on a single remaining flex item collapses to flex-start (left) instead of staying pinned right. */}
+      <div className="relative flex h-16 items-center justify-between px-4 lg:justify-end lg:px-6">
+        <div className="flex items-center gap-2.5 lg:hidden">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16">
             <svg viewBox="0 0 100 100" className="h-5 w-5" aria-hidden="true">
               <path d={HORSE_BUST_BODY_PATH} fill="none" stroke="#fff" strokeWidth="4.5" strokeLinejoin="round" />
@@ -351,7 +370,7 @@ function AppHeader({
               type="button"
               onClick={() => router.push(closeHref)}
               aria-label="Fechar"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16 text-white"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16 text-white lg:bg-surface lg:text-muted lg:hover:text-foreground"
             >
               <CloseIcon className="h-4.5 w-4.5" />
             </button>

@@ -119,6 +119,29 @@
 }
 
 /*
+ * The gradient "chrome" above is a phone-app identity — a bar you hold in
+ * your hand, colored like the icon that sits on a homescreen. Stretched
+ * across a desktop browser window it reads as a mobile screen blown up
+ * rather than a native web layout, so at the same `lg:` breakpoint
+ * app-shell.tsx switches this sidebar/header pair to, the two get their own
+ * flat, neutral treatment instead — same rules a desktop dashboard's own
+ * nav rail and top bar would use, bordered rather than gradient-and-shadow.
+ * A plain class selector at equal specificity to the rule above, so being
+ * declared later here is what makes it win at that width — no `!important`,
+ * no fight with Tailwind's own utility order.
+ */
+@media (min-width: 1024px) {
+  .chrome-gradient-header {
+    background: var(--background);
+    border-bottom: 1px solid var(--border);
+  }
+  .chrome-gradient-nav {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+  }
+}
+
+/*
  * Without this, pulling down past the top of a page triggers the browser's
  * own elastic rubber-band bounce on the document itself. The (app) group's
  * own screens don't actually scroll the document anymore — AppShell's own
