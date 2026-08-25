@@ -14,6 +14,19 @@ import Link from "next/link";
  * domain) serves the same Worker.
  */
 
+/**
+ * Fill these in once the Google Group exists (groups.google.com — create
+ * one set to "qualquer pessoa pode entrar", no approval needed) and the
+ * Closed Testing track's "Testers" tab is switched from an email list to
+ * that group. `BETA_OPTIN_URL` is the link Play Console shows on that same
+ * tab once a group is configured (looks like
+ * play.google.com/apps/testing/com.xanthus.app). Two links, two steps —
+ * joining the group alone doesn't enroll anyone; they still need to accept
+ * on the Play link afterward. This section renders nothing until both are set.
+ */
+const BETA_GROUP_URL: string | null = null;
+const BETA_OPTIN_URL: string | null = null;
+
 interface VersionInfo {
   versionCode: number;
   versionName: string;
@@ -123,6 +136,38 @@ export default function DownloadPage() {
         </ol>
       </div>
 
+      {BETA_GROUP_URL && BETA_OPTIN_URL && (
+        <div className="mt-6 rounded-2xl border border-accent/30 bg-accent/5 p-5">
+          <h2 className="font-mono text-sm font-semibold">Quer testar antes de todo mundo?</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Instala pela própria Play Store em vez do APK — recebe atualização
+            automática, sem os avisos de &quot;fonte desconhecida&quot; acima.
+          </p>
+          <ol className="mt-4 flex flex-col gap-4">
+            <li className="flex items-start gap-3">
+              <StepNumber n={1} />
+              <p className="text-sm leading-relaxed text-muted">
+                Entra no{" "}
+                <a href={BETA_GROUP_URL} className="font-semibold text-accent underline underline-offset-2">
+                  grupo de testadores
+                </a>{" "}
+                — não precisa pedir aprovação, é na hora.
+              </p>
+            </li>
+            <li className="flex items-start gap-3">
+              <StepNumber n={2} />
+              <p className="text-sm leading-relaxed text-muted">
+                Depois de entrar, abre{" "}
+                <a href={BETA_OPTIN_URL} className="font-semibold text-accent underline underline-offset-2">
+                  esse link do Google Play
+                </a>{" "}
+                e aceita o convite — a ordem importa, só funciona depois do
+                passo 1.
+              </p>
+            </li>
+          </ol>
+        </div>
+      )}
     </main>
   );
 }
