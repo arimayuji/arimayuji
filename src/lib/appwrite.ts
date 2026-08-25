@@ -16,8 +16,33 @@
  * in hiding these two values.
  */
 import { Account, Client, Functions, type OAuthProvider, Storage, TablesDB, Teams } from "appwrite";
+import { isNativePlatform } from "./platform";
 
-const ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
+/**
+ * Two endpoints, one Appwrite project. Native (Android/iOS) always talks to
+ * Appwrite directly — its WebView was never the cross-site cookie problem
+ * described below. The browser instead goes through `worker/index.js`
+ * (same origin as the site itself, `xanthus.app.br`), which proxies /v1/*
+ * to the real endpoint server-side: the Appwrite session cookie set after
+ * OAuth login lives on `nyc.cloud.appwrite.io`, a different site than
+ * `xanthus.app.br`, so every `account.get()` call after login was
+ * cross-site from the browser's point of view — browsers with third-party
+ * cookie blocking (an increasingly common default, not an edge case)
+ * silently dropped that cookie, reading the app back as "guests" even
+ * though the login itself had just succeeded. See PROJECT-CONTEXT.md's
+ * "Web (Sala de Treino...)" entry for the full history, including an
+ * Appwrite custom-domain attempt that got stuck on a certificate that
+ * never finished issuing on Appwrite's own side — this proxy needs no
+ * cooperation from Appwrite at all.
+ *
+ * Falls back to the native endpoint if the web-only override isn't
+ * configured (e.g. a local dev build that never set it) rather than
+ * failing outright — the proxy is a browser-only refinement, not a
+ * requirement for the app to run.
+ */
+const NATIVE_ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
+const WEB_ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT || NATIVE_ENDPOINT;
+const ENDPOINT = isNativePlatform() ? NATIVE_ENDPOINT : WEB_ENDPOINT;
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
 
 /**

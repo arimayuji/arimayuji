@@ -2,8 +2,14 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "xanthus",
   "compatibility_date": "2024-09-23",
+  // worker/index.js proxies /v1/* (the Appwrite API) same-origin, so the
+  // Appwrite session cookie is never cross-site from the browser's point of
+  // view — see the file's own comment for why. Everything else still falls
+  // through to the static export below via the ASSETS binding.
+  "main": "worker/index.js",
   "assets": {
     "directory": "./out",
+    "binding": "ASSETS",
     "not_found_handling": "404-page"
   }
 }

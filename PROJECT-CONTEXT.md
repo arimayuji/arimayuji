@@ -330,6 +330,51 @@ desligado por completo, ver "O produto, em uma frase" acima):
   registrado no Appwrite Console pra retomar depois** — se o certificado
   eventualmente sair sozinho (ou o suporte do Appwrite destravar
   manualmente), é só trocar o endpoint de volta, sem refazer DNS nenhum.
+  **Pesquisa adicional (2026-08-25)**: confirmado no fórum oficial do
+  Appwrite que certificado nunca ser emitido é um problema **recorrente**
+  da plataforma deles (vários threads idênticos, um citando literalmente
+  "reached the max number of certificates" do lado da Fastly) — não é
+  peculiaridade desse domínio. Também confirmado que a CA usada
+  (`certainly.com`, no CAA gerado automaticamente) é a própria CA da
+  Fastly — ou seja, o erro que aparecia (SAN mismatch via Fastly) é 100%
+  interno à dupla Appwrite+Fastly, sem nada a mais pra ajustar do lado do
+  DNS. Apagar e recriar o domínio no Console (sugestão recorrente nos
+  threads) não resolveu nesse caso — tentado, ainda travado.
+  **Fix definitivo aplicado (2026-08-25), sem depender do Appwrite**:
+  `worker/index.js`, um Worker de verdade na frente do Cloudflare Workers
+  Assets (antes o deploy era só arquivos estáticos, sem nenhum código) —
+  qualquer chamada sob `/v1/*` (exatamente o que o SDK do Appwrite já
+  chama) é repassada pelo próprio Worker pro endpoint real do Appwrite
+  (`nyc.cloud.appwrite.io`), never o navegador falando direto com ele.
+  Do ponto de vista do navegador isso é same-origin (só fala com
+  `xanthus.app.br`) — o cookie de sessão nunca é cross-site, resolve o
+  bug de "guests" sem esperar certificado nenhum de terceiro. Detalhes:
+  - `src/lib/appwrite.ts`: endpoint agora é escolhido por plataforma —
+    `NEXT_PUBLIC_APPWRITE_ENDPOINT` (endpoint real do Appwrite) continua
+    valendo sem mudança nenhuma pro app nativo (nunca teve esse bug,
+    WebView não é sujeito a bloqueio de cookie de terceiro do jeito que
+    Safari/Chrome desktop são); `NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT`
+    (`https://xanthus.app.br/v1`, novo) só é usado quando
+    `isNativePlatform()` é falso.
+  - `worker/index.js`: proxy simples — clona o request pra
+    `https://nyc.cloud.appwrite.io` mantendo path/método/headers/corpo
+    (mesmo idioma que a própria Cloudflare documenta, inclusive cobre
+    upgrade de WebSocket automaticamente — usado pelo Appwrite Realtime,
+    corrida ao vivo); remove qualquer `Domain=` explícito dos
+    `Set-Cookie` de volta, forçando cookie host-only pro
+    `xanthus.app.br` (sem isso, um `Domain=` apontando pro host real do
+    Appwrite faria o navegador descartar o cookie por mismatch).
+  - `wrangler.jsonc`: ganhou `"main": "worker/index.js"` +
+    `"assets": {"binding": "ASSETS", ...}` — o script roda primeiro,
+    delega pros assets estáticos (`env.ASSETS.fetch`) sempre que a rota
+    não é `/v1/*`.
+  - Testado localmente via `wrangler dev`: assets estáticos (`/`,
+    `/perfil/`) continuam servindo normal, `/v1/health` e `/v1/account`
+    retornam resposta real do Appwrite (não erro de rede) — confirma que
+    o proxy está de fato alcançando o backend real. **Não testado**: o
+    fluxo de OAuth completo de verdade num navegador (precisa de deploy
+    real + login real do Google, não dá pra simular headless aqui) — o
+    dono do projeto precisa confirmar isso depois do deploy.
 - **Apple**: implementado (Sign in with Apple, obrigatório pela guideline
   4.8 da App Store já que o app oferece login Google) — task #51 concluída.
 - **Microsoft**: **removido** — as 3 opções de OAuth (Google/Apple/Microsoft)
