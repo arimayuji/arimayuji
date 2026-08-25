@@ -129,9 +129,11 @@ export function PillTabs<T extends string>({
 }
 
 /** Neutral counterpart for things that are real but not yet persisted. */
-export function NoticeBadge({ children }: { children: ReactNode }) {
+export function NoticeBadge({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <span className="inline-block rounded-full border border-border bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+    <span
+      className={`inline-block rounded-full border border-border bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted ${className}`}
+    >
       {children}
     </span>
   );
@@ -156,15 +158,25 @@ export function ScreenHeader({
   subtitle,
   badge,
   wide = false,
+  compactOnWide = false,
 }: {
   title: string;
   subtitle?: ReactNode;
   badge?: ReactNode;
   wide?: boolean;
+  /**
+   * Collapses this whole header at `lg:` — for a page whose `title` is
+   * already the exact label the desktop sidebar shows for it (app-shell.tsx's
+   * DESKTOP_TABS — "Perfil" the tab, "Perfil" the h1 right below it), where
+   * repeating it as a giant heading is redundant chrome, not information.
+   * Never affects the native app/narrow browser, which has no sidebar this
+   * would double up with in the first place.
+   */
+  compactOnWide?: boolean;
 }) {
   return (
     <header
-      className="pr-enter px-5 pb-5"
+      className={`pr-enter px-5 pb-5 ${compactOnWide ? "lg:hidden" : ""}`}
       // The top safe-area inset AND the gradient AppHeader's own height
       // (app-shell.tsx) are both handled once, as padding on the shell's
       // scroll container — every screen that uses ScreenHeader renders

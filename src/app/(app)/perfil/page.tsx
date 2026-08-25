@@ -1200,12 +1200,18 @@ export default function PerfilPage() {
   return (
     <>
       <ScreenHeader
+        compactOnWide
         title="Perfil"
         subtitle="Preferências que já valem de verdade, e o que ainda é maquete."
       />
 
       <Screen>
-        <AccountCard />
+        {/* `lg:pt-8`: makes up for `compactOnWide` collapsing ScreenHeader's
+            own breathing room above — otherwise Conta would sit flush
+            against the fixed top bar with zero gap on the desktop surface. */}
+        <div className="lg:pt-8">
+          <AccountCard />
+        </div>
 
         {/*
           Everything below Conta/Aparência either reads local device state
@@ -1225,12 +1231,39 @@ export default function PerfilPage() {
         </div>
 
         <SectionLabel delayMs={20}>Aparência</SectionLabel>
-        <Card className="pr-enter" style={delay(30)}>
+        <Card className="pr-enter lg:rounded-lg lg:p-4" style={delay(30)}>
           <CardTitle>Tema</CardTitle>
           <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
             &quot;Sistema&quot; segue o tema do aparelho e muda sozinho se você trocar por lá.
           </p>
-          <PillTabs tabs={THEMES} active={prefs.theme} onChange={(theme) => update({ theme })} />
+          {/* Mobile keeps the touch-sized pill track every other screen uses
+              (PillTabs, shared) — at `lg:` this swaps for a tighter row of
+              square-cornered buttons instead, same reasoning as AccountCard's
+              own `lg:` overrides just above: a settings control, not a
+              touch target. Not done by restyling `PillTabs` itself, since
+              that component is reused by several mobile-only screens
+              (/treinador, /amigos, /longao…) that should keep their current
+              look untouched. */}
+          <div className="lg:hidden">
+            <PillTabs tabs={THEMES} active={prefs.theme} onChange={(theme) => update({ theme })} />
+          </div>
+          <div className="hidden gap-1.5 lg:flex">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={prefs.theme === t.id}
+                onClick={() => update({ theme: t.id })}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  prefs.theme === t.id
+                    ? "bg-accent text-accent-foreground"
+                    : "border border-border text-muted hover:border-accent hover:text-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </Card>
 
         <div className="lg:hidden">
