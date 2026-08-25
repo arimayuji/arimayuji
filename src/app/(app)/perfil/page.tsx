@@ -1205,7 +1205,7 @@ export default function PerfilPage() {
         subtitle="Preferências que já valem de verdade, e o que ainda é maquete."
       />
 
-      <Screen>
+      <Screen panel>
         {/* `lg:pt-8`: makes up for `compactOnWide` collapsing ScreenHeader's
             own breathing room above — otherwise Conta would sit flush
             against the fixed top bar with zero gap on the desktop surface. */}

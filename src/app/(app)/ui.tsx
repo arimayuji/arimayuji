@@ -152,6 +152,18 @@ export function NoticeBadge({ children, className = "" }: { children: ReactNode;
  */
 const SCREEN_WIDTH = "max-w-md";
 const SCREEN_WIDTH_WIDE = "max-w-md lg:max-w-6xl";
+/**
+ * A third option besides the phone-narrow default and the `wide` dashboard
+ * grid: a moderate reading width that, critically, drops the `mx-auto`
+ * centering at `lg:` (`lg:mx-0`) instead of just widening it. A handful of
+ * short cards centered inside a `wide` 6xl column still reads as "floating
+ * in the middle of a mostly-empty screen" — this anchors them to the left
+ * edge (under the sidebar) like an actual desktop settings panel, at a
+ * width that keeps prose/labels from stretching edge-to-edge. Only makes
+ * sense paired with content that's deliberately short (see /perfil), never
+ * a substitute for `wide`'s own multi-column dashboards.
+ */
+const SCREEN_WIDTH_PANEL = "max-w-md lg:mx-0 lg:max-w-2xl";
 
 export function ScreenHeader({
   title,
@@ -198,11 +210,23 @@ export function ScreenHeader({
   );
 }
 
-/** Standard content column for every app screen: one max-width, one gutter — see `wide`'s own comment above `SCREEN_WIDTH`. */
-export function Screen({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+/** Standard content column for every app screen: one max-width, one gutter — see `wide`'s own comment above `SCREEN_WIDTH`, and `panel`'s above `SCREEN_WIDTH_PANEL`. `wide` and `panel` are mutually exclusive; `wide` wins if both are somehow passed. */
+export function Screen({
+  children,
+  wide = false,
+  panel = false,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+  panel?: boolean;
+}) {
   return (
     <main className="flex flex-1 flex-col px-5 pb-10">
-      <div className={`mx-auto flex w-full flex-1 flex-col gap-4 ${wide ? SCREEN_WIDTH_WIDE : SCREEN_WIDTH}`}>{children}</div>
+      <div
+        className={`mx-auto flex w-full flex-1 flex-col gap-4 ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH}`}
+      >
+        {children}
+      </div>
     </main>
   );
 }
