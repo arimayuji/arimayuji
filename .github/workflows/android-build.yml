@@ -67,6 +67,11 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          # Browser-only override — worker/index.js proxies /v1/* same-origin
+          # so the Appwrite session cookie is never cross-site there. Native
+          # ignores this and keeps using the endpoint above directly (see
+          # src/lib/appwrite.ts).
+          NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT }}
           NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
 
@@ -125,6 +130,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT }}
           NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
 
