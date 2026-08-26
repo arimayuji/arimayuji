@@ -1689,8 +1689,13 @@ tomar gel bem na reta final.
   commitada), sem tocar nos 270 clipes reais. Rodadas as 3 variantes
   (`current` — igual ao banco de hoje, pra comparação justa —, `warmer`,
   `steadier`) e as 15 amostras enviadas pro dono do projeto ouvir e
-  escolher antes de qualquer regeneração real. **Nenhuma escuta/decisão
-  ainda feita** — próximo passo depende do dono do projeto.
+  escolher antes de qualquer regeneração real. **Decidido em 2026-08-26**:
+  dono do projeto ouviu e preferiu a `current` — ou seja, exatamente o
+  `voice_settings` que o banco real já usa hoje
+  (`stability: 0.4, similarity_boost: 0.75, style: 0.2,
+  use_speaker_boost: true`). **Nenhuma mudança necessária** — o banco de
+  270 clipes já em produção já é a opção vencedora, não precisa
+  regenerar nada. Experimento encerrado.
 - **Chave ElevenLabs recebida nesta sessão** ("Eleven Labs -
   017b4c9f38645a9fe9f16f56ce83383cdb813ae592a7cc2c65fc86438ffdfbf2") não
   bate com o formato da chave já configurada em `.env.local`
