@@ -1019,13 +1019,13 @@ export default function PlanoPage() {
     return (
       <>
         <ScreenHeader
-          panel
+          wide
           compactOnWide
           title="Plano"
           badge={<NoticeBadge>seu plano</NoticeBadge>}
           subtitle={`Semana ${currentWeek.weekNumber} de ${plan.weeks.length} — fase de ${PHASE_LABEL[currentWeek.phase]}. Calculado do seu histórico real, avança sozinho junto com o calendário.`}
         />
-        <Screen panel>
+        <Screen wide>
           {plan.warning && (
             <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(60)}>
               <p className="text-sm leading-relaxed text-muted text-pretty">{plan.warning}</p>
@@ -1091,81 +1091,100 @@ export default function PlanoPage() {
             )
           )}
 
-          <Card className="pr-enter" style={delay(110)}>
-            <CardTitle
-              aside={
-                <NoticeBadge>
-                  {coachOverride ? "treinador" : selfOverride ? "sugerido por ia" : "dados reais"}
-                </NoticeBadge>
-              }
-            >
-              Semana {currentWeek.weekNumber} — {PHASE_LABEL[currentWeek.phase]}
-            </CardTitle>
-            <WeekStatsRow volumeKm={currentWeek.totalKm} sessions={runCount} hard={qualityCount} />
-            {actualKmSoFar !== null && (
-              <p className="mb-4 -mt-2 text-xs leading-relaxed text-muted text-pretty">
-                Até agora você já correu <strong className="text-foreground">{actualKmSoFar} km</strong>{" "}
-                essa semana.
-              </p>
-            )}
-            <ul className="flex flex-col gap-3">
-              {displaySessions.map((session, index) => (
-                <SessionRow
-                  key={session.day}
-                  session={session}
-                  index={index}
-                  isLast={index === displaySessions.length - 1}
+          {/*
+            Below the banners, the desktop treatment genuinely splits into
+            two columns instead of just narrowing the same mobile stack —
+            `panel` (a single centered column) was still every widget
+            floating on its own in a sea of white at this width. Left is
+            the week itself (the thing an athlete actually acts on day to
+            day); right is everything else (pace reference, the evidence
+            behind the numbers, the AI suggestion, and the goal settings) —
+            a real reading rail, not a narrower mobile card. `flex flex-col
+            gap-4` on the outer wrapper is the mobile fallback (both groups
+            still stack in the exact same top-to-bottom order the page
+            always had); `lg:grid` replaces it with side-by-side columns.
+          */}
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-6">
+            <div className="flex flex-col gap-4">
+              <Card className="pr-enter" style={delay(110)}>
+                <CardTitle
+                  aside={
+                    <NoticeBadge>
+                      {coachOverride ? "treinador" : selfOverride ? "sugerido por ia" : "dados reais"}
+                    </NoticeBadge>
+                  }
+                >
+                  Semana {currentWeek.weekNumber} — {PHASE_LABEL[currentWeek.phase]}
+                </CardTitle>
+                <WeekStatsRow volumeKm={currentWeek.totalKm} sessions={runCount} hard={qualityCount} />
+                {actualKmSoFar !== null && (
+                  <p className="mb-4 -mt-2 text-xs leading-relaxed text-muted text-pretty">
+                    Até agora você já correu <strong className="text-foreground">{actualKmSoFar} km</strong>{" "}
+                    essa semana.
+                  </p>
+                )}
+                <ul className="flex flex-col gap-3">
+                  {displaySessions.map((session, index) => (
+                    <SessionRow
+                      key={session.day}
+                      session={session}
+                      index={index}
+                      isLast={index === displaySessions.length - 1}
+                    />
+                  ))}
+                </ul>
+                <p className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted">
+                  Volume calculado do seu ritmo real das últimas semanas — não é o mesmo pra todo
+                  mundo. O dia de cada sessão é organização nossa, não vem de estudo nenhum; volume,
+                  intensidade e taper vêm.
+                </p>
+              </Card>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {plan.paceZones && <PaceZonesCard zones={plan.paceZones} />}
+
+              <Card className="pr-enter" style={delay(260)}>
+                <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
+                  Por que essa semana tem essa cara
+                </CardTitle>
+                <ul className="flex flex-col gap-3">
+                  {plan.evidenceTopics.map((topic) => {
+                    const fact = getEvidenceForTopicRanked(topic)[0];
+                    return fact ? <EvidenceFactRow key={topic} fact={fact} topic={topic} /> : null;
+                  })}
+                </ul>
+                <Link
+                  href="/estudos"
+                  className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
+                >
+                  Ver todos os estudos por trás do plano
+                </Link>
+              </Card>
+
+              {!coachOverride && (
+                <SelfPlanSuggestionCard
+                  weekStartDate={currentWeek.startDate}
+                  recentWeeksKm={recentWeeksKm}
+                  goalDistanceMeters={profile.goalDistanceMeters!}
+                  goalDate={profile.goalDate!}
+                  weeklyRunDays={profile.weeklyRunDays}
+                  recentRace={
+                    profile.recentRaceDistanceMeters && profile.recentRaceTimeSeconds
+                      ? { distanceMeters: profile.recentRaceDistanceMeters, timeSeconds: profile.recentRaceTimeSeconds }
+                      : undefined
+                  }
+                  painSignal={painSignalForAi}
+                  signedIn={Boolean(account)}
+                  override={selfOverride}
+                  onApplied={setSelfOverrideState}
+                  onRemoved={() => setSelfOverrideState(null)}
                 />
-              ))}
-            </ul>
-            <p className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted">
-              Volume calculado do seu ritmo real das últimas semanas — não é o mesmo pra todo
-              mundo. O dia de cada sessão é organização nossa, não vem de estudo nenhum; volume,
-              intensidade e taper vêm.
-            </p>
-          </Card>
+              )}
 
-          {plan.paceZones && <PaceZonesCard zones={plan.paceZones} />}
-
-          <Card className="pr-enter" style={delay(260)}>
-            <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
-              Por que essa semana tem essa cara
-            </CardTitle>
-            <ul className="flex flex-col gap-3">
-              {plan.evidenceTopics.map((topic) => {
-                const fact = getEvidenceForTopicRanked(topic)[0];
-                return fact ? <EvidenceFactRow key={topic} fact={fact} topic={topic} /> : null;
-              })}
-            </ul>
-            <Link
-              href="/estudos"
-              className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
-            >
-              Ver todos os estudos por trás do plano
-            </Link>
-          </Card>
-
-          {!coachOverride && (
-            <SelfPlanSuggestionCard
-              weekStartDate={currentWeek.startDate}
-              recentWeeksKm={recentWeeksKm}
-              goalDistanceMeters={profile.goalDistanceMeters!}
-              goalDate={profile.goalDate!}
-              weeklyRunDays={profile.weeklyRunDays}
-              recentRace={
-                profile.recentRaceDistanceMeters && profile.recentRaceTimeSeconds
-                  ? { distanceMeters: profile.recentRaceDistanceMeters, timeSeconds: profile.recentRaceTimeSeconds }
-                  : undefined
-              }
-              painSignal={painSignalForAi}
-              signedIn={Boolean(account)}
-              override={selfOverride}
-              onApplied={setSelfOverrideState}
-              onRemoved={() => setSelfOverrideState(null)}
-            />
-          )}
-
-          <GoalCard profile={profile} updateProfile={updateProfile} />
+              <GoalCard profile={profile} updateProfile={updateProfile} />
+            </div>
+          </div>
         </Screen>
       </>
     );
