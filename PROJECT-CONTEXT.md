@@ -653,6 +653,32 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
     detalhe nem implementado — esse é só o resultado da pesquisa de
     viabilidade, o próximo passo é decidir se vale prosseguir com esse
     par de fontes antes de desenhar o scraper/cron em si.
+  - **Ideia alternativa pesquisada em 2026-08-26**: prefeitura publica a
+    portaria de interdição de trânsito pra corrida de rua no Diário
+    Oficial antes do evento — dado público (ato administrativo, sem
+    problema de ToS/direito autoral) e, em tese, com o percurso real
+    (ruas fechadas), não só nome/data/distância. Confirmado que existem
+    dois caminhos técnicos reais: (1) `diariooficial.prefeitura.sp.gov.br`
+    tem busca por palavra-chave + filtro por órgão (CET incluso), então
+    dá pra buscar "interdição de trânsito"/"prova pedestre" direto nas
+    portarias da CET-SP; (2) o projeto **Querido Diário**
+    (`queridodiario.ok.org.br`, Open Knowledge Brasil) indexa o Diário
+    Oficial de 500+ municípios brasileiros numa API REST só
+    (`api.queridodiario.ok.org.br`, sem autenticação) — resolveria o
+    problema de "cada prefeitura publica do seu jeito" pra várias cidades
+    de uma vez, não confirmado ainda se São Paulo capital está no índice
+    (a cidade já roda o portal próprio acima). **O problema real não é
+    achar a fonte, é o formato**: o texto do decreto é juridiquês solto,
+    sem schema (nome/data/percurso não vêm em campos estruturados, o
+    evento pode aparecer só como "Processo nº X" em vez do nome comercial
+    que o corredor busca), formato varia de prefeitura pra prefeitura, e
+    o **timing não serve pra um calendário de "corridas futuras"**:
+    portaria de interdição costuma sair só dias a poucas semanas antes do
+    evento, tarde demais pra alguém planejar com meses de antecedência.
+    **Conclusão**: melhor como camada de **verificação/enriquecimento**
+    (confirmar data/percurso perto do dia) por cima da fonte principal
+    (FPA/Corrida Perfeita), não como fonte primária de descoberta — não
+    substitui a dupla acima, complementa.
 - **Sincronização opcional do plano/perfil entre aparelhos (pra ver no
   desktop o que foi montado no celular, com gráfico/calendário melhor)** —
   pedido em 2026-08-25, avaliado em conjunto nesta sessão. **O bloqueio
