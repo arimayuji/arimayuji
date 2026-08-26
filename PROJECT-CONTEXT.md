@@ -647,12 +647,39 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
     bloqueio, órgão público sem cláusula de ToS contra reuso — a fonte
     **mais segura das quatro**, mas só cobre corridas em São Paulo
     (estado), não o Brasil todo.
-  - **Recomendação**: combinar as duas — FPA como fonte segura pra SP,
-    Corrida Perfeita (depois de identificar o endpoint real da API via
-    browser/DevTools) pra cobertura nacional. Ainda não escopado em
-    detalhe nem implementado — esse é só o resultado da pesquisa de
-    viabilidade, o próximo passo é decidir se vale prosseguir com esse
-    par de fontes antes de desenhar o scraper/cron em si.
+  - **Recomendação confirmada pelo dono do projeto (2026-08-26): combinar
+    as duas** — FPA pra SP + Corrida Perfeita pra cobertura nacional.
+  - **Endpoint real do Corrida Perfeita encontrado em 2026-08-26** — o
+    Playwright não conseguiu tracear a rede de dentro deste ambiente
+    (`ERR_CONNECTION_RESET` mesmo apontando pro proxy configurado, `curl`
+    simples funciona normal — provavelmente o Chromium do Playwright não
+    confia no certificado re-emitido pelo proxy; não investigado a fundo,
+    contornado). Achado por baixo nível em vez disso: baixado o bundle JS
+    da SPA (`/static/js/main.*.js`) via `curl` e feito `grep`/slice por
+    string — o app é uma Create React App que chama
+    `GET https://v2.api.corridaperfeita.com/race_calendar/all` **sem
+    nenhuma autenticação** (o header `Authorization` manda string vazia
+    quando não há usuário logado, e funciona normalmente assim).
+    Confirmado ao vivo com `curl` puro: `200 OK`, JSON real, `total: 283`
+    corridas futuras em todo o Brasil na hora do teste. Parâmetros de
+    query aceitos (todos opcionais): `name`, `city`, `state` (UF),
+    `min_distance`/`max_distance` (km), `start_date`/`end_date`
+    (`yyyy-MM-dd`), `has_coupon`, `has_structure`, `skip` (paginação —
+    a resposta vem como `{total, data: [...]}`). Cada item de `data` já
+    traz `name`, `date` (ISO), `distance` (array de km, uma prova pode
+    oferecer várias distâncias), `state`, `city`, `coupons`, e às vezes
+    `url` (link de inscrição, por vezes apontando pro Ticket Sports —
+    mas isso não reintroduz o bloqueio de ToS do Ticket Sports: quem
+    está sendo chamado aqui é a API do próprio Corrida Perfeita, que já
+    é pública e sem autenticação por design, não o site deles). **Não
+    consegui ler o texto literal dos Termos de Uso deles**
+    (`corridaperfeita.com/termos/` está atrás de um desafio anti-bot
+    real — JS checando `navigator.webdriver`, user-agent headless, etc.
+    — e decidi não tentar contornar isso, é diferente de só chamar uma
+    API pública já aberta) — vale o dono do projeto abrir esse link num
+    navegador de verdade e ler antes de decidir seguir em frente com
+    scraping em produção. Endpoint pronto pra usar; ainda não escopada a
+    tabela Appwrite/cron/UI que consumiria isso.
   - **Ideia alternativa pesquisada em 2026-08-26**: prefeitura publica a
     portaria de interdição de trânsito pra corrida de rua no Diário
     Oficial antes do evento — dado público (ato administrativo, sem
