@@ -221,6 +221,24 @@ de API paga por segundo: `Wan-Video/Wan2.2` + `Wan-Video/Wan-Animate-2`
 rodando local/GPU alugada via ComfyUI (achado da pesquisa de GitHub,
 2026-08-24) — mesma técnica, sem custo por chamada.
 
+**Pendente de teste (2026-08-25): Seedance (ByteDance) como alternativa
+de animação.** Preço real conferido na fal.ai — Seedance 2.0: US$0,30/seg
+(padrão) ou US$0,24/seg (Fast), um clipe de 8s fica em ~US$1,94-2,43;
+Seedance 2.5 (mais nova) sobe pra ~US$0,47/seg em 720p. Pro volume baixo
+do pilar Marca/mascote (uso ocasional, não os ~16 vídeos/mês do relatório
+original), isso pareceria mais barato que a faixa de US$72-108/mês já
+estimada pro Wan 2.7 — mas essa comparação não bateu resolução/duração/
+volume igual, é só um sinal, não uma conclusão. **O risco real não é
+preço, é estilo**: Seedance foi treinada majoritariamente em vídeo
+realista, e a regra não-negociável aqui é nunca fotorrealista, sempre
+cel-shaded/ilustração à mão (ver "Direção de arte" acima) — modelos assim
+têm viés conhecido de puxar pro realismo ou suavizar o traço plano durante
+o movimento, exatamente o motivo original de ter escolhido Wan 2.7/Vidu
+Q3. **Teste combinado, ainda não rodado**: pegar a mesma imagem-chave do
+Recraft (ex.: o cavalo mascote) e gerar nos dois (Wan 2.7 e Seedance),
+comparando se o traço/estilo se mantém sob movimento — decide se Seedance
+vira uma terceira opção real ou fica descartada.
+
 ## Como manter isso vivo
 
 Sempre que uma decisão nova de tom, formato, gancho que funcionou/não
