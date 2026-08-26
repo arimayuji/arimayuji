@@ -196,3 +196,35 @@ export function announceDistancePace(
     if (token === currentToken) speak(fallbackText);
   });
 }
+
+const CARB_GEL_REMINDER_SLUG = "carb-gel-reminder";
+const CARB_GEL_REMINDER_FALLBACK_TEXT = "Hora de tomar seu gel de carboidrato.";
+
+/**
+ * Speaks the fixed carb-gel reminder phrase — unlike `announceDistancePace`,
+ * this is a single whole-sentence clip, never assembled from parts, so it
+ * skips `concatBuffers` entirely and just plays the one buffer directly.
+ */
+export function announceCarbGelReminder(gender: VoiceGender = "female"): void {
+  stopCurrent();
+  const token = currentToken;
+
+  const ctx = getAudioContext();
+  if (!ctx) {
+    speak(CARB_GEL_REMINDER_FALLBACK_TEXT);
+    return;
+  }
+
+  loadBuffer(CARB_GEL_REMINDER_SLUG, gender, ctx)
+    .then((buffer) => {
+      if (token !== currentToken) return; // superseded while the clip was loading
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      currentSource = source;
+      source.start();
+    })
+    .catch(() => {
+      if (token === currentToken) speak(CARB_GEL_REMINDER_FALLBACK_TEXT);
+    });
+}

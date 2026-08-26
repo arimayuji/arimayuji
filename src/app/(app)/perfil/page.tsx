@@ -7,6 +7,9 @@ import {
   ANNOUNCE_MIN_METERS,
   ANNOUNCE_STEP_METERS,
   announceLabel,
+  CARB_REMINDER_MAX_MINUTES,
+  CARB_REMINDER_MIN_MINUTES,
+  CARB_REMINDER_STEP_MINUTES,
   type DistanceUnit,
   type ThemeMode,
 } from "@/lib/preferences";
@@ -1396,6 +1399,42 @@ export default function PerfilPage() {
                   onChange={(checked) => update({ vibrateOnPaceDelay: checked })}
                 />
               </div>
+            </fieldset>
+
+            <fieldset className="mt-6 border-t border-border pt-5">
+              <legend className="text-sm font-medium">Lembrete de gel de carboidrato</legend>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                Aviso por voz em corridas longas, baseado em quanto tempo você já está correndo —
+                não no seu pace, já que a necessidade de carboidrato escala com o tempo de esforço.{" "}
+                <Link href="/estudos" className="text-accent underline underline-offset-2">
+                  Ver o estudo
+                </Link>
+                .
+              </p>
+              <div className="mt-3">
+                <PreferenceToggle
+                  label="Lembrar de tomar gel"
+                  hint="silencioso em corridas curtas — só dispara depois do primeiro intervalo"
+                  checked={prefs.carbReminderEnabled}
+                  onChange={(checked) => update({ carbReminderEnabled: checked })}
+                />
+              </div>
+              {prefs.carbReminderEnabled && (
+                <div className="mt-4">
+                  <PillSlider
+                    min={CARB_REMINDER_MIN_MINUTES}
+                    max={CARB_REMINDER_MAX_MINUTES}
+                    step={CARB_REMINDER_STEP_MINUTES}
+                    value={prefs.carbReminderIntervalMinutes}
+                    onChange={(minutes) => update({ carbReminderIntervalMinutes: minutes })}
+                    formatValue={(minutes) => `a cada ${minutes} min`}
+                  />
+                  <div className="mt-1.5 flex justify-between font-mono text-[10px] text-muted">
+                    <span>{CARB_REMINDER_MIN_MINUTES} min</span>
+                    <span>{CARB_REMINDER_MAX_MINUTES} min</span>
+                  </div>
+                </div>
+              )}
             </fieldset>
 
             <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">

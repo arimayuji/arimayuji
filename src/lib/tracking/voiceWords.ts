@@ -224,6 +224,17 @@ function buildVoiceBank(): VoiceBankEntry[] {
   entries.push({ slug: "quilometros", text: "quilômetros", previousText: "cinco", nextText: "pace" });
   entries.push({ slug: "pace", text: "pace", previousText: "quilômetros", nextText: "dez" });
 
+  // Carb-gel reminder — a whole standalone sentence, not a word in the
+  // numeric template above, so it has no previous/next neighbor at all:
+  // voiceBank.ts's `announceCarbGelReminder` plays this one clip directly,
+  // it's never spliced with anything else.
+  entries.push({
+    slug: "carb-gel-reminder",
+    text: "Hora de tomar seu gel de carboidrato.",
+    previousText: null,
+    nextText: null,
+  });
+
   return entries;
 }
 

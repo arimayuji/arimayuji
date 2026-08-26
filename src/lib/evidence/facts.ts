@@ -927,4 +927,24 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     },
     caveat: "Coautoria inclui a Dietitians of Canada — a posição em si é conjunta, não exclusivamente americana.",
   },
+  {
+    id: "acsm-carb-intake-during-exercise",
+    topic: "nutrition_timing",
+    claim:
+      "Pra exercício contínuo acima de 60–90 minutos, a mesma posição conjunta ACSM/Academy of Nutrition and Dietetics recomenda 30–60g de carboidrato por hora, subindo a até ~90g/hora (múltiplas fontes de carboidrato) em esforços de ultra-endurance acima de 2h30 — a necessidade escala com o tempo de esforço, não com o pace.",
+    bullets: [
+      "30–60g de carboidrato/hora acima de 60–90min contínuos",
+      "Até ~90g/hora (múltiplas fontes) em esforços acima de 2h30",
+      "Necessidade escala com tempo de esforço, não com pace",
+    ],
+    strength: "forte",
+    source: {
+      name: "Academy of Nutrition and Dietetics, ACSM — Nutrition and Athletic Performance (2016)",
+      org: "American College of Sports Medicine",
+      url: "https://pubmed.ncbi.nlm.nih.gov/26891166/",
+      citable: true,
+    },
+    caveat:
+      "Mesma fonte de acsm-and-nutrition-athletic-performance — aqui só o número específico de carboidrato durante o esforço, extraído da mesma posição conjunta.",
+  },
 ];

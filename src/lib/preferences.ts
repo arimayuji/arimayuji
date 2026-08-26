@@ -70,6 +70,16 @@ export interface Preferences {
   healthDataConsent: boolean;
   /** See `AppMode`. Doesn't gate anything server-side — a plain athlete who somehow gets this set to "treinador" just sees an empty /treinador as their home, same empty state a coach with no accepted students sees. */
   appMode: AppMode;
+  /**
+   * Voice reminder to take a carbohydrate gel, on a fixed elapsed-time
+   * cadence during a run — see `useRunTracker.ts`'s own comment on why
+   * this is elapsed time, not pace or distance (ACSM/ISSN guidance scales
+   * carb need with duration of effort, not speed). Off by default like
+   * every other new opt-in behavior here.
+   */
+  carbReminderEnabled: boolean;
+  /** Minutes between reminders, and also when the first one fires — see `CARB_REMINDER_MIN/MAX/STEP_MINUTES`. */
+  carbReminderIntervalMinutes: number;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -81,6 +91,11 @@ export const ANNOUNCE_STEP_METERS = 250;
 export const ANNOUNCE_MIN_SECONDS = 60;
 export const ANNOUNCE_MAX_SECONDS = 600;
 export const ANNOUNCE_STEP_SECONDS = 30;
+
+/** Slider bounds for the carb-reminder interval, in minutes — the range itself is the ACSM/ISSN 30-60g/hour guidance window, reused directly as the slider's range (see PROJECT-CONTEXT.md for the citation). */
+export const CARB_REMINDER_MIN_MINUTES = 30;
+export const CARB_REMINDER_MAX_MINUTES = 60;
+export const CARB_REMINDER_STEP_MINUTES = 5;
 
 export const DEFAULT_PREFERENCES: Preferences = {
   announceIntervalMeters: 1000,
@@ -94,6 +109,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   vibrateOnPaceDelay: false,
   healthDataConsent: false,
   appMode: "atleta",
+  carbReminderEnabled: false,
+  carbReminderIntervalMinutes: 45,
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -107,6 +124,11 @@ function clampAnnounceInterval(meters: number): number {
 function clampAnnounceSeconds(seconds: number): number {
   const snapped = Math.round(seconds / ANNOUNCE_STEP_SECONDS) * ANNOUNCE_STEP_SECONDS;
   return Math.min(ANNOUNCE_MAX_SECONDS, Math.max(ANNOUNCE_MIN_SECONDS, snapped));
+}
+
+function clampCarbReminderMinutes(minutes: number): number {
+  const snapped = Math.round(minutes / CARB_REMINDER_STEP_MINUTES) * CARB_REMINDER_STEP_MINUTES;
+  return Math.min(CARB_REMINDER_MAX_MINUTES, Math.max(CARB_REMINDER_MIN_MINUTES, snapped));
 }
 
 function sanitize(raw: unknown): Preferences {
@@ -166,6 +188,16 @@ function sanitize(raw: unknown): Preferences {
   const appMode: AppMode =
     value.appMode === "atleta" || value.appMode === "treinador" ? value.appMode : DEFAULT_PREFERENCES.appMode;
 
+  const carbReminderEnabled =
+    typeof value.carbReminderEnabled === "boolean"
+      ? value.carbReminderEnabled
+      : DEFAULT_PREFERENCES.carbReminderEnabled;
+
+  const rawCarbReminderMinutes = Number(value.carbReminderIntervalMinutes);
+  const carbReminderIntervalMinutes = Number.isFinite(rawCarbReminderMinutes)
+    ? clampCarbReminderMinutes(rawCarbReminderMinutes)
+    : DEFAULT_PREFERENCES.carbReminderIntervalMinutes;
+
   return {
     announceIntervalMeters,
     announceIntervalSeconds,
@@ -178,6 +210,8 @@ function sanitize(raw: unknown): Preferences {
     vibrateOnPaceDelay,
     healthDataConsent,
     appMode,
+    carbReminderEnabled,
+    carbReminderIntervalMinutes,
   };
 }
 

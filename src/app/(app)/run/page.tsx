@@ -1005,6 +1005,31 @@ export default function RunPage() {
   const [lapToast, setLapToast] = useState<string | null>(null);
   const lapToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [carbToast, setCarbToast] = useState<string | null>(null);
+  /**
+   * `state.carbReminderFiredAt` is a one-shot signal from useRunTracker's own
+   * tick loop, not something this screen decides on its own. Read during
+   * render rather than inside a `useEffect` — same "adjusting state when a
+   * dependency changes" pattern used elsewhere in this app (see /plano's
+   * `loadedWeekKey`) — so this only reacts the one time the value actually
+   * changes, turning it into the visual half of the reminder for
+   * accessibility parity with the voice cue useRunTracker already plays.
+   * The auto-dismiss timer itself is a real side effect (refs/timers can't
+   * be touched during render), so that part lives in the effect right below,
+   * synchronized to `carbToast`'s own lifecycle rather than to the fired-at
+   * timestamp directly.
+   */
+  const [lastCarbReminderShownAt, setLastCarbReminderShownAt] = useState<number | null>(null);
+  if (state.carbReminderFiredAt !== null && state.carbReminderFiredAt !== lastCarbReminderShownAt) {
+    setLastCarbReminderShownAt(state.carbReminderFiredAt);
+    setCarbToast("Hora do gel");
+  }
+  useEffect(() => {
+    if (!carbToast) return;
+    const timer = setTimeout(() => setCarbToast(null), 2400);
+    return () => clearTimeout(timer);
+  }, [carbToast]);
+
   /** See `recoverableRun`'s own comment — checked once, not on every re-render, since `start()`/`recover()` are the only things that should ever change what's buffered. */
   useEffect(() => {
     loadActiveRun().then((snapshot) => {
@@ -1564,6 +1589,8 @@ export default function RunPage() {
           : undefined,
       ghostRun: selectedGhost ?? undefined,
       vibrateOnPaceDelay: preferences.vibrateOnPaceDelay,
+      carbReminderEnabled: preferences.carbReminderEnabled,
+      carbReminderIntervalSeconds: preferences.carbReminderIntervalMinutes * 60,
     });
   };
 
@@ -2513,6 +2540,15 @@ export default function RunPage() {
                   style={{ "--pr-dur": "0.25s" } as CSSProperties}
                 >
                   {lapToast}
+                </div>
+              )}
+
+              {carbToast && (
+                <div
+                  className="pr-enter absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-accent px-4 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground"
+                  style={{ "--pr-dur": "0.25s" } as CSSProperties}
+                >
+                  {carbToast}
                 </div>
               )}
             </main>

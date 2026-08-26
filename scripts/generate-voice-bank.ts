@@ -17,6 +17,14 @@
  * `--normalize-only` skips ElevenLabs entirely and just re-levels whatever
  * mp3s already exist for the target voice (`npm run voice:normalize` /
  * `voice:normalize:male`) — no API key needed, no credits spent.
+ *
+ * `--experiment=<name>` (e.g. `--experiment=warmer`) renders only a handful
+ * of representative words (EXPERIMENT_SAMPLE_TEXTS below) with an alternate
+ * voice_settings preset (EXPERIMENT_VOICE_SETTINGS), into
+ * public/audio/experiment-<voice>-<name>/ — never touches the real 135/270
+ * clips. Listen to the result against the live bank, pick a winner, only
+ * then regenerate the real files (delete the affected mp3s and re-run
+ * without `--experiment`) with the settings that won.
  */
 import { mkdirSync, existsSync, writeFileSync, readFileSync, renameSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -58,11 +66,42 @@ function loadEnvLocal(): void {
   }
 }
 
+interface VoiceSettings {
+  stability: number;
+  similarity_boost: number;
+  style: number;
+  use_speaker_boost: boolean;
+}
+
+/** What every real clip in the bank renders with today — the baseline any experiment variant below is judged against. */
+const CURRENT_VOICE_SETTINGS: VoiceSettings = { stability: 0.4, similarity_boost: 0.75, style: 0.2, use_speaker_boost: true };
+
+/**
+ * Candidate alternate settings for the `--experiment` A/B flow below —
+ * never used for a real render of the production bank, only for the small
+ * side-by-side sample batch. Untested by ear (no audio playback in this
+ * environment); these are ElevenLabs-documented directions to actually try,
+ * not a claimed improvement. `current` is included so the experiment can
+ * also regenerate the baseline itself for a fair side-by-side (the existing
+ * mp3s were rendered on a call the script didn't make this time, so
+ * "compare against the live files" and "compare against a freshly rendered
+ * `current`" are both worth having).
+ */
+const EXPERIMENT_VOICE_SETTINGS: Record<string, VoiceSettings> = {
+  current: CURRENT_VOICE_SETTINGS,
+  warmer: { stability: 0.3, similarity_boost: 0.75, style: 0.35, use_speaker_boost: true },
+  steadier: { stability: 0.55, similarity_boost: 0.8, style: 0.1, use_speaker_boost: true },
+};
+
+/** A handful of representative words across different template slots — enough to judge the delivery without spending credits re-rendering all 135. Matched by spoken text, not slug, so this doesn't depend on guessing the exact slugFor() naming. */
+const EXPERIMENT_SAMPLE_TEXTS = ["cinco", "vinte", "e", "quilômetros", "pace"];
+
 async function generateClip(
   text: string,
   previousText: string | null,
   nextText: string | null,
   apiKey: string,
+  voiceSettings: VoiceSettings = CURRENT_VOICE_SETTINGS,
 ): Promise<ArrayBuffer> {
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
     method: "POST",
@@ -88,8 +127,10 @@ async function generateClip(
       // here, and every render costs API credits — so treat this as the best
       // documented starting point, not a confirmed final value; adjust and
       // regenerate (`npm run voice:generate`, after deleting the mp3s to
-      // re-render) if it doesn't sound right once played back for real.
-      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.2, use_speaker_boost: true },
+      // re-render) if it doesn't sound right once played back for real. See
+      // `--experiment` below for trying alternates without touching the
+      // real bank first.
+      voice_settings: voiceSettings,
     }),
   });
   if (!res.ok) {
@@ -231,6 +272,43 @@ async function main(): Promise<void> {
       if (measureVolume(outPath).mean !== before) normalized++;
     }
     console.log(`done: ${normalized}/${checked} clips re-leveled for target=${target} (no ElevenLabs calls made).`);
+    return;
+  }
+
+  // A/B quality test: renders only EXPERIMENT_SAMPLE_TEXTS, with one named
+  // alternate voice_settings, into its own public/audio/experiment-* folder
+  // — never overwrites a real clip. Listen to the result against the live
+  // bank before ever regenerating all 135/270 real files with a new setting.
+  const experimentArg = process.argv.find((arg) => arg.startsWith("--experiment="));
+  if (experimentArg) {
+    const name = experimentArg.slice("--experiment=".length);
+    const voiceSettings = EXPERIMENT_VOICE_SETTINGS[name];
+    if (!voiceSettings) {
+      throw new Error(`unknown experiment "${name}" — options: ${Object.keys(EXPERIMENT_VOICE_SETTINGS).join(", ")}`);
+    }
+    loadEnvLocal();
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) throw new Error("ELEVENLABS_API_KEY missing from .env.local");
+
+    const samples = EXPERIMENT_SAMPLE_TEXTS.map((text) => VOICE_BANK.find((entry) => entry.text === text)).filter(
+      (entry): entry is (typeof VOICE_BANK)[number] => entry !== undefined,
+    );
+    const expDir = new URL(`../public/audio/experiment-${target}-${name}/`, import.meta.url);
+    mkdirSync(expDir, { recursive: true });
+
+    for (const entry of samples) {
+      console.log(`[experiment=${name}] generating "${entry.slug}" ("${entry.text}")...`);
+      const audio = await generateClip(entry.text, entry.previousText, entry.nextText, apiKey, voiceSettings);
+      const outPath = new URL(`${entry.slug}.mp3`, expDir);
+      writeFileSync(outPath, Buffer.from(audio));
+      const path = fileURLToPath(outPath);
+      trimSilence(path);
+      normalizeLoudness(path, LOUDNESS_TARGET_DB[target]);
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+    console.log(
+      `done: ${samples.length} experiment clips written to ${fileURLToPath(expDir)} — the real bank was never touched.`,
+    );
     return;
   }
 

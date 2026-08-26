@@ -34,7 +34,7 @@ import {
 import { isNativePlatform } from "../platform";
 import { projectRoute } from "./routeProjection";
 import { unlockSpeech } from "./speech";
-import { announceDistancePace, unlockVoiceBank } from "./voiceBank";
+import { announceCarbGelReminder, announceDistancePace, unlockVoiceBank } from "./voiceBank";
 import { WakeLockController } from "./wakeLock";
 import {
   clearActiveRun,
@@ -78,6 +78,18 @@ export interface StartOptions {
   ghostRun?: CompletedRun;
   /** Native haptic tap when cumulative time behind `goal.targetPaceSecPerKm` crosses `PACE_DELAY_VIBRATION_THRESHOLD_SECONDS` — see its own comment. No effect without a "ritmo" goal. */
   vibrateOnPaceDelay?: boolean;
+  /**
+   * Voice reminder to take a carbohydrate gel, fired on an elapsed-time
+   * cadence (`carbReminderIntervalSeconds`), independent of `announceMode`
+   * above — that setting is about when to announce *pace*, this is about
+   * when to eat, and ACSM/ISSN guidance scales carb need with duration of
+   * effort, not pace or distance. That's also why this fires even when no
+   * `goal` is set at all: unlike `forecastSecondsRemaining`, it needs
+   * nothing but the run clock to be correct.
+   */
+  carbReminderEnabled?: boolean;
+  /** Only read when `carbReminderEnabled` is true — minutes between reminders, converted to seconds by the caller. */
+  carbReminderIntervalSeconds?: number;
 }
 
 export interface RunTrackerState {
@@ -105,6 +117,8 @@ export interface RunTrackerState {
   points: StoredPoint[];
   /** Every pause so far this run, oldest first — the current one (if paused right now) has `endedAt: null`. */
   pauseEvents: LivePauseEvent[];
+  /** `Date.now()` at the moment a carb-gel reminder last fired, so a caller can drive a one-shot toast off it via `useEffect` — the voice cue itself doesn't need this, only the visual accessibility-parity toast does. Null until the first reminder of the run. */
+  carbReminderFiredAt: number | null;
 }
 
 const PERSIST_INTERVAL_MS = 10_000;
@@ -129,6 +143,9 @@ const TICK_INTERVAL_MS = 1000;
 const PACE_DELAY_VIBRATION_THRESHOLD_SECONDS = 20;
 const PACE_DELAY_CLEAR_THRESHOLD_SECONDS = 10;
 
+/** Below this much time left in a run with a known goal, a carb-gel reminder is suppressed — no point telling someone to fuel this close to the finish. See `StartOptions.carbReminderEnabled`'s own comment for why there's no such suppression when no goal is set at all. */
+const CARB_REMINDER_SUPPRESS_NEAR_FINISH_SECONDS = 300;
+
 function newRunId(): string {
   return `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -152,6 +169,7 @@ export function useRunTracker() {
     finishedGhostDeltaSeconds: null,
     points: [],
     pauseEvents: [],
+    carbReminderFiredAt: null,
   });
 
   const wakeLockRef = useRef(new WakeLockController());
@@ -222,6 +240,11 @@ export function useRunTracker() {
   const voiceGenderRef = useRef<"female" | "male">("female");
   const lastAnnounceDistanceRef = useRef(0);
   const lastAnnounceTimeRef = useRef<number | null>(null);
+
+  const carbReminderEnabledRef = useRef(false);
+  const carbReminderIntervalSecondsRef = useRef(45 * 60);
+  /** Elapsed seconds (not wall-clock) at the last reminder — 0 at `start()`, so the first reminder fires once `elapsedSeconds` itself crosses the interval. */
+  const lastCarbReminderElapsedRef = useRef(0);
 
   /**
    * Marks the start of the kilometer currently in progress, for the live
@@ -296,6 +319,23 @@ export function useRunTracker() {
           remainingMeters !== null && s.currentPaceSecPerKm
             ? (remainingMeters / 1000) * s.currentPaceSecPerKm
             : null;
+
+        // Carb-gel reminder — see StartOptions.carbReminderEnabled's own
+        // comment for why this is elapsed-time-based and fires regardless of
+        // whether a goal exists. Suppressed only when a goal IS known and the
+        // run is close to done; with no goal (the common case) it never
+        // suppresses at all.
+        let carbReminderFiredAt = s.carbReminderFiredAt;
+        if (
+          carbReminderEnabledRef.current &&
+          elapsedSeconds - lastCarbReminderElapsedRef.current >= carbReminderIntervalSecondsRef.current &&
+          !(forecastSecondsRemaining !== null && forecastSecondsRemaining < CARB_REMINDER_SUPPRESS_NEAR_FINISH_SECONDS)
+        ) {
+          announceCarbGelReminder(voiceGenderRef.current);
+          lastCarbReminderElapsedRef.current = elapsedSeconds;
+          carbReminderFiredAt = Date.now();
+        }
+
         // Throttled to every 5s — the lock-screen notification doesn't need
         // second-by-second precision, and each update is a native bridge call.
         if (elapsedSeconds % 5 === 0) {
@@ -306,7 +346,7 @@ export function useRunTracker() {
           updateLiveNotification({ distanceLabel, paceLabel, timeLabel, routePolylines: route?.polylines });
           updateLiveActivityContent({ distanceLabel, paceLabel, timeLabel, routePoints: route?.projected });
         }
-        return { ...s, elapsedSeconds, forecastSecondsRemaining };
+        return { ...s, elapsedSeconds, forecastSecondsRemaining, carbReminderFiredAt };
       });
     }, TICK_INTERVAL_MS);
   }, [computeElapsedSeconds, stopTicking]);
@@ -793,6 +833,9 @@ export function useRunTracker() {
         targetPaceSecPerKmRef.current = options?.goal?.targetPaceSecPerKm;
         vibrateOnPaceDelayRef.current = options?.vibrateOnPaceDelay ?? false;
         paceDelayAlertedRef.current = false;
+        carbReminderEnabledRef.current = options?.carbReminderEnabled ?? false;
+        carbReminderIntervalSecondsRef.current = options?.carbReminderIntervalSeconds ?? 45 * 60;
+        lastCarbReminderElapsedRef.current = 0;
         // kmMarkDistanceRef/kmMarkTimeRef aren't reset here — the
         // warmup-completion block always recomputes both fresh from
         // `distanceRef.current` (0 for a new run, the recovered distance for
@@ -843,6 +886,7 @@ export function useRunTracker() {
           ghostDeltaSeconds: null,
           paceDeltaSecPerKm: null,
           finishedGhostDeltaSeconds: null,
+          carbReminderFiredAt: null,
           points: [],
           pauseEvents: [],
         }));
@@ -897,6 +941,9 @@ export function useRunTracker() {
       announceIntervalSecondsRef.current = 300;
       announceModeRef.current = "distance";
       voiceGenderRef.current = "female";
+      carbReminderEnabledRef.current = false;
+      carbReminderIntervalSecondsRef.current = 45 * 60;
+      lastCarbReminderElapsedRef.current = 0;
       ghostSeriesRef.current = null;
       recoveringRef.current = true;
 
@@ -919,6 +966,7 @@ export function useRunTracker() {
         ghostDeltaSeconds: null,
         paceDeltaSecPerKm: null,
         finishedGhostDeltaSeconds: null,
+        carbReminderFiredAt: null,
         points: snapshot.points,
         pauseEvents: [],
       });
@@ -1082,6 +1130,7 @@ export function useRunTracker() {
       ghostDeltaSeconds: null,
       paceDeltaSecPerKm: null,
       finishedGhostDeltaSeconds: null,
+      carbReminderFiredAt: null,
       points: [],
       pauseEvents: [],
     });
