@@ -262,6 +262,21 @@ export function useRunTracker() {
   const lastPersistRef = useRef(0);
   const pauseEventsRef = useRef<LivePauseEvent[]>([]);
 
+  /**
+   * Throttles the lock-screen notification / Live Activity refresh — shared
+   * by `handleFix` and the ticking `setInterval` below so neither path
+   * double-fires the native bridge call. `handleFix` is the path that
+   * actually matters once the app is backgrounded: Android suspends this
+   * hook's `setInterval` (Chromium pauses a background WebView's JS timers),
+   * but the background-geolocation plugin keeps delivering real GPS fixes
+   * to `handleFix` via a native→JS bridge call regardless — that's also why
+   * the on-screen numbers were always *correct* the instant the app was
+   * reopened, just never pushed to the notification while backgrounded.
+   * Keyed off the fix's own `timestamp` (not `Date.now()`) so a burst of
+   * fixes delivered all at once after a gap doesn't spam several updates.
+   */
+  const lastNotificationUpdateAtRef = useRef(0);
+
   const ghostSeriesRef = useRef<GhostSeriesPoint[] | null>(null);
 
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -337,8 +352,15 @@ export function useRunTracker() {
         }
 
         // Throttled to every 5s — the lock-screen notification doesn't need
-        // second-by-second precision, and each update is a native bridge call.
-        if (elapsedSeconds % 5 === 0) {
+        // second-by-second precision, and each update is a native bridge
+        // call. Foreground-only in practice (see `handleFix`'s call to the
+        // same throttled refresh for why this one alone isn't enough while
+        // backgrounded) — kept here too so the notification still updates
+        // smoothly on real time whenever fixes are sparse but the app is
+        // actually in the foreground (e.g. a brief GPS gap indoors).
+        const now = Date.now();
+        if (now - lastNotificationUpdateAtRef.current >= 5000) {
+          lastNotificationUpdateAtRef.current = now;
           const route = projectRoute(pointsRef.current);
           const distanceLabel = `${formatDistanceKm(distanceRef.current)} km`;
           const paceLabel = s.currentPaceSecPerKm !== null ? `${formatPace(s.currentPaceSecPerKm)}/km` : "--:--/km";
@@ -642,6 +664,22 @@ export function useRunTracker() {
       lastFilteredRef.current = filteredPoint;
       lastFixTimestampRef.current = timestamp;
       lastFixWallClockRef.current = Date.now();
+
+      // Same 5s-throttled refresh the ticking `setInterval` above does, but
+      // triggered from a real GPS fix instead of a JS timer — see
+      // `lastNotificationUpdateAtRef`'s own comment for why this is the copy
+      // that actually keeps the lock-screen notification live once the app
+      // is backgrounded.
+      const fixNow = Date.now();
+      if (fixNow - lastNotificationUpdateAtRef.current >= 5000) {
+        lastNotificationUpdateAtRef.current = fixNow;
+        const route = projectRoute(pointsRef.current);
+        const distanceLabel = `${formatDistanceKm(distanceRef.current)} km`;
+        const paceLabel = currentPaceSecPerKm !== null ? `${formatPace(currentPaceSecPerKm)}/km` : "--:--/km";
+        const timeLabel = formatElapsed(computeElapsedSeconds());
+        updateLiveNotification({ distanceLabel, paceLabel, timeLabel, routePolylines: route?.polylines });
+        updateLiveActivityContent({ distanceLabel, paceLabel, timeLabel, routePoints: route?.projected });
+      }
 
       let announced = false;
       if (

@@ -963,6 +963,66 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
       ambiente remoto, precisa ser o dono do projeto testando no celular
       dele com um relógio pareado.
 
+## Bug corrigido: notificação ao vivo congelava com o app em segundo plano (2026-08-26)
+
+Relato do dono do projeto: durante uma corrida, se ele sai da tela do app
+(celular bloqueado ou outro app em primeiro plano), os números na
+notificação de "corrida em andamento" ficam **congelados** — só voltam a
+atualizar quando ele reabre o app. Dado real, não visual: o valor exibido
+de fato parava de avançar.
+
+**Causa raiz**: `updateLiveNotification`/`updateLiveActivityContent` só
+eram chamadas de dentro do `setInterval` de 1s do `useRunTracker.ts`
+(`startTicking`) — um timer **agendado pelo JS dentro da WebView**. O
+Android (via Chromium/WebView) suspende/atrasa fortemente timers desse
+tipo assim que a Activity sai de primeiro plano, mesmo com o serviço de
+foreground do GPS continuando ativo — a notificação persistente do
+Android e o timer de JS são coisas independentes; ter uma não impede o
+sistema de pausar a outra. Isso explica o sintoma exato relatado: os
+números "recuperam" instantaneamente ao reabrir o app porque o cálculo em
+si (`handleFix`, disparado a cada fix real de GPS via bridge nativo→JS,
+não um timer) nunca parou de rodar corretamente em segundo plano — só a
+*atualização da notificação* ficava presa esperando um tick de JS que não
+vinha.
+
+**Fix**: o mesmo refresh throttled (a cada 5s) que já existia no tick
+loop passou a rodar também de dentro do próprio `handleFix` — o callback
+nativo de cada fix de GPS, que continua disparando em segundo plano
+independente do WebView estar pausado. Os dois caminhos compartilham o
+mesmo ref de throttle (`lastNotificationUpdateAtRef`) pra não chamar a
+ponte nativa em dobro; o do tick continua existindo só pra manter a
+notificação fluida em primeiro plano quando os fixes de GPS vêm
+espaçados (ex.: sinal fraco dentro de um prédio). Verificado: `tsc`/
+`eslint`/`next build` limpos. **Não testado em segundo plano de verdade
+num aparelho** — precisa do dono do projeto confirmando numa corrida real
+com a tela bloqueada por alguns minutos.
+
+**Achado incidental, mesma causa raiz, não corrigido ainda**: o aviso por
+voz no modo "tempo" (`announceMode === "time"`) e o lembrete de gel de
+carboidrato também vivem inteiramente dentro desse mesmo `setInterval` —
+ambos provavelmente sofrem do mesmo problema (atraso/parada em segundo
+plano) já que dependem do tick de JS pra disparar, não de um fix de GPS.
+Não mexido nesta rodada por escopo (o pedido era especificamente sobre a
+notificação) — vale revisitar se o dono do projeto notar aviso de voz ou
+lembrete de gel atrasando/sumindo com o app em segundo plano.
+
+## App pra smartwatch (Wear OS/Garmin, tipo Strava) — pedido registrado, não escopado
+
+Pedido do dono do projeto (2026-08-26): ter uma versão do Xanthus rodando
+no relógio, do jeito que o Strava tem hoje (ver corrida ao vivo, iniciar/
+pausar, no pulso). **Ainda não pesquisado a fundo nem escopado** — é uma
+frente de trabalho bem maior que qualquer feature recente: significa
+construir e manter um **app nativo separado** por plataforma de relógio
+(Wear OS é Kotlin/Compose, roda num processo próprio dentro do mesmo
+projeto Android; Garmin é um ecossistema totalmente à parte — Connect IQ,
+SDK e linguagem própria, watchOS da Apple é outro app nativo Swift
+inteiramente separado do target iOS atual) — nenhum desses reaproveita o
+código Next.js/Capacitor existente, diferente de tudo que já foi
+construído até aqui. Vale uma sessão de pesquisa dedicada (mapear esforço
+real por plataforma, o que dá pra fazer com Capacitor/plugins existentes
+vs. o que exige app nativo de verdade, prioridade Wear OS vs. Garmin vs.
+watchOS) antes de comprometer a alguma implementação.
+
 ## Ferramentas externas usadas no projeto
 
 - Design/animações/logo: **[Recraft AI](https://www.recraft.ai/)**.
