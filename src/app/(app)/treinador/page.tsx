@@ -368,7 +368,8 @@ export default function TreinadorPage() {
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : myCoaches.length === 0 ? (
                   <div className="py-2 text-center">
-                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
+                    {/* Fixed phone-card-width illustration — reads as proportionate inside a narrow mobile card, but floats small and out of place inside the much wider desktop "Sala de Treino" card (see PROJECT-CONTEXT.md's web-vs-native surface split) — hidden there rather than stretched, same as /perfil's own device-only flourishes. */}
+                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl lg:hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
                       <img
                         src="/treinador-sem-treinador-empty.png"
@@ -401,7 +402,8 @@ export default function TreinadorPage() {
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : myStudents.length === 0 ? (
                   <div className="py-2 text-center">
-                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
+                    {/* Fixed phone-card-width illustration — reads as proportionate inside a narrow mobile card, but floats small and out of place inside the much wider desktop "Sala de Treino" card (see PROJECT-CONTEXT.md's web-vs-native surface split) — hidden there rather than stretched, same as /perfil's own device-only flourishes. */}
+                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl lg:hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
                       <img
                         src="/treinador-sem-alunos-empty.png"

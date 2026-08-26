@@ -217,6 +217,34 @@ function isActive(pathname: string, tab: TabDefinition): boolean {
   );
 }
 
+/**
+ * `isActive` alone double-highlights on the desktop sidebar specifically:
+ * "/treinador" (Alunos & convites) and "/treinador/sala" (Sala de Treino)
+ * are sibling top-level destinations in `DESKTOP_TABS`, not parent/child —
+ * but `/treinador/sala` also satisfies "/treinador"'s own prefix match
+ * (`pathname.startsWith("/treinador/")`), so both tabs lit up at once on
+ * that one URL. Only `DESKTOP_TABS` has this shape (two of its own hrefs
+ * share a prefix); `TABS`/`TREINADOR_TAB` below never do, so this is kept
+ * local to the desktop sidebar rather than changing `isActive` itself.
+ * Picks the single *longest* matching href instead of letting every match
+ * win independently — the same "most specific route wins" rule most
+ * routers already apply, which also keeps `/treinador/aluno` correctly
+ * highlighting "Alunos & convites" (its only match) without needing an
+ * explicit `alsoMatches` entry.
+ */
+function desktopActiveIndex(pathname: string): number {
+  let bestIndex = -1;
+  let bestLength = -1;
+  DESKTOP_TABS.forEach((tab, index) => {
+    if (!isActive(pathname, tab)) return;
+    if (tab.href.length > bestLength) {
+      bestLength = tab.href.length;
+      bestIndex = index;
+    }
+  });
+  return bestIndex;
+}
+
 /** Reserved space at the top/bottom of the scroll container for the header/nav bars, plus the safe-area inset on top of that — both bars size themselves to match. */
 const HEADER_HEIGHT = "4.5rem";
 const BOTTOMNAV_HEIGHT = "4.5rem";
@@ -304,8 +332,8 @@ function BottomNav({ hidden }: { hidden: boolean }) {
           state instead of the mobile underline, which reads oddly on a
           horizontal row of icon+label rather than a stacked icon-over-label. */}
       <ul className="hidden lg:flex lg:flex-col lg:items-stretch lg:gap-1 lg:px-3 lg:py-4">
-        {DESKTOP_TABS.map((tab) => {
-          const active = isActive(pathname, tab);
+        {DESKTOP_TABS.map((tab, index) => {
+          const active = index === desktopActiveIndex(pathname);
           return (
             <li key={tab.href}>
               <Link
