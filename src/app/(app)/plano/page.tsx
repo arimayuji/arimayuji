@@ -961,8 +961,8 @@ export default function PlanoPage() {
   if (loading) {
     return (
       <>
-        <ScreenHeader title="Plano" />
-        <Screen>
+        <ScreenHeader panel compactOnWide title="Plano" />
+        <Screen panel>
           <Card className="animate-pulse">
             <div className="h-4 w-32 rounded bg-border" />
             <div className="mt-4 h-24 rounded-xl bg-border/70" />
@@ -977,11 +977,13 @@ export default function PlanoPage() {
       return (
         <>
           <ScreenHeader
+            panel
+            compactOnWide
             title="Plano"
             badge={<NoticeBadge>seu plano</NoticeBadge>}
             subtitle="Montando sua semana a partir do seu histórico real."
           />
-          <Screen>
+          <Screen panel>
             <PlanBuildSequence
               stages={plan.paceZones ? STAGES_WITH_PACE : STAGES_WITHOUT_PACE}
               onDone={handleBuildSequenceDone}
@@ -1017,11 +1019,13 @@ export default function PlanoPage() {
     return (
       <>
         <ScreenHeader
+          panel
+          compactOnWide
           title="Plano"
           badge={<NoticeBadge>seu plano</NoticeBadge>}
           subtitle={`Semana ${currentWeek.weekNumber} de ${plan.weeks.length} — fase de ${PHASE_LABEL[currentWeek.phase]}. Calculado do seu histórico real, avança sozinho junto com o calendário.`}
         />
-        <Screen>
+        <Screen panel>
           {plan.warning && (
             <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(60)}>
               <p className="text-sm leading-relaxed text-muted text-pretty">{plan.warning}</p>
@@ -1170,6 +1174,8 @@ export default function PlanoPage() {
   return (
     <>
       <ScreenHeader
+        panel
+        compactOnWide
         title="Plano"
         badge={showExample ? <ExampleBadge /> : undefined}
         subtitle={
@@ -1179,7 +1185,7 @@ export default function PlanoPage() {
         }
       />
 
-      <Screen>
+      <Screen panel>
         <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(60)}>
           <CardTitle>O que falta pro seu plano de verdade</CardTitle>
           <p className="text-sm leading-relaxed text-muted text-pretty">

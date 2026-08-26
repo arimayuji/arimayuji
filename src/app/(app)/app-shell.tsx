@@ -168,19 +168,19 @@ const TREINADOR_TAB: TabDefinition = {
 };
 
 /**
- * The `lg:` sidebar's own navigation — a desktop-width browser visit to
- * this app is, in practice, always a coach at a laptop (see
- * PROJECT-CONTEXT.md's "web é um produto à parte": decision/planning,
- * grounded in data the coach already has on their students, never GPS
- * tracking — there is no browser equivalent of a run in progress).
- * Reusing the athlete's 5 tabs here at first — Corrida included, which
- * just opens `/run`'s recording setup with nothing to record — made this
- * sidebar a reskinned copy of the phone's nav instead of navigation that
- * fits what a desktop visit is actually for. Kept independent of `TABS`/
- * `TREINADOR_TAB` above (a couple of icons duplicated) rather than
+ * The `lg:` sidebar's own navigation — deliberately NOT a reskinned copy
+ * of the phone's 5 tabs (Corrida in particular makes no sense here: no
+ * browser equivalent of a run in progress, no GPS to track from a
+ * laptop). Originally scoped as "what does a coach need at a desk"
+ * (Sala de Treino, Alunos & convites) plus Perfil for anyone — but
+ * "desktop = only ever a coach" stopped being true once /plano grew its
+ * own reason to be read on a bigger screen (charts, the full week at a
+ * glance, the self-service AI suggestion — see PROJECT-CONTEXT.md's
+ * cronograma-ia-autoatendimento spec): an athlete with no coach at all
+ * still benefits from opening their own plan here. Kept independent of
+ * `TABS`/`TREINADOR_TAB` above (a couple of icons duplicated) rather than
  * indexing into that array, since this list answers a different question
- * ("what does a coach need at a desk") and shouldn't silently drift if
- * the athlete tab set ever changes shape.
+ * and shouldn't silently drift if the athlete tab set ever changes shape.
  */
 const DESKTOP_TABS: TabDefinition[] = [
   {
@@ -197,6 +197,18 @@ const DESKTOP_TABS: TabDefinition[] = [
     href: "/treinador",
     label: "Alunos & convites",
     icon: TREINADOR_TAB.icon,
+  },
+  {
+    href: "/plano",
+    label: "Plano",
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
+        <rect x="3.25" y="4.75" width="17.5" height="16" rx="3" />
+        <path d="M3.25 9.75h17.5M8 2.75v4M16 2.75v4" />
+        <circle cx="9" cy="14.5" r="1.15" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="14.5" r="1.15" fill="currentColor" stroke="none" />
+      </svg>
+    ),
   },
   {
     href: "/perfil",
