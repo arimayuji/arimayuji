@@ -9,8 +9,8 @@
  * configured or nobody is signed in, since none of this is needed to
  * record a run.
  */
-import { ID, type Models, Permission, Query, Role } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
+import { ExecutionMethod, type Models, Query } from "appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getCurrentAccount, getProfile, type Profile } from "./auth";
 
 export type FriendshipStatus = "pending" | "accepted";
@@ -35,10 +35,6 @@ export interface FriendConnection {
   profile: Profile | null;
 }
 
-function pairKeyOf(a: string, b: string): string {
-  return [a, b].sort().join(":");
-}
-
 export function normalizeHandle(input: string): string {
   return input.trim().replace(/^@+/, "").toLowerCase();
 }
@@ -48,79 +44,43 @@ export type SendFriendRequestResult =
   | { ok: false; reason: "unavailable" | "not-found" | "self" | "duplicate" | "failed" };
 
 /**
- * Sends a request to whoever owns `@handle`. The target is resolved
- * through the `profiles` table, whose row ID *is* the account ID (see
- * `createProfile`) — so `profile.$id` is the addressee's user ID, with no
- * second lookup.
- *
- * `requesterId` is deliberately NOT a parameter: it comes from the live
- * session inside this function, the same rule `submitRating` follows.
- * A caller-supplied requester ID would let any signed-in account mint a
- * friendship attributed to someone else's profile — the table-level
- * permission only checks "is this account signed in", never "is this row
- * about them".
- *
- * Row permissions are deliberately asymmetric:
- * - read for both, so the addressee can actually see the request arrive;
- * - update for the addressee *only*, because accepting is the one write
- *   that changes the row and only they may do it — granting the requester
- *   update as well would let them flip their own request to "accepted"
- *   without the other person ever agreeing;
- * - delete for both, which covers all three of cancel (requester),
- *   decline (addressee) and unfriend (either), none of which need update.
+ * Sends a request to whoever owns `@handle`, via the `client-actions`
+ * Function's `send-friend-request` action rather than a direct client-side
+ * `createRow`. This has to run privileged: the row needs read/update/delete
+ * permission granted to the ADDRESSEE, a role the requester's own session
+ * is never allowed to assign — Appwrite only lets a caller grant
+ * permissions to roles it already holds itself ("any", "users", or its own
+ * "user:<id>"), never an arbitrary other user's "user:<id>". A direct
+ * client createRow (this function's original implementation) always failed
+ * with `user_unauthorized` for exactly this reason — confirmed 2026-08-26
+ * by replaying the exact same calls by hand against two disposable test
+ * accounts; `friendships` had 0 rows in production despite real signups,
+ * silently, since the table was created.
  */
 export async function sendFriendRequest(handle: string): Promise<SendFriendRequestResult> {
   const appwrite = getAppwrite();
   if (!appwrite) return { ok: false, reason: "unavailable" };
 
-  let requesterId: string;
-  try {
-    requesterId = (await appwrite.account.get()).$id;
-  } catch {
-    return { ok: false, reason: "unavailable" };
-  }
-
   const wanted = normalizeHandle(handle);
   if (!wanted) return { ok: false, reason: "not-found" };
 
   try {
-    const found = await appwrite.tablesDB.listRows<Profile>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.profiles,
-      queries: [Query.equal("handle", wanted), Query.limit(1)],
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "send-friend-request", handle: wanted }),
     });
-    const target = found.rows[0];
-    if (!target) return { ok: false, reason: "not-found" };
-
-    const addresseeId = target.$id;
-    if (addresseeId === requesterId) return { ok: false, reason: "self" };
-
-    const pairKey = pairKeyOf(requesterId, addresseeId);
-    // Only the two participants can read a friendship row, so this either
-    // finds *our* row or nothing — it can't leak anyone else's. It turns
-    // the unique-index 409 into a message the screen can explain, and the
-    // index still backstops the race between two simultaneous requests.
-    const existing = await appwrite.tablesDB.listRows<Friendship>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.friendships,
-      queries: [Query.equal("pairKey", pairKey), Query.limit(1)],
-    });
-    if (existing.rows.length > 0) return { ok: false, reason: "duplicate" };
-
-    const friendship = await appwrite.tablesDB.createRow<Friendship>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.friendships,
-      rowId: ID.unique(),
-      data: { requesterId, addresseeId, status: "pending", pairKey },
-      permissions: [
-        Permission.read(Role.user(requesterId)),
-        Permission.read(Role.user(addresseeId)),
-        Permission.update(Role.user(addresseeId)),
-        Permission.delete(Role.user(requesterId)),
-        Permission.delete(Role.user(addresseeId)),
-      ],
-    });
-    return { ok: true, friendship };
+    const parsed = JSON.parse(execution.responseBody || "{}") as {
+      ok?: boolean;
+      row?: Friendship;
+      error?: string;
+    };
+    if (parsed.ok && parsed.row) return { ok: true, friendship: parsed.row };
+    const reason = parsed.error;
+    if (reason === "not-found" || reason === "self" || reason === "duplicate") {
+      return { ok: false, reason };
+    }
+    return { ok: false, reason: "failed" };
   } catch (error) {
     console.error("[friendships] sendFriendRequest failed", error);
     return { ok: false, reason: "failed" };

@@ -1128,7 +1128,7 @@ permissões reais (`READ_STEPS`, `READ_DISTANCE`,
 `READ_VO2_MAX`, `READ_SLEEP`) — bate exatamente com
 `REQUIRED_READ_TYPES`. Fechado, sem pendência.
 
-## Bug encontrado, fix aplicado, causa raiz ainda não confirmada: pedido de amizade falhando silenciosamente (2026-08-24/25)
+## Bug crítico encontrado e corrigido de verdade: convite de amizade/treinador nunca funcionou, desde a criação das tabelas (2026-08-26)
 
 Relato real do dono do projeto: um pedido de amizade entre duas contas
 reais falhou com "tenta de novo", sem nenhuma informação de diagnóstico.
@@ -1165,7 +1165,56 @@ cliente (`tablesDB.createRow`/`updateRow`, sem passar pela Function
 `client-actions`) nas duas bibliotecas (`friendships.ts`,
 `coachRelationships.ts`) — então o fix de escopo `rows.*`/`node_modules`
 das Functions (ver seções abaixo) não se aplica aqui, é uma causa raiz
-separada e ainda não encontrada.
+separada.
+
+**Causa raiz real, encontrada e corrigida em 2026-08-26**: reproduzida de
+propósito, direto contra produção, sem depender de aparelho nenhum — dois
+usuários de teste descartáveis criados via Appwrite CLI
+(`appwrite users create`), uma sessão de sessão real (não a API key admin)
+obtida via `users.createToken` + `POST /account/sessions/token`, e as
+mesmas três chamadas exatas de `sendFriendRequest` replicadas à mão via
+`curl` com essa sessão. O `createRow` final falhou com:
+```
+401 user_unauthorized: "Permissions must be one of: (any, users,
+user:<meu-id>, user:<meu-id>/unverified, users/unverified)"
+```
+**A causa é uma regra de segurança do próprio Appwrite, não um bug de
+configuração**: uma sessão de cliente comum só pode conceder permissão a
+papéis que ela mesma já possui (`any`, `users`, ou o próprio
+`user:<meu-id>`) — nunca a um `user:<outro-id>` arbitrário. Tanto
+`sendFriendRequest` quanto `proposeCoachRelationship` tentavam conceder
+`read`/`update`/`delete` pro **destinatário** (`Permission.read(Role.
+user(addresseeId))` etc.) direto de uma escrita client-side — algo que o
+Appwrite nunca permite, então **essa escrita nunca funcionou nem uma vez
+desde que as tabelas foram criadas em 2026-08-12**, catorze dias antes de
+qualquer usuário real existir. Não é regressão de nenhum dos outros bugs
+de Function documentados acima (nem escopo `rows.*`, nem `node_modules`)
+— é uma causa raiz totalmente separada, e explica por que `friendships`/
+`coach_relationships` tinham exatamente 0 linhas mesmo com 4 profiles reais
+já criados (confirmado por query direta nas duas tabelas antes do fix).
+
+**Fix**: as duas escritas de criação migraram pra dentro da Function já
+existente `client-actions` — novas actions `send-friend-request` e
+`propose-coach-relationship` (`appwrite-functions/client-actions/src/
+main.js`), espelhando a mesma lógica que já vivia em `friendships.ts`/
+`coachRelationships.ts`, mas rodando com a chave privilegiada da Function
+(que pode conceder permissão a qualquer `user:<id>`, mesmo padrão que
+`claim-owned-row` já usa). `respondToFriendRequest`/`removeFriendship`/
+`respondToCoachRequest`/`removeCoachRelationship` **não precisaram mudar**
+— só fazem `update`/`delete` sobre uma permissão que a própria linha já
+concede, nunca tentam conceder permissão nova, então nunca bateram nessa
+regra. Function redeployada em produção
+(`appwrite functions create-deployment --activate`, sem escopo novo —
+`rows.read`/`rows.write` já estavam concedidos pelo fix de escopo
+anterior). **Testado de ponta a ponta contra produção antes de considerar
+resolvido**: mesmo par de contas de teste, chamando a action nova via
+`POST /functions/client-actions/executions` com a sessão real de teste —
+`{"ok":true,"row":{...}}` com as 5 permissões corretas dos dois lados, e
+uma segunda tentativa devolvendo `409 duplicate` como esperado. Dados e
+contas de teste apagados depois (`appwrite tablesdb delete-row`/`appwrite
+users delete`) — nada de teste ficou em produção. Ainda não testado por um
+usuário real enviando um convite de verdade pelo app, mas o mecanismo em
+si está confirmado funcionando de ponta a ponta.
 
 ## Bug crítico encontrado e corrigido: Functions sem escopo `rows.*` (2026-08-24)
 

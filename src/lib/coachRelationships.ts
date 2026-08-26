@@ -13,8 +13,8 @@
  *
  * Same degrade-to-empty convention as the rest of the backend layer.
  */
-import { ID, type Models, Permission, Query, Role } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
+import { ExecutionMethod, type Models, Query } from "appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getCurrentAccount, getProfile, type Profile } from "./auth";
 import { normalizeHandle } from "./friendships";
 
@@ -48,14 +48,17 @@ export type ProposeCoachResult =
   | { ok: false; reason: "unavailable" | "not-found" | "self" | "duplicate" | "failed" };
 
 /**
- * Proposes a coach/student relationship with whoever owns `@handle`.
- * `asRole: "student"` means "I'm asking this person to coach me" (they
- * become `coachId`); `asRole: "coach"` means "I'm asking this person to
- * let me coach them" (they become `studentId`). Either way the signed-in
- * account is `proposedBy` and the other side holds `update` — the same
- * asymmetric-permissions reasoning as `sendFriendRequest`, and for the
- * same reason: a caller-supplied identity would let anyone mint a
- * relationship attributed to someone else.
+ * Proposes a coach/student relationship with whoever owns `@handle`, via
+ * the `client-actions` Function's `propose-coach-relationship` action
+ * rather than a direct client-side `createRow`. Same reason as
+ * `sendFriendRequest` in friendships.ts: the row needs permission granted
+ * to whichever side isn't the caller, a role the caller's own session is
+ * never allowed to assign to someone else — Appwrite only lets a caller
+ * grant permissions to roles it already holds itself. A direct client
+ * createRow (this function's original implementation) always failed with
+ * `user_unauthorized` for exactly this reason — `coach_relationships` had
+ * 0 rows in production despite real signups, silently, since the table
+ * was created; confirmed 2026-08-26 alongside the identical friendships bug.
  */
 export async function proposeCoachRelationship(
   handle: string,
@@ -64,55 +67,28 @@ export async function proposeCoachRelationship(
   const appwrite = getAppwrite();
   if (!appwrite) return { ok: false, reason: "unavailable" };
 
-  let myId: string;
-  try {
-    myId = (await appwrite.account.get()).$id;
-  } catch {
-    return { ok: false, reason: "unavailable" };
-  }
-
   const wanted = normalizeHandle(handle);
   if (!wanted) return { ok: false, reason: "not-found" };
 
   try {
-    const found = await appwrite.tablesDB.listRows<Profile>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.profiles,
-      queries: [Query.equal("handle", wanted), Query.limit(1)],
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "propose-coach-relationship", handle: wanted, asRole }),
     });
-    const target = found.rows[0];
-    if (!target) return { ok: false, reason: "not-found" };
-
-    const otherId = target.$id;
-    if (otherId === myId) return { ok: false, reason: "self" };
-
-    const coachId = asRole === "student" ? otherId : myId;
-    const studentId = asRole === "student" ? myId : otherId;
-
-    // Row-level permissions only let each participant see relationships
-    // they're actually part of, so this either finds *our* row or nothing.
-    const existing = await appwrite.tablesDB.listRows<CoachRelationship>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.coachRelationships,
-      queries: [Query.equal("coachId", coachId), Query.equal("studentId", studentId), Query.limit(1)],
-    });
-    if (existing.rows.length > 0) return { ok: false, reason: "duplicate" };
-
-    const relationship = await appwrite.tablesDB.createRow<CoachRelationship>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.coachRelationships,
-      rowId: ID.unique(),
-      data: { coachId, studentId, proposedBy: myId, status: "pending" },
-      permissions: [
-        Permission.read(Role.user(coachId)),
-        Permission.read(Role.user(studentId)),
-        Permission.update(Role.user(otherId)),
-        Permission.delete(Role.user(coachId)),
-        Permission.delete(Role.user(studentId)),
-      ],
-    });
-    return { ok: true, relationship };
-  } catch {
+    const parsed = JSON.parse(execution.responseBody || "{}") as {
+      ok?: boolean;
+      row?: CoachRelationship;
+      error?: string;
+    };
+    if (parsed.ok && parsed.row) return { ok: true, relationship: parsed.row };
+    const reason = parsed.error;
+    if (reason === "not-found" || reason === "self" || reason === "duplicate") {
+      return { ok: false, reason };
+    }
+    return { ok: false, reason: "failed" };
+  } catch (error) {
+    console.error("[coachRelationships] proposeCoachRelationship failed", error);
     return { ok: false, reason: "failed" };
   }
 }

@@ -523,6 +523,134 @@ async function claimOwnedRow({ userId, body, client, res, error }) {
   }
 }
 
+/**
+ * action: "send-friend-request" — must run privileged, unlike every other
+ * table write in this file that a plain client session could do on its own.
+ * The row needs read/update/delete permission granted to the ADDRESSEE, a
+ * role the requester's own session is never allowed to assign: Appwrite
+ * only lets a caller grant permissions to roles it already holds itself
+ * ("any", "users", or its own "user:<id>") when writing directly — never an
+ * arbitrary other user's "user:<id>". A direct client createRow (the
+ * original implementation in src/lib/friendships.ts) always failed with
+ * `user_unauthorized` for exactly this reason — confirmed 2026-08-26 by
+ * replaying the exact same three calls by hand against two disposable test
+ * accounts. friendships had 0 rows in production despite real signups since
+ * 2026-08-12 — this was silent since day one, not a regression.
+ */
+async function sendFriendRequest({ userId: requesterId, body, client, res, error }) {
+  const handle = String(body.handle ?? "").trim().replace(/^@+/, "").toLowerCase();
+  if (!handle) return res.json({ error: "not-found" }, 404);
+
+  const tablesDB = new TablesDB(client);
+  let target;
+  try {
+    const found = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "profiles",
+      queries: [Query.equal("handle", handle), Query.limit(1)],
+    });
+    target = found.rows[0];
+  } catch (err) {
+    error(`send-friend-request: falha buscando handle "${handle}": ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+  if (!target) return res.json({ error: "not-found" }, 404);
+
+  const addresseeId = target.$id;
+  if (addresseeId === requesterId) return res.json({ error: "self" }, 400);
+
+  const pairKey = [requesterId, addresseeId].sort().join(":");
+  try {
+    const existing = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "friendships",
+      queries: [Query.equal("pairKey", pairKey), Query.limit(1)],
+    });
+    if (existing.rows.length > 0) return res.json({ error: "duplicate" }, 409);
+
+    const friendship = await tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: "friendships",
+      rowId: ID.unique(),
+      data: { requesterId, addresseeId, status: "pending", pairKey },
+      permissions: [
+        Permission.read(Role.user(requesterId)),
+        Permission.read(Role.user(addresseeId)),
+        Permission.update(Role.user(addresseeId)),
+        Permission.delete(Role.user(requesterId)),
+        Permission.delete(Role.user(addresseeId)),
+      ],
+    });
+    return res.json({ ok: true, row: friendship });
+  } catch (err) {
+    if (err.code === 409) return res.json({ error: "duplicate" }, 409);
+    error(`send-friend-request: falha criando friendship ${requesterId}->${addresseeId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
+/**
+ * action: "propose-coach-relationship" — same root cause and fix as
+ * send-friend-request above: the row needs permission granted to whichever
+ * side isn't the caller (`otherId`), which a direct client session can
+ * never assign to someone else's "user:<id>". coach_relationships had the
+ * identical bug, also 0 rows in production since creation.
+ */
+async function proposeCoachRelationship({ userId: myId, body, client, res, error }) {
+  const handle = String(body.handle ?? "").trim().replace(/^@+/, "").toLowerCase();
+  const asRole = body.asRole === "student" ? "student" : "coach";
+  if (!handle) return res.json({ error: "not-found" }, 404);
+
+  const tablesDB = new TablesDB(client);
+  let target;
+  try {
+    const found = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "profiles",
+      queries: [Query.equal("handle", handle), Query.limit(1)],
+    });
+    target = found.rows[0];
+  } catch (err) {
+    error(`propose-coach-relationship: falha buscando handle "${handle}": ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+  if (!target) return res.json({ error: "not-found" }, 404);
+
+  const otherId = target.$id;
+  if (otherId === myId) return res.json({ error: "self" }, 400);
+
+  const coachId = asRole === "student" ? otherId : myId;
+  const studentId = asRole === "student" ? myId : otherId;
+
+  try {
+    const existing = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "coach_relationships",
+      queries: [Query.equal("coachId", coachId), Query.equal("studentId", studentId), Query.limit(1)],
+    });
+    if (existing.rows.length > 0) return res.json({ error: "duplicate" }, 409);
+
+    const relationship = await tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: "coach_relationships",
+      rowId: ID.unique(),
+      data: { coachId, studentId, proposedBy: myId, status: "pending" },
+      permissions: [
+        Permission.read(Role.user(coachId)),
+        Permission.read(Role.user(studentId)),
+        Permission.update(Role.user(otherId)),
+        Permission.delete(Role.user(coachId)),
+        Permission.delete(Role.user(studentId)),
+      ],
+    });
+    return res.json({ ok: true, row: relationship });
+  } catch (err) {
+    if (err.code === 409) return res.json({ error: "duplicate" }, 409);
+    error(`propose-coach-relationship: falha criando vínculo ${coachId}/${studentId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
 /** action: "set-plan-override" — a coach's explicit override of one week of a student's plan. Originally appwrite-functions/set-plan-override. */
 async function setPlanOverride({ userId: coachId, body, client, res, error }) {
   const { studentId, weekStartDate, totalKm, sessions, note } = body;
@@ -1180,6 +1308,8 @@ const ACTIONS = {
   "join-group-run": joinGroupRun,
   "pair-run-session": pairRunSession,
   "claim-owned-row": claimOwnedRow,
+  "send-friend-request": sendFriendRequest,
+  "propose-coach-relationship": proposeCoachRelationship,
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,
   "suggest-plan-for-self": suggestPlanForSelf,
