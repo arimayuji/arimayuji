@@ -63,3 +63,8 @@ appwrite.config.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# voice bank A/B quality samples (scripts/generate-voice-bank.ts --experiment=)
+# — throwaway comparison clips for a human to listen to before picking a
+# voice_settings winner, never meant to reach the real 135/270-clip bank
+/public/audio/experiment-*/
