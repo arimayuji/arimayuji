@@ -621,9 +621,38 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   scraping por site, frágil (quebra a cada mudança de layout) e com risco
   de ToS. **Decisão do dono do projeto (2026-08-25): seguir mesmo assim
   pela via de scraping** (rodando com frequência semanal), em vez de
-  esperar uma API — mas ainda **falta a pesquisa de quais sites/fontes são
-  viáveis de raspar antes de escopar a implementação**; nada verificado
-  ainda sobre confiabilidade de fonte nenhuma.
+  esperar uma API.
+  **Pesquisa de fontes feita em 2026-08-26** — resultado por site:
+  - **Melhor Corrida (melhorcorrida.com.br)**: domínio não existe mais
+    (não resolve DNS, não aparece em busca) — descartado da lista de
+    candidatos.
+  - **Ticket Sports (ticketsports.com.br)**: `robots.txt` permissivo, mas
+    os Termos de Uso (cláusula 15, `/TermosCompra`) proíbem
+    explicitamente reproduzir conteúdo publicado por eles, comercial ou
+    não, sem autorização por escrito — risco jurídico real, não só
+    técnico. Site é Next.js com o calendário carregado via API própria
+    (HTML inicial só mostra "Carregando…"), e o próprio `/api/` está
+    desautorizado no `robots.txt` — ou seja, nem o caminho técnico mais
+    limpo é permitido aqui. **Descartar.**
+  - **Corrida Perfeita** (`calendario.corridaperfeita.com/corridaderua`):
+    `robots.txt` totalmente aberto, nenhuma cláusula de ToS contra reuso
+    encontrada. Página é um shell React vazio (dado vem de uma API interna
+    ainda não identificada por inspeção estática — precisaria de um
+    browser real pra capturar a chamada de rede de verdade). **Candidato
+    mais promissor pra cobertura nacional**, mas o endpoint real ainda
+    não foi encontrado.
+  - **FPA — Federação Paulista de Atletismo**
+    (`atletismopaulista.com.br/corrida-de-rua/eventos`): calendário real
+    com filtro por ano/mês/cidade, `robots.txt` sem nenhuma regra de
+    bloqueio, órgão público sem cláusula de ToS contra reuso — a fonte
+    **mais segura das quatro**, mas só cobre corridas em São Paulo
+    (estado), não o Brasil todo.
+  - **Recomendação**: combinar as duas — FPA como fonte segura pra SP,
+    Corrida Perfeita (depois de identificar o endpoint real da API via
+    browser/DevTools) pra cobertura nacional. Ainda não escopado em
+    detalhe nem implementado — esse é só o resultado da pesquisa de
+    viabilidade, o próximo passo é decidir se vale prosseguir com esse
+    par de fontes antes de desenhar o scraper/cron em si.
 - **Sincronização opcional do plano/perfil entre aparelhos (pra ver no
   desktop o que foi montado no celular, com gráfico/calendário melhor)** —
   pedido em 2026-08-25, avaliado em conjunto nesta sessão. **O bloqueio
