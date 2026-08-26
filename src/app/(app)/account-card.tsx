@@ -63,17 +63,12 @@ export function AccountCard() {
   }
 
   return (
-    // `lg:` here is a deliberately different, denser register — a settings
-    // list row (label left, control right, tight border, square-ish
-    // corners) instead of the touch-sized rounded mobile card. Same
-    // handlers/state either way; only the shape changes. See PROJECT-
-    // CONTEXT.md's "web ser algo diferente do nativo" — this is the one
-    // place besides Tema (perfil/page.tsx) that renders on the coach's
-    // desktop surface at all, so it's the one place this pattern exists
-    // today; not meant to imply every `Card` in the app should look this
-    // way, most never render at `lg:` in the first place.
-    <Card className="pr-enter lg:rounded-lg lg:p-4">
-      <CardTitle aside={<NoticeBadge className="lg:rounded-md">{status === "signed-in" ? "conectado" : "opcional"}</NoticeBadge>}>
+    // `Card`/`NoticeBadge` already switch to a denser, square-ish register
+    // at `lg:` by default now (see their own comments in ui.tsx) — this
+    // used to spell that out explicitly here, back when this was the only
+    // screen rendering on the coach's desktop surface at all.
+    <Card className="pr-enter">
+      <CardTitle aside={<NoticeBadge>{status === "signed-in" ? "conectado" : "opcional"}</NoticeBadge>}>
         Conta
       </CardTitle>
 

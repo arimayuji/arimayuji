@@ -128,11 +128,16 @@ export function PillTabs<T extends string>({
   );
 }
 
-/** Neutral counterpart for things that are real but not yet persisted. */
+/**
+ * Neutral counterpart for things that are real but not yet persisted.
+ * Squares off at `lg:` by default (see `Card`'s own comment on the same
+ * rule) — `account-card.tsx` used to spell `lg:rounded-md` out explicitly
+ * per usage before this was the default; new callers don't need to.
+ */
 export function NoticeBadge({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <span
-      className={`inline-block rounded-full border border-border bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted ${className}`}
+      className={`inline-block rounded-full border border-border bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted lg:rounded-md ${className}`}
     >
       {children}
     </span>
@@ -236,6 +241,19 @@ export function Screen({
   );
 }
 
+/**
+ * `lg:rounded-lg lg:p-4` used to be an explicit per-instance override, only
+ * on `account-card.tsx`'s own `Card` ("a settings list row... instead of
+ * the touch-sized rounded mobile card"). Promoted to the default here
+ * instead of spelled out on every call site: a desktop-width browser visit
+ * to this app is a genuinely different surface (see PROJECT-CONTEXT.md,
+ * "web é um produto à parte"), not the native app's touch-sized rounded
+ * cards stretched wider — every `Card` should read as a desktop panel at
+ * that width, not just the one screen that happened to get this treatment
+ * first. Purely visual and purely additive: `lg:` never applies on the
+ * native WebView or a narrow browser window, so nothing here changes for
+ * either.
+ */
 export function Card({
   children,
   className = "",
@@ -248,16 +266,17 @@ export function Card({
   return (
     <section
       style={style}
-      className={`rounded-2xl border border-border bg-surface p-5 ${className}`}
+      className={`rounded-2xl border border-border bg-surface p-5 lg:rounded-lg lg:p-4 ${className}`}
     >
       {children}
     </section>
   );
 }
 
+/** Same `lg:` density rule as `Card` above — tighter breathing room under the title on a desktop panel than a touch-sized mobile card wants. */
 export function CardTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 lg:mb-2.5">
       <h2 className="text-sm font-semibold tracking-wide">{children}</h2>
       {aside}
     </div>

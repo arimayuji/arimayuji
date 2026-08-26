@@ -1092,20 +1092,23 @@ export default function PlanoPage() {
           )}
 
           {/*
-            Below the banners, the desktop treatment genuinely splits into
-            two columns instead of just narrowing the same mobile stack —
-            `panel` (a single centered column) was still every widget
-            floating on its own in a sea of white at this width. Left is
-            the week itself (the thing an athlete actually acts on day to
-            day); right is everything else (pace reference, the evidence
-            behind the numbers, the AI suggestion, and the goal settings) —
-            a real reading rail, not a narrower mobile card. `flex flex-col
-            gap-4` on the outer wrapper is the mobile fallback (both groups
-            still stack in the exact same top-to-bottom order the page
-            always had); `lg:grid` replaces it with side-by-side columns.
+            Three columns at `lg:`, not two — a 2-column split put the week
+            alone on one side and everything else (pace, evidence, AI
+            suggestion, goal) piled into a single much-taller column on the
+            other, which just moved the "one big vertical stack" problem
+            over rather than fixing it. Grouping by what each thing is
+            (the week you act on / your numbers for it / your settings)
+            keeps the three roughly even. `flex-row` only at `lg:`; below
+            that every group still stacks via its own `flex flex-col`, in
+            week → pace+AI → goal order — a deliberate reshuffle from the
+            old single-column order (evidence used to sit right after pace
+            zones, now it's its own full-width section at the end, below):
+            evidence is reference reading, not something to act on, so it
+            reads last on any width instead of interrupting the numbers a
+            phone screen shows for this week.
           */}
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-6">
-            <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+            <div className="flex flex-col gap-4 lg:flex-[1.3]">
               <Card className="pr-enter" style={delay(110)}>
                 <CardTitle
                   aside={
@@ -1141,26 +1144,8 @@ export default function PlanoPage() {
               </Card>
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:flex-1">
               {plan.paceZones && <PaceZonesCard zones={plan.paceZones} />}
-
-              <Card className="pr-enter" style={delay(260)}>
-                <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
-                  Por que essa semana tem essa cara
-                </CardTitle>
-                <ul className="flex flex-col gap-3">
-                  {plan.evidenceTopics.map((topic) => {
-                    const fact = getEvidenceForTopicRanked(topic)[0];
-                    return fact ? <EvidenceFactRow key={topic} fact={fact} topic={topic} /> : null;
-                  })}
-                </ul>
-                <Link
-                  href="/estudos"
-                  className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
-                >
-                  Ver todos os estudos por trás do plano
-                </Link>
-              </Card>
 
               {!coachOverride && (
                 <SelfPlanSuggestionCard
@@ -1181,10 +1166,35 @@ export default function PlanoPage() {
                   onRemoved={() => setSelfOverrideState(null)}
                 />
               )}
+            </div>
 
+            <div className="flex flex-col gap-4 lg:flex-1">
               <GoalCard profile={profile} updateProfile={updateProfile} />
             </div>
           </div>
+
+          {/* Full-width reference section, below the three columns — long
+              enough (4 topics, each with several bullets and a citation)
+              that squeezing it into a rail column made every entry wrap
+              awkwardly; a 2-column grid at `lg:` uses the width without
+              stretching any one entry into an unreadably long line. */}
+          <Card className="pr-enter" style={delay(260)}>
+            <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
+              Por que essa semana tem essa cara
+            </CardTitle>
+            <ul className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:gap-y-5">
+              {plan.evidenceTopics.map((topic) => {
+                const fact = getEvidenceForTopicRanked(topic)[0];
+                return fact ? <EvidenceFactRow key={topic} fact={fact} topic={topic} /> : null;
+              })}
+            </ul>
+            <Link
+              href="/estudos"
+              className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
+            >
+              Ver todos os estudos por trás do plano
+            </Link>
+          </Card>
         </Screen>
       </>
     );
