@@ -152,11 +152,36 @@ projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
   for cumprido — a tentativa de mudar pra `track: open` nunca chegou a
   rodar de verdade (o CI já tinha achado a faixa inexistente antes,
   então o "ainda não confirmado se teve sucesso" abaixo nunca vai ser
-  confirmado, porque a premissa era falsa). **Próximo passo real**:
-  publicar uma versão na faixa de Teste Fechado, convidar de verdade 12+
-  testadores que aceitem entrar (não basta cadastrar e-mail, precisa
-  aceitar o convite), e esperar 14 dias corridos com o teste rodando —
-  só depois disso Produção (e provavelmente Aberto junto) destranca.
+  confirmado, porque a premissa era falsa).
+  **Atualização 2026-08-25 — Teste Fechado (Alpha) publicado de verdade,
+  onboarding de testadores via Google Group**: `android-build.yml` foi
+  trocado pra `track: alpha` (o nome real que a API do Google usa pra
+  faixa que o Console mostra como "Teste fechado - Alpha" — confirmado
+  pela própria mensagem de erro do Google quando `open` deu 404:
+  "Available tracks are: production,beta,alpha,internal"). A primeira
+  versão dessa faixa foi publicada manualmente (a API do Google nunca
+  cria a primeira versão de uma faixa nova do zero, só publica versões
+  seguintes de uma faixa que já existe) — builds automáticos de `main`
+  já caem nela desde então. Pra resolver o problema de "cadastrar
+  e-mail um por um no Console" (12+ testadores reais que precisam
+  aceitar o convite, não só estar na lista), criado um Google Group de
+  entrada livre (`xanthus-runner-tester`, groups.google.com) e trocado
+  no lugar da lista de e-mails na aba Testadores do Play Console —
+  qualquer pessoa que entra no grupo já fica elegível, só falta aceitar
+  o link de opt-in do Play depois (`/download`, `src/app/download/page.tsx`,
+  commits `edc37c4`+`df9a8d7`: seção que já existia no código esperando
+  os dois links, preenchida e renderizando de verdade desde então — link
+  do grupo + `play.google.com/apps/testing/com.xanthus.app`). `internal`
+  não serve mais como destino principal: quem está no Teste Fechado não
+  recebe update de um build publicado só no Interno, são faixas
+  paralelas, não uma escada automática. **Confirmado por leitura direta
+  do código em 2026-08-26** — este parágrafo estava desatualizado (dizia
+  "próximo passo: publicar Teste Fechado e convidar testadores", que já
+  tinha acontecido no dia seguinte). **Ainda em contagem**: os 14 dias
+  corridos do teste fechado com 12+ testadores antes de Produção (e
+  provavelmente Aberto junto) destrancar — não confirmado se já tem
+  12+ testadores que de fato aceitaram o convite, só que o mecanismo de
+  onboarding em massa (grupo, não e-mail um a um) está pronto e no ar.
   **Bug real achado nessa primeira tentativa de upload**: `gradlew
   bundleRelease` builda com sucesso e sem nenhum warning, mas o `.aab`
   saía **sem nenhuma assinatura jar embutida** mesmo com
@@ -1128,6 +1153,19 @@ outro lugar do arquivo).
 (é código de cliente, não backend) — falta reproduzir o bug de novo e
 conferir `adb logcat` por `[friendships] sendFriendRequest failed` pra
 achar a causa raiz de verdade.
+
+**Confirmado em produção em 2026-08-26, via Appwrite CLI direto**: as
+tabelas `friendships` e `coach_relationships` estão com **0 linhas**
+cada — nenhum pedido de amizade nem vínculo de treinador jamais foi
+criado com sucesso, nem antes nem depois do log adicionado acima. Ou
+seja, **a feature continua quebrada** — o `console.error` só ajuda a
+diagnosticar da próxima vez que alguém tentar de novo com um aparelho
+plugado, não é um fix funcional. Mesmo padrão de escrita direta do
+cliente (`tablesDB.createRow`/`updateRow`, sem passar pela Function
+`client-actions`) nas duas bibliotecas (`friendships.ts`,
+`coachRelationships.ts`) — então o fix de escopo `rows.*`/`node_modules`
+das Functions (ver seções abaixo) não se aplica aqui, é uma causa raiz
+separada e ainda não encontrada.
 
 ## Bug crítico encontrado e corrigido: Functions sem escopo `rows.*` (2026-08-24)
 
