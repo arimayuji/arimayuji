@@ -302,7 +302,11 @@ function KindTag({ kind }: { kind: SessionKind }) {
 /**
  * The same `displaySessions` the phone-width card list (`SessionRow` in
  * `page.tsx`) already renders, just as a real `<table>` with a kind filter —
- * a second view of one array, not a second source of truth.
+ * a second view of one array, not a second source of truth. Markup follows
+ * the shadcn/ui `<Table>` anatomy (a scroll wrapper around a `text-sm`
+ * table, `border-b` on the header row and every body row rather than a
+ * boxed grid, a fixed row height via consistent padding, a soft row hover)
+ * translated onto Xanthus's own tokens — same shape, not their palette.
  */
 export function WeekDayTable({ sessions }: { sessions: DisplaySession[] }) {
   const [filter, setFilter] = useState<SessionKind | "all">("all");
@@ -313,28 +317,28 @@ export function WeekDayTable({ sessions }: { sessions: DisplaySession[] }) {
       <div className="mb-3">
         <PillTabs tabs={DAY_FILTER_TABS} active={filter} onChange={setFilter} />
       </div>
-      <div className="border-t border-b border-border">
-        <table className="w-full border-collapse">
+      <div className="w-full overflow-auto">
+        <table className="w-full border-collapse text-sm">
           <thead>
-            <tr>
-              <th className="w-28 py-2 text-left font-mono text-[10px] font-semibold tracking-[0.07em] text-muted uppercase">
+            <tr className="border-b border-border">
+              <th className="h-10 w-28 px-3 text-left align-middle font-mono text-[10px] font-semibold tracking-[0.07em] text-muted uppercase">
                 Dia
               </th>
-              <th className="py-2 text-left font-mono text-[10px] font-semibold tracking-[0.07em] text-muted uppercase">
+              <th className="h-10 px-3 text-left align-middle font-mono text-[10px] font-semibold tracking-[0.07em] text-muted uppercase">
                 Sessão
               </th>
-              <th className="w-24 py-2 text-right font-mono text-[10px] font-semibold tracking-[0.07em] text-muted uppercase">
+              <th className="h-10 w-24 px-3 text-right align-middle font-mono text-[10px] font-semibold tracking-[0.07em] text-muted uppercase">
                 Km
               </th>
             </tr>
           </thead>
           <tbody>
             {visible.map((session) => (
-              <tr key={session.day} className="border-t border-border hover:bg-border/20">
-                <td className="py-3 align-top font-mono text-[10.5px] font-semibold tracking-wide text-muted uppercase">
+              <tr key={session.day} className="border-b border-border transition-colors last:border-b-0 hover:bg-border/20">
+                <td className="p-3 align-middle font-mono text-[10.5px] font-semibold tracking-wide text-muted uppercase">
                   {session.day}
                 </td>
-                <td className="py-3 align-top">
+                <td className="p-3 align-middle">
                   <KindTag kind={session.kind} />
                   {session.outcome && session.outcome !== "rest" && session.outcome !== "upcoming" && (
                     <span
@@ -345,7 +349,7 @@ export function WeekDayTable({ sessions }: { sessions: DisplaySession[] }) {
                   )}
                   <p className="mt-1 text-[11.5px] leading-snug text-muted">{session.detail}</p>
                 </td>
-                <td className="py-3 text-right align-top font-mono text-sm font-medium tabular-nums">
+                <td className="p-3 text-right align-middle font-mono text-sm font-medium tabular-nums">
                   {session.km !== undefined ? (
                     <>
                       {session.km}

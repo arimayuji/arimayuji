@@ -242,6 +242,15 @@ function SessionRow({ session, index, isLast }: { session: DisplaySession; index
   );
 }
 
+/**
+ * A horizontal bar per zone instead of a bare number grid — bar length is
+ * velocity (1000/secPerKm) relative to the fastest zone (repetition, always
+ * 100%), so the five zones read as an actual ramp of effort rather than five
+ * unrelated numbers. The opacity step on top of that is purely decorative
+ * (a visual "tier" cue matching the same ramp everywhere else in the app),
+ * not a second encoding of the same value — the bar length alone already
+ * carries the real magnitude, and the pace itself is still printed in full.
+ */
 function PaceZonesCard({ zones }: { zones: PaceZones }) {
   const rows: [PaceZoneName, number][] = [
     ["easy", zones.easySecPerKm],
@@ -250,20 +259,34 @@ function PaceZonesCard({ zones }: { zones: PaceZones }) {
     ["interval", zones.intervalSecPerKm],
     ["repetition", zones.repetitionSecPerKm],
   ];
+  const velocities = rows.map(([, secPerKm]) => 1000 / secPerKm);
+  const maxVelocity = Math.max(...velocities);
+
   return (
     <Card className="pr-enter" style={delay(160)}>
       <CardTitle aside={<NoticeBadge>seu plano</NoticeBadge>}>Suas zonas de pace</CardTitle>
       <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
         Calculadas do seu tempo recente pela fórmula VDOT (Daniels &amp; Gilbert).
       </p>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {rows.map(([zone, secPerKm]) => (
-          <div key={zone}>
-            <span className="text-[11px] uppercase tracking-wide text-muted">{zoneDisplayLabel(zone)}</span>
-            <p className="font-mono text-lg tabular-nums">
+      <div className="flex flex-col gap-2.5">
+        {rows.map(([zone, secPerKm], index) => (
+          <div key={zone} className="flex items-center gap-3">
+            <span className="w-[92px] shrink-0 text-[11px] uppercase tracking-wide text-muted">
+              {zoneDisplayLabel(zone)}
+            </span>
+            <div className="h-2 min-w-0 flex-1 rounded-full bg-border/50">
+              <div
+                className="h-2 rounded-full bg-accent"
+                style={{
+                  width: `${(velocities[index] / maxVelocity) * 100}%`,
+                  opacity: 0.35 + (index / (rows.length - 1)) * 0.65,
+                }}
+              />
+            </div>
+            <span className="w-[68px] shrink-0 text-right font-mono text-sm font-semibold tabular-nums">
               {formatPace(secPerKm)}
-              <span className="ml-1 text-xs text-muted">/km</span>
-            </p>
+              <span className="ml-0.5 text-[10px] font-normal text-muted">/km</span>
+            </span>
           </div>
         ))}
       </div>
