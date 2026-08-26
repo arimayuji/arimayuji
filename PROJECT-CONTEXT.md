@@ -1632,6 +1632,80 @@ app já rastreia, nunca número inventado:
   (`share-card-preview.tsx`, `LayoutHandle`), uma feature diferente. Não
   mexido ainda.
 
+## Lembrete de gel de carboidrato por voz + experimento de qualidade da voz (2026-08-26)
+
+Pedido do dono do projeto: avisar por voz durante a corrida quando é hora
+de tomar um gel de carboidrato, baseado em ciência real — e junto,
+melhorar a voz interna do app já que tem mais orçamento de ElevenLabs
+disponível. Escopado via plan mode (spec completa em
+`/root/.claude/plans/pure-knitting-cosmos.md`), implementado e commitado
+na mesma sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+**ainda não deployado em produção**.
+
+**Decisão chave**: o gatilho é por **tempo decorrido de corrida**, não
+por pace/distância — a posição conjunta ACSM/ISSN já citada em
+`facts.ts` recomenda carboidrato por **hora de esforço** (30–60g/h acima
+de 60–90min contínuos, até ~90g/h em esforços acima de 2h30), não por
+velocidade. Isso também significa que o lembrete funciona mesmo numa
+corrida sem meta de distância definida (a maioria) — só corridas com meta
+setada ganham uma supressão extra nos últimos 5 minutos, pra não mandar
+tomar gel bem na reta final.
+
+- `src/lib/preferences.ts`: `carbReminderEnabled` (default `false`,
+  opt-in explícito como todo comportamento novo aqui) +
+  `carbReminderIntervalMinutes` (default 45, slider 30-60min — a própria
+  faixa da recomendação ACSM virou o range do slider).
+- `src/lib/tracking/useRunTracker.ts`: gatilho novo no mesmo tick de 1s
+  que já governa o modo "tempo" dos anúncios de pace, mas independente
+  dele — são conceitos diferentes que só compartilham o relógio da
+  corrida. `RunTrackerState.carbReminderFiredAt` expõe o disparo pra
+  quem quiser reagir na UI (o toast visual), sem acoplar a UI ao motor.
+- `src/lib/tracking/voiceWords.ts`/`voiceBank.ts`: primeira frase fixa
+  do banco de voz que não é number ou parte do "santo grail" template
+  quilômetro/pace — `announceCarbGelReminder()` toca um clipe único
+  direto, sem concatenação (mais simples que o sistema numérico).
+- `src/lib/evidence/facts.ts`: fato novo (`acsm-carb-intake-during-exercise`)
+  reaproveitando o tópico `nutrition_timing` já existente (não criou um
+  tópico novo — evita cascata de edição em `types.ts`/`evidence/index.ts`/
+  `topic-icons.tsx`, que usam `Record<DecisionTopic, ...>` exigido pelo
+  compilador) e a mesma fonte já citada em `acsm-and-nutrition-athletic-performance`
+  (PubMed 26891166) — só extrai o número específico de carboidrato
+  durante o esforço.
+- `/perfil`: novo fieldset "Lembrete de gel de carboidrato" dentro do
+  Card "Preferências de corrida" existente (mobile-only, como o resto
+  dessa seção) — toggle + `PillSlider` (o mesmo componente já usado em
+  `/progresso`), link "Ver o estudo" pro fato novo.
+- `/run`: toast visual ("Hora do gel") reaproveitando o padrão já
+  existente do toast de volta/lap, disparado a partir de
+  `state.carbReminderFiredAt` — acessibilidade em paridade com o aviso
+  por voz, não só áudio.
+- **Clipes de voz gerados de verdade** (as duas vozes, com a chave
+  ElevenLabs já configurada em `.env.local`) e enviados pro dono do
+  projeto ouvir antes de fechar.
+- **Experimento de qualidade A/B**: `scripts/generate-voice-bank.ts`
+  ganhou `--experiment=<nome>` — renderiza só 5 palavras representativas
+  (`cinco`, `vinte`, `e`, `quilômetros`, `pace`) com um `voice_settings`
+  alternativo, numa pasta separada (`public/audio/experiment-*`, nunca
+  commitada), sem tocar nos 270 clipes reais. Rodadas as 3 variantes
+  (`current` — igual ao banco de hoje, pra comparação justa —, `warmer`,
+  `steadier`) e as 15 amostras enviadas pro dono do projeto ouvir e
+  escolher antes de qualquer regeneração real. **Nenhuma escuta/decisão
+  ainda feita** — próximo passo depende do dono do projeto.
+- **Chave ElevenLabs recebida nesta sessão** ("Eleven Labs -
+  017b4c9f38645a9fe9f16f56ce83383cdb813ae592a7cc2c65fc86438ffdfbf2") não
+  bate com o formato da chave já configurada em `.env.local`
+  (`sk_...`, 48 caracteres hex) — a nova é 64 caracteres hex sem prefixo
+  `sk_`. **Não foi usada** — a geração acima rodou com a chave já
+  existente, que segue funcionando normalmente. Vale o dono do projeto
+  confirmar o que essa string é antes de trocar qualquer coisa.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
+  Testado visualmente via Playwright (toggle/slider em `/perfil`
+  renderiza certinho). **Não testado o disparo em tempo real numa
+  corrida de verdade** — o intervalo mínimo configurável (30min) é longo
+  demais pra simular numa sessão remota; a lógica espelha de perto o
+  gatilho por tempo já existente e comprovado dos anúncios de pace,
+  mesmo tick loop, mesmo padrão de refs.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
