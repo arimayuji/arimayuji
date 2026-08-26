@@ -1460,6 +1460,96 @@ do app nativo, não muda nada de autenticação).
   testado em navegador real (ambiente remoto sem esse dev server visível
   pro dono do projeto) nem contra dados reais de múltiplos alunos.
 
+## `/plano` no desktop: dashboard analítico (2026-08-26)
+
+Pedido do dono do projeto: a versão desktop de `/plano` estava idêntica à
+do app nativo, só que "mais espalhada" — cards arredondados empilhados,
+sem aproveitar a largura do navegador. Três tentativas direto no código
+real foram feitas e rejeitadas (2 colunas → "widget flutuando"; 3 colunas
+mais densas → "verticalizando demais, só um item mudou"). **Pivô decidido
+pelo dono do projeto**: parar de iterar direto no componente React e
+prototipar a direção visual como mockup HTML estático primeiro, aprovar,
+só depois portar pro código — usando **Stripe e Notion como referência de
+estrutura de conteúdo (seções lisas com hairline, tabelas densas, tiras de
+KPI), nunca a estética literal deles**, mantendo os tokens de cor e
+tipografia (Inter+Oswald) do próprio Xanthus. **Nenhum emoji em hipótese
+alguma** — restrição explícita e permanente pra essa UI.
+
+Depois de ~4 rodadas de mockup (Artifact, iterado com feedback real:
+tabela com filtro+tags em vez de lista solta; toggle de pílula deslizante
+em vez de botões com borda individual; slider de valor em vez de +/-;
+calendário de intensidade com as cores do Xanthus; mais gráficos tipo
+meta/realidade; depois um pedido de "visão de dashboard analítica de
+dados mesmo" trazendo mais métricas reais da corrida, não só o km
+planejado; e por fim uma rodada de polimento de bordas/sombras/hover),
+o dono do projeto aprovou ("o web tá ok o mockup, vamos implementa") e o
+resultado foi portado pro código real nesta mesma sessão, branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+**Implementação real**: só a superfície desktop (`hidden lg:block`
+por toda parte) — a lista de cards do celular em `plano/page.tsx`
+continua 100% intocada atrás de `lg:hidden`, mesmo componente
+`SessionRow`/`ul`, mesma lógica. Novidades, todas usando dado real que o
+app já rastreia, nunca número inventado:
+
+- `src/app/(app)/plano/trend-charts.tsx` (novo): `WeeklyBarChart`
+  (genérico — usado tanto pro volume semanal em km quanto pra carga de
+  treino) e `WeeklyPaceChart` (linha, quebra o traçado em vez de
+  interpolar sobre uma semana sem corrida) — SVG artesanal, mesma
+  convenção de `currentColor`/viewBox percentual que o `Sparkline` já
+  usado em `historico/detalhe/run-detail.tsx`, não uma lib de gráfico
+  nova.
+- `src/app/(app)/plano/plan-dashboard.tsx` (novo): `PlanKpiStrip` (5
+  indicadores — meta vs. real da semana com barra de comparação, pace
+  médio com delta de 4 semanas, elevação acumulada, constância e
+  progresso do plano/dias pra prova), `TrendChartRow` (os dois gráficos
+  acima lado a lado), `WeekDayTable` (a mesma `displaySessions` do
+  celular, como `<table>` de verdade com filtro por tipo de dia via
+  `PillTabs` — o "toggle" já existente no app, reaproveitado, não
+  inventado de novo), `RecentRecordsCard` (`allTimeBests` de
+  `personalRecords.ts`) e `TrainingLoadCard` (RPE × minutos por semana,
+  só sobre corridas que têm `rpe` de verdade).
+- **O "calendário de temperatura" pedido já existia**: `RunFrequencyHeatmap`
+  (`src/app/(app)/run-frequency-heatmap.tsx`, já usado em `/historico` e
+  `/progresso`) é exatamente um calendário de 12 semanas com cor de
+  intensidade nos tokens `--pr-heat-1..4` do próprio Xanthus — reaproveitado
+  direto em `/plano`, zero código novo pra essa parte.
+- **"Slider de valor" pedido também já existia**: `PillSlider`
+  (`src/app/(app)/pill-slider.tsx`, já usado em `/progresso`) substituiu
+  o antigo `WeeklyDaysStepper` (+/-) dentro de `GoalCard` — removido do
+  arquivo, não ficou morto. Efeito colateral bom: o celular também ganhou
+  o slider em vez do stepper, não só o desktop.
+- **Honestidade sobre dado esparso** (mesma cultura do resto do app —
+  nunca fingir um número): elevação some com "abra o detalhe de uma
+  corrida pra calcular" quando nenhuma corrida da janela tem
+  `elevationGainMeters` calculado ainda (é lazy, só calcula ao abrir o
+  detalhe); constância aponta pra `/progresso` em vez de mostrar 0/0
+  quando o atleta nunca configurou uma meta semanal lá (reaproveita
+  `profile.weeklyTargetKind`/`weeklyTargetValue`, o mesmo número em dois
+  lugares, não uma segunda definição de "constância"); recordes mostra
+  "ainda sem recorde" em vez de uma lista vazia sem explicação; carga de
+  treino mostra o mesmo tipo de aviso quando nenhuma corrida tem `rpe`
+  registrado.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` — todos
+  limpos. Verificado visualmente via Playwright contra o dev server real
+  (`next dev`), com IndexedDB semeado com ~30 corridas sintéticas
+  cobrindo 10 semanas (incluindo pontos GPS retos o suficiente pra
+  `bestSplitSeconds` computar recordes de verdade) — confirmado
+  visualmente: KPIs, os dois gráficos de tendência, a tabela com
+  filtro/tags, o slider, os recordes e a carga de treino todos renderizam
+  com número real, e o layout mobile (celular estreito, com plano real)
+  não mudou nada. **Não testado por olho humano** — só verificação
+  automatizada + screenshot, o dono do projeto ainda não viu isso rodando
+  de verdade.
+- Achado incidental nessa sessão, registrado à parte pro dono do projeto
+  decidir se vale corrigir: a tela `/compartilhar` diz "Arrasta pra
+  escolher o template", mas a seleção de template ali é por toque
+  (`onClick` numa fileira `overflow-x-auto`), não por arrastar de verdade
+  — o único drag real da tela é o de reposicionar elementos do card
+  (`share-card-preview.tsx`, `LayoutHandle`), uma feature diferente. Não
+  mexido ainda.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play

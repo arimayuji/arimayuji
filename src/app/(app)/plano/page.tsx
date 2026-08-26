@@ -44,7 +44,12 @@ import {
 } from "@/lib/tracking/storage";
 import { formatPace } from "@/lib/tracking/geoFilter";
 import { weeklyBuckets } from "@/lib/tracking/stats";
+import { computeConstancyWeeks, tallyConstancy } from "@/lib/tracking/constancy";
+import { usePreferences } from "@/lib/usePreferences";
+import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
+import { PillSlider } from "../pill-slider";
 import { ModalPortal } from "../modal-portal";
+import { PlanKpiStrip, TrendChartRow, WeekDayTable, RecentRecordsCard, TrainingLoadCard } from "./plan-dashboard";
 
 /**
  * The plan screen has two real modes, not a mockup-vs-real toggle a person
@@ -67,9 +72,9 @@ import { ModalPortal } from "../modal-portal";
  *   the plan pretending week 1 never happened every time you look at it.
  */
 
-type SessionKind = "rest" | "easy" | "hard" | "long";
+export type SessionKind = "rest" | "easy" | "hard" | "long";
 
-interface DisplaySession {
+export interface DisplaySession {
   day: string;
   title: string;
   detail: string;
@@ -118,7 +123,7 @@ function KindIcon({ kind }: { kind: SessionKind }) {
   );
 }
 
-const KIND_STYLE: Record<SessionKind, { badge: string; text: string; label: string }> = {
+export const KIND_STYLE: Record<SessionKind, { badge: string; text: string; label: string }> = {
   rest: { badge: "bg-border/40 text-muted", text: "text-muted", label: "descanso" },
   easy: { badge: "bg-good/15 text-good", text: "text-good", label: "leve" },
   hard: { badge: "bg-warn/15 text-warn", text: "text-warn", label: "forte" },
@@ -187,7 +192,7 @@ function engineSessionToDisplay(session: EngineSession, day: string, outcome?: S
   return { day, title, detail, km: session.km > 0 ? session.km : undefined, kind, outcome };
 }
 
-const OUTCOME_STYLE: Record<Exclude<SessionOutcome, "rest" | "upcoming">, { label: string; className: string }> = {
+export const OUTCOME_STYLE: Record<Exclude<SessionOutcome, "rest" | "upcoming">, { label: string; className: string }> = {
   done: { label: "feito", className: "bg-good/15 text-good" },
   partial: { label: "parcial", className: "bg-warn/15 text-warn" },
   skipped: { label: "pulado", className: "bg-bad/15 text-bad" },
@@ -676,36 +681,6 @@ function DistanceTileGrid({
   );
 }
 
-/** –/+ over a continuous range, not a fixed 3-option pick — the plan engine already supports every value from 2 to 6, the old 3/4/5 buttons just never let you reach the rest. */
-function WeeklyDaysStepper({ value, onChange }: { value: number; onChange: (days: number) => void }) {
-  return (
-    <div className="flex h-16 items-center justify-between rounded-xl border border-border bg-background px-2">
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(MIN_WEEKLY_DAYS, value - 1))}
-        disabled={value <= MIN_WEEKLY_DAYS}
-        aria-label="Menos dias por semana"
-        className="flex h-11 w-11 items-center justify-center rounded-lg text-xl font-bold text-foreground disabled:opacity-30"
-      >
-        −
-      </button>
-      <span className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-extrabold">{value}</span>
-        <span className="text-xs font-semibold text-muted">{value === 1 ? "dia/semana" : "dias/semana"}</span>
-      </span>
-      <button
-        type="button"
-        onClick={() => onChange(Math.min(MAX_WEEKLY_DAYS, value + 1))}
-        disabled={value >= MAX_WEEKLY_DAYS}
-        aria-label="Mais dias por semana"
-        className="flex h-11 w-11 items-center justify-center rounded-lg text-xl font-bold text-foreground disabled:opacity-30"
-      >
-        +
-      </button>
-    </div>
-  );
-}
-
 function VolumeIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" {...ICON_STROKE}>
@@ -793,9 +768,13 @@ function GoalCard({
         <legend className="mb-2.5 block text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
           Dias de corrida por semana
         </legend>
-        <WeeklyDaysStepper
+        <PillSlider
+          min={MIN_WEEKLY_DAYS}
+          max={MAX_WEEKLY_DAYS}
+          step={1}
           value={profile.weeklyRunDays ?? 4}
           onChange={(days) => updateProfile({ weeklyRunDays: days })}
+          formatValue={(days) => String(days)}
         />
       </fieldset>
 
@@ -958,6 +937,50 @@ export default function PlanoPage() {
     [currentWeek, completedRuns],
   );
 
+  /**
+   * The desktop dashboard's real running-history data (see plan-dashboard.tsx)
+   * — computed here, once, from the same `completedRuns` the plan engine
+   * itself already reads, and shared between the KPI strip, the trend
+   * charts and the training-load card below instead of each recomputing its
+   * own slice of `weeklyBuckets`.
+   */
+  const [{ distanceUnit }] = usePreferences();
+  const buckets12 = useMemo(() => (completedRuns ? weeklyBuckets(completedRuns, 12) : []), [completedRuns]);
+  const elevationStats = useMemo(() => {
+    if (!completedRuns || buckets12.length === 0) return { totalMeters: 0, countedRuns: 0, totalRunsInWindow: 0 };
+    const windowStart = buckets12[0].weekStart;
+    const windowEnd = buckets12[buckets12.length - 1].weekStart + 7 * 24 * 60 * 60 * 1000;
+    let totalMeters = 0;
+    let countedRuns = 0;
+    let totalRunsInWindow = 0;
+    for (const run of completedRuns) {
+      if (run.startedAt < windowStart || run.startedAt >= windowEnd) continue;
+      totalRunsInWindow += 1;
+      if (run.elevationGainMeters !== undefined) {
+        totalMeters += run.elevationGainMeters;
+        countedRuns += 1;
+      }
+    }
+    return { totalMeters, countedRuns, totalRunsInWindow };
+  }, [completedRuns, buckets12]);
+  /**
+   * Reuses the same weekly consistency target the athlete already set on
+   * /progresso (`weeklyTargetKind`/`weeklyTargetValue`) rather than inventing
+   * a second, differently-scoped "constancy" definition here — one number,
+   * shown in two places. Null (not an empty tally) when no target is set at
+   * all, so the KPI tile can point at /progresso instead of claiming 0/0.
+   */
+  const constancy = useMemo(() => {
+    if (!completedRuns || !profile.weeklyTargetKind || !profile.weeklyTargetValue) return null;
+    const weeks = computeConstancyWeeks(
+      completedRuns,
+      painCheckIns,
+      { kind: profile.weeklyTargetKind, value: profile.weeklyTargetValue },
+      16,
+    );
+    return { tally: tallyConstancy(weeks), weeks: weeks.filter((w) => !w.beforeFirstRun) };
+  }, [completedRuns, painCheckIns, profile.weeklyTargetKind, profile.weeklyTargetValue]);
+
   if (loading) {
     return (
       <>
@@ -1092,6 +1115,39 @@ export default function PlanoPage() {
           )}
 
           {/*
+            Desktop-only real running-history layer (see plan-dashboard.tsx)
+            — a browser visit to this screen has the width to show more than
+            just this week's prescription, so it also gets the actual trend
+            behind it: volume/pace over the last 12 weeks, elevation, weekly
+            consistency, recent PRs, training load. None of this exists on
+            the phone-width layout below, and none of it changes what that
+            layout renders — it's additive, not a reskin of the plan itself.
+          */}
+          <div className="hidden lg:block">
+            <PlanKpiStrip
+              totalKmPlanned={currentWeek.totalKm}
+              actualKmSoFar={actualKmSoFar}
+              buckets12={buckets12}
+              elevationMeters={elevationStats.totalMeters}
+              elevationRunsCounted={elevationStats.countedRuns}
+              elevationRunsInWindow={elevationStats.totalRunsInWindow}
+              constancy={constancy}
+              weekNumber={currentWeek.weekNumber}
+              totalWeeks={plan.weeks.length}
+              goalDate={profile.goalDate!}
+            />
+            <div className="mt-6">
+              <TrendChartRow buckets12={buckets12} targetKm={currentWeek.totalKm} />
+            </div>
+          </div>
+
+          {completedRuns && (
+            <div className="hidden lg:block">
+              <RunFrequencyHeatmap runs={completedRuns} unit={distanceUnit} delayMs={140} />
+            </div>
+          )}
+
+          {/*
             Three columns at `lg:`, not two — a 2-column split put the week
             alone on one side and everything else (pace, evidence, AI
             suggestion, goal) piled into a single much-taller column on the
@@ -1109,7 +1165,7 @@ export default function PlanoPage() {
           */}
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
             <div className="flex flex-col gap-4 lg:flex-[1.3]">
-              <Card className="pr-enter" style={delay(110)}>
+              <Card className="pr-enter lg:hidden" style={delay(110)}>
                 <CardTitle
                   aside={
                     <NoticeBadge>
@@ -1142,6 +1198,28 @@ export default function PlanoPage() {
                   intensidade e taper vêm.
                 </p>
               </Card>
+
+              {/* Same `displaySessions`, as a real table with a kind filter — see WeekDayTable's own comment. */}
+              <div className="hidden lg:block">
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="font-mono text-sm font-semibold tracking-wide">Sua semana</h2>
+                  <NoticeBadge>
+                    {coachOverride ? "treinador" : selfOverride ? "sugerido por ia" : "dados reais"}
+                  </NoticeBadge>
+                </div>
+                {actualKmSoFar !== null && (
+                  <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+                    Até agora você já correu <strong className="text-foreground">{actualKmSoFar} km</strong>{" "}
+                    essa semana, de {currentWeek.totalKm} km planejados.
+                  </p>
+                )}
+                <WeekDayTable sessions={displaySessions} />
+                <p className="mt-3 text-xs leading-relaxed text-muted">
+                  Volume calculado do seu ritmo real das últimas semanas — não é o mesmo pra todo
+                  mundo. O dia de cada sessão é organização nossa, não vem de estudo nenhum; volume,
+                  intensidade e taper vêm.
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-col gap-4 lg:flex-1">
@@ -1172,6 +1250,17 @@ export default function PlanoPage() {
               <GoalCard profile={profile} updateProfile={updateProfile} />
             </div>
           </div>
+
+          {completedRuns && (
+            <div className="hidden gap-6 border-b border-border pb-6 lg:grid lg:grid-cols-2 lg:divide-x lg:divide-border">
+              <div className="lg:pr-6">
+                <RecentRecordsCard runs={completedRuns} />
+              </div>
+              <div className="lg:pl-6">
+                <TrainingLoadCard runs={completedRuns} buckets={buckets12} />
+              </div>
+            </div>
+          )}
 
           {/* Full-width reference section, below the three columns — long
               enough (4 topics, each with several bullets and a citation)
