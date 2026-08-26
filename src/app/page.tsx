@@ -1642,14 +1642,15 @@ export default function Home() {
                 </span>
                 <h3 className="font-mono text-base font-semibold">Android</h3>
                 <p className="flex-1 text-sm leading-relaxed text-muted">
-                  App instalado de verdade. GPS continua registrando rota e pace
-                  mesmo com a tela travada.
+                  App instalado de verdade, direto pela Play Store (Teste
+                  Fechado). GPS continua registrando rota e pace mesmo com a
+                  tela travada.
                 </p>
                 <Link
                   href="/download"
                   className="mt-1 inline-flex w-full items-center justify-center rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90"
                 >
-                  Baixar APK
+                  Entrar no teste
                 </Link>
               </article>
 
