@@ -1168,16 +1168,17 @@ verificação real de que a cirurgia no pbxproj funciona. `testflight` não
 precisou de mudança — arquivar o scheme `App` já deve embutir o watch
 app via "Embed Watch Content" automaticamente.
 
-**Passos manuais pendentes, só o dono do projeto** (nada disso dá pra
-fazer neste ambiente remoto): registrar o App ID
-`com.xanthus.app.watchkitapp` em developer.apple.com como companion do
-`com.xanthus.app` (mesmo padrão já usado pro
-`com.xanthus.app.RunActivityWidget`), sem capability extra nenhuma nesta
-passada; confirmar que a assinatura automática resolve o App ID novo
-(só confirmável vendo o job `testflight` passar de verdade depois que o
-App ID existir); e o teste de verdade — pareamento `WCSession`, entrega
-de mensagem, round-trip dos botões — só num Apple Watch real pareado com
-um iPhone real.
+**App ID `com.xanthus.app.watchkitapp` registrado pelo dono do projeto em
+2026-08-27** em developer.apple.com (Explicit, mesmo Team ID `6YJ97VWT8V`
+já usado no CI), sem capability extra nenhuma — bate exatamente com o
+`PRODUCT_BUNDLE_IDENTIFIER` já commitado no `project.pbxproj`.
+
+**Ainda pendente, só o dono do projeto** (nada disso dá pra fazer neste
+ambiente remoto): confirmar que a assinatura automática resolve o App ID
+novo (só confirmável vendo o job `testflight` passar de verdade depois de
+um push em `main`); e o teste de verdade — pareamento `WCSession`,
+entrega de mensagem, round-trip dos botões — só num Apple Watch real
+pareado com um iPhone real.
 
 Verificado: `tsc --noEmit`, `npm run lint`, `npm run build`, `npx cap
 sync ios` — todos limpos. **Não verificado** (sem macOS/Xcode/watchOS
