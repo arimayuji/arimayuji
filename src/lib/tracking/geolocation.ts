@@ -263,22 +263,23 @@ export interface WatchUpdateContent {
 }
 
 /**
- * Pushes live run stats to a paired Apple Watch running the tethered
- * "Xanthus Watch App" target (see PROJECT-CONTEXT.md's smartwatch section
- * for why tethered-first). iOS only; no-op on Android/web — there's no
- * watch counterpart on those platforms yet. Best-effort, same as the Live
+ * Pushes live run stats to a paired watch running the tethered companion
+ * app — the "Xanthus Watch App" target on iOS (WatchConnectivity) or the
+ * `:wear` Wear OS module on Android (Wearable Data Layer API), see
+ * PROJECT-CONTEXT.md's smartwatch section for why tethered-first. No-op on
+ * web — there's no watch counterpart there. Best-effort, same as the Live
  * Activity functions above: a missed push is superseded by the next one.
  */
 export function sendWatchUpdate(content: WatchUpdateContent): void {
-  if (!isIOSPlatform()) return;
+  if (!isNativePlatform()) return;
   void BackgroundGeolocation.sendWatchUpdate(content).catch(() => {});
 }
 
 export type WatchAction = "start" | "pause" | "resume" | "finish";
 
 /**
- * Subscribes to a button tap on the tethered watch app. iOS only; no-op on
- * Android/web. Deliberately a separate event/type from
+ * Subscribes to a button tap on the tethered watch app (iOS or Wear OS).
+ * No-op on web. Deliberately a separate event/type from
  * `onNotificationAction` above — the watch can send "start" and "resume",
  * which the Android/Live-Activity notification buttons never do. Returns
  * an unsubscribe function.

@@ -1,0 +1,84 @@
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+/**
+ * Tethered watchOS-equivalent companion app for Wear OS — mirrors
+ * ios/App/Xanthus Watch App/ (see that target's own comments for the
+ * shared product design). The phone continues to do the real GPS
+ * tracking; this module only mirrors live stats and relays button taps
+ * over the Data Layer API (see PhoneConnector.kt).
+ *
+ * Same applicationId as :app (`com.xanthus.app`) and the same signing
+ * key — required for Play Console to recognize this as the Wear
+ * form-factor of the already-approved phone listing, published as its
+ * own .aab on a separate Wear release track (NOT the classic
+ * `wearApp project(':wear')` single-APK embedding model, which this
+ * project deliberately does not use — see PROJECT-CONTEXT.md's
+ * smartwatch section).
+ */
+def releaseStorePath = System.getenv("ANDROID_RELEASE_KEYSTORE_PATH")
+def releaseStorePassword = System.getenv("ANDROID_RELEASE_KEYSTORE_PASSWORD")
+def releaseKeyAlias = System.getenv("ANDROID_RELEASE_KEY_ALIAS")
+def releaseKeyPassword = System.getenv("ANDROID_RELEASE_KEY_PASSWORD")
+def hasReleaseSigning = releaseStorePath && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
+def envVersionCode = System.getenv("ANDROID_VERSION_CODE")
+def envVersionName = System.getenv("ANDROID_VERSION_NAME")
+
+android {
+    namespace = "com.xanthus.app.wear"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.xanthus.app"
+        // Wear OS 3.0+ — practically every device that can run Jetpack
+        // Compose for Wear OS today, and the comfortable API floor for
+        // those Compose libraries. Independent of :app's own minSdk 26.
+        minSdkVersion 30
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode envVersionCode ? envVersionCode.toInteger() : 1
+        versionName envVersionName ?: "1.0"
+    }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStorePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt')
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+    buildFeatures {
+        compose true
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+}
+
+dependencies {
+    implementation "androidx.core:core-ktx:1.15.0"
+    implementation "androidx.activity:activity-compose:1.9.3"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.8.7"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7"
+    implementation "androidx.wear.compose:compose-material:1.4.1"
+    implementation "androidx.wear.compose:compose-foundation:1.4.1"
+    implementation "com.google.android.gms:play-services-wearable:19.0.0"
+}

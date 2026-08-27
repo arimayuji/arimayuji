@@ -9,6 +9,23 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
         classpath 'com.google.gms:google-services:4.4.4'
+        // Only the new :wear module (Jetpack Compose for Wear OS) applies
+        // these via old-style `apply plugin:`, which resolves against this
+        // root buildscript classpath — :app stays pure Java/Groovy DSL,
+        // unaffected. Pinned to 2.4.10, NOT some other Kotlin release: the
+        // pre-existing @capgo/capacitor-health native module
+        // (native-plugins is not the only Kotlin consumer — see its own
+        // node_modules/@capgo/capacitor-health/android/build.gradle) has
+        // its own isolated per-subproject buildscript block already using
+        // Kotlin 2.4.10. Loading a second, different Kotlin Gradle Plugin
+        // version into the same Gradle build crashes the Kotlin compiler
+        // ("Internal compiler error" / "compiled with an incompatible
+        // version of Kotlin") — confirmed the hard way when this was first
+        // pinned to 2.0.21 and :app:assembleDebug broke. Matching the
+        // version already proven to work elsewhere in this exact
+        // multi-module build avoids the whole class of problem.
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.10'
+        classpath 'org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.4.10'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files

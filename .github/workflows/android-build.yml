@@ -99,6 +99,23 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
+      # Wear OS companion app (tethered — see PROJECT-CONTEXT.md's
+      # smartwatch section). Separate module (:wear), same applicationId,
+      # never embedded into the phone APK via wearApp — best-effort so a
+      # watch-module regression never blocks the phone APK this job exists
+      # to validate.
+      - name: Build Wear OS debug APK
+        working-directory: android
+        continue-on-error: true
+        run: ./gradlew :wear:assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xanthus-wear-debug-apk
+          path: android/wear/build/outputs/apk/debug/wear-debug.apk
+          retention-days: 30
+          if-no-files-found: ignore
+
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -214,6 +231,37 @@ jobs:
             android/app/build/outputs/bundle/release/app-release.aab \
             "$ANDROID_RELEASE_KEY_ALIAS"
           jarsigner -verify android/app/build/outputs/bundle/release/app-release.aab
+
+      # Wear OS companion app's own release bundle — best-effort
+      # (continue-on-error), NOT wired into the Google Play publish step
+      # below: that needs a first manual upload to a "Wear" release track
+      # under the already-approved listing first (same one-time trap the
+      # phone's "alpha" track had), which hasn't happened yet. Skipped
+      # entirely alongside the phone bundle when signing isn't configured.
+      - name: Build Wear OS signed release AAB
+        if: steps.release_signing.outputs.signed == 'true'
+        working-directory: android
+        continue-on-error: true
+        run: ./gradlew :wear:bundleRelease --no-daemon
+
+      - name: Jar-sign the Wear OS AAB (same bundleRelease quirk as the phone AAB)
+        if: steps.release_signing.outputs.signed == 'true'
+        continue-on-error: true
+        run: |
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore "$ANDROID_RELEASE_KEYSTORE_PATH" \
+            -storepass "$ANDROID_RELEASE_KEY_PASSWORD" \
+            android/wear/build/outputs/bundle/release/wear-release.aab \
+            "$ANDROID_RELEASE_KEY_ALIAS"
+          jarsigner -verify android/wear/build/outputs/bundle/release/wear-release.aab
+
+      - uses: actions/upload-artifact@v4
+        if: steps.release_signing.outputs.signed == 'true'
+        with:
+          name: xanthus-wear-release-aab
+          path: android/wear/build/outputs/bundle/release/wear-release.aab
+          retention-days: 30
+          if-no-files-found: ignore
 
       # Google Play requires the very first release to be uploaded by hand
       # through the Play Console (the API only publishes new versions of an

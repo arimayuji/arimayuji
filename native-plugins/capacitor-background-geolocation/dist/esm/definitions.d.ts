@@ -678,11 +678,11 @@ export interface LiveActivityContent {
     routePoints?: LiveActivityRoutePoint[];
 }
 /**
- * Live run stats mirrored to a paired Apple Watch running the tethered
- * "Xanthus Watch App" target — the watch has no GPS/HealthKit of its own,
- * everything shown there comes from this. iOS only; no-op on Android/web
- * (a watch app isn't paired the same way on Android, and there's no watch
- * counterpart there yet).
+ * Live run stats mirrored to a paired watch running the tethered companion
+ * app — the "Xanthus Watch App" target on iOS (WatchConnectivity) or the
+ * `:wear` Wear OS module on Android (Wearable Data Layer API). The watch
+ * has no GPS/HealthKit-equivalent of its own; everything shown there comes
+ * from this. No-op on web.
  *
  * Xanthus fork — not part of the upstream plugin.
  */
@@ -960,17 +960,17 @@ export interface BackgroundGeolocationPlugin {
      */
     endLiveActivity(content: LiveActivityContent): Promise<void>;
     /**
-     * Pushes live run stats to a paired Apple Watch running the tethered
-     * "Xanthus Watch App" target. iOS only — resolves without effect on
-     * Android/web. Best-effort, same as the Live Activity methods above:
-     * a missed update is superseded by the next one, nothing to retry.
+     * Pushes live run stats to a paired watch running the tethered
+     * companion app (iOS or Wear OS) — resolves without effect on web.
+     * Best-effort, same as the Live Activity methods above: a missed
+     * update is superseded by the next one, nothing to retry.
      *
      * Xanthus fork — not part of the upstream plugin.
      */
     sendWatchUpdate(content: WatchUpdateContent): Promise<void>;
     /**
      * Listens for a button tap on the tethered watch app (Iniciar/Pausar/
-     * Retomar/Finalizar). iOS only — never fires on Android/web.
+     * Retomar/Finalizar), iOS or Wear OS — never fires on web.
      *
      * Xanthus fork — not part of the upstream plugin.
      */

@@ -1187,6 +1187,133 @@ neste ambiente): se o Swift compila de verdade, se a cirurgia no
 Content" embute o app de verdade no archive. Primeiro sinal real: o job
 `watch-simulator` do CI, depois do push.
 
+## Esboço do app do Wear OS/Samsung (tethered) — implementado em 2026-08-27
+
+Mesmo pedido do Apple Watch acima, agora pro Wear OS (Samsung Galaxy
+Watch e outros) — mesmo escopo de produto (tethered: celular grava o GPS
+de verdade, relógio só mostra os dados ao vivo e manda iniciar/pausar/
+retomar/finalizar), plataforma diferente (Android/Kotlin em vez de
+iOS/Swift). Escopado via plan mode, implementado na mesma sessão, branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+**Diferença real de ambiente em relação ao Apple Watch**: esse sandbox
+Linux **tem** o Android SDK de verdade instalado (`/opt/android-sdk`) e
+Gradle roda aqui de fato — ao contrário do iOS (sem Xcode/macOS, cirurgia
+cega no `.pbxproj`, só o CI confirma depois do push), dava pra compilar o
+módulo novo de verdade antes de commitar.
+
+**Não é o embedding clássico** (`wearApp project(':wear')`) — o modelo
+atual do Google pra Wear OS é um módulo `com.android.application`
+separado (`android/wear/`), mesmo `applicationId "com.xanthus.app"`,
+mesma chave de assinatura (bloco `signingConfigs.release` duplicado
+verbatim de `android/app/build.gradle`, mesmas 4 env vars já exportadas
+no `$GITHUB_ENV` do job de CI — nenhuma mudança de CI extra necessária
+pra assinatura funcionar), publicado como seu próprio `.aab` numa faixa
+"Wear" dentro da MESMA ficha já aprovada na Play Store — o Play reconhece
+pelo pacote+assinatura, não por embutimento físico. `minSdkVersion 30`
+(Wear OS 3.0, o piso realista pra Compose for Wear OS hoje);
+`compileSdk`/`targetSdk` = 36, igual ao celular.
+
+**Novo módulo `android/wear/`**: primeiro uso de Kotlin em todo
+`android/` (classpath do plugin Kotlin + Compose compiler adicionado ao
+`buildscript` do `android/build.gradle` raiz) —
+`android/wear/src/main/java/com/xanthus/app/wear/`:
+- `PhoneConnector.kt` — ponte via Google Play Services Wearable Data
+  Layer API, o análogo Android do `WCSession` do iOS. `DataClient`
+  (`PutDataMapRequest`/`.setUrgent()`) pra stats ao vivo do celular pro
+  relógio (latest-value-wins); `MessageClient` (resolve o node conectado
+  via `NodeClient` primeiro, já que `sendMessage` é direcionado, ao
+  contrário do `DataClient`) pra comando discreto do relógio pro celular.
+  **Detalhe que o `WCSession` do iOS não tem**:
+  `DataClient.OnDataChangedListener` só dispara em mudanças FUTURAS — um
+  `dataClient.dataItems` explícito é buscado em `start()` pra não mostrar
+  "idle"/"0,00 km" até a próxima atualização do celular, caso o app do
+  relógio seja aberto no meio de uma corrida já em andamento.
+- `MainActivity.kt`/`WearApp.kt`/`IdleScreen.kt`/`RunStatsScreen.kt` —
+  mesma divisão do lado iOS (`ContentView.swift`/`RunStatsView.swift`):
+  tela "Iniciar" vs. tela de stats ao vivo (distância/pace/tempo) com
+  Pausar/Retomar/Finalizar, Compose for Wear OS puro.
+- Ícone/manifest placeholder mínimo — só o suficiente pra compilar, arte
+  de verdade (cavalo mascote Recraft) fica pra depois, mesmo padrão do
+  `AppIcon.appiconset` vazio do Apple Watch.
+
+**Ponte de dados** — as duas strings de path (`/watch_update`,
+`/watch_action`) precisam ficar idênticas entre `PhoneConnector.kt` e o
+plugin (próximo parágrafo) — sem mecanismo de constante compartilhada
+entre os dois módulos Gradle, mesma duplicação por convenção já aceita
+entre JS e nativo no lado iOS.
+
+**Extensão do plugin já forkado** (Android, não iOS —
+`native-plugins/capacitor-background-geolocation/android/.../BackgroundGeolocation.java`):
+novo `@PluginMethod sendWatchUpdate` (monta `PutDataMapRequest`, `.setUrgent()`,
+`Wearable.getDataClient(getContext()).putDataItem(...)`) e um novo
+`MessageClient.OnMessageReceivedListener`, registrado em `load()`/
+removido em `handleOnDestroy()` (runtime-only, sem manifest — diferente
+de `NotificationActionReceiver`, que é um `BroadcastReceiver` declarado
+de verdade), notificando `"watchAction"` pro JS exatamente como
+`NotificationActionEventReceiver` já faz pro botão da notificação.
+`native-plugins/.../android/build.gradle` ganhou a dependência
+`play-services-wearable` no mesmo padrão `ext{}`/`hasProperty` já usado
+pra `play-services-location`.
+
+**Lado JS**: `src/lib/tracking/geolocation.ts`'s `sendWatchUpdate` trocou
+o guard de `isIOSPlatform()` pra `isNativePlatform()` (agora cobre os
+dois relógios) — `onWatchAction` já usava `isNativePlatform()`, não
+precisou mudar. Nenhuma mudança em `useRunTracker.ts`/`run/page.tsx` — a
+ponte já era genérica por plataforma desde a implementação do Apple
+Watch.
+
+**CI** (`android-build.yml`): job `debug` ganhou um step
+`:wear:assembleDebug` (`continue-on-error`, upload do APK); job `release`
+ganhou `:wear:bundleRelease` + o mesmo jar-sign manual que o `.aab` do
+celular já precisa (mesmo bug conhecido do AGP) + upload do `.aab` — **não**
+conectado ao step de publish do Google Play, que precisa de um primeiro
+upload manual numa faixa "Wear" na ficha já aprovada primeiro (mesma
+trava que a faixa Alpha do celular já teve; não confirmado se isso reabre
+a exigência de 12 testadores/14 dias de conta nova).
+
+**Verificação real, com o Gradle/SDK deste sandbox** (diferente do iOS,
+onde só o CI depois do push confirma algo): `:wear:assembleDebug`,
+`:app:assembleDebug` (regressão do celular) e `:wear:bundleRelease`
+(sem assinatura local, mesmo comportamento que o `.aab` do celular já
+tem sem as env vars) — as três `BUILD SUCCESSFUL` de verdade, não só
+"compilou" — rodadas de fato neste sandbox. `npx tsc --noEmit && npm run
+lint` limpos depois da mudança de uma linha em `geolocation.ts`.
+
+**Bug real achado e corrigido só por causa dessa verificação local**: a
+primeira tentativa fixou o Kotlin Gradle Plugin do `android/build.gradle`
+raiz em `2.0.21` (versão arbitrária, só "uma versão recente do Kotlin").
+`:wear:assembleDebug` sozinho compilou — mas `:app:assembleDebug` quebrou
+depois, com `capgo-capacitor-health:compileDebugKotlin FAILED` ("Internal
+compiler error" + "Module was compiled with an incompatible version of
+Kotlin. The binary version of its metadata is 2.4.0, expected version is
+2.0.0"). Causa raiz: `@capgo/capacitor-health` (dependência já em
+produção, não código deste fork) já tem seu **próprio** `buildscript{}`
+isolado usando Kotlin **2.4.10** — carregar um SEGUNDO Kotlin Gradle
+Plugin de versão diferente (2.0.21) no mesmo processo do Gradle quebra o
+compilador mesmo os dois módulos sendo tecnicamente independentes (o
+Kotlin Gradle Plugin compartilha estado/daemon de compilação entre
+subprojetos dentro da mesma invocação, independente de isolamento de
+classpath por `buildscript{}`). **Fix**: trocar `2.0.21` por `2.4.10` —
+a mesma versão já comprovadamente funcionando no resto deste build —
+eliminando o problema de ter duas versões do Kotlin coexistindo, em vez
+de tentar entender/contornar a incompatibilidade em si. Exatamente o
+tipo de risco de configuração que o plano original já tinha sinalizado
+como motivo pra rodar `:app:assembleDebug` de novo antes de considerar
+pronto — e que só apareceu de verdade rodando o Gradle local, nunca teria
+sido pego só por `:wear:assembleDebug` isolado.
+
+**Limitação conhecida e aceita, igual ao Apple Watch**: apertar "Iniciar"
+no relógio antes de abrir a tela `/run` no celular não faz nada — mesma
+limitação documentada lá, não resolvida aqui também.
+
+**Ainda pendente, só o dono do projeto** (nada disso dá pra fazer neste
+ambiente remoto): relógio Wear OS real pareado com celular real testando
+o round-trip de `DataClient`/`MessageClient`; criar a faixa Wear na ficha
+já aprovada e fazer o primeiro upload manual do `.aab` no Play Console;
+ícone de verdade do app do relógio.
+
 ## Ferramentas externas usadas no projeto
 
 - Design/animações/logo: **[Recraft AI](https://www.recraft.ai/)**.

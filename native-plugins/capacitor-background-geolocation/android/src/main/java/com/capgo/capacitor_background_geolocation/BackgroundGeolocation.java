@@ -33,6 +33,10 @@ import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
 import com.google.android.gms.location.GeofencingRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.wearable.MessageClient;
+import com.google.android.gms.wearable.MessageEvent;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Wearable;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,6 +68,13 @@ public class BackgroundGeolocation extends Plugin {
     private BroadcastReceiver serviceReceiver;
     private BroadcastReceiver geofenceEventReceiver;
     private BroadcastReceiver notificationActionReceiver;
+    private MessageClient.OnMessageReceivedListener watchActionListener;
+
+    // Xanthus fork: must match PATH_WATCH_UPDATE/PATH_WATCH_ACTION in
+    // android/wear/.../PhoneConnector.kt exactly — no shared-constants
+    // mechanism across the two Gradle modules.
+    private static final String PATH_WATCH_UPDATE = "/watch_update";
+    private static final String PATH_WATCH_ACTION = "/watch_action";
 
     private void fetchLastLocation(PluginCall call) {
         try {
@@ -420,6 +431,32 @@ public class BackgroundGeolocation extends Plugin {
                 call.reject("Failed to update notification: " + throwable.getMessage());
                 return null;
             });
+    }
+
+    // Xanthus fork: tethered Wear OS/Samsung watch companion — mirrors the
+    // iOS sibling's WCSession updateApplicationContext via the Google Play
+    // Services Wearable Data Layer API instead. Best-effort: with no watch
+    // paired, putDataItem still succeeds locally (Play Services just has
+    // no one to sync it to), so this never needs to know whether a watch
+    // exists.
+    @PluginMethod
+    public void sendWatchUpdate(PluginCall call) {
+        String status = call.getString("status", "idle");
+        String distanceLabel = call.getString("distanceLabel", "");
+        String paceLabel = call.getString("paceLabel", "");
+        String timeLabel = call.getString("timeLabel", "");
+
+        PutDataMapRequest request = PutDataMapRequest.create(PATH_WATCH_UPDATE);
+        request.getDataMap().putString("status", status);
+        request.getDataMap().putString("distanceLabel", distanceLabel);
+        request.getDataMap().putString("paceLabel", paceLabel);
+        request.getDataMap().putString("timeLabel", timeLabel);
+        request.setUrgent();
+
+        Wearable.getDataClient(getContext())
+            .putDataItem(request.asPutDataRequest())
+            .addOnSuccessListener(dataItem -> call.resolve())
+            .addOnFailureListener(exception -> call.reject("Failed to send watch update: " + exception.getMessage()));
     }
 
     @PluginMethod
@@ -856,6 +893,26 @@ public class BackgroundGeolocation extends Plugin {
         }
     }
 
+    // Xanthus fork: tethered Wear OS/Samsung watch companion — relays a
+    // watch button tap ("start"/"pause"/"resume"/"finish") to JS as a
+    // "watchAction" event, same shape/intent as notificationAction above.
+    // MessageClient listeners are runtime-only (no manifest-declared
+    // receiver needed, unlike NotificationActionReceiver).
+    private final MessageClient.OnMessageReceivedListener createWatchActionListener() {
+        return (MessageEvent event) -> {
+            if (!PATH_WATCH_ACTION.equals(event.getPath())) {
+                return;
+            }
+            String action = new String(event.getData(), java.nio.charset.StandardCharsets.UTF_8);
+            if (action.isEmpty()) {
+                return;
+            }
+            JSObject data = new JSObject();
+            data.put("action", action);
+            notifyListeners("watchAction", data, true);
+        };
+    }
+
     @Override
     public void load() {
         super.load();
@@ -894,6 +951,9 @@ public class BackgroundGeolocation extends Plugin {
             notificationActionReceiver,
             new IntentFilter(NotificationActionReceiver.ACTION_NOTIFICATION_ACTION)
         );
+
+        watchActionListener = createWatchActionListener();
+        Wearable.getMessageClient(getContext()).addListener(watchActionListener);
     }
 
     private CompletableFuture<BackgroundGeolocationService.LocalBinder> getServiceConnection() {
@@ -1038,6 +1098,10 @@ public class BackgroundGeolocation extends Plugin {
         if (notificationActionReceiver != null) {
             LocalBroadcastManager.getInstance(this.getContext()).unregisterReceiver(notificationActionReceiver);
             notificationActionReceiver = null;
+        }
+        if (watchActionListener != null) {
+            Wearable.getMessageClient(getContext()).removeListener(watchActionListener);
+            watchActionListener = null;
         }
         super.handleOnDestroy();
     }
