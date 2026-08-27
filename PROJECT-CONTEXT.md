@@ -1062,17 +1062,39 @@ por plataforma:
   relógio. Tiles (Wear OS)/complications (watchOS)/data fields (Garmin)
   sozinhos são ainda mais baratos, mas não entregam "gravar a corrida
   pelo pulso" — só um glance de dado, não substituem o pedido original.
-- **Recomendação do agente, se for tentar alguma**: **Wear OS primeiro** —
-  é a única que reaproveita repo/CI/backend já existentes e a ficha da
-  Play Store já aprovada, evitando repassar pela trava de conta nova do
-  Google. Garmin em segundo (barato e de baixo risco depois do Wear OS
-  provado, mas ecossistema de nicho). Apple Watch por último — soma mais
-  um codebase/linguagem exatamente na plataforma que já tem mais atrito
-  (fila de revisão, limite diário de upload) pra base de usuário do iOS,
-  hoje ainda pequena. Dado que a base de usuários inteira ainda é um
-  punhado de contas em teste fechado, isso é investimento especulativo em
-  qualquer uma das três — **nenhuma implementação foi iniciada**, isso é
-  só o mapa de esforço pra decidir depois.
+- **Recomendação original do agente (Wear OS primeiro, por reaproveitar
+  infra) corrigida em 2026-08-26 por dois pontos reais que o dono do
+  projeto levantou e que o agente subestimou** — verificado ao vivo via
+  WebSearch, não assumido:
+  - **Público do Apple Watch é bem maior que o da Garmin, não menor.**
+    Dados reais do 2º trimestre de 2026 (Omdia, via SamMobile/Sammy Fans):
+    Apple lidera o mercado global de smartwatches com **46%** dos
+    embarques, Garmin está em **15%** (empatado com a Samsung) — não é
+    disputa próxima, Apple domina disparado. "Wear OS puro" (excluindo
+    Samsung/Galaxy Watch, que hoje roda uma base Wear OS mas conta à
+    parte nas estatísticas) fica com uma fatia ainda menor que isso — é
+    provavelmente a *menor* audiência de corredor das três, não a maior,
+    apesar de reaproveitar mais infraestrutura de código.
+  - **Garmin custa dinheiro de verdade, Apple Watch não custa nada
+    a mais.** Confirmado: a Apple Developer Program (os mesmos US$99/ano
+    que o projeto já paga pelo app iOS) cobre watchOS de graça, sem taxa
+    extra nenhuma. Já publicar na Connect IQ Store da Garmin custa
+    **US$100/ano à parte** — um custo novo, não algo já coberto.
+  - **Conclusão revisada**: a conta muda bastante quando pesa alcance real
+    e custo de verdade, não só reaproveitamento de infraestrutura. Apple
+    Watch tem o maior público de longe *e* não custa nada a mais — o
+    trade-off real dele é herdar a mesma fila de revisão/limite diário de
+    upload que a Apple já impõe no app iOS, e só alcançar quem já usa o
+    Xanthus no iOS (hoje o lado mais novo/pequeno em teste, comparado ao
+    Android). Garmin continua com o encaixe mais forte especificamente
+    com o público-alvo do produto (corredor sério), mas com público menor
+    e custo extra de verdade. Wear OS continua sendo o mais barato de
+    construir (reaproveita repo/CI/Play Store), mas provavelmente com a
+    menor audiência de corredor das três. **Nenhuma decisão de
+    priorização foi fechada** — os números certos estão registrados aqui,
+    a escolha final depende do dono do projeto pesar alcance vs. custo vs.
+    esforço de engenharia. Nenhuma implementação foi iniciada em nenhuma
+    das três.
 
 ## Ferramentas externas usadas no projeto
 
