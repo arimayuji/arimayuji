@@ -33,7 +33,7 @@ import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coac
 import { getSelfPlanOverride, removeSelfPlanOverride, setSelfPlanOverride, type SelfPlanOverride } from "@/lib/selfPlanOverride";
 import { suggestPlanForSelf, type PlanSuggestion, type SuggestPlanForSelfReason } from "@/lib/selfPlanSuggestion";
 import { useAuth } from "@/lib/useAuth";
-import { currentMondayIsoDate, GOAL_DISTANCE_OPTIONS, type RunnerProfile } from "@/lib/runnerProfile";
+import { currentMondayIsoDate, type RunnerProfile } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import {
   estimateWeeklyKm,
@@ -50,6 +50,8 @@ import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 import { PillSlider } from "../pill-slider";
 import { ModalPortal } from "../modal-portal";
 import { PlanKpiStrip, TrendChartRow, WeekDayTable, RecentRecordsCard, TrainingLoadCard } from "./plan-dashboard";
+import { GoalWizard } from "./goal-wizard";
+import { DistanceTileGrid, MIN_WEEKLY_DAYS, MAX_WEEKLY_DAYS } from "./goal-fields";
 
 /**
  * The plan screen has two real modes, not a mockup-vs-real toggle a person
@@ -599,111 +601,6 @@ function PlanBuildSequence({ stages, onDone }: { stages: readonly string[]; onDo
   );
 }
 
-/** Matches what the plan engine itself clamps to (periodization.ts: "at least 2 — long + one more, at most 6 — always 1 rest day") — the stepper's own bounds, not an arbitrary UI choice. */
-const MIN_WEEKLY_DAYS = 2;
-const MAX_WEEKLY_DAYS = 6;
-
-const DISTANCE_TILE: Record<number, { main: string; sub: string }> = {
-  5000: { main: "5", sub: "km" },
-  10000: { main: "10", sub: "km" },
-  21097: { main: "Meia", sub: "21 km" },
-  42195: { main: "Maratona", sub: "42 km" },
-};
-
-/** True for any distance that isn't one of the four fixed race tiles — a custom 15K, 10 miles converted to meters, whatever someone actually signed up for. */
-function isPresetDistance(meters: number | undefined): boolean {
-  return meters !== undefined && GOAL_DISTANCE_OPTIONS.some((option) => option.meters === meters);
-}
-
-/**
- * Big number + unit, not a squeezed-in label on a segmented button — a race
- * distance is the single most consequential choice on this screen. A 5th
- * tile, "Personalizada", reveals a plain km input for anything the four
- * presets don't cover (15K, 10 miles, a local prova with an odd distance);
- * it opens by itself whenever `selected` already holds a non-preset value,
- * so a profile someone set up before this existed — or synced from
- * elsewhere — still shows its real number instead of looking unset.
- */
-function DistanceTileGrid({
-  selected,
-  onSelect,
-}: {
-  selected: number | undefined;
-  onSelect: (meters: number) => void;
-}) {
-  const [customOpen, setCustomOpen] = useState(() => !isPresetDistance(selected) && selected !== undefined);
-  const [customKm, setCustomKm] = useState(() =>
-    !isPresetDistance(selected) && selected !== undefined ? String(selected / 1000).replace(".", ",") : "",
-  );
-  const customSelected = customOpen || (!isPresetDistance(selected) && selected !== undefined);
-
-  const handleCustomChange = (raw: string) => {
-    const cleaned = raw.replace(/[^0-9,.]/g, "").slice(0, 6);
-    setCustomKm(cleaned);
-    const km = Number(cleaned.replace(",", "."));
-    if (Number.isFinite(km) && km > 0) onSelect(Math.round(km * 1000));
-  };
-
-  return (
-    <div>
-      <div className="grid grid-cols-2 gap-2.5">
-        {GOAL_DISTANCE_OPTIONS.map((option) => {
-          const isSelected = !customSelected && selected === option.meters;
-          const tile = DISTANCE_TILE[option.meters];
-          return (
-            <button
-              key={option.meters}
-              type="button"
-              onClick={() => {
-                setCustomOpen(false);
-                onSelect(option.meters);
-              }}
-              aria-pressed={isSelected}
-              className={`flex h-16 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${
-                isSelected
-                  ? "border-transparent bg-accent text-accent-foreground"
-                  : "border-border bg-background text-foreground"
-              }`}
-            >
-              <span className="text-lg font-extrabold">{tile.main}</span>
-              <span className="text-xs font-semibold opacity-75">{tile.sub}</span>
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => setCustomOpen(true)}
-          aria-pressed={customSelected}
-          className={`col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-xl border transition-colors ${
-            customSelected
-              ? "border-transparent bg-accent text-accent-foreground"
-              : "border-border bg-background text-foreground"
-          }`}
-        >
-          <span className="text-sm font-bold">Personalizada</span>
-          {customSelected && customKm && (
-            <span className="text-sm font-semibold opacity-75">· {customKm} km</span>
-          )}
-        </button>
-      </div>
-      {customOpen && (
-        <div className="mt-2.5 flex items-center gap-2">
-          <input
-            type="text"
-            inputMode="decimal"
-            value={customKm}
-            onChange={(event) => handleCustomChange(event.target.value)}
-            placeholder="Ex: 15"
-            autoFocus
-            className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-lg font-bold outline-none focus:border-accent"
-          />
-          <span className="text-sm font-semibold text-muted">km</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function VolumeIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" {...ICON_STROKE}>
@@ -750,9 +647,11 @@ function WeekStatsRow({ volumeKm, sessions, hard }: { volumeKm: number; sessions
 function GoalCard({
   profile,
   updateProfile,
+  className,
 }: {
   profile: RunnerProfile;
   updateProfile: (patch: Partial<RunnerProfile>) => void;
+  className?: string;
 }) {
   const recentMinutes = profile.recentRaceTimeSeconds
     ? Math.floor(profile.recentRaceTimeSeconds / 60)
@@ -765,7 +664,7 @@ function GoalCard({
   };
 
   return (
-    <Card className="pr-enter" style={delay(80)}>
+    <Card className={`pr-enter ${className ?? ""}`} style={delay(80)}>
       <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>Meta de prova</CardTitle>
       <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
         Distância e data viram a rampa de volume e o taper; o tempo recente (opcional) vira suas
@@ -1360,7 +1259,14 @@ export default function PlanoPage() {
           )}
         </Card>
 
-        <GoalCard profile={profile} updateProfile={updateProfile} />
+        <div className="hidden lg:block">
+          {hasGoal ? (
+            <GoalCard profile={profile} updateProfile={updateProfile} />
+          ) : (
+            <GoalWizard profile={profile} updateProfile={updateProfile} hasGoal={hasGoal} />
+          )}
+        </div>
+        <GoalCard profile={profile} updateProfile={updateProfile} className="lg:hidden" />
 
         {showExample ? (
           <>
