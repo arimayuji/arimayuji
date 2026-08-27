@@ -16,8 +16,8 @@
  * live-tracking ping must never interrupt the run being recorded, which is
  * the one thing this whole app actually promises to get right.
  */
-import { Permission, Query, Role, type Models } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
+import { ExecutionMethod, Query, type Models } from "appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getCurrentAccount } from "./auth";
 
 export interface LiveRun extends Models.Row {
@@ -47,6 +47,18 @@ export interface LiveRunUpdate {
  * picked before starting" — it's now the union of that and whoever is
  * currently in the athlete's "longão" session (see `sessionCode`), so the
  * same row serves both audiences without two separate live-tracking paths.
+ *
+ * Goes through the `client-actions` Function rather than writing the row
+ * directly, because granting `read` to a viewer means assigning a permission
+ * to somebody else's `user:<id>` — which Appwrite refuses outright from a
+ * plain client session (`401 user_unauthorized: "Permissions must be one of:
+ * (any, users, user:<caller>, ...)"`). This file used to do it client-side
+ * and swallow the rejection in the same bare `catch` that guards genuine
+ * network blips, so live sharing failed silently for every audience from the
+ * day the table was created. Confirmed against production on 2026-08-27:
+ * `live_runs` held 0 rows, meaning not one live run had ever been created by
+ * a real user. Exactly the bug that friendships/coach_relationships already
+ * hit — see sendFriendRequest's comment in the Function for the same story.
  */
 export async function startLiveSession(
   runId: string,
@@ -61,30 +73,36 @@ export async function startLiveSession(
   if (!account) return false;
 
   try {
-    await appwrite.tablesDB.createRow<LiveRun>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.liveRuns,
-      rowId: runId,
-      data: {
-        userId: account.id,
-        startedAt: new Date(startedAt).toISOString(),
-        distanceMeters: update.distanceMeters,
-        currentPaceSecPerKm: update.currentPaceSecPerKm ?? undefined,
-        elapsedSeconds: update.elapsedSeconds,
-        lat: update.lat,
-        lon: update.lon,
-        updatedAtMs: Date.now(),
-        sessionCode: sessionCode ?? undefined,
-      },
-      permissions: [
-        Permission.read(Role.user(account.id)),
-        Permission.update(Role.user(account.id)),
-        Permission.delete(Role.user(account.id)),
-        ...viewerIds.map((viewerId) => Permission.read(Role.user(viewerId))),
-      ],
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({
+        action: "start-live-session",
+        runId,
+        viewerIds,
+        sessionCode,
+        data: {
+          startedAt: new Date(startedAt).toISOString(),
+          distanceMeters: update.distanceMeters,
+          currentPaceSecPerKm: update.currentPaceSecPerKm ?? undefined,
+          elapsedSeconds: update.elapsedSeconds,
+          lat: update.lat,
+          lon: update.lon,
+          updatedAtMs: Date.now(),
+        },
+      }),
     });
+    const parsed = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; error?: string };
+    if (!parsed.ok) {
+      // Unlike the pings below, a failure here means the coach/friends will
+      // see nothing for the whole run — worth a breadcrumb rather than the
+      // silence that hid this exact call being broken for weeks.
+      console.error("[liveRuns] startLiveSession failed:", parsed.error ?? execution.responseBody);
+      return false;
+    }
     return true;
-  } catch {
+  } catch (err) {
+    console.error("[liveRuns] startLiveSession threw:", err);
     return false;
   }
 }
@@ -97,23 +115,22 @@ export async function startLiveSession(
  * other write here: a missed refresh just means someone who joined recently
  * can't see this athlete yet, not a failed run.
  */
-export async function refreshLiveSessionAudience(runId: string, viewerIds: string[]): Promise<void> {
+export async function refreshLiveSessionAudience(
+  runId: string,
+  viewerIds: string[],
+  sessionCode?: string,
+): Promise<void> {
   const appwrite = getAppwrite();
   if (!appwrite) return;
   const account = await getCurrentAccount();
   if (!account) return;
   try {
-    await appwrite.tablesDB.updateRow<LiveRun>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.liveRuns,
-      rowId: runId,
-      data: {},
-      permissions: [
-        Permission.read(Role.user(account.id)),
-        Permission.update(Role.user(account.id)),
-        Permission.delete(Role.user(account.id)),
-        ...viewerIds.map((viewerId) => Permission.read(Role.user(viewerId))),
-      ],
+    // Same reason as startLiveSession above: this rewrites permissions, so it
+    // has to run with the Function's key rather than the athlete's session.
+    await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "refresh-live-audience", runId, viewerIds, sessionCode }),
     });
   } catch {
     // Next refresh (or the next regular position update) catches up.

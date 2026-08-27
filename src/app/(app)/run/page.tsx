@@ -1357,7 +1357,11 @@ export default function RunPage() {
       const changed = ids.length !== current.length || ids.some((id) => !current.includes(id));
       groupRunParticipantIdsRef.current = ids;
       if (changed && liveSessionActiveRef.current && state.runId) {
-        void refreshLiveSessionAudience(state.runId, [...(liveCoachId ? [liveCoachId] : []), ...liveFriendIds, ...ids]);
+        void refreshLiveSessionAudience(
+          state.runId,
+          [...(liveCoachId ? [liveCoachId] : []), ...liveFriendIds, ...ids],
+          activeSessionCode,
+        );
       }
     };
     void poll();

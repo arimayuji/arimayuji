@@ -299,6 +299,191 @@ async function sendWelcomeEmail({ userId, client, res, log, error }) {
   return res.json({ ok: true });
 }
 
+/**
+ * Resolves which of `viewerIds` this athlete is actually entitled to share a
+ * live run with, dropping anything else. Three legitimate audiences, matching
+ * exactly what /run's own picker offers (src/app/(app)/run/page.tsx):
+ * an accepted coach, accepted friends, and — when a "longão" is running —
+ * whoever else joined that same session code.
+ *
+ * Without this the action would be a bare "grant user X read on my row"
+ * primitive. The blast radius is only the caller's own position (a reader
+ * still has to know to query for it, and every viewer screen queries by its
+ * own friend/student list), but the project's rule is that sharing is a
+ * negotiated relationship, not something one side asserts — same reasoning
+ * that put send-friend-request in this Function in the first place.
+ */
+async function resolveLiveViewers(tablesDB, athleteId, viewerIds, sessionCode) {
+  const requested = [...new Set(viewerIds.filter((id) => typeof id === "string" && id && id !== athleteId))];
+  if (requested.length === 0) return [];
+
+  const allowed = new Set();
+
+  // Accepted friendships, in either direction — same two-query merge as
+  // src/lib/friendships.ts (Appwrite has no OR across columns).
+  const [asRequester, asAddressee] = await Promise.all([
+    tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "friendships",
+      queries: [Query.equal("requesterId", athleteId), Query.equal("status", "accepted"), Query.limit(100)],
+    }),
+    tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "friendships",
+      queries: [Query.equal("addresseeId", athleteId), Query.equal("status", "accepted"), Query.limit(100)],
+    }),
+  ]);
+  for (const row of asRequester.rows) allowed.add(row.addresseeId);
+  for (const row of asAddressee.rows) allowed.add(row.requesterId);
+
+  // Accepted coaches of this athlete.
+  const coaches = await tablesDB.listRows({
+    databaseId: DATABASE_ID,
+    tableId: "coach_relationships",
+    queries: [Query.equal("studentId", athleteId), Query.equal("status", "accepted"), Query.limit(100)],
+  });
+  for (const row of coaches.rows) allowed.add(row.coachId);
+
+  // Fellow participants of the group run this athlete is actually in — the
+  // athlete's own membership is checked first so a made-up code can't be
+  // used to harvest an unrelated session's roster.
+  if (sessionCode) {
+    const mine = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      queries: [Query.equal("sessionCode", sessionCode), Query.equal("userId", athleteId), Query.limit(1)],
+    });
+    if (mine.rows.length > 0) {
+      const participants = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: "group_run_participants",
+        queries: [Query.equal("sessionCode", sessionCode), Query.limit(100)],
+      });
+      for (const row of participants.rows) allowed.add(row.userId);
+    }
+  }
+
+  allowed.delete(athleteId);
+  return requested.filter((id) => allowed.has(id));
+}
+
+/** The athlete always keeps full control of their own live row; viewers only ever get read. */
+function liveRunPermissions(athleteId, viewerIds) {
+  return [
+    Permission.read(Role.user(athleteId)),
+    Permission.update(Role.user(athleteId)),
+    Permission.delete(Role.user(athleteId)),
+    ...viewerIds.map((viewerId) => Permission.read(Role.user(viewerId))),
+  ];
+}
+
+/**
+ * action: "start-live-session" — same root cause and fix as
+ * send-friend-request below: the row has to grant read to viewers who aren't
+ * the caller, and a plain client session can never assign a permission to
+ * someone else's "user:<id>" (Appwrite answers `401 user_unauthorized:
+ * "Permissions must be one of: (any, users, user:<caller>, ...)"`).
+ *
+ * src/lib/liveRuns.ts did exactly that from the client and swallowed the
+ * rejection in a bare `catch`, so live sharing failed silently for every
+ * audience — coach, friends and group run alike — from the day the table was
+ * created. Reproduced against production on 2026-08-27 with two throwaway
+ * accounts; `live_runs` had 0 rows at the time, i.e. not one live run had
+ * ever been created by a real user.
+ *
+ * Deliberately NOT covering updateLiveSession: that one only writes data,
+ * never permissions, so the client can keep doing it directly at its 6s
+ * cadence. Only the two calls that touch permissions (this one and
+ * refresh-live-audience) need the privileged key, which keeps this Function
+ * to roughly one execution per run instead of one every six seconds.
+ */
+async function startLiveSession({ userId: athleteId, body, client, res, error }) {
+  const runId = String(body.runId ?? "").trim();
+  if (!runId) return res.json({ error: "missing-run-id" }, 400);
+
+  const data = body.data && typeof body.data === "object" ? body.data : null;
+  if (!data) return res.json({ error: "missing-data" }, 400);
+
+  const sessionCode = body.sessionCode ? String(body.sessionCode).toUpperCase() : "";
+  const tablesDB = new TablesDB(client);
+
+  let viewerIds;
+  try {
+    viewerIds = await resolveLiveViewers(tablesDB, athleteId, Array.isArray(body.viewerIds) ? body.viewerIds : [], sessionCode);
+  } catch (err) {
+    error(`start-live-session: falha resolvendo audiência de ${athleteId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+  // Nothing to share with — the client already skips the call in this case,
+  // but a stale friend list on the device could still get here.
+  if (viewerIds.length === 0) return res.json({ error: "no-viewers" }, 400);
+
+  try {
+    const row = await tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: "live_runs",
+      rowId: runId,
+      // userId is taken from the authenticated caller, never from the body —
+      // same rule as claim-owned-row.
+      data: {
+        userId: athleteId,
+        startedAt: data.startedAt,
+        distanceMeters: data.distanceMeters,
+        currentPaceSecPerKm: data.currentPaceSecPerKm ?? undefined,
+        elapsedSeconds: data.elapsedSeconds,
+        lat: data.lat,
+        lon: data.lon,
+        updatedAtMs: data.updatedAtMs,
+        sessionCode: sessionCode || undefined,
+      },
+      permissions: liveRunPermissions(athleteId, viewerIds),
+    });
+    return res.json({ ok: true, row });
+  } catch (err) {
+    if (err.code === 409) return res.json({ error: "duplicate" }, 409);
+    error(`start-live-session: falha criando live_run ${runId} de ${athleteId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
+/**
+ * action: "refresh-live-audience" — the permissions-only half of the same
+ * fix, for when a longão's roster changes mid-run (someone joins after the
+ * row was created). Rewrites permissions and nothing else, and refuses to
+ * touch a row that isn't the caller's.
+ */
+async function refreshLiveAudience({ userId: athleteId, body, client, res, error }) {
+  const runId = String(body.runId ?? "").trim();
+  if (!runId) return res.json({ error: "missing-run-id" }, 400);
+
+  const sessionCode = body.sessionCode ? String(body.sessionCode).toUpperCase() : "";
+  const tablesDB = new TablesDB(client);
+
+  try {
+    const existing = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "live_runs", rowId: runId });
+    if (existing.userId !== athleteId) return res.json({ error: "forbidden" }, 403);
+
+    const viewerIds = await resolveLiveViewers(
+      tablesDB,
+      athleteId,
+      Array.isArray(body.viewerIds) ? body.viewerIds : [],
+      sessionCode,
+    );
+    const row = await tablesDB.updateRow({
+      databaseId: DATABASE_ID,
+      tableId: "live_runs",
+      rowId: runId,
+      data: {},
+      permissions: liveRunPermissions(athleteId, viewerIds),
+    });
+    return res.json({ ok: true, row });
+  } catch (err) {
+    if (err.code === 404) return res.json({ error: "not-found" }, 404);
+    error(`refresh-live-audience: falha atualizando ${runId} de ${athleteId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
 /** action: "join-group-run" — privileged "friend of host" check before creating a group_run_participants row. Originally appwrite-functions/join-group-run. */
 async function joinGroupRun({ userId, body, client, res, error }) {
   const sessionCode = String(body.sessionCode ?? "").toUpperCase();
@@ -1306,6 +1491,8 @@ const ACTIONS = {
   "delete-account": deleteAccount,
   "send-welcome-email": sendWelcomeEmail,
   "join-group-run": joinGroupRun,
+  "start-live-session": startLiveSession,
+  "refresh-live-audience": refreshLiveAudience,
   "pair-run-session": pairRunSession,
   "claim-owned-row": claimOwnedRow,
   "send-friend-request": sendFriendRequest,

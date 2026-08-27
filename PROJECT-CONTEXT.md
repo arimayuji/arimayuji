@@ -1567,6 +1567,62 @@ users delete`) — nada de teste ficou em produção. Ainda não testado por um
 usuário real enviando um convite de verdade pelo app, mas o mecanismo em
 si está confirmado funcionando de ponta a ponta.
 
+## Bug crítico: corrida ao vivo nunca funcionou, desde a criação da tabela (2026-08-27)
+
+**Terceira ocorrência da mesma causa raiz** — depois de `friendships` e
+`coach_relationships` (ver seção acima, 2026-08-26), `live_runs` tinha
+exatamente o mesmo defeito, e ninguém tinha percebido porque o bug
+anterior o mascarava: enquanto `friendships`/`coach_relationships` tinham
+0 linhas, `viewerIds` era sempre vazio e `startLiveSession` retornava
+`false` na linha 59 **antes** de tentar escrever qualquer coisa.
+
+`src/lib/liveRuns.ts:83` concedia, de uma sessão de cliente comum,
+`Permission.read(Role.user(viewerId))` — permissão pra **outro** usuário.
+Exatamente o que o Appwrite recusa. `refreshLiveSessionAudience` (`:115`)
+repetia o problema. Os dois falhavam em silêncio: `catch { return false; }`
+e `catch {}` vazio, sem log.
+
+**Reproduzido contra produção em 2026-08-27** (mesma trilha do fix de
+`friendships`: duas contas descartáveis via Appwrite CLI, token →
+`POST /account/sessions/token` com cookie jar, `curl` puro):
+
+| Teste | Resultado |
+|---|---|
+| `createRow` em `live_runs` concedendo `read` a terceiro | `401 user_unauthorized: "Permissions must be one of: (any, users, user:<meu-id>, ...)"` |
+| Mesma linha, **sem** conceder a terceiro (controle) | criou normal |
+| `updateRow` com `read` a terceiro (`refreshLiveSessionAudience`) | mesmo `401` |
+| Linhas em `live_runs` em produção na hora do teste | **0** |
+
+Os 0 registros são a prova definitiva: nenhuma corrida ao vivo jamais
+foi criada por usuário real, em nenhuma das três audiências (treinador,
+amigos, longão). Contas e linha de teste apagadas depois; produção
+voltou a 0 linhas.
+
+**Fix** (branch `claude/strava-competitor-feedback-cyvop8`, **ainda não
+deployado**): as duas escritas que mexem em permissão migraram pra
+`client-actions` — actions novas `start-live-session` e
+`refresh-live-audience`. Detalhes que importam:
+- **`updateLiveSession` deliberadamente NÃO migrou.** Ela só escreve
+  dado, nunca permissão, então continua indo direto do cliente no ritmo
+  de 6s. Isso mantém a Function em ~1 execução por corrida em vez de uma
+  a cada seis segundos — passar o ping pela Function seria caro à toa.
+- **Validação de audiência nova** (`resolveLiveViewers` no `main.js`): a
+  Function confere que cada `viewerId` é de fato treinador aceito, amigo
+  aceito, ou participante do mesmo longão — e descarta o resto. Sem isso
+  a action seria um primitivo "concede leitura a qualquer um". O raio de
+  dano seria só a própria posição do chamador, mas a regra do projeto é
+  que compartilhar é relação negociada, não algo que um lado declara.
+- **`startLiveSession` agora loga o erro** (`console.error`) em vez de
+  engolir — foi justamente o silêncio que escondeu isso por semanas.
+- `refreshLiveSessionAudience` ganhou um parâmetro `sessionCode` (a
+  Function precisa dele pra validar a audiência do longão); único call
+  site atualizado em `run/page.tsx`.
+
+Verificado: `tsc --noEmit`, `npm run lint` limpos. **Pendente**:
+deployar `client-actions` e testar de ponta a ponta contra produção
+(mesmo padrão do fix de `friendships`, que só foi considerado resolvido
+depois de um round-trip real com contas de teste).
+
 ## Bug crítico encontrado e corrigido: Functions sem escopo `rows.*` (2026-08-24)
 
 Relato real do dono do projeto: login com Apple funcionou (depois do fix
