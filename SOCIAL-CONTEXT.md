@@ -106,7 +106,7 @@ resolve, não o mais impressionante.
    achar mais fontes — nenhuma URL de feed específica de lá foi
    verificada ainda, checar antes de configurar automação em cima disso.
 4. **Marca/mascote** — animação ilustrada da persona (ver seção acima).
-   Formato: imagem Recraft → Wan 2.7/Vidu Q3. Único pilar que depende do
+   Formato: imagem Recraft → Vidu Q3. Único pilar que depende do
    pipeline de IA-vídeo mais caro/lento — não é o pilar de estreia.
 5. **Comunidade/humor** — meme sobre dor real de corredor, repost de
    conquista de usuário (com permissão). Formato: slide/imagem, rápido,
@@ -163,7 +163,7 @@ de partida, não texto final — sempre customizar pro clipe real:
 2. **Corrida real sua, filmagem real, sua voz.** Menor penalidade de
    confiança sob o regime de autenticidade de 2026; resolve de graça o
    problema de biomecânica.
-3. **Animação de marca ilustrada** — imagem do Recraft → Wan 2.7/Vidu Q3
+3. **Animação de marca ilustrada** — imagem do Recraft → Vidu Q3
    → clipe de 3–8s. Pra introduções, transições, o Xanthus mascote.
 4. **Transferência de movimento** (Wan-Animate/Kling Motion Control) —
    sua filmagem real de corrida aplicada no personagem ilustrado. Teto de
@@ -213,31 +213,44 @@ de partida, não texto final — sempre customizar pro clipe real:
 
 ## Stack de produção (detalhe completo no artifact "Fábrica de Conteúdo")
 
-Recraft (imagem-chave) → Wan 2.7 ou Vidu Q3 via fal.ai (animação,
-image-to-video sempre) → ElevenLabs (voz, já em uso no app) → CapCut/
-Submagic (legenda) → revisão humana → publicação manual. ~US$115-165/mês
-no tier recomendado. Alternativa open-source pra animação, sem depender
-de API paga por segundo: `Wan-Video/Wan2.2` + `Wan-Video/Wan-Animate-2`
-rodando local/GPU alugada via ComfyUI (achado da pesquisa de GitHub,
-2026-08-24) — mesma técnica, sem custo por chamada.
+Recraft (imagem-chave) → **Vidu Q3** via fal.ai (animação, image-to-video
+sempre) → ElevenLabs (voz, já em uso no app) → CapCut/Submagic (legenda)
+→ revisão humana → publicação manual. Alternativa open-source pra
+animação, sem depender de API paga por segundo: `Wan-Video/Wan2.2` +
+`Wan-Video/Wan-Animate-2` rodando local/GPU alugada via ComfyUI (achado
+da pesquisa de GitHub, 2026-08-24) — mesma técnica, sem custo por
+chamada, ainda não testada.
 
-**Pendente de teste (2026-08-25): Seedance (ByteDance) como alternativa
-de animação.** Preço real conferido na fal.ai — Seedance 2.0: US$0,30/seg
-(padrão) ou US$0,24/seg (Fast), um clipe de 8s fica em ~US$1,94-2,43;
-Seedance 2.5 (mais nova) sobe pra ~US$0,47/seg em 720p. Pro volume baixo
-do pilar Marca/mascote (uso ocasional, não os ~16 vídeos/mês do relatório
-original), isso pareceria mais barato que a faixa de US$72-108/mês já
-estimada pro Wan 2.7 — mas essa comparação não bateu resolução/duração/
-volume igual, é só um sinal, não uma conclusão. **O risco real não é
-preço, é estilo**: Seedance foi treinada majoritariamente em vídeo
-realista, e a regra não-negociável aqui é nunca fotorrealista, sempre
-cel-shaded/ilustração à mão (ver "Direção de arte" acima) — modelos assim
-têm viés conhecido de puxar pro realismo ou suavizar o traço plano durante
-o movimento, exatamente o motivo original de ter escolhido Wan 2.7/Vidu
-Q3. **Teste combinado, ainda não rodado**: pegar a mesma imagem-chave do
-Recraft (ex.: o cavalo mascote) e gerar nos dois (Wan 2.7 e Seedance),
-comparando se o traço/estilo se mantém sob movimento — decide se Seedance
-vira uma terceira opção real ou fica descartada.
+**Vidu Q3 escolhido em 2026-08-27, por teste comparativo real** — não
+por suposição. Pegamos o contorno real da marca (`horse-mark.tsx`,
+preenchido em azul primário `#2f6fed`, sem nenhum outro elemento) e
+geramos o mesmo clipe de 4s nos três candidatos via fal.ai: **Wan 2.7**
+(`fal-ai/wan/v2.7/image-to-video`), **Vidu Q3**
+(`fal-ai/vidu/q3/image-to-video`) e **Seedance 2.0 Fast**
+(`bytedance/seedance-2.0/fast/image-to-video`). O dono do projeto
+assistiu aos três lado a lado e escolheu o Vidu Q3 — manteve o contorno
+plano e a cor sob movimento melhor que os outros dois. Seedance fica
+descartado como pilar de animação de marca (confirma a suspeita
+original: viés de puxar pro realista/suavizar o traço, documentada antes
+do teste); Wan 2.7 continua como alternativa de reserva, não como
+primeira escolha.
+
+**Lição do processo de geração da imagem-chave** (vale registrar pra não
+repetir o mesmo ciclo de tentativa e erro): pedir "cel-shaded" num prompt
+de texto solto pro Recraft não é suficiente — ele já inventou cor
+errada (amarelo/laranja/vermelho) e elementos extras (uma chama no
+canto) mais de uma vez, mesmo com a instrução explícita "no orange, no
+red" no prompt. O que funcionou de verdade: (1) partir sempre do
+contorno real (`horse-mark.tsx`, nunca uma descrição de cavalo genérica)
+rasterizado como referência de `imageToImage`, não um prompt de texto
+puro; (2) quando uma variação gerada tinha um problema pontual e
+isolado (cor errada numa borda, fundo errado), corrigir com edição de
+pixel determinística (script Node + `sharp`, detectando a cor
+específica por distância RGB e substituindo) em vez de gerar de novo —
+mais rápido, garantido, sem risco de reintroduzir outro artefato
+aleatório. Sombra de músculo anatômica (pedida e tentada nesta sessão)
+**não** funcionou nem por prompt nem por blob de pixel genérico — exige
+uma forma desenhada à mão seguindo o contorno real, ficou de fora da v1.
 
 ## Como manter isso vivo
 
