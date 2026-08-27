@@ -2244,8 +2244,9 @@ tomar gel bem na reta final.
       `submit_for_review` (sem rebuildar nada) até o 140 aparecer como
       processado — a segunda tentativa falhou de forma segura
       (`INVALID_QC_STATE`, o 139 já estava em fila), a terceira pegou o
-      140 certo e submeteu com sucesso. Ainda não confirmado se a Apple
-      aprovou.
+      140 certo e submeteu com sucesso. **Confirmado em 2026-08-27
+      (relato direto do dono do projeto): a Apple aprovou — o build 140
+      é o que está rodando no TestFlight agora.**
 - [x] **2026-08-22: escopado, Fase A e Fase B implementadas** — modo
       treinador vira "os dois juntos" (IA sugere + motor determinístico
       trava os limites + treinador edita por cima), ver seção própria
