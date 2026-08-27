@@ -26,6 +26,7 @@ import {
   beginLiveActivity,
   endGeoWatch,
   endLiveActivity,
+  sendWatchUpdate,
   updateLiveActivityContent,
   updateLiveNotification,
   type GeoError,
@@ -367,6 +368,7 @@ export function useRunTracker() {
           const timeLabel = formatElapsed(elapsedSeconds);
           updateLiveNotification({ distanceLabel, paceLabel, timeLabel, routePolylines: route?.polylines });
           updateLiveActivityContent({ distanceLabel, paceLabel, timeLabel, routePoints: route?.projected });
+          sendWatchUpdate({ status: "tracking", distanceLabel, paceLabel, timeLabel });
         }
         return { ...s, elapsedSeconds, forecastSecondsRemaining, carbReminderFiredAt };
       });
@@ -679,6 +681,7 @@ export function useRunTracker() {
         const timeLabel = formatElapsed(computeElapsedSeconds());
         updateLiveNotification({ distanceLabel, paceLabel, timeLabel, routePolylines: route?.polylines });
         updateLiveActivityContent({ distanceLabel, paceLabel, timeLabel, routePoints: route?.projected });
+        sendWatchUpdate({ status: "tracking", distanceLabel, paceLabel, timeLabel });
       }
 
       let announced = false;
@@ -945,6 +948,10 @@ export function useRunTracker() {
         // on screen showing the last real numbers instead of disappearing and
         // reappearing across every pause/resume.
         beginLiveActivity({ distanceLabel: "0,00 km", paceLabel: "--:--/km", timeLabel: "00:00" });
+        // Same "unconditional, athlete just committed to a run" reasoning as
+        // beginLiveActivity above — the watch should flip out of its "Iniciar"
+        // screen right away, not wait up to 5s for the next throttled refresh.
+        sendWatchUpdate({ status: "warming", distanceLabel: "0,00 km", paceLabel: "--:--/km", timeLabel: "00:00" });
 
         setState((s) => ({
           status: "warming",
@@ -1062,11 +1069,18 @@ export function useRunTracker() {
       ...pauseEventsRef.current,
       { startedAt: pauseStartedAtRef.current, endedAt: null },
     ];
-    setState((s) =>
-      s.status === "tracking"
-        ? { ...s, status: "paused", pauseEvents: pauseEventsRef.current }
-        : s,
-    );
+    setState((s) => {
+      if (s.status !== "tracking") return s;
+      // Immediate, not waiting for the next 5s-throttled refresh — the
+      // watch's Pausar/Retomar button should flip right away.
+      sendWatchUpdate({
+        status: "paused",
+        distanceLabel: `${formatDistanceKm(distanceRef.current)} km`,
+        paceLabel: s.currentPaceSecPerKm !== null ? `${formatPace(s.currentPaceSecPerKm)}/km` : "--:--/km",
+        timeLabel: formatElapsed(s.elapsedSeconds),
+      });
+      return { ...s, status: "paused", pauseEvents: pauseEventsRef.current };
+    });
   }, [clearWatch, stopTicking]);
 
   /** Tags the reason on the pause currently in progress — a no-op if called outside a pause. */
@@ -1092,7 +1106,15 @@ export function useRunTracker() {
     void wakeLockRef.current.acquire();
     beginWatch();
     startTicking();
-    setState((s) => ({ ...s, status: "tracking", pauseEvents: pauseEventsRef.current }));
+    setState((s) => {
+      sendWatchUpdate({
+        status: "tracking",
+        distanceLabel: `${formatDistanceKm(distanceRef.current)} km`,
+        paceLabel: s.currentPaceSecPerKm !== null ? `${formatPace(s.currentPaceSecPerKm)}/km` : "--:--/km",
+        timeLabel: formatElapsed(s.elapsedSeconds),
+      });
+      return { ...s, status: "tracking", pauseEvents: pauseEventsRef.current };
+    });
   }, [beginWatch, startTicking]);
 
   const finish = useCallback(
@@ -1151,6 +1173,12 @@ export function useRunTracker() {
         paceLabel: `${formatPace(avgPaceSecPerKm)}/km`,
         timeLabel: formatElapsed(movingSeconds),
       });
+      sendWatchUpdate({
+        status: "finished",
+        distanceLabel: `${formatDistanceKm(distanceRef.current)} km`,
+        paceLabel: `${formatPace(avgPaceSecPerKm)}/km`,
+        timeLabel: formatElapsed(movingSeconds),
+      });
 
       const finishedGhostDelta = ghostSeriesRef.current
         ? ghostDeltaSeconds(ghostSeriesRef.current, distanceRef.current, movingSeconds)
@@ -1191,6 +1219,12 @@ export function useRunTracker() {
       distanceLabel: `${formatDistanceKm(distanceRef.current)} km`,
       paceLabel: "--:--/km",
       timeLabel: formatElapsed(computeElapsedSeconds()),
+    });
+    sendWatchUpdate({
+      status: "idle",
+      distanceLabel: "0,00 km",
+      paceLabel: "--:--/km",
+      timeLabel: "00:00",
     });
 
     setState({

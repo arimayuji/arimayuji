@@ -255,6 +255,42 @@ export function endLiveActivity(content: LiveActivityContent): void {
   void BackgroundGeolocation.endLiveActivity(content).catch(() => {});
 }
 
+export interface WatchUpdateContent {
+  status: "idle" | "warming" | "tracking" | "paused" | "finished";
+  distanceLabel: string;
+  paceLabel: string;
+  timeLabel: string;
+}
+
+/**
+ * Pushes live run stats to a paired Apple Watch running the tethered
+ * "Xanthus Watch App" target (see PROJECT-CONTEXT.md's smartwatch section
+ * for why tethered-first). iOS only; no-op on Android/web — there's no
+ * watch counterpart on those platforms yet. Best-effort, same as the Live
+ * Activity functions above: a missed push is superseded by the next one.
+ */
+export function sendWatchUpdate(content: WatchUpdateContent): void {
+  if (!isIOSPlatform()) return;
+  void BackgroundGeolocation.sendWatchUpdate(content).catch(() => {});
+}
+
+export type WatchAction = "start" | "pause" | "resume" | "finish";
+
+/**
+ * Subscribes to a button tap on the tethered watch app. iOS only; no-op on
+ * Android/web. Deliberately a separate event/type from
+ * `onNotificationAction` above — the watch can send "start" and "resume",
+ * which the Android/Live-Activity notification buttons never do. Returns
+ * an unsubscribe function.
+ */
+export function onWatchAction(callback: (action: WatchAction) => void): () => void {
+  if (!isNativePlatform()) return () => {};
+  const handlePromise = BackgroundGeolocation.addListener("watchAction", (event) => callback(event.action));
+  return () => {
+    void handlePromise.then((handle) => handle.remove()).catch(() => {});
+  };
+}
+
 export function endGeoWatch(): void {
   if (watchStartPromise === null) return;
   const pending = watchStartPromise;

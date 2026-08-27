@@ -5,6 +5,7 @@ import UIKit
 import CoreLocation
 import AVFoundation
 import ActivityKit
+import WatchConnectivity
 
 // Avoids a bewildering type warning.
 let null = Optional<Double>.none as Any
@@ -61,7 +62,12 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
         // and RunActivityWidget/ (the widget extension target).
         CAPPluginMethod(name: "startLiveActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateLiveActivity", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "endLiveActivity", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "endLiveActivity", returnType: CAPPluginReturnPromise),
+        // Xanthus fork — not part of the upstream plugin. Tethered watchOS
+        // companion app (Xanthus Watch App target): pushes live run stats to
+        // a paired Apple Watch over WCSession. See PhoneConnector.swift
+        // (watch target) for the other side of this bridge.
+        CAPPluginMethod(name: "sendWatchUpdate", returnType: CAPPluginReturnPromise)
     ]
     private var locationManager: CLLocationManager?
     private var geofenceLocationManager: CLLocationManager?
@@ -120,6 +126,14 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
             _ = self.ensureGeofenceLocationManager()
         }
         registerNotificationActionObserver()
+        // Xanthus fork: activates the WCSession as soon as the plugin loads
+        // (not lazily on first sendWatchUpdate call) so a watch button tap
+        // arriving before the phone ever calls sendWatchUpdate — e.g. right
+        // after the app launches — still reaches didReceiveMessage below.
+        if WCSession.isSupported() {
+            WCSession.default.delegate = self
+            WCSession.default.activate()
+        }
     }
 
     // Xanthus fork: relays Pausar/Finalizar taps from the Live Activity's
@@ -1189,6 +1203,28 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
         }
     }
 
+    // Xanthus fork: pushes live run stats to a paired Apple Watch running
+    // the tethered "Xanthus Watch App" target — the watch has no GPS/
+    // HealthKit of its own, everything shown there comes from here.
+    // `updateApplicationContext` (not `sendMessage`) since this is a
+    // latest-value-wins refresh, same throttled-refresh spirit as
+    // updateLiveNotification/updateLiveActivity — no delivery guarantee
+    // needed, no reachability requirement, the next update will always
+    // supersede a missed one.
+    @objc func sendWatchUpdate(_ call: CAPPluginCall) {
+        guard WCSession.isSupported(), WCSession.default.activationState == .activated else {
+            return call.resolve()
+        }
+        let context: [String: Any] = [
+            "status": call.getString("status") ?? "idle",
+            "distanceLabel": call.getString("distanceLabel") ?? "--",
+            "paceLabel": call.getString("paceLabel") ?? "--",
+            "timeLabel": call.getString("timeLabel") ?? "--"
+        ]
+        try? WCSession.default.updateApplicationContext(context)
+        call.resolve()
+    }
+
     @available(iOS 16.1, *)
     private static func contentState(from call: CAPPluginCall) -> RunActivityAttributes.ContentState {
         let rawPoints = call.getArray("routePoints", Any.self) ?? []
@@ -1208,4 +1244,35 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
         )
     }
 
+}
+
+// Xanthus fork: relays button taps from the tethered watch app
+// (PhoneConnector.swift's `sendAction`) back to this app as a
+// "watchAction" event — deliberately its own event name, not
+// "notificationAction", since a future pass may want to tell the two
+// sources apart (e.g. the watch's own "start" action, which the Android/
+// Live-Activity notification buttons never send).
+extension BackgroundGeolocation: WCSessionDelegate {
+    public func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
+
+    public func sessionDidBecomeInactive(_ session: WCSession) {}
+
+    public func sessionDidDeactivateSession(_ session: WCSession) {
+        // Required when the phone can pair with a different watch — reactivate
+        // for the newly active one. No-op in the common single-watch case.
+        WCSession.default.activate()
+    }
+
+    public func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        if let action = message["action"] as? String {
+            notifyListeners("watchAction", data: ["action": action], retainUntilConsumed: true)
+        }
+        replyHandler([:])
+    }
+
+    public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        if let action = message["action"] as? String {
+            notifyListeners("watchAction", data: ["action": action], retainUntilConsumed: true)
+        }
+    }
 }

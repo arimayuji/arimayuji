@@ -1096,6 +1096,96 @@ por plataforma:
     esforço de engenharia. Nenhuma implementação foi iniciada em nenhuma
     das três.
 
+## Esboço do app do Apple Watch (tethered) — implementado em 2026-08-26
+
+Depois da pesquisa de viabilidade acima, dono do projeto escolheu **Apple
+Watch primeiro** (maior público, sem custo extra — ver seção acima) e
+confirmou via pergunta direta: **tethered primeiro** (celular continua
+fazendo o GPS de verdade, relógio só mostra os dados ao vivo e manda
+iniciar/pausar/retomar/finalizar) — standalone (GPS/HealthKit direto no
+relógio) fica pra uma fase futura. Escopado via plan mode (agentes de
+pesquisa + design), implementado na mesma sessão, branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+**Novo target Xcode `Xanthus Watch App`** (`ios/App/Xanthus Watch App/`):
+SwiftUI puro, sem HealthKit/CLLocationManager nesta passada — `PhoneConnector.swift`
+(`WCSessionDelegate`, recebe `updateApplicationContext` do celular,
+manda ação via `sendMessage`), `ContentView.swift`/`RunStatsView.swift`
+(tela de "Iniciar" e tela de stats ao vivo com Pausar/Retomar/Finalizar).
+Sem App Group — `WCSession` não precisa, só o `Info.plist` declarando
+`WKCompanionAppBundleIdentifier`.
+
+**`project.pbxproj` editado à mão** (sem Xcode/macOS neste ambiente —
+mesma situação de todo o resto do projeto iOS): novo `PBXNativeTarget`
+`Xanthus Watch App` (`com.apple.product-type.application`, bundle
+`com.xanthus.app.watchkitapp`, `WATCHOS_DEPLOYMENT_TARGET = 10.0`,
+`CODE_SIGN_STYLE = Automatic`), embutido no target `App` via um
+`PBXCopyFilesBuildPhase` novo chamado **"Embed Watch Content"**
+(`dstSubfolderSpec = 16`, `dstPath = "$(CONTENTS_FOLDER_PATH)/Watch"` —
+mecanismo diferente de "Embed Foundation Extensions", que é só pra
+extensions). Convenção de UUID falso legível reaproveitada do
+`RunActivityWidget` (único precedente real de um segundo target editado
+à mão neste arquivo), com prefixo novo `B17DA71A...`. Verificado o que dá
+pra verificar sem Xcode: chaves/parênteses balanceados, todo UUID
+referenciado tem exatamente uma definição (script Python), nenhuma
+colisão com UUIDs existentes. **Risco real que só o CI confirma**: se
+essa cirurgia produz um projeto que o `xcodebuild` de verdade consegue
+abrir — não existe `xcodebuild -list` nem Xcode aqui pra confirmar antes
+do push.
+
+**Ponte JS↔nativo**: extensão do plugin já forkado
+(`native-plugins/capacitor-background-geolocation`) em vez de um plugin
+novo — sua classe Swift já roda dentro do target `App` e já tem o único
+bridge nativo→JS existente (`notifyListeners`). Ação nova
+`sendWatchUpdate` (celular→relógio, `updateApplicationContext`,
+latest-value-wins, mesmo espírito do throttle de 5s da notificação/Live
+Activity) e evento novo `watchAction` (relógio→celular, via
+`WCSessionDelegate.didReceiveMessage`, espelhando exatamente
+`notifyListeners("notificationAction", ...)` que já existe pro widget).
+**Achado real durante a implementação**: os bundles `dist/plugin.js`/
+`dist/plugin.cjs.js` desse fork estão **mortos** — não têm nem os
+métodos de Live Activity que já estão em produção, confirmando que o
+Next.js resolve via `dist/esm/index.js` (`"module"` no `package.json`),
+nunca esses dois. Pulados de propósito, editar não teria efeito nenhum
+no app de verdade.
+
+`src/lib/tracking/geolocation.ts`/`useRunTracker.ts`/`run/page.tsx`
+ganharam `sendWatchUpdate`/`onWatchAction`, plugados nos mesmos dois
+pontos throttled já usados pela notificação/Live Activity (reaproveitando
+`lastNotificationUpdateAtRef`) mais nas transições de status
+(`start`/`pause`/`resume`/`finish`/`reset`) pra refletir mudança de
+estado sem esperar o próximo tick. **Limitação conhecida e aceita**:
+apertar "Iniciar" no relógio antes de abrir a tela `/run` no celular não
+faz nada — não existe ainda um jeito de o relógio abrir a tela certa no
+celular.
+
+**CI**: job novo `watch-simulator` em `ios-build.yml`, espelhando o job
+`simulator` já existente (build unsigned pro SDK `watchsimulator`,
+scheme `"Xanthus Watch App"` — sem `.xcscheme` commitado, mesma
+auto-geração de esquema que já sustenta `-scheme App` hoje). É a
+verificação real de que a cirurgia no pbxproj funciona. `testflight` não
+precisou de mudança — arquivar o scheme `App` já deve embutir o watch
+app via "Embed Watch Content" automaticamente.
+
+**Passos manuais pendentes, só o dono do projeto** (nada disso dá pra
+fazer neste ambiente remoto): registrar o App ID
+`com.xanthus.app.watchkitapp` em developer.apple.com como companion do
+`com.xanthus.app` (mesmo padrão já usado pro
+`com.xanthus.app.RunActivityWidget`), sem capability extra nenhuma nesta
+passada; confirmar que a assinatura automática resolve o App ID novo
+(só confirmável vendo o job `testflight` passar de verdade depois que o
+App ID existir); e o teste de verdade — pareamento `WCSession`, entrega
+de mensagem, round-trip dos botões — só num Apple Watch real pareado com
+um iPhone real.
+
+Verificado: `tsc --noEmit`, `npm run lint`, `npm run build`, `npx cap
+sync ios` — todos limpos. **Não verificado** (sem macOS/Xcode/watchOS
+neste ambiente): se o Swift compila de verdade, se a cirurgia no
+`project.pbxproj` produz um projeto que o Xcode abre, se "Embed Watch
+Content" embute o app de verdade no archive. Primeiro sinal real: o job
+`watch-simulator` do CI, depois do push.
+
 ## Ferramentas externas usadas no projeto
 
 - Design/animações/logo: **[Recraft AI](https://www.recraft.ai/)**.

@@ -158,6 +158,55 @@ jobs:
           path: ios/App/build/Build/Products/Debug-iphonesimulator/App.app
           retention-days: 30
 
+  # Builds the tethered watchOS companion app (Xanthus Watch App target,
+  # hand-added to project.pbxproj — no local Xcode/watchOS toolchain exists
+  # to verify that surgery any other way). Unsigned, simulator-only, build
+  # -only: this is the real pass/fail signal for whether the pbxproj edit
+  # produced something Xcode can actually open and compile. See
+  # PROJECT-CONTEXT.md's smartwatch section for the tethered-vs-standalone
+  # design decision.
+  watch-simulator:
+    needs: checks
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-export
+          path: out/
+
+      - name: Sync Capacitor iOS project
+        run: npx cap sync ios
+
+      # Own cache scope from `simulator`'s and `testflight`'s — different
+      # SDK/scheme, different DerivedData contents.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ios/App/build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-watch-simulator-spm-${{ hashFiles('ios/App/CapApp-SPM/Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-watch-simulator-spm-
+
+      - name: Build for watchOS Simulator
+        working-directory: ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme "Xanthus Watch App" \
+            -sdk watchsimulator -configuration Debug \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO build
+
   testflight:
     needs: checks
     runs-on: macos-latest

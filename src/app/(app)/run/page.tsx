@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 import { useRunTracker } from "@/lib/tracking/useRunTracker";
 import { isNativePlatform } from "@/lib/platform";
-import { onNotificationAction } from "@/lib/tracking/geolocation";
+import { onNotificationAction, onWatchAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { listFriendConnections, type FriendConnection } from "@/lib/friendships";
@@ -1593,6 +1593,44 @@ export default function RunPage() {
       carbReminderIntervalSeconds: preferences.carbReminderIntervalMinutes * 60,
     });
   };
+  // Lets the watch-action effect below call the latest `handleStart`
+  // without listing it as a dependency — `handleStart` is a plain function
+  // (this file relies on the React Compiler's own memoization, not manual
+  // useCallback), so it's a new reference every render; updated in an
+  // effect (post-render), never during render itself.
+  const handleStartRef = useRef(handleStart);
+  useEffect(() => {
+    handleStartRef.current = handleStart;
+  });
+
+  /**
+   * Button taps from the tethered Apple Watch companion app (see
+   * PhoneConnector.swift / PROJECT-CONTEXT.md's smartwatch section) — same
+   * bridge shape as `onNotificationAction` above, just its own event name
+   * since the watch can send "start"/"resume", which the notification
+   * buttons never do.
+   *
+   * Known v1 limitation: "start" only does something when this screen is
+   * already idle and ready — there's no way yet for the watch to make the
+   * phone navigate here first. Tapping "Iniciar" on the watch before
+   * opening /run on the phone silently does nothing.
+   */
+  useEffect(
+    () =>
+      onWatchAction((action) => {
+        if (action === "start") {
+          if (state.status === "idle") handleStartRef.current();
+        } else if (action === "pause") {
+          pause();
+        } else if (action === "resume") {
+          resume();
+        } else {
+          const run = finish({ shoeName });
+          setManualTracks(run.tracks ?? []);
+        }
+      }),
+    [state.status, pause, resume, finish, shoeName],
+  );
 
   const toggleLiveFriend = (friendId: string) => {
     setLiveFriendIds((current) =>

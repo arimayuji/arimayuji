@@ -678,6 +678,33 @@ export interface LiveActivityContent {
     routePoints?: LiveActivityRoutePoint[];
 }
 /**
+ * Live run stats mirrored to a paired Apple Watch running the tethered
+ * "Xanthus Watch App" target — the watch has no GPS/HealthKit of its own,
+ * everything shown there comes from this. iOS only; no-op on Android/web
+ * (a watch app isn't paired the same way on Android, and there's no watch
+ * counterpart there yet).
+ *
+ * Xanthus fork — not part of the upstream plugin.
+ */
+export interface WatchUpdateContent {
+    status: 'idle' | 'warming' | 'tracking' | 'paused' | 'finished';
+    distanceLabel: string;
+    paceLabel: string;
+    timeLabel: string;
+}
+/**
+ * Event emitted when the athlete taps a button on the tethered watch app
+ * (Iniciar/Pausar/Retomar/Finalizar) — deliberately its own event name,
+ * not {@link NotificationActionEvent}, since the watch can send "start"
+ * and "resume", which the Android/Live-Activity notification buttons
+ * never do.
+ *
+ * Xanthus fork — not part of the upstream plugin.
+ */
+export interface WatchActionEvent {
+    action: 'start' | 'pause' | 'resume' | 'finish';
+}
+/**
  * Main plugin interface for background geolocation functionality.
  * Provides methods to manage location updates and access device settings.
  *
@@ -932,6 +959,22 @@ export interface BackgroundGeolocationPlugin {
      * Xanthus fork — not part of the upstream plugin.
      */
     endLiveActivity(content: LiveActivityContent): Promise<void>;
+    /**
+     * Pushes live run stats to a paired Apple Watch running the tethered
+     * "Xanthus Watch App" target. iOS only — resolves without effect on
+     * Android/web. Best-effort, same as the Live Activity methods above:
+     * a missed update is superseded by the next one, nothing to retry.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    sendWatchUpdate(content: WatchUpdateContent): Promise<void>;
+    /**
+     * Listens for a button tap on the tethered watch app (Iniciar/Pausar/
+     * Retomar/Finalizar). iOS only — never fires on Android/web.
+     *
+     * Xanthus fork — not part of the upstream plugin.
+     */
+    addListener(eventName: 'watchAction', listenerFunc: (event: WatchActionEvent) => void): Promise<PluginListenerHandle>;
     /**
      * Read current location authorization without prompting or side effects.
      *

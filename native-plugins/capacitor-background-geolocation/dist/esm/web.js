@@ -107,6 +107,7 @@ export class BackgroundGeolocationWeb extends WebPlugin {
     async startLiveActivity(_content) {}
     async updateLiveActivity(_content) {}
     async endLiveActivity(_content) {}
+    async sendWatchUpdate(_content) {}
     async addGeofence(options) {
         var _a, _b, _c, _d;
         if (!navigator.geolocation) {
