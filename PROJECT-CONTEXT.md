@@ -997,31 +997,82 @@ espaçados (ex.: sinal fraco dentro de um prédio). Verificado: `tsc`/
 num aparelho** — precisa do dono do projeto confirmando numa corrida real
 com a tela bloqueada por alguns minutos.
 
-**Achado incidental, mesma causa raiz, não corrigido ainda**: o aviso por
-voz no modo "tempo" (`announceMode === "time"`) e o lembrete de gel de
-carboidrato também vivem inteiramente dentro desse mesmo `setInterval` —
-ambos provavelmente sofrem do mesmo problema (atraso/parada em segundo
-plano) já que dependem do tick de JS pra disparar, não de um fix de GPS.
-Não mexido nesta rodada por escopo (o pedido era especificamente sobre a
-notificação) — vale revisitar se o dono do projeto notar aviso de voz ou
-lembrete de gel atrasando/sumindo com o app em segundo plano.
+**Achado incidental, mesma causa raiz — corrigido também em 2026-08-26**:
+o aviso por voz no modo "tempo" (`announceMode === "time"`) e o lembrete
+de gel de carboidrato viviam inteiramente dentro desse mesmo
+`setInterval`, sofrendo do mesmo congelamento em segundo plano. Corrigido
+do mesmo jeito: os dois checks (limiar de tempo decorrido) foram
+duplicados dentro do `handleFix`, disparado por fix real de GPS —
+`lastAnnounceTimeRef`/`lastCarbReminderElapsedRef` são compartilhados
+entre o tick e o `handleFix`, então quem checar primeiro o limiar "ganha"
+e atualiza a ref, o outro caminho só vê que já avançou e não dispara de
+novo (mesmo padrão de dedupe já usado no fix da notificação). Verificado:
+`tsc`/`eslint`/`next build` limpos. **Não testado em segundo plano de
+verdade** — mesma pendência do fix da notificação, precisa de uma corrida
+real com a tela bloqueada.
 
-## App pra smartwatch (Wear OS/Garmin, tipo Strava) — pedido registrado, não escopado
+## App pra smartwatch (Wear OS/Garmin, tipo Strava) — pesquisa de viabilidade feita em 2026-08-26
 
 Pedido do dono do projeto (2026-08-26): ter uma versão do Xanthus rodando
 no relógio, do jeito que o Strava tem hoje (ver corrida ao vivo, iniciar/
-pausar, no pulso). **Ainda não pesquisado a fundo nem escopado** — é uma
-frente de trabalho bem maior que qualquer feature recente: significa
-construir e manter um **app nativo separado** por plataforma de relógio
-(Wear OS é Kotlin/Compose, roda num processo próprio dentro do mesmo
-projeto Android; Garmin é um ecossistema totalmente à parte — Connect IQ,
-SDK e linguagem própria, watchOS da Apple é outro app nativo Swift
-inteiramente separado do target iOS atual) — nenhum desses reaproveita o
-código Next.js/Capacitor existente, diferente de tudo que já foi
-construído até aqui. Vale uma sessão de pesquisa dedicada (mapear esforço
-real por plataforma, o que dá pra fazer com Capacitor/plugins existentes
-vs. o que exige app nativo de verdade, prioridade Wear OS vs. Garmin vs.
-watchOS) antes de comprometer a alguma implementação.
+pausar, no pulso). Pesquisa de viabilidade feita via agente com WebSearch
+(fontes reais, verificadas ao vivo, não só memória de treino) — resumo
+por plataforma:
+
+- **Wear OS**: app separado (módulo Gradle próprio dentro do mesmo
+  projeto Android, Kotlin/Jetpack Compose for Wear OS — nada do
+  React/TypeScript atual roda no relógio), mas reaproveita a mesma ficha
+  da Play Store (mesmo package), mesmo CI (GitHub Actions Linux, sem
+  runner novo), e o mesmo backend Appwrite (`live_runs`/`runs`). Suporta
+  gravação **standalone** (sem o celular por perto, GPS próprio do
+  relógio) — já é a base esperada hoje (é o que o Strava faz em relógios
+  Wear OS 3+). Estimativa: **2-4 semanas** pra um MVP standalone
+  (iniciar/pausar, distância/pace/tempo ao vivo, sync depois);
+  **1-2 semanas** numa versão **tethered** (celular faz o GPS, relógio só
+  espelha/comanda via Data Layer API) — bem mais barato, mas reintroduz a
+  dependência do celular por perto que foi justamente o motivo da
+  migração pra nativo no celular. Distribuição usa uma faixa própria de
+  revisão do Wear OS dentro do Play Console, mas sobre a mesma ficha já
+  aprovada — provavelmente não reabre o requisito de teste fechado de
+  12+ testadores/14 dias (não confirmado até ter um AAB de verdade pra
+  testar).
+- **Garmin (Connect IQ)**: ecossistema totalmente à parte — linguagem
+  própria (**Monkey C**, SDK confirmado atualizado em junho/2026), zero
+  reaproveitamento de qualquer código existente. Conta de desenvolvedor
+  parece gratuita; publicar na Connect IQ Store custa **US$100/ano** (taxa
+  fixa, mais simples que Apple+Google juntos) — nenhuma evidência de trava
+  tipo "teste fechado obrigatório" do Google ou fila de revisão de dias
+  como a Apple. Estimativa: **1-2 semanas** pro app em si (Monkey C é
+  pequeno, API mais estreita) — o custo real aqui é aprender um
+  ecossistema de baixíssima adoção pra base de usuário ainda pequena.
+- **Apple Watch (watchOS)**: target Xcode/Swift separado (SwiftUI/
+  WatchKit) dentro do mesmo projeto iOS, mas codebase 100% própria — zero
+  reaproveitamento. Suporta sessão de treino via HealthKit
+  (`HKWorkoutSession`) rodando standalone sem o iPhone por perto — mesma
+  direção que a própria Apple reforça em watchOS 27 (2026). CI: extensão
+  incremental do pipeline `.p8`/App Store Connect já existente em
+  `ios-build.yml` (mais um target/perfil de provisionamento, não um
+  pipeline paralelo) — mas herda os MESMOS problemas já documentados
+  acima (limite diário de upload, fila da Beta App Review). Estimativa:
+  **2-4 semanas**.
+- **Alternativa mais barata, qualquer plataforma**: uma versão
+  **tethered** (celular grava o GPS, relógio só mostra/comanda) é sempre
+  bem mais barata que standalone — dias a ~1-2 semanas em vez de semanas,
+  já que evita todo o código de GPS/bateria em segundo plano no próprio
+  relógio. Tiles (Wear OS)/complications (watchOS)/data fields (Garmin)
+  sozinhos são ainda mais baratos, mas não entregam "gravar a corrida
+  pelo pulso" — só um glance de dado, não substituem o pedido original.
+- **Recomendação do agente, se for tentar alguma**: **Wear OS primeiro** —
+  é a única que reaproveita repo/CI/backend já existentes e a ficha da
+  Play Store já aprovada, evitando repassar pela trava de conta nova do
+  Google. Garmin em segundo (barato e de baixo risco depois do Wear OS
+  provado, mas ecossistema de nicho). Apple Watch por último — soma mais
+  um codebase/linguagem exatamente na plataforma que já tem mais atrito
+  (fila de revisão, limite diário de upload) pra base de usuário do iOS,
+  hoje ainda pequena. Dado que a base de usuários inteira ainda é um
+  punhado de contas em teste fechado, isso é investimento especulativo em
+  qualquer uma das três — **nenhuma implementação foi iniciada**, isso é
+  só o mapa de esforço pra decidir depois.
 
 ## Ferramentas externas usadas no projeto
 

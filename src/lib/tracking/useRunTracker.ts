@@ -698,6 +698,28 @@ export function useRunTracker() {
         lastAnnounceDistanceRef.current = distanceRef.current;
         lastAnnounceTimeRef.current = timestamp;
         announced = true;
+      } else if (
+        // Same wall-clock check the ticking `setInterval` also runs (see
+        // `lastNotificationUpdateAtRef`'s comment) — duplicated here so
+        // "tempo" mode keeps announcing once the app is backgrounded and
+        // that timer stops firing. Both paths share `lastAnnounceTimeRef`,
+        // so whichever runs first for a given threshold wins and the other
+        // just sees it already advanced — no double announcement.
+        announceModeRef.current === "time" &&
+        lastAnnounceTimeRef.current !== null &&
+        timestamp - lastAnnounceTimeRef.current >= announceIntervalSecondsRef.current * 1000
+      ) {
+        const splitDistance = distanceRef.current - lastAnnounceDistanceRef.current;
+        const splitSeconds = (timestamp - lastAnnounceTimeRef.current) / 1000;
+        const splitPaceSecPerKm = splitSeconds > 0 && splitDistance > 0 ? (splitSeconds / splitDistance) * 1000 : null;
+        if (splitPaceSecPerKm) {
+          const m = Math.floor(splitPaceSecPerKm / 60);
+          const sec = Math.round(splitPaceSecPerKm % 60);
+          announceDistancePace(distanceRef.current, m, sec, voiceGenderRef.current);
+        }
+        lastAnnounceDistanceRef.current = distanceRef.current;
+        lastAnnounceTimeRef.current = timestamp;
+        announced = true;
       }
 
       persistIfDue(announced);
@@ -740,6 +762,24 @@ export function useRunTracker() {
           s.goal?.targetPaceSecPerKm && currentPaceSecPerKm
             ? currentPaceSecPerKm - s.goal.targetPaceSecPerKm
             : null;
+
+        // Same check the ticking `setInterval` also runs (see
+        // `lastNotificationUpdateAtRef`'s comment) — duplicated here so the
+        // reminder keeps firing once the app is backgrounded and that timer
+        // stops. Shared `lastCarbReminderElapsedRef` means whichever path
+        // fires first for a given interval wins.
+        let carbReminderFiredAt = s.carbReminderFiredAt;
+        const elapsedSecondsNow = computeElapsedSeconds();
+        if (
+          carbReminderEnabledRef.current &&
+          elapsedSecondsNow - lastCarbReminderElapsedRef.current >= carbReminderIntervalSecondsRef.current &&
+          !(forecastSecondsRemaining !== null && forecastSecondsRemaining < CARB_REMINDER_SUPPRESS_NEAR_FINISH_SECONDS)
+        ) {
+          announceCarbGelReminder(voiceGenderRef.current);
+          lastCarbReminderElapsedRef.current = elapsedSecondsNow;
+          carbReminderFiredAt = Date.now();
+        }
+
         return {
           ...s,
           distanceMeters: distanceRef.current,
@@ -750,6 +790,7 @@ export function useRunTracker() {
           ghostDeltaSeconds: ghostDelta,
           paceDeltaSecPerKm,
           points: pointsRef.current,
+          carbReminderFiredAt,
         };
       });
     },
