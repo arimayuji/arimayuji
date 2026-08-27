@@ -285,13 +285,13 @@ export default function TreinadorPage() {
                     Nenhum convite esperando resposta — enviados ou recebidos.
                   </p>
                 ) : (
-                  <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-6">
                     {incoming.length > 0 && (
                       <div>
                         <p className="mb-2.5 text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
                           Recebidos
                         </p>
-                        <ul className="flex flex-col gap-3">
+                        <ul className="flex flex-col gap-3.5">
                           {incoming.map((connection) => (
                             <PersonRow key={connection.relationship.$id} connection={connection}>
                               <div className="flex flex-col items-end gap-1.5">
@@ -344,7 +344,7 @@ export default function TreinadorPage() {
                         <p className="mb-2.5 text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
                           Enviados
                         </p>
-                        <ul className="flex flex-col gap-3">
+                        <ul className="flex flex-col gap-3.5">
                           {outgoing.map((connection) => (
                             <OutgoingRequestRow
                               key={connection.relationship.$id}
@@ -383,7 +383,7 @@ export default function TreinadorPage() {
                     </p>
                   </div>
                 ) : (
-                  <ul className="flex flex-col gap-3">
+                  <ul className="flex flex-col gap-3.5">
                     {myCoaches.map((connection) => (
                       <RelationshipRow
                         key={connection.relationship.$id}
@@ -416,7 +416,7 @@ export default function TreinadorPage() {
                     </p>
                   </div>
                 ) : (
-                  <ul className="flex flex-col gap-3">
+                  <ul className="flex flex-col gap-3.5">
                     {myStudents.map((connection) => (
                       <li
                         key={connection.relationship.$id}

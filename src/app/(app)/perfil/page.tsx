@@ -349,9 +349,9 @@ function ShoeForm({
           name: draft.name.trim(),
         });
       }}
-      className="mt-3 flex flex-col gap-3 rounded-xl border border-border bg-background p-3"
+      className="mt-3 flex flex-col gap-3.5 rounded-xl border border-border bg-background p-3"
     >
-      <label className="relative block space-y-1.5">
+      <label className="relative block space-y-2">
         <span className="text-xs font-medium">Buscar tênis (opcional)</span>
         <input
           type="text"
@@ -387,7 +387,7 @@ function ShoeForm({
         </p>
       </label>
 
-      <label className="block space-y-1.5">
+      <label className="block space-y-2">
         <span className="text-xs font-medium">Marca</span>
         <input
           type="text"
@@ -398,7 +398,7 @@ function ShoeForm({
         />
       </label>
 
-      <label className="block space-y-1.5">
+      <label className="block space-y-2">
         <span className="text-xs font-medium">Modelo</span>
         <input
           type="text"
@@ -410,7 +410,7 @@ function ShoeForm({
         />
       </label>
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <span className="block text-xs font-medium">Cor</span>
         <div className="flex flex-wrap gap-2">
           {SHOE_COLOR_SWATCHES.map((swatch) => (
@@ -757,7 +757,7 @@ function ShoesCard({ unit }: { unit: DistanceUnit }) {
       ) : (
         <>
           <ShoeHero shoes={shoes} summaryFor={summaryFor} unit={unit} />
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-3.5">
             {shoes.map((shoe) =>
               editingId === shoe.id ? (
                 <li key={shoe.id} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
@@ -949,7 +949,7 @@ function PlaceLeaderboardCard() {
 
           {optedIn && (
             <div className="mt-4 border-t border-border pt-4">
-              <label className="block space-y-1.5">
+              <label className="block space-y-2">
                 <span className="text-xs font-medium">Nome público (opcional)</span>
                 <input
                   type="text"
@@ -968,7 +968,7 @@ function PlaceLeaderboardCard() {
 
               <div className="mt-4 border-t border-border pt-4">
                 {scanResult ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2.5">
                     <p className="text-xs leading-relaxed text-muted">
                       {scanResult.length === 0
                         ? "Nenhuma corrida antiga bateu com um lugar cadastrado."
@@ -1115,7 +1115,7 @@ function PlaylistCard() {
             </div>
           )}
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-xs font-medium">Adicionar playlist</span>
             <div className="flex gap-2">
               <input
@@ -1368,7 +1368,7 @@ export default function PerfilPage() {
               <p className="mt-1 text-xs leading-relaxed text-muted">
                 Além do pace ao vivo, que fica sempre em destaque.
               </p>
-              <div className="mt-3 flex flex-col gap-3">
+              <div className="mt-3 flex flex-col gap-3.5">
                 <PreferenceToggle
                   label="Pace total"
                   hint="média da corrida inteira até agora"

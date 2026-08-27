@@ -80,7 +80,7 @@ export function RatePlaceModal({
             </button>
           </div>
 
-          <div className="mt-5 flex flex-col gap-5">
+          <div className="mt-5 flex flex-col gap-6">
             {CRITERIA_KEYS.map((key) => (
               <div key={key}>
                 <span className="mb-2 block text-sm font-medium">{CRITERIA_LABELS[key]}</span>

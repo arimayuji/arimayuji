@@ -107,7 +107,7 @@ function LongaoMapaContent() {
               {data.participants.length === 0 ? (
                 <div className="h-10 animate-pulse rounded-lg bg-background" />
               ) : (
-                <ul className="flex flex-col gap-3">
+                <ul className="flex flex-col gap-3.5">
                   {data.participants.map((connection) => {
                     const run = liveByUserId.get(connection.participant.userId);
                     const stale = run ? data.now - run.updatedAtMs > GROUP_LIVE_STALE_MS : false;

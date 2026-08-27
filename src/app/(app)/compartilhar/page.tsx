@@ -1137,7 +1137,7 @@ function CompartilharContent() {
             )}
 
             {musicResults !== null && musicResults.length > 0 && (
-              <ul className="mt-2 flex flex-col gap-1">
+              <ul className="mt-2 flex flex-col gap-1.5">
                 {musicResults.map((candidate, i) => (
                   <li key={i}>
                     <button

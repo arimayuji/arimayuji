@@ -75,7 +75,7 @@ export function SignOutConfirm({ onClose, onSignedOut }: { onClose: () => void; 
               conta. Quer mantê-los aqui?
             </p>
 
-            <div className="mt-6 flex flex-col gap-2.5">
+            <div className="mt-6 flex flex-col gap-3">
               <button
                 type="button"
                 onClick={() => void handleSignOut(false)}

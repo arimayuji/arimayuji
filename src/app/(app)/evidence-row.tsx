@@ -50,7 +50,7 @@ export function EvidenceFactRow({ fact, topic }: { fact: EvidenceFact; topic?: D
       >
         {strengthLabel(fact.strength)}
       </span>
-      <ul className="mt-1 flex flex-col gap-0.5">
+      <ul className="mt-1 flex flex-col gap-1">
         {fact.bullets.map((bullet) => (
           <li key={bullet} className="flex gap-1.5 text-sm leading-snug text-pretty">
             <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-current opacity-40" aria-hidden="true" />

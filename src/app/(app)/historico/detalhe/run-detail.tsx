@@ -380,7 +380,7 @@ function SplitsTable({
       )}
 
       {(metric === "pace" || showElevation) && (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-3.5">
           {splits.map((split, i) => {
             const pace = paces[i];
             const isFastest = metric === "pace" && pace === fastest && fastest !== slowest;
@@ -471,7 +471,7 @@ function ZonesCard({ points }: { points: Pick<StoredPoint, "lat" | "lon" | "time
           ) : null,
         )}
       </div>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2.5">
         {ZONE_ORDER.filter((zone) => seconds[zone] > 0).map((zone) => (
           <li key={zone} className="flex items-center gap-3 text-sm">
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${ZONE_BAR_COLOR[zone]}`} />
@@ -519,7 +519,7 @@ function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
   return (
     <Card className="pr-enter" style={delay(160)}>
       <CardTitle>Comentários do treinador</CardTitle>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2.5">
         {comments.map((comment) => (
           <li key={comment.$id} className="rounded-lg bg-background px-3 py-2 text-sm leading-relaxed text-pretty">
             {comment.text}
@@ -844,7 +844,7 @@ export function RunDetail({ id }: { id: string }) {
         {newRecords.length > 0 && (
           <Card className="pr-enter" style={delay(90)}>
             <CardTitle aside={<NoticeBadge>{newRecords.length}</NoticeBadge>}>Conquistas dessa corrida</CardTitle>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
               {newRecords.map((record) => (
                 <PrBadge
                   key={record.targetMeters}
@@ -872,7 +872,7 @@ export function RunDetail({ id }: { id: string }) {
             <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
               Só essa corrida, só pra quem você escolher aqui — nada é enviado automaticamente.
             </p>
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-2.5">
               {coaches.map((connection) => {
                 const sent = sharedWith.includes(connection.otherId);
                 return (

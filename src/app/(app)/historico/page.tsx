@@ -233,7 +233,7 @@ function PersonalRecords({ runs, defaultUnit }: { runs: CompletedRun[]; defaultU
       >
         Recordes pessoais
       </CardTitle>
-      <ul className="flex flex-col gap-1">
+      <ul className="flex flex-col gap-1.5">
         {bests.map((best) => (
           <li key={best.targetMeters} className="border-t border-border first:border-t-0">
             <Link
@@ -435,7 +435,7 @@ function SortSheet({
             </button>
           </div>
 
-          <ul className="mt-4 flex flex-col gap-2">
+          <ul className="mt-4 flex flex-col gap-2.5">
             {SORT_OPTIONS.map((option) => {
               const selected = option.key === sort;
               return (
@@ -515,7 +515,7 @@ function HistorySearchBar({
   };
 
   return (
-    <div className="pr-enter flex flex-col gap-2.5" style={delay(85)}>
+    <div className="pr-enter flex flex-col gap-3" style={delay(85)}>
       <div>
         <div
           className={`flex items-center gap-2.5 border bg-surface px-4 py-3 transition-[border-radius,border-color,box-shadow] duration-[0.45s] ${
@@ -944,7 +944,7 @@ export default function HistoricoPage() {
                 </button>
               </Card>
             ) : (
-              <ul className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-3.5">
                 {visibleRuns.map((run, index) => (
                   <RunRow
                     key={run.id}
@@ -985,7 +985,7 @@ export default function HistoricoPage() {
             </button>
 
             {summaryOpen && (
-              <div className="pr-enter flex flex-col gap-4" style={delay(0, { "--pr-dur": "0.2s" } as CSSProperties)}>
+              <div className="pr-enter flex flex-col gap-5" style={delay(0, { "--pr-dur": "0.2s" } as CSSProperties)}>
                 {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
                 <PersonalRecords runs={runs} defaultUnit={unit} />
                 <RunFrequencyHeatmap runs={runs} unit={unit} />

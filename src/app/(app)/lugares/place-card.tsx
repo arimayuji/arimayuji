@@ -66,7 +66,7 @@ export function PlaceCard({ place }: { place: RunningPlace }) {
             </p>
           )}
 
-          <div className="mt-4 flex flex-col gap-1.5">
+          <div className="mt-4 flex flex-col gap-2">
             {CRITERIA_KEYS.map((key) => (
               <CriteriaMiniRow key={key} criteriaKey={key} score={place.criteria[key].score} />
             ))}

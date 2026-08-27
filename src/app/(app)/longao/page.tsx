@@ -341,7 +341,7 @@ function LongaoContent() {
                   {participants === null ? (
                     <div className="h-10 animate-pulse rounded-lg bg-background" />
                   ) : (
-                    <ul className="flex flex-col gap-3">
+                    <ul className="flex flex-col gap-3.5">
                       {participants.map((connection) => (
                         <ParticipantRow key={connection.participant.$id} connection={connection} />
                       ))}
@@ -420,7 +420,7 @@ function LongaoContent() {
                 {mySessions !== null && mySessions.length > 0 && (
                   <Card className="pr-enter" style={delay(80)}>
                     <CardTitle>Seus longões recentes</CardTitle>
-                    <ul className="flex flex-col gap-3">
+                    <ul className="flex flex-col gap-3.5">
                       {mySessions.map((session) => (
                         <li
                           key={session.$id}

@@ -743,7 +743,7 @@ function MetricCard({
   unit?: string;
 }) {
   return (
-    <div className="relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-border bg-surface p-3.5">
+    <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-surface p-3.5">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">{label}</span>
         <MetricIcon id={icon} className="h-4 w-4 text-accent" />
@@ -1847,7 +1847,7 @@ export default function RunPage() {
 
       {state.status === "idle" && recoverableRun && (
         <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
-          <div className="mx-auto w-full max-w-sm space-y-6 text-center">
+          <div className="mx-auto w-full max-w-sm space-y-7 text-center">
             <div>
               <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
                 Corrida recuperada
@@ -1858,7 +1858,7 @@ export default function RunPage() {
                 gravados — continuar de onde parou ou descartar?
               </p>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3.5">
               <button
                 type="button"
                 onClick={handleRecoverContinue}
@@ -1880,7 +1880,7 @@ export default function RunPage() {
 
       {state.status === "idle" && !recoverableRun && (
         <main className="flex flex-1 flex-col justify-center gap-8 px-6 pb-16">
-          <div className="mx-auto w-full max-w-sm space-y-6">
+          <div className="mx-auto w-full max-w-sm space-y-7">
             {pairingInvite && (
               <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4">
                 <p className="text-sm font-semibold">{pairingInvite.hostName} te chamou pra correr</p>
@@ -2004,7 +2004,7 @@ export default function RunPage() {
               )}
             </Card>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Aviso por voz a cada</span>
                 <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
@@ -2140,7 +2140,7 @@ export default function RunPage() {
               />
             )}
 
-            <div className="block space-y-1.5">
+            <div className="block space-y-2">
               <span className="text-sm font-medium">Tênis (opcional)</span>
               {registeredShoes.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -2191,7 +2191,7 @@ export default function RunPage() {
             </div>
 
             {!longaoSession && (
-              <div className="block space-y-1.5">
+              <div className="block space-y-2">
                 <span className="text-sm font-medium">Correr com alguém</span>
                 <p className="text-xs text-muted">
                   Gere um código pra parear com quem for correr com você agora — ela vê sua posição,
@@ -2215,7 +2215,7 @@ export default function RunPage() {
             )}
 
             {longaoSession && (
-              <div className="block space-y-1.5">
+              <div className="block space-y-2">
                 <span className="text-sm font-medium">{longaoSession.name}</span>
                 <p className="text-xs text-muted">
                   Quem entrou com esse código ({longaoSession.$id}) vê sua posição enquanto a corrida
@@ -2260,7 +2260,7 @@ export default function RunPage() {
             )}
 
             {coaches.length > 0 && (
-              <div className="block space-y-1.5">
+              <div className="block space-y-2">
                 <span className="text-sm font-medium">Compartilhar ao vivo (opcional)</span>
                 <p className="text-xs text-muted">
                   Enquanto a corrida rolar, essa pessoa vê sua posição e seu pace num mapa. Some sozinho
@@ -2297,7 +2297,7 @@ export default function RunPage() {
             )}
 
             {friends.length > 0 && (
-              <div className="block space-y-1.5">
+              <div className="block space-y-2">
                 <span className="text-sm font-medium">Compartilhar com amigos (opcional)</span>
                 <p className="text-xs text-muted">
                   Toque pra escolher quem vê sua posição e seu pace num mapa enquanto a corrida rolar —
@@ -2745,7 +2745,7 @@ export default function RunPage() {
                 </span>
                 <NoticeBadge>privado</NoticeBadge>
               </div>
-              <ul className="mt-2 flex flex-col gap-1.5">
+              <ul className="mt-2 flex flex-col gap-2">
                 {state.finishedRun.pauseEvents.map((pause, i) => (
                   <li key={i} className="flex items-center justify-between gap-2 text-sm">
                     <span className="text-foreground">{pause.reason ?? "Sem motivo registrado"}</span>
@@ -2768,7 +2768,7 @@ export default function RunPage() {
                   ? "Sinal de GPS perdido"
                   : `${state.finishedRun.gpsGaps.length} trechos sem sinal de GPS`}
               </span>
-              <ul className="mt-2 flex flex-col gap-1.5">
+              <ul className="mt-2 flex flex-col gap-2">
                 {state.finishedRun.gpsGaps.map((gap, i) => (
                   <li key={i} className="flex items-center justify-between gap-2 text-sm">
                     <span className="text-foreground">Trecho {i + 1}</span>
@@ -2857,7 +2857,7 @@ export default function RunPage() {
             </span>
 
             {displayedTracks.length > 0 && (
-              <ul className="mt-2 flex flex-col gap-2">
+              <ul className="mt-2 flex flex-col gap-2.5">
                 {displayedTracks.map((track, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
                     {track.artworkUrl && (
@@ -2917,7 +2917,7 @@ export default function RunPage() {
             )}
 
             {musicResults !== null && musicResults.length > 0 && (
-              <ul className="mt-2 flex flex-col gap-1">
+              <ul className="mt-2 flex flex-col gap-1.5">
                 {musicResults.map((candidate, i) => (
                   <li key={i}>
                     <button
@@ -3040,7 +3040,7 @@ export default function RunPage() {
                 {groupData.participants.length === 0 ? (
                   <p className="mt-4 text-center text-xs text-muted">Carregando o grupo…</p>
                 ) : (
-                  <ul className="mt-3 flex flex-col gap-3">
+                  <ul className="mt-3 flex flex-col gap-3.5">
                     {groupData.participants.map((connection) => {
                       const run = groupData.liveRuns.find((r) => r.userId === connection.participant.userId);
                       return (

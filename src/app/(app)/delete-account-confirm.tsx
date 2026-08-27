@@ -72,7 +72,7 @@ export function DeleteAccountConfirm({ onClose, onDeleted }: { onClose: () => vo
               </p>
             )}
 
-            <div className="mt-6 flex flex-col gap-2.5">
+            <div className="mt-6 flex flex-col gap-3">
               <button
                 type="button"
                 onClick={() => void handleConfirm()}

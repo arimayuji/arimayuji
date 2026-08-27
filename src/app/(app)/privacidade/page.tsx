@@ -38,7 +38,7 @@ export default function PrivacidadePage() {
             opcionais como avaliar lugares, adicionar amigos ou compartilhar com um(a)
             treinador(a). Nesse caso guardamos, na nossa infraestrutura Appwrite:
           </p>
-          <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted">
+          <ul className="flex flex-col gap-2.5 text-sm leading-relaxed text-muted">
             <li>— Nome, e-mail e foto vindos da sua conta Google/Apple</li>
             <li>— Nome de usuário (handle) e nome de exibição que você escolher</li>
             <li>— Amizades e vínculos de treinador(a)/aluno(a) que você criar</li>
@@ -83,7 +83,7 @@ export default function PrivacidadePage() {
 
         <Card className="pr-enter" style={delay(160)}>
           <CardTitle>Serviços de terceiros</CardTitle>
-          <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted">
+          <ul className="flex flex-col gap-2.5 text-sm leading-relaxed text-muted">
             <li>
               <strong className="text-foreground">Appwrite</strong> — hospeda conta, perfil e os
               dados compartilhados listados acima.

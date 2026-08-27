@@ -270,7 +270,7 @@ function PaceZonesCard({ zones }: { zones: PaceZones }) {
       <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
         Calculadas do seu tempo recente pela fórmula VDOT (Daniels &amp; Gilbert).
       </p>
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-3">
         {rows.map(([zone, secPerKm], index) => (
           <div key={zone} className="flex items-center gap-3">
             <span className="w-[92px] shrink-0 text-[11px] uppercase tracking-wide text-muted">
@@ -586,7 +586,7 @@ function PlanBuildSequence({ stages, onDone }: { stages: readonly string[]; onDo
   return (
     <Card className="pr-enter" style={delay(60)}>
       <CardTitle aside={<NoticeBadge>montando</NoticeBadge>}>Montando seu plano</CardTitle>
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3.5">
         {stages.map((label, index) => {
           const state: StageState = index < doneCount ? "done" : index === doneCount ? "active" : "pending";
           return (
@@ -681,7 +681,7 @@ function GoalCard({
         />
       </fieldset>
 
-      <div className="mt-5 space-y-1.5">
+      <div className="mt-5 space-y-2">
         <p className="text-[11px] font-bold tracking-[0.05em] text-muted uppercase">Data da prova</p>
         <GoalDatePicker value={profile.goalDate} onChange={(goalDate) => updateProfile({ goalDate })} />
       </div>
@@ -1085,8 +1085,8 @@ export default function PlanoPage() {
             reads last on any width instead of interrupting the numbers a
             phone screen shows for this week.
           */}
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-            <div className="flex flex-col gap-4 lg:flex-[1.3]">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-6">
+            <div className="flex flex-col gap-5 lg:flex-[1.3]">
               <Card className="pr-enter lg:hidden" style={delay(110)}>
                 <CardTitle
                   aside={
@@ -1104,7 +1104,7 @@ export default function PlanoPage() {
                     essa semana.
                   </p>
                 )}
-                <ul className="flex flex-col gap-3">
+                <ul className="flex flex-col gap-3.5">
                   {displaySessions.map((session, index) => (
                     <SessionRow
                       key={session.day}
@@ -1144,7 +1144,7 @@ export default function PlanoPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-4 lg:flex-1">
+            <div className="flex flex-col gap-5 lg:flex-1">
               {plan.paceZones && <PaceZonesCard zones={plan.paceZones} />}
 
               {!coachOverride && (
@@ -1168,7 +1168,7 @@ export default function PlanoPage() {
               )}
             </div>
 
-            <div className="flex flex-col gap-4 lg:flex-1">
+            <div className="flex flex-col gap-5 lg:flex-1">
               <GoalCard profile={profile} updateProfile={updateProfile} />
             </div>
           </div>
@@ -1193,7 +1193,7 @@ export default function PlanoPage() {
             <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
               Por que essa semana tem essa cara
             </CardTitle>
-            <ul className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:gap-y-5">
+            <ul className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:gap-y-5">
               {plan.evidenceTopics.map((topic) => {
                 const fact = getEvidenceForTopicRanked(topic)[0];
                 return fact ? <EvidenceFactRow key={topic} fact={fact} topic={topic} /> : null;
@@ -1231,7 +1231,7 @@ export default function PlanoPage() {
           <p className="text-sm leading-relaxed text-muted text-pretty">
             O motor que monta o treino já existe — falta só o que ele precisa de você:
           </p>
-          <ul className="mt-3 flex flex-col gap-2 text-sm">
+          <ul className="mt-3 flex flex-col gap-2.5 text-sm">
             <li className="flex items-center gap-2">
               <span
                 className={`h-2 w-2 shrink-0 rounded-full ${hasGoal ? "bg-good" : "bg-warn"}`}
@@ -1275,7 +1275,7 @@ export default function PlanoPage() {
                 Semana 3 de 12 — base
               </CardTitle>
               <WeekStatsRow volumeKm={TOTAL_DEMO_KM} sessions={DEMO_SESSION_COUNT} hard={1} />
-              <ul className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-3.5">
                 {DEMO_WEEK.map((session, index) => (
                   <SessionRow
                     key={session.day}
@@ -1300,7 +1300,7 @@ export default function PlanoPage() {
                 motor de treino vem acompanhada da evidência por trás, com a força dela classificada.
                 Aqui vai uma prévia real dessa mecânica.
               </p>
-              <ul className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-3.5">
                 {FEATURED_EVIDENCE_IDS.map((id) => {
                   const fact = getEvidenceById(id);
                   return fact ? <EvidenceFactRow key={id} fact={fact} topic={fact.topic} /> : null;

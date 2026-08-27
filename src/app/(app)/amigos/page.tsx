@@ -309,13 +309,13 @@ export default function AmigosPage() {
                     Nenhum convite esperando resposta — enviados ou recebidos.
                   </p>
                 ) : (
-                  <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-6">
                     {incoming.length > 0 && (
                       <div>
                         <p className="mb-2.5 text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
                           Recebidos
                         </p>
-                        <ul className="flex flex-col gap-3">
+                        <ul className="flex flex-col gap-3.5">
                           {incoming.map((connection) => (
                             <PersonRow key={connection.friendship.$id} connection={connection}>
                               <button
@@ -361,7 +361,7 @@ export default function AmigosPage() {
                         <p className="mb-2.5 text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
                           Enviados
                         </p>
-                        <ul className="flex flex-col gap-3">
+                        <ul className="flex flex-col gap-3.5">
                           {outgoing.map((connection) => (
                             <OutgoingRequestRow
                               key={connection.friendship.$id}
@@ -397,7 +397,7 @@ export default function AmigosPage() {
                     </p>
                   </div>
                 ) : (
-                  <ul className="flex flex-col gap-3">
+                  <ul className="flex flex-col gap-3.5">
                     {friends.map((connection) => (
                       <FriendRow
                         key={connection.friendship.$id}

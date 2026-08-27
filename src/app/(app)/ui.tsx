@@ -233,7 +233,11 @@ export function Screen({
   return (
     <main className="flex flex-1 flex-col px-5 pb-10">
       <div
-        className={`mx-auto flex w-full flex-1 flex-col gap-4 ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH}`}
+        // gap-5 (not the tighter gap-4) is deliberate breathing room between
+        // sections on the native app's own touch-sized cards; lg:gap-4 pins
+        // desktop back to its already-tuned dense-panel spacing (plan-dashboard.tsx,
+        // treinador/sala) so this only affects the native/narrow surface.
+        className={`mx-auto flex w-full flex-1 flex-col gap-5 lg:gap-4 ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH}`}
       >
         {children}
       </div>
@@ -273,10 +277,10 @@ export function Card({
   );
 }
 
-/** Same `lg:` density rule as `Card` above — tighter breathing room under the title on a desktop panel than a touch-sized mobile card wants. */
+/** Same `lg:` density rule as `Card` above — tighter breathing room under the title on a desktop panel than a touch-sized mobile card wants. `mb-5` (not `mb-4`) is the same slight-increase pass as `Screen`'s own gap. */
 export function CardTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 lg:mb-2.5">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-2 lg:mb-2.5">
       <h2 className="text-sm font-semibold tracking-wide">{children}</h2>
       {aside}
     </div>

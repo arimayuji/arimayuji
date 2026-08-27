@@ -49,7 +49,7 @@ export function PrivacyConsentGate() {
     <ModalPortal>
       <div className="fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-background text-foreground">
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-7 px-7 py-12">
-          <div className="pr-enter flex flex-col gap-3">
+          <div className="pr-enter flex flex-col gap-3.5">
             <h2 className="font-mono text-2xl font-semibold text-balance">
               Antes de começar
             </h2>
@@ -58,7 +58,7 @@ export function PrivacyConsentGate() {
             </p>
           </div>
 
-          <ul className="pr-enter flex flex-col gap-4 text-sm leading-relaxed text-muted">
+          <ul className="pr-enter flex flex-col gap-5 text-sm leading-relaxed text-muted">
             <li className="flex gap-3">
               <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
               <span>
@@ -92,7 +92,7 @@ export function PrivacyConsentGate() {
             </li>
           </ul>
 
-          <div className="pr-enter flex flex-col gap-4">
+          <div className="pr-enter flex flex-col gap-5">
             <Link
               href="/privacidade"
               className="text-center text-sm font-medium underline underline-offset-4 hover:text-accent"

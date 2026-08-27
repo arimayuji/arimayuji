@@ -55,7 +55,7 @@ export default function EstudosPage() {
               <CardTitle aside={<NoticeBadge>{facts.length}</NoticeBadge>}>
                 {topicLabel(topic)}
               </CardTitle>
-              <ul className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-3.5">
                 {facts.map((fact) => (
                   <EvidenceFactRow key={fact.id} fact={fact} />
                 ))}

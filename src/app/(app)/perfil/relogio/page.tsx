@@ -178,7 +178,7 @@ export default function DadosRelogioPage() {
 
         <Card className="pr-enter" style={delay(70)}>
           <CardTitle>Como isso funciona</CardTitle>
-          <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-4">
             {INFO_ITEMS.map((item, index) => (
               <div
                 key={index}

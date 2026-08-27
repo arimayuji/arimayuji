@@ -113,7 +113,7 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
               funcionando sem login, do mesmo jeito de sempre.
             </p>
 
-            <ul className="mt-6 flex flex-col gap-3 text-left">
+            <ul className="mt-6 flex flex-col gap-3.5 text-left">
               {UNLOCKS.map((item) => (
                 <li key={item.title} className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-good/15 text-good">
@@ -137,7 +137,7 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
               ))}
             </ul>
 
-            <div className="mt-6 flex flex-col gap-2.5">
+            <div className="mt-6 flex flex-col gap-3">
               {/* Listed first — not just alphabetical: App Store guideline
                   4.8 expects Sign in with Apple at least as prominent as
                   any other third-party login offered alongside it. */}

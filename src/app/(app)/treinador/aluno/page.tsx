@@ -224,7 +224,7 @@ function AlunoContent() {
               Nada por aqui ainda — o aluno envia uma corrida quando quiser, na tela de detalhe dela.
             </p>
           ) : (
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-3.5">
               {runs.map((run) => (
                 <li key={run.$id} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
                   <div className="flex items-center justify-between gap-3">
@@ -254,7 +254,7 @@ function AlunoContent() {
                   </div>
 
                   {(comments.get(run.$id) ?? []).length > 0 && (
-                    <ul className="mt-3 flex flex-col gap-2">
+                    <ul className="mt-3 flex flex-col gap-2.5">
                       {(comments.get(run.$id) ?? []).map((comment) => (
                         <li key={comment.$id} className="rounded-lg bg-background px-3 py-2 text-xs leading-relaxed text-pretty">
                           {comment.text}

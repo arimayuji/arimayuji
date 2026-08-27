@@ -120,7 +120,7 @@ export default function ConteudoInternoPage() {
       <Screen>
         <Card className="pr-enter" style={delay(0)}>
           <CardTitle>Nova ideia</CardTitle>
-          <form onSubmit={handleCreate} className="flex flex-col gap-3">
+          <form onSubmit={handleCreate} className="flex flex-col gap-3.5">
             <input
               type="text"
               value={title}
@@ -169,7 +169,7 @@ export default function ConteudoInternoPage() {
           ) : visibleIdeas.length === 0 ? (
             <p className="py-2 text-center text-xs leading-relaxed text-muted">Nada em {STATUS_LABEL[activeStatus].toLowerCase()}.</p>
           ) : (
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-3.5">
               {visibleIdeas.map((idea) => (
                 <IdeaCard key={idea.$id} idea={idea} onStatusChange={handleStatusChange} onDelete={handleDelete} />
               ))}

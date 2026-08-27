@@ -117,7 +117,7 @@ function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
           </p>
         )
       ) : (
-        <ol className="flex flex-col gap-2.5">
+        <ol className="flex flex-col gap-3.5">
           {visible.map((entry, i) => {
             const name =
               scope === "public"
@@ -249,7 +249,7 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
 
         <Card className="pr-enter" style={delay(100)}>
           <CardTitle aside={<NoticeBadge>curadoria inicial</NoticeBadge>}>Critérios</CardTitle>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3.5">
             {CRITERIA_KEYS.map((key) => (
               <CriteriaRow key={key} criteriaKey={key} score={place.criteria[key].score} note={place.criteria[key].note} />
             ))}
@@ -279,7 +279,7 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
           </CardTitle>
 
           {averages ? (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3.5">
               {CRITERIA_KEYS.map((key) => (
                 <CriteriaRow key={key} criteriaKey={key} score={averages[key].average} />
               ))}
@@ -320,7 +320,7 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
           )}
 
           {ratings && ratings.length > 0 && (
-            <ul className="mt-5 flex flex-col gap-3">
+            <ul className="mt-5 flex flex-col gap-3.5">
               {ratings.map((rating) => {
                 const rater = raterProfiles[rating.userId];
                 return (
