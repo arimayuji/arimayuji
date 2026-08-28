@@ -137,7 +137,7 @@ export function numberToSlugs(n: number, slot: NumberSlot): string[] {
   return [slugFor(tensBase, tensRole), "e--internal", slugFor(UNITS_SLUG[units], unitsRole)];
 }
 
-/** Slug sequence for "{km.toFixed(1)} quilômetros. Pace {min} e {sec}." */
+/** Slug sequence for "{km.toFixed(1)} quilômetros. Ritmo {min} e {sec}." */
 export function announcementSlugs(kmTenths: string, paceMinutes: number, paceSeconds: number): string[] {
   const [intPart, decPart] = kmTenths.split(".");
   return [
@@ -215,14 +215,16 @@ function buildVoiceBank(): VoiceBankEntry[] {
   // Connectors. "e" needs two renders — the internal tens/units joiner
   // inside a single number, and the top-level minutes-to-seconds
   // connector — since those sit in genuinely different phrase positions.
-  // "vírgula"/"quilômetros"/"pace" only ever sit in one template position
+  // "vírgula"/"quilômetros"/"ritmo" only ever sit in one template position
   // each, so one recording (with a representative neighbor, since the
-  // actual adjacent number varies by run) covers every use.
+  // actual adjacent number varies by run) covers every use. The slug stays
+  // "pace" (internal id, referenced by announcementSlugs above) even though
+  // the spoken word changed to "ritmo" — "pace" isn't natural pt-BR.
   entries.push({ slug: "e--internal", text: "e", previousText: "vinte", nextText: "cinco" });
   entries.push({ slug: "e--paceConnector", text: "e", previousText: "dez", nextText: "trinta" });
   entries.push({ slug: "virgula", text: "vírgula", previousText: "cinco", nextText: "cinco" });
-  entries.push({ slug: "quilometros", text: "quilômetros", previousText: "cinco", nextText: "pace" });
-  entries.push({ slug: "pace", text: "pace", previousText: "quilômetros", nextText: "dez" });
+  entries.push({ slug: "quilometros", text: "quilômetros", previousText: "cinco", nextText: "ritmo" });
+  entries.push({ slug: "pace", text: "ritmo", previousText: "quilômetros", nextText: "dez" });
 
   // Carb-gel reminder — a whole standalone sentence, not a word in the
   // numeric template above, so it has no previous/next neighbor at all:
