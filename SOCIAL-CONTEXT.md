@@ -252,6 +252,51 @@ aleatório. Sombra de músculo anatômica (pedida e tentada nesta sessão)
 **não** funcionou nem por prompt nem por blob de pixel genérico — exige
 uma forma desenhada à mão seguindo o contorno real, ficou de fora da v1.
 
+## Formato "brincadeira de palavras" (reels de texto, primeiro post real)
+
+Pra um primeiro vídeo de Instagram/TikTok, o dono do projeto rejeitou tanto
+gravação de tela (achou "tosco", exigiria edição pesada com voz de fundo)
+quanto o pitch falado direto pra câmera — decidiu por um formato de **texto
+que constrói uma frase e vira a mesa**, sem narração nem trilha, cards de
+texto com timing (nativo no editor do Instagram/CapCut). Dois trocadilhos
+em português já roteirizados, ambos batendo direto num diferencial real do
+produto (nunca copy vaga):
+
+- **"Trava a tela." → "O app trava junto." → "O nosso não."** — usa o
+  duplo sentido de "trava" (tela bloqueada / app travando) pro diferencial
+  de GPS que não para com a tela bloqueada.
+- **"DESTRAVA"** (com "STRAVA" destacado em cor diferente dentro da
+  palavra) **→ "sua corrida, seu treino e seu planejamento, tudo em um
+  lugar só" → "e você não paga nada pra compartilhar sua corrida."** —
+  citação direta da marca do concorrente (foge da regra "nunca comparação
+  por marca" do resto deste arquivo — decisão consciente do dono do
+  projeto, não descuido; registrar aqui pra não repetir sem perceber que é
+  exceção).
+- Outras variações na mesma família, não roteirizadas ainda: "PLANO"
+  (todo plano no Brasil é pago — "o nosso é de treino, não de assinatura"),
+  "sem pagar, sem parar", "corre atrás" (o app corre atrás de você, não do
+  seu cartão).
+
+**Regra técnica confirmada por teste real (2026-08-28): nunca pedir pra
+IA de vídeo renderizar as palavras do trocadilho direto na tela** — texto
+gerado por modelo de vídeo generativo sai deformado/errado quase sempre,
+é o ponto mais fraco desses modelos hoje. O texto do trocadilho é sempre
+overlay real adicionado na edição (CapCut/editor nativo), nunca parte do
+prompt de vídeo. O que a IA gera é só o **fundo abstrato** por trás do
+texto — nenhum personagem, nenhuma letra no prompt.
+
+**Modelo escolhido pro fundo, por teste comparativo real**: não é o Vidu
+Q3 usado pro cavalo (não tem personagem aqui, não precisa da força de
+consistência dele) — testado `fal-ai/wan/v2.2-5b/text-to-video` (rápido,
+~US$0,05/s) contra `fal-ai/wan/v2.2-a14b/text-to-video` (modelo maior,
+mais caro). Primeira rodada de prompt ("slow, calm, continuous motion")
+saiu praticamente estática nos dois — lição: evitar linguagem de
+"calmo/lento" no prompt, pede movimento explícito tipo "tinta se
+espalhando na água, formas crescendo/encolhendo continuamente". Segunda
+rodada com prompt mais assertivo sobre movimento: dono do projeto
+assistiu aos dois lado a lado e **preferiu o Wan 2.2 5B** (o mais barato
+dos dois) — não precisou do modelo maior/mais caro pra esse uso.
+
 ## Como manter isso vivo
 
 Sempre que uma decisão nova de tom, formato, gancho que funcionou/não
