@@ -1257,7 +1257,7 @@ extension BackgroundGeolocation: WCSessionDelegate {
 
     public func sessionDidBecomeInactive(_ session: WCSession) {}
 
-    public func sessionDidDeactivateSession(_ session: WCSession) {
+    public func sessionDidDeactivate(_ session: WCSession) {
         // Required when the phone can pair with a different watch — reactivate
         // for the newly active one. No-op in the common single-watch case.
         WCSession.default.activate()

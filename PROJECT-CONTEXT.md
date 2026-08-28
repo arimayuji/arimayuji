@@ -1187,6 +1187,27 @@ neste ambiente): se o Swift compila de verdade, se a cirurgia no
 Content" embute o app de verdade no archive. Primeiro sinal real: o job
 `watch-simulator` do CI, depois do push.
 
+**Bug real achado pelo CI, corrigido em 2026-08-28**: o primeiro push
+depois do merge pra `main` quebrou os três jobs de macOS do
+`ios-build.yml` (`testflight`, `simulator`, `watch-simulator`) — nenhum
+build novo chegou no TestFlight. Erro real do `swiftc`:
+```
+CapgoCapacitorBackgroundGeolocationPlugin.swift:1255:1: error: type
+'BackgroundGeolocation' does not conform to protocol 'WCSessionDelegate'
+```
+Causa: a extensão `WCSessionDelegate` adicionada pra ponte watch↔telefone
+(`native-plugins/capacitor-background-geolocation/ios/.../
+CapgoCapacitorBackgroundGeolocationPlugin.swift`) tinha um erro de
+digitação no nome do método —`sessionDidDeactivateSession` em vez do
+nome real do protocolo, `sessionDidDeactivate` — então o compilador via
+a conformância como incompleta (método obrigatório faltando) mesmo o
+código parecendo certo à primeira vista. Corrigido renomeando o método
+pro nome exato do protocolo. Não afeta Android (build e publicação desse
+mesmo push funcionaram normalmente, incluindo Play Store e o link de
+download — só a plataforma iOS/watchOS foi afetada). Ainda não
+confirmado que o próximo push corrige os três jobs de verdade — esse é
+o próximo sinal real a conferir.
+
 ## Esboço do app do Wear OS/Samsung (tethered) — implementado em 2026-08-27
 
 Mesmo pedido do Apple Watch acima, agora pro Wear OS (Samsung Galaxy
