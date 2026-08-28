@@ -24,7 +24,11 @@
  * public/audio/experiment-<voice>-<name>/ — never touches the real 135/270
  * clips. Listen to the result against the live bank, pick a winner, only
  * then regenerate the real files (delete the affected mp3s and re-run
- * without `--experiment`) with the settings that won.
+ * without `--experiment`) with the settings that won. `--model=<id>` (e.g.
+ * `--model=eleven_v3`) can ride along with `--experiment=` to also swap the
+ * ElevenLabs model for that sample batch, independent of voice_settings —
+ * e.g. `--experiment=current --model=eleven_v3` isolates the model change
+ * alone against the exact settings already in production.
  */
 import { mkdirSync, existsSync, writeFileSync, readFileSync, renameSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -94,7 +98,10 @@ const EXPERIMENT_VOICE_SETTINGS: Record<string, VoiceSettings> = {
 };
 
 /** A handful of representative words across different template slots — enough to judge the delivery without spending credits re-rendering all 135. Matched by spoken text, not slug, so this doesn't depend on guessing the exact slugFor() naming. */
-const EXPERIMENT_SAMPLE_TEXTS = ["cinco", "vinte", "e", "quilômetros", "pace"];
+const EXPERIMENT_SAMPLE_TEXTS = ["cinco", "vinte", "e", "quilômetros ritmo"];
+
+/** Model every real clip in the bank renders with today — the baseline any `--model=` experiment override is judged against. */
+const CURRENT_MODEL_ID = "eleven_multilingual_v2";
 
 async function generateClip(
   text: string,
@@ -102,6 +109,7 @@ async function generateClip(
   nextText: string | null,
   apiKey: string,
   voiceSettings: VoiceSettings = CURRENT_VOICE_SETTINGS,
+  modelId: string = CURRENT_MODEL_ID,
 ): Promise<ArrayBuffer> {
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
     method: "POST",
@@ -118,7 +126,7 @@ async function generateClip(
       // this instead of one universal render per word.
       previous_text: previousText ?? undefined,
       next_text: nextText ?? undefined,
-      model_id: "eleven_multilingual_v2",
+      model_id: modelId,
       // stability lowered from the original 0.5 and `style`/`use_speaker_boost`
       // added on top — per ElevenLabs' own guidance, stability at 0.5+ trends
       // toward flat/monotone delivery, while a lower value plus a touch of
@@ -282,8 +290,15 @@ async function main(): Promise<void> {
   const experimentArg = process.argv.find((arg) => arg.startsWith("--experiment="));
   if (experimentArg) {
     const name = experimentArg.slice("--experiment=".length);
-    const voiceSettings = EXPERIMENT_VOICE_SETTINGS[name];
-    if (!voiceSettings) {
+    const voiceSettings = EXPERIMENT_VOICE_SETTINGS[name] ?? CURRENT_VOICE_SETTINGS;
+    // `--model=` overrides only which ElevenLabs model renders this sample
+    // batch — independent of `--experiment=<name>` (voice_settings). Passing
+    // just `--model=` with no matching `--experiment=` name still runs (falls
+    // back to CURRENT_VOICE_SETTINGS above) since a model comparison doesn't
+    // need a voice_settings variant to go with it.
+    const modelArg = process.argv.find((arg) => arg.startsWith("--model="));
+    const modelId = modelArg ? modelArg.slice("--model=".length) : CURRENT_MODEL_ID;
+    if (!EXPERIMENT_VOICE_SETTINGS[name] && !modelArg) {
       throw new Error(`unknown experiment "${name}" — options: ${Object.keys(EXPERIMENT_VOICE_SETTINGS).join(", ")}`);
     }
     loadEnvLocal();
@@ -297,8 +312,8 @@ async function main(): Promise<void> {
     mkdirSync(expDir, { recursive: true });
 
     for (const entry of samples) {
-      console.log(`[experiment=${name}] generating "${entry.slug}" ("${entry.text}")...`);
-      const audio = await generateClip(entry.text, entry.previousText, entry.nextText, apiKey, voiceSettings);
+      console.log(`[experiment=${name} model=${modelId}] generating "${entry.slug}" ("${entry.text}")...`);
+      const audio = await generateClip(entry.text, entry.previousText, entry.nextText, apiKey, voiceSettings, modelId);
       const outPath = new URL(`${entry.slug}.mp3`, expDir);
       writeFileSync(outPath, Buffer.from(audio));
       const path = fileURLToPath(outPath);
