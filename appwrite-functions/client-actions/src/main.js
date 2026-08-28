@@ -766,6 +766,29 @@ async function sendFriendRequest({ userId: requesterId, body, client, res, error
         Permission.delete(Role.user(addresseeId)),
       ],
     });
+
+    // Best-effort, same reasoning as sendMilestoneNotification/
+    // subscribeUpdateTopic below: a missed push just means the addressee
+    // finds out next time they open /amigos instead of right away — not
+    // something worth failing the request over. `users: [addresseeId]`,
+    // never the requester, so this can't be used to push anyone but the
+    // person the friendship row itself already grants read to.
+    try {
+      const requesterName = await tablesDB
+        .getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: requesterId })
+        .then((row) => row.displayName || `@${row.handle}`)
+        .catch(() => "Alguém");
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "Novo pedido de amizade",
+        body: `${requesterName} quer ser seu amigo no Xanthus.`,
+        users: [addresseeId],
+      });
+    } catch (err) {
+      error(`send-friend-request: push best-effort falhou pra ${addresseeId}: ${err.message}`);
+    }
+
     return res.json({ ok: true, row: friendship });
   } catch (err) {
     if (err.code === 409) return res.json({ error: "duplicate" }, 409);
