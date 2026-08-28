@@ -1208,6 +1208,46 @@ download — só a plataforma iOS/watchOS foi afetada). Ainda não
 confirmado que o próximo push corrige os três jobs de verdade — esse é
 o próximo sinal real a conferir.
 
+**Segundo bug real achado pelo CI, este mais grave, corrigido em
+2026-08-28** — confirmado no primeiro push depois que o limite de
+billing do GitHub Actions foi resolvido (ver seção própria abaixo) e o
+CI finalmente rodou até o fim de verdade pela primeira vez desde a
+implementação do Apple Watch: `testflight`, `simulator` **e**
+`watch-simulator` falharam os três, agora por um motivo diferente do de
+cima — `error: While building for watchOS Simulator, no library for
+this platform was found in
+.../capacitor-swift-pm/Capacitor.xcframework` (e o mesmo erro pro
+`Cordova.xcframework`), repetido pra cada plugin Capacitor do projeto.
+**Causa raiz**: o pacote SPM `CapApp-SPM` (Capacitor + todos os plugins
++ GoogleSignIn) está referenciado a nível de **projeto** inteiro
+(`packageReferences` do `PBXProject`, não por target) — então mesmo o
+alvo `Xanthus Watch App` não tendo nenhuma `packageProductDependencies`
+própria, o Xcode ainda tenta resolver esse pacote pro contexto do build
+quando `Xanthus Watch App` está **embutido** no target `App` (via
+"Embed Watch Content"). Nenhum desses pacotes (Capacitor, Cordova,
+GoogleSignIn) publica binário pra watchOS — então a resolução falha, e
+como o `App` embute o watch, **isso quebrava o build do celular
+também** (`testflight`/`simulator`), não só o do relógio. TestFlight
+ficou bloqueado por causa disso até esse fix.
+
+**Fix rápido aplicado (decisão consciente do dono do projeto: desbloquear
+já, investigar o motivo de fundo depois)**: removida a incorporação do
+`Xanthus Watch App` do target `App` — tirado `B17DA71A0000000000000015
+/* Embed Watch Content */` do `buildPhases` do `App` e
+`B17DA71A0000000000000014 /* PBXTargetDependency */` do seu
+`dependencies`, em `project.pbxproj`. O alvo `Xanthus Watch App` em si
+**não foi apagado** — continua existindo no projeto, buildável sozinho
+via `-scheme "Xanthus Watch App"` — só parou de ser uma dependência de
+build do app do celular. **Efeito colateral esperado e aceito**: o job
+`watch-simulator` do CI provavelmente continua falhando sozinho (mesma
+causa raiz, resolução de pacote a nível de projeto, não resolvida) —
+mas isso não bloqueia mais `simulator`/`testflight`, que é o que
+importa pra continuar publicando de verdade. **Ainda pendente**:
+investigar a causa raiz de verdade (por que um pacote referenciado só a
+nível de projeto tenta resolver pra uma plataforma que nenhum alvo
+realmente pede) e o app do relógio volta a ficar embutido só depois
+disso resolvido — até lá, o Apple Watch fica de fora do app publicado.
+
 ## Esboço do app do Wear OS/Samsung (tethered) — implementado em 2026-08-27
 
 Mesmo pedido do Apple Watch acima, agora pro Wear OS (Samsung Galaxy
