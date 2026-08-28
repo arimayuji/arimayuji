@@ -171,11 +171,14 @@ export function ShareCardPreview({
     };
   }, [play]);
 
-  // Dragging mid-animation would fight the pop-in motion (the handle and
-  // the element it's attached to would visibly disagree about where "here"
-  // is until the animation settles) — handles only show once the preview
-  // has actually finished playing.
-  const draggable = !!onLayoutOverridesChange && !playing;
+  // Used to wait for the full ~15s reveal to finish before showing handles
+  // (avoiding a visual disagreement between the handle and the still-animating
+  // element) — in practice that made the drag feature undiscoverable, since
+  // nothing on screen hints that waiting out the whole animation (or tapping
+  // the easy-to-miss "Parar" button) unlocks it. Handles now show immediately;
+  // the brief mismatch during the reveal is a smaller cost than a feature
+  // nobody finds.
+  const draggable = !!onLayoutOverridesChange;
   const anchors = defaultLayoutAnchors(scene.layout);
   const hasPlateAccessory = !!scene.record || !!scene.shoe;
   const hasOverride = !!(layoutOverrides?.stats || layoutOverrides?.plate);

@@ -805,7 +805,7 @@ function CompartilharContent() {
 
         <p className="pr-enter text-center text-xs leading-relaxed text-muted" style={delay(140)}>
           {scene
-            ? "Traçado, distância, tempo e pace acima são dessa corrida."
+            ? "Traçado, distância, tempo e pace acima são dessa corrida. Arraste as estatísticas ou a medalha/tênis pra reposicionar."
             : "Percurso, distância, tempo e pace acima são de demonstração — não são de nenhuma corrida real."}
         </p>
 
