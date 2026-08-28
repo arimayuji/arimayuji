@@ -9,7 +9,11 @@
  * reusing the same unit words 1-9 already recorded for the standalone case.
  *
  * Every announcement follows one fixed shape:
- *   [km inteiro] "vírgula" [km decimal] "quilômetros" "pace" [minutos] "e" [segundos]
+ *   [km inteiro] "vírgula" [km decimal] "quilômetros ritmo" [minutos] "e" [segundos]
+ * ("quilômetros ritmo" is recorded as one continuous clip, not two spliced
+ * ones — the only pair in the template that's always adjacent with no
+ * variable number between them, so it's the one seam that can be removed
+ * outright instead of just smoothed by crossfade/silence-trim.)
  * A first pass at this bank recorded one clip per word with no idea what
  * would play before/after it — each clip came out of ElevenLabs with its
  * own complete start-to-finish sentence intonation, so playing several back
@@ -32,7 +36,7 @@
  * only 7 distinct (previousText, nextText) pairs in total — several
  * combinations sit between literally the same two neighbor words (e.g. a
  * lone minutes value and the tens-half of a compound minutes value both
- * sit right after "pace" and right before the "e" that leads into
+ * sit right after "ritmo" and right before the "e" that leads into
  * seconds), so recording them separately would just be the same audio
  * twice. See ROLE_CONTEXT below for the 7.
  */
@@ -43,8 +47,8 @@ export type NumberRole =
   | "leadNumber" // start of the phrase, before "vírgula" — a lone km-inteiro value
   | "leadTensPart" // start of the phrase, before the internal "e" — tens-half of a compound km-inteiro
   | "kmUnitsPart" // after the internal "e", before "vírgula" — units-half of a compound km-inteiro
-  | "kmDecimal" // after "vírgula", before "quilômetros" — the single km-decimal digit
-  | "paceLead" // after "pace", before "e" — a lone minutes value, or the tens-half of a compound one
+  | "kmDecimal" // after "vírgula", before "quilômetros ritmo" — the single km-decimal digit
+  | "paceLead" // after "ritmo", before "e" — a lone minutes value, or the tens-half of a compound one
   | "midConnector" // after "e", before "e" — units-half of compound minutes, or tens-half of compound seconds
   | "trailNumber"; // after "e", at the end of the phrase — a lone seconds value, or units-half of a compound one
 
@@ -53,7 +57,7 @@ const ROLE_CONTEXT: Record<NumberRole, { previousText: string | null; nextText: 
   leadTensPart: { previousText: null, nextText: "e" },
   kmUnitsPart: { previousText: "e", nextText: "vírgula" },
   kmDecimal: { previousText: "vírgula", nextText: "quilômetros" },
-  paceLead: { previousText: "pace", nextText: "e" },
+  paceLead: { previousText: "ritmo", nextText: "e" },
   midConnector: { previousText: "e", nextText: "e" },
   trailNumber: { previousText: "e", nextText: null },
 };
@@ -69,7 +73,7 @@ const STANDALONE_ROLE_BY_SLOT: Record<NumberSlot, NumberRole> = {
 /** Role for the tens-half of a compound number (e.g. "vinte" in "vinte e cinco"), by slot. kmDec never compounds (always a single digit). */
 const TENS_PART_ROLE_BY_SLOT: Partial<Record<NumberSlot, NumberRole>> = {
   kmInt: "leadTensPart",
-  min: "paceLead", // sits right after "pace", right before the internal "e" — same neighbors as a lone minutes value
+  min: "paceLead", // sits right after "ritmo", right before the internal "e" — same neighbors as a lone minutes value
   sec: "midConnector",
 };
 
@@ -144,8 +148,7 @@ export function announcementSlugs(kmTenths: string, paceMinutes: number, paceSec
     ...numberToSlugs(Number(intPart), "kmInt"),
     "virgula",
     ...numberToSlugs(Number(decPart ?? "0"), "kmDec"),
-    "quilometros",
-    "pace",
+    "quilometros-ritmo",
     ...numberToSlugs(paceMinutes, "min"),
     "e--paceConnector",
     ...numberToSlugs(paceSeconds, "sec"),
@@ -215,16 +218,21 @@ function buildVoiceBank(): VoiceBankEntry[] {
   // Connectors. "e" needs two renders — the internal tens/units joiner
   // inside a single number, and the top-level minutes-to-seconds
   // connector — since those sit in genuinely different phrase positions.
-  // "vírgula"/"quilômetros"/"ritmo" only ever sit in one template position
-  // each, so one recording (with a representative neighbor, since the
-  // actual adjacent number varies by run) covers every use. The slug stays
-  // "pace" (internal id, referenced by announcementSlugs above) even though
-  // the spoken word changed to "ritmo" — "pace" isn't natural pt-BR.
+  // "vírgula" only ever sits in one template position, so one recording
+  // (with a representative neighbor, since the actual adjacent number
+  // varies by run) covers every use.
   entries.push({ slug: "e--internal", text: "e", previousText: "vinte", nextText: "cinco" });
   entries.push({ slug: "e--paceConnector", text: "e", previousText: "dez", nextText: "trinta" });
   entries.push({ slug: "virgula", text: "vírgula", previousText: "cinco", nextText: "cinco" });
-  entries.push({ slug: "quilometros", text: "quilômetros", previousText: "cinco", nextText: "ritmo" });
-  entries.push({ slug: "pace", text: "ritmo", previousText: "quilômetros", nextText: "dez" });
+  // "quilômetros" and "ritmo" are the one pair in the whole template that's
+  // ALWAYS adjacent with no variable number between them (every other
+  // fixed word has a number on at least one side) — recorded as a single
+  // continuous phrase instead of two separately-spliced clips, so this is
+  // the one seam in the announcement that's genuinely eliminated rather
+  // than just smoothed by crossfade/silence-trim. Slug keeps "ritmo" out
+  // of its name only in spirit; "pace" never appears here since this is a
+  // new clip, not the old one being renamed.
+  entries.push({ slug: "quilometros-ritmo", text: "quilômetros ritmo", previousText: "cinco", nextText: "dez" });
 
   // Carb-gel reminder — a whole standalone sentence, not a word in the
   // numeric template above, so it has no previous/next neighbor at all:

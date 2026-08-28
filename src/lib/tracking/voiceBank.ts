@@ -83,17 +83,49 @@ async function loadBuffer(slug: string, gender: VoiceGender, ctx: AudioContext):
  */
 const CROSSFADE_SECONDS = 0.015;
 
+/**
+ * generate-voice-bank.ts's `trimSilence()` deliberately leaves a small fixed
+ * pad after each word (TRAIL_KEEP, 40ms) rather than cutting to zero, so a
+ * lone clip never sounds abruptly chopped. Once several clips are spliced
+ * back to back, though, that pad is 25ms wider than the crossfade above
+ * actually needs — a real, audible sliver of the "word by word" feel this
+ * whole file exists to remove. This shaves that extra sliver off every
+ * *non-final* buffer's tail before splicing (the last clip in a phrase has
+ * nothing after it to gap against, so its own trailing pad is left alone).
+ *
+ * This has to happen here, on decoded PCM, rather than by re-trimming the
+ * source mp3 tighter: confirmed by testing that re-encoding a clip with a
+ * few ms shaved off the end left several clips' reported duration
+ * completely unchanged — mp3 only stores whole ~26ms frames, so a cut
+ * smaller than one frame is silently absorbed by frame padding at the
+ * codec level. Trimming the already-decoded Float32 samples has no such
+ * floor.
+ */
+const EXTRA_TAIL_TRIM_SECONDS = 0.015;
+
+/** How many samples of `buf` to actually use, given its position in the sequence. */
+function effectiveLength(buf: AudioBuffer, isLast: boolean, ctx: AudioContext): number {
+  if (isLast) return buf.length;
+  const trim = Math.round(EXTRA_TAIL_TRIM_SECONDS * ctx.sampleRate);
+  // Never trim more than a third off a very short clip — a floor against
+  // eating into real speech on the bank's shortest entries (~130ms), not
+  // something expected to bind on ordinary word-length clips.
+  return Math.max(buf.length - trim, Math.ceil(buf.length * (2 / 3)));
+}
+
 function concatBuffers(buffers: AudioBuffer[], ctx: AudioContext): AudioBuffer {
   const channels = Math.max(...buffers.map((b) => b.numberOfChannels));
   const crossfadeSamples = Math.round(CROSSFADE_SECONDS * ctx.sampleRate);
-  // Capped by both neighbors' own length so a crossfade never outlasts the shorter clip.
-  const overlaps = buffers.slice(0, -1).map((buf, i) => Math.min(crossfadeSamples, buf.length, buffers[i + 1].length));
+  const lengths = buffers.map((buf, i) => effectiveLength(buf, i === buffers.length - 1, ctx));
+  // Capped by both neighbors' own (possibly now-trimmed) length so a crossfade never outlasts the shorter clip.
+  const overlaps = lengths.slice(0, -1).map((len, i) => Math.min(crossfadeSamples, len, lengths[i + 1]));
 
-  const totalLength = buffers.reduce((sum, b) => sum + b.length, 0) - overlaps.reduce((sum, o) => sum + o, 0);
+  const totalLength = lengths.reduce((sum, len) => sum + len, 0) - overlaps.reduce((sum, o) => sum + o, 0);
   const out = ctx.createBuffer(channels, totalLength, ctx.sampleRate);
 
   let offset = 0;
   buffers.forEach((buf, i) => {
+    const len = lengths[i];
     const fadeIn = i === 0 ? 0 : overlaps[i - 1];
     const fadeOut = i === buffers.length - 1 ? 0 : overlaps[i];
     for (let ch = 0; ch < channels; ch++) {
@@ -101,17 +133,17 @@ function concatBuffers(buffers: AudioBuffer[], ctx: AudioContext): AudioBuffer {
       // every output channel rather than leaving the extra ones silent.
       const source = buf.getChannelData(Math.min(ch, buf.numberOfChannels - 1));
       const outData = out.getChannelData(ch);
-      for (let s = 0; s < buf.length; s++) {
+      for (let s = 0; s < len; s++) {
         let gain = 1;
         if (s < fadeIn) gain = (s + 1) / (fadeIn + 1);
-        else if (s >= buf.length - fadeOut) gain = (buf.length - s) / (fadeOut + 1);
+        else if (s >= len - fadeOut) gain = (len - s) / (fadeOut + 1);
         // `+=`, not `=`: the leading fade-in region overlaps positions the
         // previous clip's trailing fade-out already wrote — this is what
         // actually blends the two instead of one silently overwriting the other.
         outData[offset + s] += source[s] * gain;
       }
     }
-    offset += buf.length - fadeOut;
+    offset += len - fadeOut;
   });
   return out;
 }
