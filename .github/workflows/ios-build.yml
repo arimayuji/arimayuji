@@ -28,6 +28,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Same "did this push touch anything that ships to the native app" check
+  # as android-build.yml's own `changes` job — see its comment for the full
+  # reasoning (duplicated rather than shared across workflow files, same
+  # convention already used for the push-notification steps in both files).
+  # Matters far more here than on Android: three of the four jobs below run
+  # on macOS, at 10x a Linux runner's per-minute cost.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    # A push to `testflight` never reaches `checks` regardless of this job's
+    # output (see `checks`'s own `if:` below) — skip computing it there too.
+    if: github.event_name == 'push' && github.ref != 'refs/heads/testflight'
+    outputs:
+      native: ${{ steps.check.outputs.native }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: check
+        name: Decide whether this push touches anything that ships to the native app
+        run: |
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push seen on this ref — building everything to be safe."
+            echo "native=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+          echo "Changed files:"
+          echo "$CHANGED"
+          SAFE_PATTERN='^(src/app/page\.tsx|src/app/download/|worker/|wrangler\.jsonc|scripts/|README\.md|PROJECT-CONTEXT\.md|SOCIAL-CONTEXT\.md|AGENTS\.md|CLAUDE\.md)'
+          if echo "$CHANGED" | grep -vE "$SAFE_PATTERN" | grep -q .; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+            echo "Every changed file is web-only/never shipped — skipping native builds."
+          fi
+
   # Cheap Linux gate (1x runner cost) in front of the two macOS jobs below
   # (10x runner cost, private repo — every minute here that never has to
   # run on macOS is a 10x savings). Catches the same tsc/lint failures the
@@ -39,13 +77,21 @@ jobs:
   # that class of bug still needs either a real Xcode build (local, ideally
   # — free and faster than CI) or the `simulator` job below.
   checks:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # A push to `testflight` only ever exists to trigger `submit_for_review`
     # below, against a build `main` already uploaded — skipping straight
-    # past this (and `simulator`, which depends on it and skips along with
-    # it) avoids rebuilding/re-checking anything that push doesn't change.
-    if: github.ref != 'refs/heads/testflight'
+    # past this (and `simulator`/`watch-simulator`/`testflight`, which
+    # depend on it and skip along with it by GitHub Actions' own default
+    # "needed job skipped => skip me too" behavior) avoids rebuilding/
+    # re-checking anything that push doesn't change. The `changes` job
+    # above adds a second, independent reason to skip: a push to `main`
+    # that only touched web-only/never-shipped files (see its comment).
+    if: |
+      always() &&
+      github.ref != 'refs/heads/testflight' &&
+      (needs.changes.result == 'skipped' || needs.changes.outputs.native == 'true')
     steps:
       - uses: actions/checkout@v4
 

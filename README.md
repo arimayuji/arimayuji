@@ -32,13 +32,23 @@ sem conta Apple) só pra validar que o projeto compila — e, se os secrets do
 App Store Connect abaixo estiverem configurados, builda também um archive
 assinado de verdade e sobe direto pro TestFlight.
 
+**CI/CD "inteligente" por path** (job `changes` em cada workflow): um push
+em `main` que só toca arquivo que nunca chega no app nativo (landing page
+`src/app/page.tsx`, `/download`, `worker/`, docs, `scripts/`) pula os jobs
+de build/assinatura nativos por inteiro — o site (abaixo) ainda é
+redeployado normalmente. Qualquer coisa fora dessa lista curada conta como
+"pode afetar o app" e builda tudo, de propósito (lista de exclusão, não de
+inclusão — um arquivo novo desconhecido nunca é silenciosamente ignorado).
+
 **Baixar o APK**: <https://xanthus.app.br/download>
 — link fixo, sem expirar, sem precisar de login (ao contrário do artefato
 do próprio GitHub Actions, que expira em 30 dias e exige conta com acesso
-ao repo). Publicado automaticamente a cada push em `main` via o secret
-`CLOUDFLARE_API_TOKEN` (Settings → Secrets and variables → Actions do repo
-no GitHub) — sem ele, o step de publicação do `android-build.yml` só avisa
-e pula, o resto do build continua normal.
+ao repo). Publicado automaticamente a cada push em `main` pelo job
+`web-deploy` de `android-build.yml` (separado do job `release` que builda o
+APK/AAB — assim um push só-web ainda redeploya o site sem precisar de build
+nativo nenhum, reembalando o APK já publicado quando não há um novo) via o
+secret `CLOUDFLARE_API_TOKEN` (Settings → Secrets and variables → Actions
+do repo no GitHub) — sem ele, o step de deploy só avisa e pula.
 
 **Assinatura de release**: por padrão o link acima serve um APK
 *debug*-assinado (funciona pra sideload, mas não é a identidade certa pra
@@ -643,7 +653,7 @@ Mecanismo: dois **tópicos** do Appwrite Messaging, `android-updates` e
 só agrupa alvos). `registerForPushNotifications()` inscreve o Push Target
 recém-criado no tópico do seu SO chamando a ação `subscribe-update-topic`
 em `client-actions`. O CI (`.github/workflows/android-build.yml`, job
-`release`, step "Notify Android accounts...") dispara o aviso pro tópico
+`web-deploy`, step "Notify Android accounts...") dispara o aviso pro tópico
 `android-updates` assim que o link público do APK é confirmado — direto
 via `curl` na REST API do Appwrite Messaging (`POST
 /messaging/messages/push`), não pelo SDK, pra não precisar instalar

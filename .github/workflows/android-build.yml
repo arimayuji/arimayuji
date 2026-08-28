@@ -18,6 +18,54 @@ concurrency:
   cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 jobs:
+  # Decides whether this push touches anything that actually ends up in the
+  # native app bundle. The app's landing/download pages (src/app/page.tsx,
+  # src/app/download/**) are real Next.js routes in the same codebase, but
+  # a native launch skips straight past them (see standalone-gate.tsx) and
+  # never renders them — so a change confined to those, or to things that
+  # never ship at all (docs, dev scripts, the Cloudflare Worker proxy), has
+  # zero effect on what Android/iOS actually show. Skipping a full
+  # build+sign+Play-Store-publish cycle for that case is the single biggest
+  # lever against this repo's GitHub Actions minutes (an Android release
+  # alone is real Gradle+signing time; the iOS workflow's equivalent skip is
+  # worth far more, at 10x the per-minute cost of a macOS runner).
+  #
+  # Deliberately an explicit safe *exclude* list, not an include list: an
+  # unrecognized new file always falls through to "native=true" (rebuild),
+  # so a gap in this list costs wasted CI minutes, never a silently
+  # unshipped change. Only applies to ordinary pushes — pull_request and
+  # workflow_dispatch always build everything (this job's own `if:` skips
+  # it there, and debug/release below treat that skip as "run normally").
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    if: github.event_name == 'push'
+    outputs:
+      native: ${{ steps.check.outputs.native }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: check
+        name: Decide whether this push touches anything that ships to the native app
+        run: |
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push seen on this ref — building everything to be safe."
+            echo "native=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+          echo "Changed files:"
+          echo "$CHANGED"
+          SAFE_PATTERN='^(src/app/page\.tsx|src/app/download/|worker/|wrangler\.jsonc|scripts/|README\.md|PROJECT-CONTEXT\.md|SOCIAL-CONTEXT\.md|AGENTS\.md|CLAUDE\.md)'
+          if echo "$CHANGED" | grep -vE "$SAFE_PATTERN" | grep -q .; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+            echo "Every changed file is web-only/never shipped — skipping native builds."
+          fi
+
   # Split from a single sequential job into two independent ones: the debug
   # APK (needed on every push/PR for validation) and the release APK
   # (needed only for what actually ships) no longer wait on each other —
@@ -27,8 +75,12 @@ jobs:
   # the Gradle cache key's scope (see setup-gradle below), so the two never
   # fight over the same cache entry.
   debug:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: |
+      always() &&
+      (needs.changes.result == 'skipped' || needs.changes.outputs.native == 'true')
     steps:
       - uses: actions/checkout@v4
 
@@ -117,8 +169,12 @@ jobs:
           if-no-files-found: ignore
 
   release:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    if: |
+      always() &&
+      (needs.changes.result == 'skipped' || needs.changes.outputs.native == 'true')
     # Feeds android/app/build.gradle's versionCode/versionName — the run
     # number only ever increases, so it doubles as the source of truth the
     # in-app update banner compares against (see version.json below).
@@ -329,14 +385,15 @@ jobs:
       - name: Publish AAB to Google Play (Teste fechado — Alpha)
         uses: r0adkll/upload-google-play@v1
         if: steps.release_signing.outputs.signed == 'true' && steps.play_secret_check.outputs.configured == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        # Best-effort, same as the Cloudflare publish steps below: a failure
-        # here (wrong API scope, API not enabled yet, quota, whatever) must
-        # never block the steps after it in this job — GitHub Actions skips
-        # every later step in a job by default once one fails, and that
-        # would silently take down the site/APK-link deploy along with it.
-        # Confirmed this actually happened once already (2026-08-21): the
-        # very first automated Play Store push failed here and the site
-        # never got the update that same push was supposed to ship.
+        # Best-effort — a failure here (wrong API scope, API not enabled
+        # yet, quota, whatever) must never block the steps after it in this
+        # job — GitHub Actions skips every later step in a job by default
+        # once one fails, and that would silently take down the publish
+        # payload this job still owes `web-deploy`. Confirmed this actually
+        # happened once already (2026-08-21), back when the site deploy
+        # itself lived in this same job: the very first automated Play
+        # Store push failed here and the site never got the update that
+        # same push was supposed to ship.
         continue-on-error: true
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -354,46 +411,107 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Publish APK to a stable public link
-        # Only on main itself — pushes to it or manual re-runs against it —
-        # never on PRs (including from forks), which shouldn't get Cloudflare
-        # deploy credentials. Drops the freshly built APK
-        # into the already-built `out/` — no rebuild needed — so the next
-        # `wrangler deploy` serves it alongside the site at a fixed path
-        # that never expires or needs a GitHub login, unlike this run's own
-        # artifacts above (30-day retention, requires auth to fetch). Prefers
-        # the signed release build when available, falls back to the debug
-        # one otherwise so the link stays live either way.
-        id: publish
+      - name: Prepare publish payload (site deploy itself lives in web-deploy)
+        # Used to also run `wrangler deploy` right here — split out so a
+        # push that skips this whole job (see the `changes` job/README above)
+        # doesn't drag the live site down with it. This step now only
+        # produces the artifact `web-deploy` needs: the APK to publish,
+        # whichever build actually happened (signed release, or the debug
+        # fallback above when signing isn't configured), plus the
+        # version.json src/lib/updateCheck.ts's in-app update banner reads.
+        # `url` deliberately points at the /download instructions page, not
+        # the raw .apk — the update notification used to link straight to
+        # the binary, which handed Chrome's "arquivo pode ser nocivo"
+        # interstitial to the user with zero context (same reasoning that
+        # already made the landing page's own "Baixar APK" button point
+        # here instead of the raw file — see src/app/download/page.tsx).
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: |
+          mkdir -p publish
+          if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk publish/xanthus.apk
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk publish/xanthus.apk
+          fi
+          cat > publish/version.json <<EOF
+          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.app.br/download"}
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        with:
+          name: xanthus-publish-payload
+          path: publish/
+          retention-days: 1
+
+  # Deploys the actual website (xanthus.app.br) — split out from `release`
+  # so a push the `changes` job decided is web-only/never-shipped still
+  # updates the live site without paying for a full Android build+sign+Play
+  # Store cycle. When `release` DID run (this push touched something
+  # native), publishes the fresh APK it just built alongside the new site;
+  # otherwise re-embeds whatever APK is already live so the download link
+  # never goes stale/missing (Cloudflare Workers Assets replaces the whole
+  # asset set on every deploy — omitting the APK here would 404 it, not
+  # just leave it unchanged).
+  web-deploy:
+    needs: [changes, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      needs.release.result != 'failure' && needs.release.result != 'cancelled'
+    env:
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web export
+        run: npm run build
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
+          NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
+
+      - name: Use the APK this push just built
+        if: needs.release.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: xanthus-publish-payload
+          path: out/download/
+
+      - name: Reuse the already-live APK (this push didn't touch anything native)
+        if: needs.release.result != 'success'
+        run: |
+          mkdir -p out/download
+          curl -sS --fail -o out/download/xanthus.apk https://xanthus.app.br/download/xanthus.apk
+          curl -sS --fail -o out/download/version.json https://xanthus.app.br/download/version.json
+
+      - name: Deploy to Cloudflare
+        # Only on main itself — pushes to it or manual re-runs against it —
+        # never on PRs (including from forks), which shouldn't get
+        # Cloudflare deploy credentials (this job's own `if:` above already
+        # excludes PRs entirely, this guard is just the secret-not-configured
+        # case for a real push to main).
+        id: deploy
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::warning::CLOUDFLARE_API_TOKEN secret não configurado — pulando a publicação do APK. Veja o README para o passo manual."
+            echo "::warning::CLOUDFLARE_API_TOKEN secret não configurado — pulando a publicação do site. Veja o README para o passo manual."
             echo "published=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          mkdir -p out/download
-          if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
-            cp android/app/build/outputs/apk/release/app-release.apk out/download/xanthus.apk
-          else
-            cp android/app/build/outputs/apk/debug/app-debug.apk out/download/xanthus.apk
-          fi
           echo "EXPECTED_SIZE=$(stat -c%s out/download/xanthus.apk)" >> "$GITHUB_ENV"
-          # Read back alongside the APK by src/lib/updateCheck.ts — a native
-          # install compares its own build number (@capacitor/app's
-          # AppInfo.build, which is versionCode on Android) against this
-          # file's versionCode to decide whether to show the update banner.
-          # `url` deliberately points at the /download instructions page, not
-          # the raw .apk — the update notification used to link straight to
-          # the binary, which handed Chrome's "arquivo pode ser nocivo"
-          # interstitial to the user with zero context (same reasoning that
-          # already made the landing page's own "Baixar APK" button point
-          # here instead of the raw file — see src/app/download/page.tsx).
-          cat > out/download/version.json <<EOF
-          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.app.br/download"}
-          EOF
+          VERSION_NAME=$(node -e "console.log(require('./out/download/version.json').versionName)")
           # The download URL itself has to stay the fixed "xanthus.apk" path
           # above — that's what makes it a stable link the landing page and
           # the in-app update banner never need to change. But what the
@@ -408,12 +526,14 @@ jobs:
           cat >> out/_headers <<EOF
 
           /download/xanthus.apk
-            Content-Disposition: attachment; filename="Xanthus-${ANDROID_VERSION_NAME}.apk"
+            Content-Disposition: attachment; filename="Xanthus-${VERSION_NAME}.apk"
           EOF
           npx wrangler deploy
           echo "published=true" >> "$GITHUB_OUTPUT"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
-      - name: Verify the public download link actually serves the new APK
+      - name: Verify the public download link actually serves the current APK
         # Catches exactly the failure mode a manual out-of-band deploy hit
         # once already: a deploy that quietly ships without out/download/
         # (or ships an empty/truncated file) leaves the site itself fine
@@ -424,7 +544,7 @@ jobs:
         # context isn't a valid named-value inside a step `if:` expression
         # (confirmed the hard way: it fails workflow parsing entirely,
         # silently blocking every trigger, not just this one step).
-        if: steps.publish.outputs.published == 'true'
+        if: steps.deploy.outputs.published == 'true'
         run: |
           # A single check right after deploy can catch a CDN edge that
           # hadn't propagated yet — a false alarm, not a broken deploy (hit
@@ -445,16 +565,18 @@ jobs:
           exit 1
 
       - name: Notify Android accounts that a new version shipped
-        # Best-effort, same pattern as the Play Store publish step below —
-        # a missing secret or a failed push must never block the deploy
-        # that just succeeded above. Only reaches accounts that are signed
-        # in and have push registered (see src/lib/pushNotifications.ts) —
-        # this is a nice-to-have nudge to open the app and see the existing
-        # passive "nova versão" bell notification, not the update mechanism
-        # itself. `messageId` is deterministic per version code specifically
-        # so a workflow re-run for the same build can't double-notify —
-        # Appwrite rejects the second create as a conflict instead.
-        if: steps.publish.outputs.published == 'true'
+        # Only when `release` actually shipped a genuinely new build this
+        # push — a web-only redeploy that just re-embeds the already-live
+        # APK unchanged has nothing new to announce. Best-effort: a missing
+        # secret or a failed push must never block the deploy that just
+        # succeeded above. Only reaches accounts that are signed in and
+        # have push registered (see src/lib/pushNotifications.ts) — this is
+        # a nice-to-have nudge to open the app and see the existing passive
+        # "nova versão" bell notification, not the update mechanism itself.
+        # `messageId` is deterministic per version code specifically so a
+        # workflow re-run for the same build can't double-notify — Appwrite
+        # rejects the second create as a conflict instead.
+        if: needs.release.result == 'success' && steps.deploy.outputs.published == 'true'
         continue-on-error: true
         env:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
