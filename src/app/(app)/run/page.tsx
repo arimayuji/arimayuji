@@ -523,6 +523,24 @@ function RepeatIcon({ className }: { className?: string }) {
   );
 }
 
+/** Pencil glyph standing in for the word "Custom" on the trailing chip of `PresetChipRow` — "Personalizado" already reads fine written out, but a preset row of short numeric chips (5 km, 10 km, 21 km...) doesn't have room for a whole word on that last one, and "Custom" in English says nothing in Portuguese. */
+function EditIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M13.5 3.5l3 3L6 17l-3.8.8L3 14l10.5-10.5Z" />
+    </svg>
+  );
+}
+
 /** Small calendar-check glyph — the "treino de hoje" chip pulling a session straight from /plano's engine, distinct from the plain repeat arrow above. */
 function PlanIcon({ className }: { className?: string }) {
   return (
@@ -549,11 +567,12 @@ function formatGoalEta(totalSeconds: number | null): string {
 }
 
 /**
- * A row of preset chips plus a trailing "Custom" chip that opens a
- * bottom-sheet stepper — the picker pattern Xanthus Preparar Corrida.dc.html
- * uses for every value on this screen (distância, tempo, ritmo, aviso por
- * voz). "Custom" itself displays the live custom value once one is set,
- * instead of just the word "Custom" — same as the mock.
+ * A row of preset chips plus a trailing chip that opens a bottom-sheet
+ * stepper — the picker pattern Xanthus Preparar Corrida.dc.html uses for
+ * every value on this screen (distância, tempo, ritmo, aviso por voz). That
+ * trailing chip displays the live custom value once one is set; unset, it
+ * shows a pencil icon rather than the word "Custom" (English, means nothing
+ * in Portuguese) or "Personalizado" (too long to fit next to "5 km"/"10 km").
  */
 function PresetChipRow({
   presets,
@@ -566,7 +585,7 @@ function PresetChipRow({
   value: number;
   onSelect: (value: number) => void;
   onOpenCustom: () => void;
-  /** Non-null once the active value doesn't match any preset — shown on the "Custom" chip in place of the word itself. */
+  /** Non-null once the active value doesn't match any preset — shown on the trailing chip in place of the pencil icon. */
   customLabel: string | null;
 }) {
   return (
@@ -590,13 +609,14 @@ function PresetChipRow({
         type="button"
         onClick={onOpenCustom}
         aria-pressed={customLabel !== null}
-        className={`min-h-11 rounded-xl border-2 px-2 py-2.5 text-sm font-semibold transition-colors ${
+        aria-label={customLabel ?? "Valor personalizado"}
+        className={`flex min-h-11 items-center justify-center rounded-xl border-2 px-2 py-2.5 text-sm font-semibold transition-colors ${
           customLabel !== null
             ? "border-white/80 bg-accent text-accent-foreground"
             : "border-dashed border-border bg-background text-muted hover:border-accent"
         }`}
       >
-        {customLabel ?? "Custom"}
+        {customLabel ?? <EditIcon className="h-4.5 w-4.5" />}
       </button>
     </div>
   );
