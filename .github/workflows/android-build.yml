@@ -66,18 +66,19 @@ jobs:
             echo "Every changed file is web-only/never shipped — skipping native builds."
           fi
 
-  # Split from a single sequential job into two independent ones: the debug
-  # APK (needed on every push/PR for validation) and the release APK
-  # (needed only for what actually ships) no longer wait on each other —
-  # each redoes its own cheap setup (npm ci, web build, fail-fast checks)
-  # in exchange for running its expensive Gradle work in parallel with the
-  # other job instead of after it. Job names ("debug"/"release") double as
-  # the Gradle cache key's scope (see setup-gradle below), so the two never
-  # fight over the same cache entry.
-  debug:
+  # Builds the Next.js static export exactly once and shares it with every
+  # job below that needs it (debug/release for `npx cap sync android`,
+  # web-deploy for the site itself when this push also touched native code)
+  # — same pattern ios-build.yml's own `checks` job already uses for its
+  # macOS jobs, now applied here to cut out what used to be three
+  # independent copies of the same `npm run build` (+ its own tsc/lint)
+  # running back to back across debug/release/web-deploy. Same gating as
+  # debug/release below — identical condition, so the two always run or
+  # skip together.
+  build-web:
     needs: changes
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     if: |
       always() &&
       (needs.changes.result == 'skipped' || needs.changes.outputs.native == 'true')
@@ -88,17 +89,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      # Caches ~/.gradle (dependencies + wrapper + build cache) keyed off the
-      # wrapper/lockfiles, shared across runs — without this every run
-      # re-downloads the whole Android/Gradle dependency graph from scratch,
-      # which was most of this workflow's wall-clock time.
-      - uses: gradle/actions/setup-gradle@v4
 
       - name: Install dependencies
         run: npm ci
@@ -128,15 +118,60 @@ jobs:
           NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
 
       # Fails in seconds instead of after minutes of Gradle work — a typo
-      # shouldn't cost a full native build to surface. `next build` above
-      # already type-checks internally, but this also runs lint and keeps
-      # the two checks in one obvious place. Duplicated in the `release`
-      # job too (cheap, ~15s) rather than shared, so a real type error
-      # fails both jobs independently instead of one job blocking the other.
+      # shouldn't cost a full native build to surface. Runs once here for
+      # both debug and release now, instead of twice (one copy per job).
       - name: Type-check and lint
         run: |
           npx tsc --noEmit
           npm run lint
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-web-export
+          path: out/
+          retention-days: 1
+
+  # Split from a single sequential job into two independent ones: the debug
+  # APK (needed on every push/PR for validation) and the release APK
+  # (needed only for what actually ships) no longer wait on each other —
+  # each redoes its own cheap setup (npm ci, cap sync) in exchange for
+  # running its expensive Gradle work in parallel with the other job
+  # instead of after it. Job names ("debug"/"release") double as the
+  # Gradle cache key's scope (see setup-gradle below), so the two never
+  # fight over the same cache entry.
+  debug:
+    needs: [changes, build-web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: |
+      always() &&
+      (needs.changes.result == 'skipped' || needs.changes.outputs.native == 'true')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Caches ~/.gradle (dependencies + wrapper + build cache) keyed off the
+      # wrapper/lockfiles, shared across runs — without this every run
+      # re-downloads the whole Android/Gradle dependency graph from scratch,
+      # which was most of this workflow's wall-clock time.
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-web-export
+          path: out/
 
       - name: Sync Capacitor Android project
         run: npx cap sync android
@@ -169,9 +204,9 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    needs: changes
+    needs: [changes, build-web]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     if: |
       always() &&
       (needs.changes.result == 'skipped' || needs.changes.outputs.native == 'true')
@@ -181,6 +216,11 @@ jobs:
     env:
       ANDROID_VERSION_CODE: ${{ github.run_number }}
       ANDROID_VERSION_NAME: "1.0.${{ github.run_number }}"
+    # Exposes whether this run actually produced a signed build — the only
+    # thing `release-publish`/`web-deploy` (separate jobs, no access to this
+    # job's own step outputs) need to know from here.
+    outputs:
+      signed: ${{ steps.release_signing.outputs.signed }}
     steps:
       - uses: actions/checkout@v4
 
@@ -199,18 +239,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build web export
-        run: npm run build
-        env:
-          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
-          NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_WEB_ENDPOINT }}
-          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
-          NEXT_PUBLIC_MAPTILER_KEY: ${{ secrets.NEXT_PUBLIC_MAPTILER_KEY }}
-
-      - name: Type-check and lint
-        run: |
-          npx tsc --noEmit
-          npm run lint
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-web-export
+          path: out/
 
       - name: Sync Capacitor Android project
         run: npx cap sync android
@@ -288,20 +320,137 @@ jobs:
             "$ANDROID_RELEASE_KEY_ALIAS"
           jarsigner -verify android/app/build/outputs/bundle/release/app-release.aab
 
+      # Google Play requires the very first release to be uploaded by hand
+      # through the Play Console (the API only publishes new versions of an
+      # app that already exists there) — this artifact is that first .aab,
+      # downloadable from the Actions run. It's also how `release-publish`
+      # (a separate job — see its own comment for why) gets the signed .aab
+      # it uploads to Play once GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is
+      # configured and that manual upload has happened once.
+      - uses: actions/upload-artifact@v4
+        if: steps.release_signing.outputs.signed == 'true'
+        with:
+          name: xanthus-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      # No debug APK to fall back to in this job anymore (that's the other
+      # job now) — if signing isn't configured, this step builds an
+      # unsigned-but-otherwise-identical debug APK just so the public link
+      # always has something recent to serve.
+      - name: Build fallback debug APK
+        if: steps.release_signing.outputs.signed != 'true'
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Prepare publish payload (site deploy itself lives in web-deploy)
+        # Used to also run `wrangler deploy` right here — split out so a
+        # push that skips this whole job (see the `changes` job/README above)
+        # doesn't drag the live site down with it. This step now only
+        # produces the artifact `web-deploy` needs: the APK to publish,
+        # whichever build actually happened (signed release, or the debug
+        # fallback above when signing isn't configured), plus the
+        # version.json src/lib/updateCheck.ts's in-app update banner reads.
+        # `url` deliberately points at the /download instructions page, not
+        # the raw .apk — the update notification used to link straight to
+        # the binary, which handed Chrome's "arquivo pode ser nocivo"
+        # interstitial to the user with zero context (same reasoning that
+        # already made the landing page's own "Baixar APK" button point
+        # here instead of the raw file — see src/app/download/page.tsx).
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: |
+          mkdir -p publish
+          if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk publish/xanthus.apk
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk publish/xanthus.apk
+          fi
+          cat > publish/version.json <<EOF
+          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.app.br/download"}
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        with:
+          name: xanthus-publish-payload
+          path: publish/
+          retention-days: 1
+
+  # Split out of `release` so the two slowest, most website-irrelevant
+  # things it used to do — the Wear OS bundle and the actual Google Play
+  # upload — no longer sit on `web-deploy`'s critical path. Before this
+  # split, `web-deploy` (needs: release) couldn't start until ALL of
+  # `release` finished, Play Store upload included; now it only waits on
+  # the phone APK/AAB being built+signed, and this job's own slower work
+  # runs in parallel with the site deploy instead of in front of it.
+  #
+  # Depends on `release` itself (needs its signed .aab, uploaded as the
+  # `xanthus-release-aab` artifact — build outputs don't otherwise survive
+  # across jobs/runners) so it's not truly concurrent with `release`, just
+  # with `web-deploy`, which is the half of the old single job that
+  # actually benefits from not waiting.
+  release-publish:
+    needs: [changes, build-web, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: |
+      always() &&
+      needs.release.result == 'success' &&
+      needs.release.outputs.signed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-web-export
+          path: out/
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      # Same keystore `release` already used to sign the phone APK/AAB —
+      # redecoded here because nothing set via $GITHUB_ENV in that job
+      # carries over to this one (every job is its own fresh runner). Only
+      # needed to sign the Wear OS AAB below; the phone .aab downloaded
+      # further down is already signed.
+      - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > /tmp/xanthus-release.keystore
+          {
+            echo "ANDROID_RELEASE_KEYSTORE_PATH=/tmp/xanthus-release.keystore"
+            echo "ANDROID_RELEASE_KEY_ALIAS=xanthus"
+            echo "ANDROID_RELEASE_KEY_PASSWORD=$ANDROID_RELEASE_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
       # Wear OS companion app's own release bundle — best-effort
       # (continue-on-error), NOT wired into the Google Play publish step
       # below: that needs a first manual upload to a "Wear" release track
       # under the already-approved listing first (same one-time trap the
-      # phone's "alpha" track had), which hasn't happened yet. Skipped
-      # entirely alongside the phone bundle when signing isn't configured.
+      # phone's "alpha" track had), which hasn't happened yet.
       - name: Build Wear OS signed release AAB
-        if: steps.release_signing.outputs.signed == 'true'
         working-directory: android
         continue-on-error: true
         run: ./gradlew :wear:bundleRelease --no-daemon
 
       - name: Jar-sign the Wear OS AAB (same bundleRelease quirk as the phone AAB)
-        if: steps.release_signing.outputs.signed == 'true'
         continue-on-error: true
         run: |
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
@@ -312,25 +461,17 @@ jobs:
           jarsigner -verify android/wear/build/outputs/bundle/release/wear-release.aab
 
       - uses: actions/upload-artifact@v4
-        if: steps.release_signing.outputs.signed == 'true'
         with:
           name: xanthus-wear-release-aab
           path: android/wear/build/outputs/bundle/release/wear-release.aab
           retention-days: 30
           if-no-files-found: ignore
 
-      # Google Play requires the very first release to be uploaded by hand
-      # through the Play Console (the API only publishes new versions of an
-      # app that already exists there) — this artifact is that first .aab,
-      # downloadable from the Actions run. Once GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
-      # is configured and that manual upload has happened once, every
-      # future .aab ships automatically via the step below instead.
-      - uses: actions/upload-artifact@v4
-        if: steps.release_signing.outputs.signed == 'true'
+      - name: Download the signed phone AAB from `release`
+        uses: actions/download-artifact@v4
         with:
           name: xanthus-release-aab
-          path: android/app/build/outputs/bundle/release/app-release.aab
-          retention-days: 30
+          path: android/app/build/outputs/bundle/release/
 
       - name: Check Google Play service account secret
         # Same secrets-can't-appear-in-`if`-expressions workaround used
@@ -384,16 +525,15 @@ jobs:
       # desse primeiro upload manual (já feito pra "alpha" em 2026-08-25).
       - name: Publish AAB to Google Play (Teste fechado — Alpha)
         uses: r0adkll/upload-google-play@v1
-        if: steps.release_signing.outputs.signed == 'true' && steps.play_secret_check.outputs.configured == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        if: steps.play_secret_check.outputs.configured == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         # Best-effort — a failure here (wrong API scope, API not enabled
-        # yet, quota, whatever) must never block the steps after it in this
-        # job — GitHub Actions skips every later step in a job by default
-        # once one fails, and that would silently take down the publish
-        # payload this job still owes `web-deploy`. Confirmed this actually
-        # happened once already (2026-08-21), back when the site deploy
-        # itself lived in this same job: the very first automated Play
-        # Store push failed here and the site never got the update that
-        # same push was supposed to ship.
+        # yet, quota, whatever) must never block the job, and no longer can
+        # take the site deploy down with it now that `web-deploy` doesn't
+        # depend on this job at all. Confirmed this actually happened once
+        # already (2026-08-21), back when the site deploy itself lived in
+        # the same job as this step: the very first automated Play Store
+        # push failed here and the site never got the update that same
+        # push was supposed to ship.
         continue-on-error: true
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -402,59 +542,18 @@ jobs:
           track: alpha
           status: completed
 
-      # No debug APK to fall back to in this job anymore (that's the other
-      # job now) — if signing isn't configured, this step builds an
-      # unsigned-but-otherwise-identical debug APK just so the public link
-      # always has something recent to serve.
-      - name: Build fallback debug APK
-        if: steps.release_signing.outputs.signed != 'true'
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
-
-      - name: Prepare publish payload (site deploy itself lives in web-deploy)
-        # Used to also run `wrangler deploy` right here — split out so a
-        # push that skips this whole job (see the `changes` job/README above)
-        # doesn't drag the live site down with it. This step now only
-        # produces the artifact `web-deploy` needs: the APK to publish,
-        # whichever build actually happened (signed release, or the debug
-        # fallback above when signing isn't configured), plus the
-        # version.json src/lib/updateCheck.ts's in-app update banner reads.
-        # `url` deliberately points at the /download instructions page, not
-        # the raw .apk — the update notification used to link straight to
-        # the binary, which handed Chrome's "arquivo pode ser nocivo"
-        # interstitial to the user with zero context (same reasoning that
-        # already made the landing page's own "Baixar APK" button point
-        # here instead of the raw file — see src/app/download/page.tsx).
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        run: |
-          mkdir -p publish
-          if [ "${{ steps.release_signing.outputs.signed }}" = "true" ]; then
-            cp android/app/build/outputs/apk/release/app-release.apk publish/xanthus.apk
-          else
-            cp android/app/build/outputs/apk/debug/app-debug.apk publish/xanthus.apk
-          fi
-          cat > publish/version.json <<EOF
-          {"versionCode": ${ANDROID_VERSION_CODE}, "versionName": "${ANDROID_VERSION_NAME}", "url": "https://xanthus.app.br/download"}
-          EOF
-
-      - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        with:
-          name: xanthus-publish-payload
-          path: publish/
-          retention-days: 1
-
   # Deploys the actual website (xanthus.app.br) — split out from `release`
   # so a push the `changes` job decided is web-only/never-shipped still
-  # updates the live site without paying for a full Android build+sign+Play
-  # Store cycle. When `release` DID run (this push touched something
-  # native), publishes the fresh APK it just built alongside the new site;
-  # otherwise re-embeds whatever APK is already live so the download link
-  # never goes stale/missing (Cloudflare Workers Assets replaces the whole
-  # asset set on every deploy — omitting the APK here would 404 it, not
-  # just leave it unchanged).
+  # updates the live site without paying for a full Android build+sign
+  # cycle, and (via `release-publish` above) no longer waits on Play Store
+  # upload or the Wear OS bundle even when this push DID touch native code.
+  # When `release` DID run, publishes the fresh APK it just built alongside
+  # the new site; otherwise re-embeds whatever APK is already live so the
+  # download link never goes stale/missing (Cloudflare Workers Assets
+  # replaces the whole asset set on every deploy — omitting the APK here
+  # would 404 it, not just leave it unchanged).
   web-deploy:
-    needs: [changes, release]
+    needs: [changes, build-web, release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: |
@@ -475,7 +574,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build web export
+      - name: Use the shared web export (this push already built one for the native jobs)
+        if: needs.release.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: android-web-export
+          path: out/
+
+      - name: Build web export (no native job ran this push to share one with)
+        if: needs.release.result != 'success'
         run: npm run build
         env:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
