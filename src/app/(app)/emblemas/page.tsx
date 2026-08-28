@@ -136,10 +136,7 @@ export default function EmblemasPage() {
 
   return (
     <>
-      <ScreenHeader
-        title="Emblemas"
-        subtitle="Três coleções, um marco por vez: quilometragem, elevação e tempo — tudo somado do que já foi salvo aqui dentro."
-      />
+      <ScreenHeader title="Emblemas" />
 
       <Screen>
         <Card className="pr-enter" style={delay(0)}>

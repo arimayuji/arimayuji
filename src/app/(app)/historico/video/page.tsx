@@ -139,10 +139,7 @@ function VideoHudContent() {
 
   return (
     <>
-      <ScreenHeader
-        title="Vídeo sincronizado"
-        subtitle="Cola o ritmo, distância e tempo da corrida em cima de um vídeo gravado à parte — óculos, câmera no peito, o que você usou."
-      />
+      <ScreenHeader title="Vídeo sincronizado" />
       <Screen>
         {!timeline ? (
           <Card className="pr-enter" style={delay(30)}>

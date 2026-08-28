@@ -147,7 +147,6 @@ export default function TreinadorPage() {
         wide
         title="Treinador"
         badge={<NoticeBadge>precisa de conta</NoticeBadge>}
-        subtitle="Convide pelo @ quem treina você, ou quem você treina. Depois de aceito, cada corrida só é vista se você escolher enviá-la."
       />
 
       <Screen wide>
@@ -161,8 +160,7 @@ export default function TreinadorPage() {
           <Card className="pr-enter" style={delay(40)}>
             <CardTitle>Entra pra conectar com seu treinador</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
-              Essa relação é entre duas contas — é a única parte disso que precisa de login. Gravar
-              corrida, histórico e conquistas continuam locais e sem conta, do mesmo jeito.
+              Essa relação é entre duas contas — é a única parte disso que precisa de login.
             </p>
             <button
               type="button"

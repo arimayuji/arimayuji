@@ -110,7 +110,6 @@ export default function SalaDeTreinoPage() {
         wide
         title="Sala de Treino"
         badge={<NoticeBadge>dados reais</NoticeBadge>}
-        subtitle="Visão geral de quem você treina — clique num aluno pra ver a planilha da semana e a corrida ao vivo, se houver."
       />
 
       <Screen wide>

@@ -688,7 +688,7 @@ export function RunDetail({ id }: { id: string }) {
     <>
       <ScreenHeader
         title={formatRunDate(started)}
-        subtitle={`${timeFormatter.format(started)} · gravado neste aparelho`}
+        subtitle={timeFormatter.format(started)}
         badge={
           <div className="flex items-center gap-2">
             <Link

@@ -153,11 +153,6 @@ function EmptyState() {
       >
         Gravar primeira corrida
       </Link>
-
-      <p className="mx-auto mt-5 max-w-xs text-xs leading-relaxed text-muted">
-        As corridas ficam salvas só neste aparelho, offline. Nada é enviado pra nenhum
-        servidor.
-      </p>
     </Card>
   );
 }
@@ -890,10 +885,7 @@ export default function HistoricoPage() {
 
   return (
     <>
-      <ScreenHeader
-        title="Histórico"
-        subtitle="Suas corridas gravadas, direto do armazenamento local deste aparelho."
-      />
+      <ScreenHeader title="Histórico" />
 
       <Screen>
         {load.status === "loading" && (

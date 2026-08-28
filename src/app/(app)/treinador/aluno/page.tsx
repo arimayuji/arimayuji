@@ -145,7 +145,7 @@ function AlunoContent() {
       <ScreenHeader
         wide
         title={profile?.displayName ?? "Corredor(a)"}
-        subtitle={profile ? `@${profile.handle} · corridas que decidiu compartilhar com você` : undefined}
+        subtitle={profile ? `@${profile.handle}` : undefined}
       />
 
       <Screen wide>

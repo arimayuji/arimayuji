@@ -212,7 +212,7 @@ export function GoalWizard({
 
 const STEP_LABELS = ["Sua prova", "Frequência", "Tempo recente"] as const;
 
-/** Stripe-checkout-style progress: numbered circles joined by a hairline, not the full-screen dot indicator `run-onboarding.tsx` uses for its mobile takeover — this sits inside a dense desktop panel instead. */
+/** Stripe-checkout-style progress: numbered circles joined by a hairline, not a full-screen dot indicator — this sits inside a dense desktop panel instead. */
 function StepProgress({ current }: { current: 0 | 1 | 2 }) {
   return (
     <div className="flex items-center gap-2">

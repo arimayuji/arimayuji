@@ -1202,11 +1202,7 @@ export default function PerfilPage() {
 
   return (
     <>
-      <ScreenHeader
-        compactOnWide
-        title="Perfil"
-        subtitle="Preferências que já valem de verdade, e o que ainda é maquete."
-      />
+      <ScreenHeader compactOnWide title="Perfil" />
 
       <Screen panel>
         {/* `lg:pt-8`: makes up for `compactOnWide` collapsing ScreenHeader's
@@ -1321,9 +1317,7 @@ export default function PerfilPage() {
         <div className="lg:hidden">
           <SectionLabel delayMs={110}>Treino</SectionLabel>
           <Card className="pr-enter" style={delay(120)}>
-            <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>
-              Preferências de corrida
-            </CardTitle>
+            <CardTitle>Preferências de corrida</CardTitle>
 
             <fieldset>
               <legend className="text-sm font-medium">Aviso por voz a cada</legend>
@@ -1490,16 +1484,6 @@ export default function PerfilPage() {
           </Card>
         </div>
 
-        <div className="lg:hidden">
-          <Card className="pr-enter" style={delay(310)}>
-            <CardTitle>Seus dados</CardTitle>
-            <p className="text-sm leading-relaxed text-muted text-pretty">
-              Corridas e preferências ficam no armazenamento deste aparelho, offline. Não há
-              conta, login nem envio pra servidor — e por isso também não há sincronização entre
-              aparelhos ainda.
-            </p>
-          </Card>
-        </div>
       </Screen>
     </>
   );

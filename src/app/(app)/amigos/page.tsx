@@ -207,7 +207,6 @@ export default function AmigosPage() {
       <ScreenHeader
         title="Amigos"
         badge={<NoticeBadge>precisa de conta</NoticeBadge>}
-        subtitle="Adicione pelo @ de quem você corre junto. É a base pra, mais pra frente, ver as corridas que cada um decidir compartilhar."
       />
 
       <Screen>
@@ -221,8 +220,7 @@ export default function AmigosPage() {
           <Card className="pr-enter" style={delay(40)}>
             <CardTitle>Entra pra adicionar amigos</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
-              Amizade é entre duas contas — é a única parte disso que precisa de login. Gravar corrida,
-              histórico e conquistas continuam locais e sem conta, do mesmo jeito.
+              Amizade é entre duas contas — é a única parte disso que precisa de login.
             </p>
             <button
               type="button"

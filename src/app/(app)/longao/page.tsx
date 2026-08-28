@@ -247,7 +247,6 @@ function LongaoContent() {
       <ScreenHeader
         title="Longão"
         badge={<NoticeBadge>precisa de conta</NoticeBadge>}
-        subtitle="Crie ou entre em uma corrida em grupo — quem entrar precisa já ser seu amigo aqui no app."
       />
 
       <Screen>
@@ -261,8 +260,7 @@ function LongaoContent() {
           <Card className="pr-enter" style={delay(40)}>
             <CardTitle>Entra pra criar ou entrar num longão</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
-              O longão precisa de conta pra saber quem é amigo de quem. Gravar corrida, histórico e
-              conquistas continuam locais e sem conta, do mesmo jeito.
+              O longão precisa de conta pra saber quem é amigo de quem.
             </p>
             <button
               type="button"

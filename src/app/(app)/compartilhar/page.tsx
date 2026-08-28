@@ -787,11 +787,6 @@ function CompartilharContent() {
       <ScreenHeader
         title="Card pra compartilhar"
         badge={scene ? <NoticeBadge>corrida de verdade</NoticeBadge> : <ExampleBadge>prévia estática</ExampleBadge>}
-        subtitle={
-          scene
-            ? "Arrasta pra escolher o template — a imagem sai pronta, na hora."
-            : "Como a corrida vira card. Grave uma corrida pra ver a sua aqui."
-        }
       />
 
       <Screen>

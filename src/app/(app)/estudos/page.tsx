@@ -31,7 +31,6 @@ export default function EstudosPage() {
       <ScreenHeader
         title="Estudos"
         badge={<NoticeBadge>fontes reais</NoticeBadge>}
-        subtitle="Toda citação usada em algum lugar do app, numa lista só — cada uma foi buscada e lida, não lembrada de memória. Sem link é porque a fonte é um livro/currículo protegido; citamos o achado, não copiamos o texto."
       />
 
       <Screen>

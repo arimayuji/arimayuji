@@ -93,7 +93,6 @@ import { EmblemBadge } from "../emblem-badge";
 import { EmblemProgressBar } from "../emblem-progress-bar";
 import { EmblemReveal } from "../emblem-reveal";
 import { PrBadge } from "../pr-badge";
-import { hasSeenRunTips, markRunTipsSeen, RunOnboarding } from "../run-onboarding";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
@@ -1567,9 +1566,6 @@ export default function RunPage() {
   );
   /* eslint-enable react-hooks/preserve-manual-memoization */
 
-  const [showRunTips, setShowRunTips] = useState(false);
-  /** True when the checklist was opened from the idle screen's "Rever dicas" link rather than as the gate before starting — completing it should just close it, not also start a run. */
-  const [reviewingTips, setReviewingTips] = useState(false);
   /** Drives the arrow-travels-across-the-button animation on tap. */
   const [starting, setStarting] = useState(false);
   const START_ANIMATION_MS = 420;
@@ -1642,38 +1638,9 @@ export default function RunPage() {
     );
   };
 
-  /** First tap ever shows the run-tips checklist instead of starting immediately; every tap after that starts right away. Either way, the tap itself always gets the arrow-travel feedback before anything else happens. */
   const handleStartClick = () => {
     setStarting(true);
-    window.setTimeout(() => {
-      if (hasSeenRunTips()) {
-        handleStart();
-        return;
-      }
-      setShowRunTips(true);
-      setStarting(false);
-    }, START_ANIMATION_MS);
-  };
-
-  const handleRunTipsDone = () => {
-    markRunTipsSeen();
-    setShowRunTips(false);
-    if (reviewingTips) {
-      setReviewingTips(false);
-      return;
-    }
-    handleStart();
-  };
-
-  const handleRunTipsSkip = () => {
-    markRunTipsSeen();
-    setShowRunTips(false);
-    setReviewingTips(false);
-  };
-
-  const handleReviewTips = () => {
-    setReviewingTips(true);
-    setShowRunTips(true);
+    window.setTimeout(handleStart, START_ANIMATION_MS);
   };
 
   const handleReset = () => {
@@ -1913,18 +1880,6 @@ export default function RunPage() {
               <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">
                 Preparar corrida
               </h1>
-              <p className="mt-1 text-sm text-muted">
-                A tela precisa ficar ligada durante o treino para o GPS se manter preciso. Se possível,
-                deixe o tempo até bloquear a tela no máximo antes de sair —{" "}
-                <button
-                  type="button"
-                  onClick={handleReviewTips}
-                  className="text-accent underline underline-offset-2"
-                >
-                  rever as dicas
-                </button>
-                .
-              </p>
               {todaysPlannedSession && (
                 <button
                   type="button"
@@ -3005,8 +2960,6 @@ export default function RunPage() {
           </div>
         </main>
       )}
-
-      {showRunTips && <RunOnboarding onDone={handleRunTipsDone} onSkip={handleRunTipsSkip} />}
 
       {groupSheetOpen && (
         <ModalPortal>

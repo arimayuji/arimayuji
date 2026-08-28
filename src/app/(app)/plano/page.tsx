@@ -665,11 +665,7 @@ function GoalCard({
 
   return (
     <Card className={`pr-enter ${className ?? ""}`} style={delay(80)}>
-      <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>Meta de prova</CardTitle>
-      <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-        Distância e data viram a rampa de volume e o taper; o tempo recente (opcional) vira suas
-        zonas de pace.
-      </p>
+      <CardTitle>Meta de prova</CardTitle>
 
       <fieldset>
         <legend className="mb-2.5 block text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
@@ -926,7 +922,6 @@ export default function PlanoPage() {
             compactOnWide
             title="Plano"
             badge={<NoticeBadge>seu plano</NoticeBadge>}
-            subtitle="Montando sua semana a partir do seu histórico real."
           />
           <Screen panel>
             <PlanBuildSequence
@@ -968,7 +963,7 @@ export default function PlanoPage() {
           compactOnWide
           title="Plano"
           badge={<NoticeBadge>seu plano</NoticeBadge>}
-          subtitle={`Semana ${currentWeek.weekNumber} de ${plan.weeks.length} — fase de ${PHASE_LABEL[currentWeek.phase]}. Calculado do seu histórico real, avança sozinho junto com o calendário.`}
+          subtitle={`Semana ${currentWeek.weekNumber} de ${plan.weeks.length} — fase de ${PHASE_LABEL[currentWeek.phase]}`}
         />
         <Screen wide>
           {plan.warning && (
@@ -1218,11 +1213,6 @@ export default function PlanoPage() {
         compactOnWide
         title="Plano"
         badge={showExample ? <ExampleBadge /> : undefined}
-        subtitle={
-          showExample
-            ? "Prévia de como o plano semanal vai ser apresentado. Ainda não é o seu plano."
-            : "Defina sua meta e registre corridas pra gerar seu plano de verdade."
-        }
       />
 
       <Screen panel>

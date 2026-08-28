@@ -57,7 +57,6 @@ export default function LugaresPage() {
       <ScreenHeader
         title="Lugares pra correr"
         badge={<NoticeBadge>curadoria + comunidade</NoticeBadge>}
-        subtitle="Uma lista inicial pesquisada a dedo, nota real por 5 critérios — segurança, percurso, estrutura, iluminação e fluxo. Quem corre lá também avalia; dá pra ver de onde cada nota vem."
       />
 
       <Screen>

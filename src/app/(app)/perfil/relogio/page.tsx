@@ -105,10 +105,7 @@ export default function DadosRelogioPage() {
 
   return (
     <>
-      <ScreenHeader
-        title="Dados do relógio"
-        subtitle="FC, calorias, passos, sono e mais, medidos de verdade pelo seu smartwatch."
-      />
+      <ScreenHeader title="Dados do relógio" />
 
       <Screen>
         <Card className="pr-enter" style={delay(20)}>

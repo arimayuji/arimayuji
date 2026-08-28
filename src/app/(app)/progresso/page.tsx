@@ -21,7 +21,7 @@ import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import type { WeeklyTargetKind } from "@/lib/runnerProfile";
-import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader, Stat } from "../ui";
+import { Card, CardTitle, delay, PillTabs, Screen, ScreenHeader, Stat } from "../ui";
 import { PillSlider } from "../pill-slider";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 import { MatchedRunsCard } from "../matched-runs-card";
@@ -135,7 +135,7 @@ function ChevronIcon({ className }: { className?: string }) {
 function EmblemsCard() {
   return (
     <Card className="pr-enter" style={delay(45)}>
-      <CardTitle aside={<NoticeBadge>salvo neste aparelho</NoticeBadge>}>Emblemas</CardTitle>
+      <CardTitle>Emblemas</CardTitle>
       <Link href="/emblemas" className="flex items-center gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
           <EmblemsIcon className="h-5 w-5" />
@@ -626,10 +626,7 @@ export default function EstatisticasPage() {
 
   return (
     <>
-      <ScreenHeader
-        title="Progresso"
-        subtitle="Rodagem, ritmo, constância e conquistas — tudo calculado sobre as corridas salvas neste aparelho."
-      />
+      <ScreenHeader title="Progresso" />
 
       <Screen>
         {load.status === "loading" && (
