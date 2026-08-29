@@ -550,6 +550,30 @@ async function main() {
   await ensure("profile_stats.totalRuns", () =>
     tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "totalRuns", required: true, min: 0 }),
   );
+  // Friend-comparison card (`/perfil/ver`) — all optional, same reasoning
+  // as live_runs.heartRateBpm: absent for any row synced before this field
+  // existed, or when the account has no run for that particular PR.
+  await ensure("profile_stats.weekMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "weekMeters", required: false, min: 0 }),
+  );
+  await ensure("profile_stats.streakWeeks", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "streakWeeks", required: false, min: 0 }),
+  );
+  await ensure("profile_stats.lastRunAt", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "lastRunAt", required: false, min: 0 }),
+  );
+  await ensure("profile_stats.pr5kSeconds", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "pr5kSeconds", required: false, min: 0 }),
+  );
+  await ensure("profile_stats.pr10kSeconds", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "pr10kSeconds", required: false, min: 0 }),
+  );
+  await ensure("profile_stats.prHalfSeconds", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "prHalfSeconds", required: false, min: 0 }),
+  );
+  await ensure("profile_stats.prFullSeconds", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "prFullSeconds", required: false, min: 0 }),
+  );
 
   // ------------------------------------------------------------------ runs
   console.log("\nruns");

@@ -9,7 +9,7 @@ import {
   type CompletedRun,
   type StoredPoint,
 } from "@/lib/tracking/storage";
-import { removeFinishedRun } from "@/lib/profileStats";
+import { syncProfileStats } from "@/lib/profileStats";
 import { resolvePlaceLabel } from "@/lib/placeMatch";
 import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
@@ -834,7 +834,7 @@ export default function HistoricoPage() {
     setDeletingId(id);
     const deletedRun = load.status === "ready" ? load.runs.find((run) => run.id === id) : undefined;
     await deleteCompletedRun(id);
-    if (account && deletedRun) void removeFinishedRun(deletedRun.distanceMeters);
+    if (account && deletedRun) void syncProfileStats();
     setLoad((current) =>
       current.status === "ready"
         ? { status: "ready", runs: current.runs.filter((run) => run.id !== id) }

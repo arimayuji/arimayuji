@@ -7,7 +7,7 @@ import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { computeElevationProfile, elevationGainFromProfile, type ElevationSample } from "@/lib/elevation";
 import { fetchRecoveryContext, fetchRunHealthData, HEALTH_DATA_ENABLED, type RecoveryContext, type RunHealthData } from "@/lib/health";
-import { removeFinishedRun } from "@/lib/profileStats";
+import { syncProfileStats } from "@/lib/profileStats";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { getSyncedRun, shareRunWithCoaches } from "@/lib/runsSync";
@@ -684,7 +684,7 @@ export function RunDetail({ id }: { id: string }) {
   const handleDelete = async () => {
     setDeleting(true);
     await deleteCompletedRun(run.id);
-    if (account) void removeFinishedRun(run.distanceMeters);
+    if (account) void syncProfileStats();
     router.push("/historico");
   };
 

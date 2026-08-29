@@ -83,7 +83,7 @@ import { computeElevationGain } from "@/lib/elevation";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
 import { sendMilestoneNotification } from "@/lib/milestoneNotifications";
-import { recordFinishedRun, removeFinishedRun } from "@/lib/profileStats";
+import { syncProfileStats } from "@/lib/profileStats";
 import { getProfile, updateProfile } from "@/lib/auth";
 import type { RunningPlace } from "@/lib/places";
 import { RouteMap } from "../route-map";
@@ -1222,7 +1222,7 @@ export default function RunPage() {
    */
   useEffect(() => {
     if (state.status !== "finished" || !state.finishedRun || !account) return;
-    void recordFinishedRun(state.finishedRun.distanceMeters);
+    void syncProfileStats();
   }, [state.status, state.finishedRun, account]);
 
   /**
@@ -1900,7 +1900,7 @@ export default function RunPage() {
     if (!state.finishedRun) return;
     setDiscarding(true);
     await deleteCompletedRun(state.finishedRun.id);
-    if (account) void removeFinishedRun(state.finishedRun.distanceMeters);
+    if (account) void syncProfileStats();
     handleReset();
   };
 

@@ -5,6 +5,7 @@
  * render at personal-app scale (same reasoning `allTimeBests` and
  * `estimateWeeklyKm` already lean on).
  */
+import { allTimeBests } from "./personalRecords";
 import { runMovingSeconds, type CompletedRun } from "./storage";
 
 /** Local-time Monday 00:00 on or before `ms` — weeks are grouped by calendar week, not a rolling 7-day window, so "esta semana" means the same thing here as it does on a physical calendar. */
@@ -101,4 +102,74 @@ export function monthToDateMeters(runs: CompletedRun[], now = Date.now()): numbe
   return runs
     .filter((run) => run.startedAt >= monthStart)
     .reduce((sum, run) => sum + run.distanceMeters, 0);
+}
+
+/**
+ * Consecutive calendar weeks (Monday-anchored) with at least one run,
+ * counting backward from the most recently fully-elapsed week — the
+ * current, still-in-progress week is never required to keep a streak
+ * alive (a rest day early in the week shouldn't zero it before the week
+ * is even over), but if it already has a run, it's added on top.
+ *
+ * Deliberately NOT `constancy.ts`'s "% of weeks meeting a configured
+ * target" — that depends on a weekly goal the athlete may never have
+ * set, and a streak worth showing a friend should work for anyone.
+ */
+function currentStreakWeeks(runs: CompletedRun[], now = Date.now()): number {
+  const STREAK_WEEK_CAP = 104; // 2 years — cheap ceiling, never realistically hit
+  const buckets = weeklyBuckets(runs, STREAK_WEEK_CAP, now);
+  let streak = 0;
+  // Last bucket is the current (partial) week — handled separately below.
+  for (let i = buckets.length - 2; i >= 0; i--) {
+    if (buckets[i].runCount <= 0) break;
+    streak += 1;
+  }
+  if (buckets[buckets.length - 1]?.runCount > 0) streak += 1;
+  return streak;
+}
+
+/** Race distances worth comparing between friends — training splits (400m/1km/mile variants) are left out of this snapshot as too granular for that view. */
+const SNAPSHOT_PR_DISTANCES = {
+  pr5kSeconds: 5000,
+  pr10kSeconds: 10000,
+  prHalfSeconds: 21097.5,
+  prFullSeconds: 42195,
+} as const;
+
+export interface StatsSnapshot {
+  totalMeters: number;
+  totalRuns: number;
+  /** Distance covered since this Monday, local time. */
+  weekMeters: number;
+  streakWeeks: number;
+  /** `startedAt` of the most recent run, or `null` with no runs at all. */
+  lastRunAt: number | null;
+  pr5kSeconds: number | null;
+  pr10kSeconds: number | null;
+  prHalfSeconds: number | null;
+  prFullSeconds: number | null;
+}
+
+/**
+ * Everything shown on a friend-comparison card, computed once from a full
+ * local run history — used both to build the snapshot pushed to
+ * `profile_stats` (see `profileStats.ts`'s `syncProfileStats`) for a
+ * friend to see, and locally (never round-tripped through Appwrite) for
+ * "your own" column on that same screen.
+ */
+export function buildStatsSnapshot(runs: CompletedRun[], now = Date.now()): StatsSnapshot {
+  const bests = allTimeBests(runs);
+  const bestFor = (meters: number) => bests.find((b) => b.targetMeters === meters)?.splitSeconds ?? null;
+
+  return {
+    totalMeters: runs.reduce((sum, run) => sum + run.distanceMeters, 0),
+    totalRuns: runs.length,
+    weekMeters: weeklyBuckets(runs, 1, now)[0]?.distanceMeters ?? 0,
+    streakWeeks: currentStreakWeeks(runs, now),
+    lastRunAt: runs.length > 0 ? Math.max(...runs.map((run) => run.startedAt)) : null,
+    pr5kSeconds: bestFor(SNAPSHOT_PR_DISTANCES.pr5kSeconds),
+    pr10kSeconds: bestFor(SNAPSHOT_PR_DISTANCES.pr10kSeconds),
+    prHalfSeconds: bestFor(SNAPSHOT_PR_DISTANCES.prHalfSeconds),
+    prFullSeconds: bestFor(SNAPSHOT_PR_DISTANCES.prFullSeconds),
+  };
 }

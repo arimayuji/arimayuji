@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useState } from "react";
 import type { Profile } from "@/lib/auth";
 import {
   getProfileByHandle,
@@ -10,6 +10,9 @@ import {
 } from "@/lib/friendships";
 import { getProfileStats, type ProfileStats } from "@/lib/profileStats";
 import { parsePlaylists } from "@/lib/playlistLink";
+import { formatElapsed } from "@/lib/tracking/geoFilter";
+import { listCompletedRuns } from "@/lib/tracking/storage";
+import { buildStatsSnapshot, type StatsSnapshot } from "@/lib/tracking/stats";
 import { formatDistance, unitLabel } from "@/lib/units";
 import { usePreferences } from "@/lib/usePreferences";
 import { useAuth } from "@/lib/useAuth";
@@ -35,6 +38,26 @@ import { Card, Screen, ScreenHeader } from "../../ui";
  * This mirrors the public/friends split `publicDisplayName` already has
  * for the place leaderboard, rather than inventing a third privacy rule.
  */
+/** "hoje"/"ontem"/"há N dias" — coarse on purpose, this is a comparison card, not a precise log. */
+function formatRelativeDays(ms: number): string {
+  const days = Math.floor((Date.now() - ms) / 86_400_000);
+  if (days <= 0) return "hoje";
+  if (days === 1) return "ontem";
+  return `há ${days} dias`;
+}
+
+function formatStreakWeeks(weeks: number): string {
+  return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
+}
+
+/** Race distances worth comparing between friends — see `buildStatsSnapshot` (stats.ts) for why training splits are left out. Same key names on both `StatsSnapshot` (my own, computed locally) and `ProfileStats` (the friend's, synced) so one lookup works for either side. */
+const PR_COMPARISON_ROWS: { label: string; key: "pr5kSeconds" | "pr10kSeconds" | "prHalfSeconds" | "prFullSeconds" }[] = [
+  { label: "PR 5 km", key: "pr5kSeconds" },
+  { label: "PR 10 km", key: "pr10kSeconds" },
+  { label: "PR 21 km", key: "prHalfSeconds" },
+  { label: "PR 42 km", key: "prFullSeconds" },
+];
+
 export default function VerPerfilPage() {
   return (
     <Suspense fallback={null}>
@@ -52,6 +75,8 @@ function VerPerfilContent() {
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [stats, setStats] = useState<ProfileStats | null>(null);
+  /** The viewer's own equivalent numbers, computed locally — never round-tripped through Appwrite, same as every other local-only screen (`/progresso`, `/plano`) already does for its own use. */
+  const [myStats, setMyStats] = useState<StatsSnapshot | null>(null);
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [sending, setSending] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -81,6 +106,7 @@ function VerPerfilContent() {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting to "not a friend" as soon as the visited profile or the viewer's own signed-in status changes away from the case this effect's fetch below applies to.
       setFriendshipId(null);
       setStats(null);
+      setMyStats(null);
       return;
     }
     let cancelled = false;
@@ -91,6 +117,9 @@ function VerPerfilContent() {
       if (match) {
         void getProfileStats(profile.$id).then((result) => {
           if (!cancelled) setStats(result);
+        });
+        void listCompletedRuns().then((runs) => {
+          if (!cancelled) setMyStats(buildStatsSnapshot(runs));
         });
       }
     });
@@ -214,17 +243,64 @@ function VerPerfilContent() {
 
         {isFriend && stats && (
           <Card className="pr-enter">
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div>
-                <p className="text-lg font-semibold tabular-nums">
-                  {formatDistance(stats.totalMeters, unit)}
-                </p>
-                <p className="text-xs text-muted">{unitLabel(unit)} corridos</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold tabular-nums">{stats.totalRuns}</p>
-                <p className="text-xs text-muted">{stats.totalRuns === 1 ? "corrida" : "corridas"}</p>
-              </div>
+            <p className="mb-4 text-sm font-semibold">Comparar</p>
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-3">
+              <span />
+              <span className="text-center text-[11px] font-semibold tracking-wide text-muted uppercase">Você</span>
+              <span className="text-center text-[11px] font-semibold tracking-wide text-muted uppercase">
+                {displayName.split(" ")[0]}
+              </span>
+
+              <span className="text-sm text-muted">{unitLabel(unit)} corridos</span>
+              <span className="text-center font-mono text-sm tabular-nums">
+                {formatDistance(myStats?.totalMeters ?? 0, unit)}
+              </span>
+              <span className="text-center font-mono text-sm tabular-nums">{formatDistance(stats.totalMeters, unit)}</span>
+
+              <span className="text-sm text-muted">Corridas</span>
+              <span className="text-center font-mono text-sm tabular-nums">{myStats?.totalRuns ?? 0}</span>
+              <span className="text-center font-mono text-sm tabular-nums">{stats.totalRuns}</span>
+
+              <span className="text-sm text-muted">Essa semana</span>
+              <span className="text-center font-mono text-sm tabular-nums">
+                {formatDistance(myStats?.weekMeters ?? 0, unit)}
+              </span>
+              <span className="text-center font-mono text-sm tabular-nums">
+                {stats.weekMeters !== undefined ? formatDistance(stats.weekMeters, unit) : "—"}
+              </span>
+
+              <span className="text-sm text-muted">Sequência</span>
+              <span className="text-center font-mono text-sm tabular-nums">
+                {formatStreakWeeks(myStats?.streakWeeks ?? 0)}
+              </span>
+              <span className="text-center font-mono text-sm tabular-nums">
+                {stats.streakWeeks !== undefined ? formatStreakWeeks(stats.streakWeeks) : "—"}
+              </span>
+
+              {(myStats?.lastRunAt || stats.lastRunAt !== undefined) && (
+                <>
+                  <span className="text-sm text-muted">Última corrida</span>
+                  <span className="text-center font-mono text-sm tabular-nums">
+                    {myStats?.lastRunAt ? formatRelativeDays(myStats.lastRunAt) : "—"}
+                  </span>
+                  <span className="text-center font-mono text-sm tabular-nums">
+                    {stats.lastRunAt !== undefined ? formatRelativeDays(stats.lastRunAt) : "—"}
+                  </span>
+                </>
+              )}
+
+              {PR_COMPARISON_ROWS.map(({ label, key }) => {
+                const mine = myStats?.[key] ?? null;
+                const theirs = stats[key];
+                if (mine === null && theirs === undefined) return null;
+                return (
+                  <Fragment key={key}>
+                    <span className="text-sm text-muted">{label}</span>
+                    <span className="text-center font-mono text-sm tabular-nums">{mine ? formatElapsed(mine) : "—"}</span>
+                    <span className="text-center font-mono text-sm tabular-nums">{theirs ? formatElapsed(theirs) : "—"}</span>
+                  </Fragment>
+                );
+              })}
             </div>
           </Card>
         )}

@@ -1707,6 +1707,63 @@ users delete`) — nada de teste ficou em produção. Ainda não testado por um
 usuário real enviando um convite de verdade pelo app, mas o mecanismo em
 si está confirmado funcionando de ponta a ponta.
 
+## Tela de amigo: comparação lado a lado (2026-08-29)
+
+Pedido direto do dono do projeto vendo `/perfil/ver` de um amigo real:
+"tem que poder ver mais coisa, comparar etc". Antes disso a tela só
+mostrava o total histórico (km/corridas) — decidido junto com ele o que
+adicionar (km da semana, sequência, recordes por distância, última
+corrida) e o formato (lado a lado, sem veredito tipo "quem tá na
+frente"). Implementado nesta sessão, branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+Dois achados de arquitetura que mudaram o desenho:
+- **"Sequência" não existia** — `constancy.ts` calcula % de semanas que
+  bateram uma meta configurada, não "N semanas seguidas correndo", e fica
+  preso a quem configurou meta. Nova função `currentStreakWeeks` (dentro
+  de `src/lib/tracking/stats.ts`, não exportada) conta semanas
+  consecutivas (segunda a segunda, via `weeklyBuckets`) com pelo menos 1
+  corrida — funciona pra qualquer um.
+- **Recordes (`personalRecords.ts`'s `allTimeBests`)** já calculavam tudo
+  que precisava, só nunca foram sincronizados. Só as 4 distâncias de
+  prova (5 km/10 km/21 km/42 km) viram campo novo — os splits de treino
+  (400 m/1 km/milhas) ficam de fora, detalhe demais pra essa tela.
+
+**Nenhum opt-in novo** — confirmado que a convenção deste projeto reserva
+opt-in próprio pra exposição a estranhos (ranking público) ou dado
+contínuo/ao vivo (localização); um agregado estático só-amigo já usa a
+mesma confiança da amizade em si, mesmo raciocínio que já isentava
+`totalMeters`/`totalRuns`.
+
+`src/lib/tracking/stats.ts` ganhou `buildStatsSnapshot(runs, now)`,
+reaproveitado dos dois lados da comparação: monta o snapshot que
+`profileStats.ts` sincroniza pro amigo ver, e roda de novo, local, sem
+tocar Appwrite, pra calcular a própria coluna "Você" de quem está olhando
+a tela — nunca precisa buscar os próprios números de volta do servidor.
+
+`src/lib/profileStats.ts`: `recordFinishedRun`/`removeFinishedRun`
+(delta incremental) viraram uma função só, `syncProfileStats()` —
+recalcula o snapshot inteiro do zero a cada corrida terminada/apagada, em
+vez de somar/subtrair, porque sequência e recordes não são deriváveis
+por delta (apagar a corrida dona de um PR exige recalcular quem é o novo
+melhor, não só subtrair). Custo aceito: mesmo tipo de recomputação total
+que `allTimeBests` já paga hoje pro uso local, só que agora também
+disparada em background nos 4 pontos que já chamavam as funções antigas
+(`run/page.tsx` ao terminar/descartar, `historico/page.tsx` e
+`historico/detalhe/run-detail.tsx` ao apagar).
+
+`profile_stats` (Appwrite) ganha 7 colunas novas, todas opcionais
+(`weekMeters`, `streakWeeks`, `lastRunAt`, `pr5kSeconds`, `pr10kSeconds`,
+`prHalfSeconds`, `prFullSeconds`) — ausentes em qualquer linha sincronizada
+antes dessa mudança, tratado como "sem dado" na tela, nunca um zero
+inventado (mesma cultura de honestidade do resto do app).
+
+Verificado: `tsc`, `lint`, `build` limpos. **Não testado em produção** —
+precisa de `scripts/appwrite-setup.ts` rodado pra criar as colunas
+(pendente, aguardando OK de sempre) e duas contas reais amigas pra
+confirmar a comparação de ponta a ponta.
+
 ## Bug crítico: corrida ao vivo nunca funcionou, desde a criação da tabela (2026-08-27)
 
 **Terceira ocorrência da mesma causa raiz** — depois de `friendships` e
