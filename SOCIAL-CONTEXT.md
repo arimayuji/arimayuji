@@ -314,6 +314,88 @@ qualquer trecho do fundo) — "Trava a tela." → "O app trava junto." →
 pelo modelo de vídeo). Entregue pro dono do projeto revisar antes de
 postar manualmente (nunca automatizado, ver "O que nunca fazer" acima).
 
+## Segundo post: "Sem Login, Sem Cadastro" — carrossel virado vídeo com narração + digitação sincronizada (2026-08-29)
+
+Pedido: pegar os 5 slides de um carrossel já publicado como Artifact
+(canvas "Sem Login, Sem Cadastro" — arco hook → problema → virada → como
+funciona → resultado) e transformar em vídeo com transições/animações.
+Passou por 3 iterações reais de feedback antes de fechar — registrando
+cada uma porque as lições técnicas valem pra qualquer post futuro nesse
+mesmo formato (slides estáticos → vídeo falado):
+
+1. **Zoom (Ken Burns) nos 5 slides + narração completa lendo tudo** —
+   rejeitado no visual ("não gostei desse efeito de aproximar da tela")
+   e no roteiro (a primeira narração parafraseava/cortava o texto dos
+   slides, o dono do projeto notou o descompasso: "o áudio narrado e o
+   texto não batem"). Lição fechada: **a narração tem que usar o texto
+   real do slide, verbatim** (só pode pular rótulos pequenos tipo "O
+   problema"/"A virada" — esses não precisam ser lidos, mas headline e
+   texto de apoio sim, palavra por palavra).
+2. **Efeito de digitação (typewriter) sincronizado com a fala, 5 slides,
+   41s** — visual aprovado, mas **41s é longo demais pra rede social**:
+   confirmado com o dono do projeto que o conteúdo tem que entregar valor
+   em ~15s pra sobreviver ao algoritmo (mesma regra de timing já
+   documentada acima — gancho em 2s, entendimento em 6s, uma ideia por
+   vídeo). Decisão: cortar pra **2 slides só** (o gancho + a virada,
+   pulando o "como funciona" — os 3 bullets viram conteúdo do carrossel
+   estático mesmo, não cabem num vídeo curto) e pedido explícito de "ter
+   mais animação".
+3. **Versão final, 11,4s**: só os slides 1 e 3. Cabeçalho (contador "0X/05"
+   + wordmark) e a fileira de pontinhos de progresso entram com fade+slide
+   (ease-out, ~0,45s) ao vivo do início de cada card — antes eram
+   estáticos desde o frame 0. No card da virada (fundo azul), uma barra
+   branca cresce de 0 a 100% de largura assim que a fala daquele trecho
+   termina, como um "ponto final" visual. Transição entre os 2 cards
+   trocou de crossfade simples pra `slideleft` (mais enérgico). Narração:
+   texto verbatim de cada slide, voz `pt-BR-AntonioNeural` (edge-tts).
+
+**Mecânica técnica** (vale reaproveitar em qualquer post futuro nesse
+formato — slide estático → vídeo falado):
+- Os `.dc.html` do canvas **não rodam standalone** — dependem do runtime
+  do editor (`support.js`, ~1900 linhas, carrega `<x-dc>` como custom
+  element). Como os slides eram 100% estáticos (sem `{{holes}}`, sem
+  `data-dc-script`), a solução foi extrair só o conteúdo de dentro de
+  `<x-dc>...</x-dc>` + o `<helmet>` (vira `<head>`) pra um HTML puro —
+  sem nenhuma dependência do editor, renderiza em qualquer Chromium.
+- **Efeito de digitação**: um script genérico (`typewriter.js`/depois
+  `motion.js`) marca elementos com `data-type="true"`, percorre os text
+  nodes de dentro deles via `TreeWalker`, guarda o texto original de cada
+  um e zera; uma função `__setScene(t, typeDur)` recalcula quantos
+  caracteres revelar no total (`round(t/typeDur * totalChars)`) e
+  distribui entre os nodes na ordem do documento — isso preserva `<span>`
+  coloridos dentro do headline de graça (cada span revela seu pedaço no
+  momento certo, sem precisar saber de cor/estilo). Chamado
+  frame a frame via Playwright (`page.evaluate`), não como animação CSS
+  real-time — dá controle exato de quando cada frame corresponde a que
+  tempo, sem depender de quanto tempo o carregamento da página levou.
+- **Renderização**: Playwright headless (`chromium-1234` já instalado em
+  `/opt/pw-browsers`) tira um screenshot por frame (30fps) enquanto avança
+  `__setScene(t, ...)`; `ffmpeg -framerate 30 -i frame_%05d.png` monta
+  cada trecho, depois `xfade` encadeia os trechos com a transição
+  escolhida.
+- **Narração grátis**: `edge-tts` (Python, `pip install edge-tts`) —
+  vozes neurais da Microsoft de graça. Só tem **uma voz masculina em
+  pt-BR**: `pt-BR-AntonioNeural` (as outras duas, `Francisca`/`Thalita`,
+  são femininas). **Pegadinha de rede**: o cliente HTTP do `edge-tts`
+  (aiohttp) não usa a variável `HTTPS_PROXY` do ambiente por padrão —
+  falha com erro de certificado que parece problema de CA, mas na
+  verdade é o pacote tentando conectar direto (fora do proxy do
+  ambiente). Fix: `edge-tts --proxy "$HTTPS_PROXY" ...` (a flag existe e
+  resolve; sempre ler `$HTTPS_PROXY` on-the-fly no script, porque a porta
+  do proxy local roda e pode mudar entre uma chamada e outra na mesma
+  sessão).
+- **Concatenar múltiplos `.m4a`/`.mp3` em sequência**: o protocolo
+  `concat:a.m4a|b.m4a` do ffmpeg **não funciona** pra contêineres
+  mp4/m4a (cada um tem seu próprio `moov atom`; o resultado silenciosamente
+  fica só com o primeiro arquivo, sem erro nenhum). O jeito certo é o
+  filtro `concat` (`-filter_complex "[0:a][1:a]...concat=n=N:v=0:a=1"`),
+  que decodifica de verdade antes de juntar.
+
+Não deployado/publicado ainda — vídeo final (`xanthus-sem-login-15s.mp4`)
+entregue pro dono do projeto revisar, junto com um rascunho de legenda
+("Você não devia precisar de conta pra apertar 'Iniciar'..." + CTA "Baixa
+na bio", sem hashtag por padrão).
+
 ## Como manter isso vivo
 
 Sempre que uma decisão nova de tom, formato, gancho que funcionou/não
