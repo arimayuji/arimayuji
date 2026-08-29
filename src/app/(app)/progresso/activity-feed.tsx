@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import {
   deleteCompletedRun,
-  listCompletedRuns,
   runMovingSeconds,
   type CompletedRun,
   type StoredPoint,
@@ -15,27 +14,18 @@ import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { allTimeBests } from "@/lib/tracking/personalRecords";
 import type { DistanceUnit } from "@/lib/preferences";
-import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
-import { Card, CardTitle, delay, Screen, ScreenHeader, Stat } from "../ui";
+import { Card, CardTitle, delay } from "../ui";
 import { ModalPortal } from "../modal-portal";
-import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 
 /**
- * The only screen in the app wired to real data: it reads whatever
- * `listCompletedRuns()` has in IndexedDB and shows nothing else. No sample
- * runs, no placeholder rows — an empty history renders the empty state, which
- * is the state most people will actually see, so that is where the care went.
+ * The chronological run feed — folded into /progresso on request (it used
+ * to be its own bottom-nav tab, `/historico`) so "how did I do" (the charts
+ * around this component) and "what did I actually run" (this) live in one
+ * place instead of splitting attention across two tabs. Kept as its own
+ * file rather than inlined into progresso/page.tsx, same reasoning as
+ * matched-runs-card.tsx and run-frequency-heatmap.tsx living apart from it.
  */
-
-/** Below this many runs, any "trend" line would be noise dressed as insight. */
-const TREND_MIN_RUNS = 6;
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "error" }
-  | { status: "ready"; runs: CompletedRun[] };
-
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   weekday: "short",
@@ -48,10 +38,7 @@ const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
-/**
- * "ter., 11 de ago." → "Ter., 11 de ago.". Done here rather than with CSS
- * `capitalize`, which would also upper-case the "de".
- */
+/** "ter., 11 de ago." → "Ter., 11 de ago.". Done here rather than with CSS `capitalize`, which would also upper-case the "de". */
 function formatRunDate(date: Date): string {
   const text = dateFormatter.format(date);
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -61,12 +48,6 @@ function formatRunDate(date: Date): string {
  * Route thumbnail drawn from the run's own recorded points — real geometry,
  * not decoration. Longitude is scaled by cos(latitude) so the shape isn't
  * stretched sideways, and the path is fitted to the box with a small margin.
- */
-/**
- * Fills the full height of its row (a flex item stretched by the parent's
- * default `align-items: stretch`, not a fixed square icon anymore) — the
- * card itself clips it to the rounded corner via `overflow-hidden`, so this
- * stays a plain rectangle rather than rounding its own edges.
  */
 function RouteThumb({
   points,
@@ -128,63 +109,6 @@ function RouteThumb({
   );
 }
 
-function EmptyState() {
-  return (
-    <Card className="pr-enter overflow-hidden text-center" style={delay(80)}>
-      <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-        <img
-          src="/historico-empty.webp"
-          alt="Ilustração de um percurso ainda não percorrido"
-          className="h-full w-full object-cover"
-        />
-      </div>
-
-      <h2 className="text-lg font-semibold text-balance">
-        Seu histórico começa na primeira corrida
-      </h2>
-      <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted text-pretty">
-        Ainda não há nenhuma corrida gravada neste aparelho. Assim que você finalizar um
-        treino, ele aparece aqui com distância, tempo, pace médio e o traçado do percurso.
-      </p>
-
-      <Link
-        href="/run"
-        className="mx-auto mt-7 block w-full max-w-xs rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground transition-opacity hover:opacity-90"
-      >
-        Gravar primeira corrida
-      </Link>
-    </Card>
-  );
-}
-
-function Summary({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit }) {
-  const totalMeters = runs.reduce((sum, run) => sum + run.distanceMeters, 0);
-  const totalSeconds = runs.reduce((sum, run) => sum + runMovingSeconds(run), 0);
-
-  return (
-    <Card className="pr-enter" style={delay(60)}>
-      <CardTitle>Resumo do que está salvo</CardTitle>
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Corridas" value={String(runs.length)} />
-        <Stat label="Distância" value={formatDistance(totalMeters, unit)} unit={unitLabel(unit)} />
-        <Stat label="Tempo total" value={formatElapsed(totalSeconds)} />
-      </div>
-      <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted">
-        {runs.length < TREND_MIN_RUNS ? (
-          <>
-            Com {runs.length} corridas ainda não dá pra falar em tendência de pace — a partir
-            de {TREND_MIN_RUNS} treinos o gráfico de evolução passa a dizer alguma coisa. Até
-            lá, preferimos não desenhar uma linha que não significa nada.
-          </>
-        ) : (
-          <>Já há corridas suficientes pra ver a evolução de pace — segue no card abaixo.</>
-        )}
-      </p>
-    </Card>
-  );
-}
-
 /**
  * Persistent "conquistas" view: current best split per standard distance
  * across the whole history, not just the run just finished — the
@@ -198,16 +122,21 @@ function Summary({ runs, unit }: { runs: CompletedRun[]; unit: DistanceUnit }) {
  * show up interleaved (1 km, 1/2 milha, 1 milha, 5 km...) in one list,
  * which read as a mistake rather than two parallel systems.
  */
-function PersonalRecords({ runs, defaultUnit }: { runs: CompletedRun[]; defaultUnit: DistanceUnit }) {
+export function PersonalRecords({
+  runs,
+  defaultUnit,
+  delayMs = 65,
+}: {
+  runs: CompletedRun[];
+  defaultUnit: DistanceUnit;
+  delayMs?: number;
+}) {
   const [unit, setUnit] = useState<DistanceUnit>(defaultUnit);
-  const bests = useMemo(
-    () => allTimeBests(runs).filter((best) => best.unit === "both" || best.unit === unit),
-    [runs, unit],
-  );
+  const bests = allTimeBests(runs).filter((best) => best.unit === "both" || best.unit === unit);
   if (bests.length === 0) return null;
 
   return (
-    <Card className="pr-enter" style={delay(65)}>
+    <Card className="pr-enter" style={delay(delayMs)}>
       <CardTitle
         aside={
           <div className="flex overflow-hidden rounded-full border border-border text-xs font-semibold">
@@ -363,7 +292,7 @@ function matchesQuery(run: CompletedRun, query: string): boolean {
   return dateText.includes(q) || shoeText.includes(q) || placeText.includes(q);
 }
 
-/** "3 recentes" caps the result count rather than a date boundary — handled separately in `visibleRuns`, so this treats it like "all" here. */
+/** "3 recentes" caps the result count rather than a date boundary — handled separately by the caller, so this treats it like "all" here. */
 function withinPeriod(run: CompletedRun, period: Period): boolean {
   if (period === "recent3" || period === "all") return true;
   const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
@@ -475,7 +404,7 @@ function SortSheet({
   );
 }
 
-function HistorySearchBar({
+function ActivitySearchBar({
   query,
   onQueryChange,
   period,
@@ -512,7 +441,7 @@ function HistorySearchBar({
   };
 
   return (
-    <div className="pr-enter flex flex-col gap-3" style={delay(85)}>
+    <div className="pr-enter flex flex-col gap-3">
       <div>
         <div
           className={`flex items-center gap-2.5 border bg-surface px-4 py-3 transition-[border-radius,border-color,box-shadow] duration-[0.45s] ${
@@ -625,11 +554,10 @@ function HistorySearchBar({
 }
 
 /**
- * Quick peek at one run's route without leaving the list — the thumbnail's
- * own tap target (see `RunRow`), separate from the rest of the card, which
- * still opens the full `/historico/detalhe` page. That page (splits,
- * achievements, comments, share) isn't part of this redesign pass — this
- * modal is a shallow preview layered on top of it, not a replacement.
+ * Quick peek at one run's route without leaving the feed — the thumbnail's
+ * own tap target (see `RunRow`), separate from the rest of the row, which
+ * still opens the full `/historico/detalhe` page (splits, achievements,
+ * comments, share — untouched by this move, still its own route).
  */
 function FocalRunModal({ run, unit, onClose }: { run: CompletedRun; unit: DistanceUnit; onClose: () => void }) {
   const seconds = runMovingSeconds(run);
@@ -758,7 +686,7 @@ function RunRow({
   const started = new Date(run.startedAt);
 
   return (
-    <li className="pr-enter" style={delay(90 + index * 45)}>
+    <li className="pr-enter" style={delay(index * 45)}>
       <article className="relative flex items-stretch overflow-hidden rounded-2xl border border-border bg-surface">
         <button
           type="button"
@@ -818,55 +746,33 @@ function RunRow({
   );
 }
 
-export default function HistoricoPage() {
-  const [load, setLoad] = useState<LoadState>({ status: "loading" });
-  const [{ distanceUnit: unit }] = usePreferences();
+/**
+ * The feed itself — search/filter/sort over a plain vertical list, one row
+ * per run, same shape Strava's own activity feed uses. Kept as a simple
+ * scrolling list rather than a horizontal carousel on purpose: each row
+ * already carries route/date/distance/tempo/pace/tênis, more than a narrow
+ * horizontal card could show without truncating most of it away.
+ */
+export function ActivityFeed({
+  runs,
+  unit,
+  onRunDeleted,
+}: {
+  runs: CompletedRun[];
+  unit: DistanceUnit;
+  onRunDeleted: (id: string) => void;
+}) {
+  const { account } = useAuth();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [focalRunId, setFocalRunId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState<Period>("recent3");
   const [sort, setSort] = useState<SortKey>("recent");
-  const [summaryOpen, setSummaryOpen] = useState(true);
-  const { account } = useAuth();
 
-  const handleConfirmDelete = async (id: string) => {
-    setDeletingId(id);
-    const deletedRun = load.status === "ready" ? load.runs.find((run) => run.id === id) : undefined;
-    await deleteCompletedRun(id);
-    if (account && deletedRun) void syncProfileStats();
-    setLoad((current) =>
-      current.status === "ready"
-        ? { status: "ready", runs: current.runs.filter((run) => run.id !== id) }
-        : current,
-    );
-    setConfirmingId(null);
-    setDeletingId(null);
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    listCompletedRuns()
-      .then((runs) => {
-        if (cancelled) return;
-        setLoad({
-          status: "ready",
-          runs: [...runs].sort((a, b) => b.startedAt - a.startedAt),
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setLoad({ status: "error" });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const runs = load.status === "ready" ? load.runs : [];
-  const showSearchTool = runs.length >= SEARCH_TOOL_MIN_RUNS;
-  const matchedRuns = runs.filter((run) => matchesQuery(run, query) && withinPeriod(run, period));
+  const sortedRuns = [...runs].sort((a, b) => b.startedAt - a.startedAt);
+  const showSearchTool = sortedRuns.length >= SEARCH_TOOL_MIN_RUNS;
+  const matchedRuns = sortedRuns.filter((run) => matchesQuery(run, query) && withinPeriod(run, period));
   // "3 recentes" caps the count by actual recency first, then the chosen
   // sort re-orders just that capped set — so picking "Pace mais rápido"
   // still means "fastest of my last 3", not "fastest of everything".
@@ -874,124 +780,70 @@ export default function HistoricoPage() {
     period === "recent3"
       ? [...matchedRuns].sort((a, b) => b.startedAt - a.startedAt).slice(0, 3)
       : matchedRuns;
-  const visibleRuns = showSearchTool ? sortRuns(cappedRuns, sort) : runs;
-  const focalRun = focalRunId ? runs.find((run) => run.id === focalRunId) ?? null : null;
-  const confirmingRun = confirmingId ? runs.find((run) => run.id === confirmingId) ?? null : null;
+  const visibleRuns = showSearchTool ? sortRuns(cappedRuns, sort) : sortedRuns;
+  const focalRun = focalRunId ? sortedRuns.find((run) => run.id === focalRunId) ?? null : null;
+  const confirmingRun = confirmingId ? sortedRuns.find((run) => run.id === confirmingId) ?? null : null;
 
   // Up to 2 recent dates + every distinct shoe name + every distinct
   // resolved place — same set the old inline suggestion row offered, just
   // read fresh from whatever's loaded.
   const suggestions = [
-    ...new Set(runs.slice(0, 2).map((run) => formatRunDate(new Date(run.startedAt)))),
-    ...new Set(runs.map((run) => run.shoeName).filter((name): name is string => Boolean(name))),
-    ...new Set(runs.map((run) => resolvePlaceLabel(run)).filter((name): name is string => Boolean(name))),
+    ...new Set(sortedRuns.slice(0, 2).map((run) => formatRunDate(new Date(run.startedAt)))),
+    ...new Set(sortedRuns.map((run) => run.shoeName).filter((name): name is string => Boolean(name))),
+    ...new Set(sortedRuns.map((run) => resolvePlaceLabel(run)).filter((name): name is string => Boolean(name))),
   ].slice(0, 6);
+
+  const handleConfirmDelete = async (id: string) => {
+    setDeletingId(id);
+    await deleteCompletedRun(id);
+    if (account) void syncProfileStats();
+    onRunDeleted(id);
+    setConfirmingId(null);
+    setDeletingId(null);
+  };
 
   return (
     <>
-      <ScreenHeader title="Histórico" />
+      {showSearchTool && (
+        <ActivitySearchBar
+          query={query}
+          onQueryChange={setQuery}
+          period={period}
+          onPeriodChange={setPeriod}
+          sort={sort}
+          onSortChange={setSort}
+          suggestions={suggestions}
+        />
+      )}
 
-      <Screen>
-        {load.status === "loading" && (
-          <Card className="animate-pulse">
-            <div className="h-4 w-32 rounded bg-border" />
-            <div className="mt-4 h-14 rounded-xl bg-border/70" />
-          </Card>
-        )}
-
-        {load.status === "error" && (
-          <Card>
-            <CardTitle>Não deu pra ler o histórico</CardTitle>
-            <p className="text-sm leading-relaxed text-muted">
-              O armazenamento local do navegador não respondeu. Em janela anônima ou com
-              armazenamento bloqueado, as corridas não ficam salvas.
-            </p>
-          </Card>
-        )}
-
-        {load.status === "ready" && runs.length === 0 && <EmptyState />}
-
-        {load.status === "ready" && runs.length > 0 && (
-          <>
-            {showSearchTool && (
-              <HistorySearchBar
-                query={query}
-                onQueryChange={setQuery}
-                period={period}
-                onPeriodChange={setPeriod}
-                sort={sort}
-                onSortChange={setSort}
-                suggestions={suggestions}
-              />
-            )}
-
-            {showSearchTool && visibleRuns.length === 0 ? (
-              <Card className="pr-enter text-center" style={delay(95)}>
-                <p className="text-sm text-muted">Nenhuma corrida bate com esse filtro.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("");
-                    setPeriod("all");
-                  }}
-                  className="mt-2 text-xs font-semibold text-accent"
-                >
-                  Limpar filtros
-                </button>
-              </Card>
-            ) : (
-              <ul className="flex flex-col gap-3.5">
-                {visibleRuns.map((run, index) => (
-                  <RunRow
-                    key={run.id}
-                    run={run}
-                    unit={unit}
-                    index={index}
-                    onFocusRun={() => setFocalRunId(run.id)}
-                    onRequestDelete={() => setConfirmingId(run.id)}
-                  />
-                ))}
-              </ul>
-            )}
-
-            {/*
-             * Open by default (changed 2026-08-29 per direct feedback —
-             * the earlier collapsed-by-default choice read as "hidden for
-             * no reason" rather than as decluttering). Still collapsible,
-             * not removed: someone who really only wants the run list can
-             * still close it and it'll reopen next visit either way (no
-             * persisted preference, same as before).
-             */}
-            <button
-              type="button"
-              onClick={() => setSummaryOpen((v) => !v)}
-              className="mt-2 flex w-full items-center justify-between border-t border-border pt-5 pb-1"
-            >
-              <span className="text-xs font-bold tracking-[0.06em] text-muted uppercase">Resumo e recordes</span>
-              <svg
-                viewBox="0 0 24 24"
-                className={`h-3.5 w-3.5 text-muted transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
-                aria-hidden="true"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
-
-            {summaryOpen && (
-              <div className="pr-enter flex flex-col gap-5" style={delay(0, { "--pr-dur": "0.2s" } as CSSProperties)}>
-                {runs.length >= 2 && <Summary runs={runs} unit={unit} />}
-                <PersonalRecords runs={runs} defaultUnit={unit} />
-                <RunFrequencyHeatmap runs={runs} unit={unit} />
-              </div>
-            )}
-          </>
-        )}
-      </Screen>
+      {showSearchTool && visibleRuns.length === 0 ? (
+        <p className="pr-enter text-center text-sm text-muted">
+          Nenhuma corrida bate com esse filtro.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setPeriod("all");
+            }}
+            className="font-semibold text-accent"
+          >
+            Limpar filtros
+          </button>
+        </p>
+      ) : (
+        <ul className={`flex flex-col gap-3.5 ${showSearchTool ? "mt-4" : ""}`}>
+          {visibleRuns.map((run, index) => (
+            <RunRow
+              key={run.id}
+              run={run}
+              unit={unit}
+              index={index}
+              onFocusRun={() => setFocalRunId(run.id)}
+              onRequestDelete={() => setConfirmingId(run.id)}
+            />
+          ))}
+        </ul>
+      )}
 
       {focalRun && <FocalRunModal run={focalRun} unit={unit} onClose={() => setFocalRunId(null)} />}
       {confirmingRun && (

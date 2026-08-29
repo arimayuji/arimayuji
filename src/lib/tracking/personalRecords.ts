@@ -14,7 +14,7 @@ import type { CompletedRun, StoredPoint } from "./storage";
  */
 
 /**
- * `unit` tags which distance-unit list (see `/historico`'s "Recordes
+ * `unit` tags which distance-unit list (see `/progresso`'s "Recordes
  * pessoais" toggle) each entry belongs to — `"both"` for the two race
  * distances that are the same physical distance either way, just named
  * differently (a half marathon is "21 km" or "13,1 milhas", never mixed

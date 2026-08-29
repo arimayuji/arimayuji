@@ -104,17 +104,13 @@ const TABS: TabDefinition[] = [
     ),
   },
   {
-    href: "/historico",
-    label: "Histórico",
-    icon: ({ className }) => (
-      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
-        <path d="M4 6h3M4 12h3M4 18h3M10 6h10M10 12h10M10 18h6" />
-      </svg>
-    ),
-  },
-  {
     href: "/progresso",
     label: "Progresso",
+    // /historico used to be its own tab; its list screen folded into
+    // /progresso's activity feed (see activity-feed.tsx), but the detail/
+    // video sub-routes kept their original paths — this keeps the tab lit
+    // while looking at a run reached from that feed.
+    alsoMatches: ["/historico"],
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
         <path d="M4 15.5 9.5 10l3.5 3.5L20 6" />

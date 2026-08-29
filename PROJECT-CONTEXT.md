@@ -2496,6 +2496,63 @@ aparelho" acima, mesma sessão, branch `claude/strava-competitor-feedback-cyvop8
 - Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
   **Não testado em aparelho real** — mesma pendência padrão de sempre.
 
+## Reorganização de IA: `/perfil` em abas + `/historico` absorvido por `/progresso` (2026-08-29)
+
+Duas mudanças de arquitetura de informação pedidas na mesma sessão,
+branch `claude/strava-competitor-feedback-cyvop8`, **ainda não deployadas
+em produção** — motivação comum: "muita poluição visual"/"muito dado
+jogado ao mesmo tempo" em várias telas.
+
+- **`/perfil` segmentado**: "Meus tênis", "Playlists pra corrida" e
+  "Dados de saúde do smartwatch" eram configuração misturada com
+  preferência de corrida na mesma tela longa. Extraídos pra arquivos
+  próprios (`perfil/shoes-card.tsx`, `perfil/playlist-card.tsx`,
+  `perfil/health-data-card.tsx`) e movidos pra dentro de `/perfil/dados`
+  como um widget de 4 abas (`PillTabs`: Corpo · Tênis · Playlists · Saúde
+  do relógio) — Corpo continua com o que já existia lá (dor, peso).
+  `/perfil` fica só com Conta, Tema, Descubra e conecte, Ranking de
+  lugares, Amigo por perto, Modo do app e Preferências de corrida.
+  Decidido explicitamente manter Tema/Conta/Descubra-e-conecte/Amigo por
+  perto/Ranking onde estavam (não são "dado pessoal", são
+  configuração/descoberta).
+- **Evidência científica bruta tirada do app, movida pro browser**: os
+  cards "Por que essa semana tem essa cara" em `/plano` (real e
+  demonstração) mostravam bullet/ressalva/fonte de cada estudo por
+  extenso, direto no app — trocado por uma frase curta + os tópicos como
+  chips, com um link "Ver os estudos completos" que abre
+  `https://xanthus.app.br/estudos` no navegador do sistema
+  (`target="_blank"`), como documentação, em vez de navegar pra dentro do
+  app nativo. `/estudos` continua existindo como rota (mesma página
+  estática, também servida em `xanthus.app.br`) — só parou de ser linkada
+  de dentro do app (mesmos 5 pontos trocados: `/plano` × 4, `/perfil` × 1
+  no lembrete de gel).
+- **`/historico` (a lista) deixou de ser aba própria da barra inferior —
+  virou o feed de atividades dentro de `/progresso`**, estilo Strava, no
+  meio da tela (depois de "Essa semana"/"Constância"/"Emblemas", antes
+  dos gráficos de rodagem/pace). Barra inferior passa de 5 pra 4 abas:
+  Corrida, Progresso, Plano, Perfil. Detalhe de arquitetura importante:
+  **`/historico/detalhe` e `/historico/video` continuam existindo com o
+  mesmo path** (só a lista/`/historico` em si foi removida) — mudar esses
+  paths teria blast radius bem maior (compartilhar, card de corrida,
+  `progresso/trajeto`, todos linkam `/historico/detalhe?id=`) e não foi
+  pedido. `app-shell.tsx`'s aba Progresso ganhou
+  `alsoMatches: ["/historico"]` pra continuar acesa vendo o detalhe de
+  uma corrida. Os "voltar"/"fechar" que apontavam pra `/historico` viram
+  `/progresso`. Extraído pra `progresso/activity-feed.tsx` (busca/filtro/
+  ordenação/exclusão + `PersonalRecords`, ambos reaproveitados
+  praticamente sem mudança do antigo `historico/page.tsx`) — decisão
+  consciente de manter a lista como scroll vertical simples (não virou
+  carrossel horizontal): cada linha já carrega rota+data+distância+tempo+
+  pace+tênis, informação demais pra um card horizontal estreito. O antigo
+  "Resumo do que está salvo" (texto explicando por que não tem gráfico de
+  tendência ainda) foi cortado — só sobrou um total compacto (km/corridas/
+  tempo) no topo do card "Corridas", sem parágrafo.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos;
+  visualmente confirmado via Playwright com corridas sintéticas seedadas
+  direto no IndexedDB (busca/filtro/ordenação e o feed renderizando com
+  dado real, barra inferior com as 4 abas). **Não testado em aparelho
+  real** — mesma pendência de sempre.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
