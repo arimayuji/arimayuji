@@ -297,6 +297,23 @@ rodada com prompt mais assertivo sobre movimento: dono do projeto
 assistiu aos dois lado a lado e **preferiu o Wan 2.2 5B** (o mais barato
 dos dois) — não precisou do modelo maior/mais caro pra esse uso.
 
+**Primeiro post finalizado em 2026-08-29** (o vídeo em si, retomado de
+scratch de uma sessão anterior que já tinha o fundo aprovado gerado):
+concepto **"Trava a tela."** escolhido sobre o "DESTRAVA" — consultado o
+agente `branding-alfredo` especificamente pra essa decisão (não só "qual
+conteúdo é melhor", mas "qual é mais seguro pro *primeiro* post da conta,
+sem histórico/confiança construída ainda") — vereditco: "Trava a tela"
+porque a claim (GPS não pausa com tela travada) já passa no teste de "não
+descreveria a Strava também", enquanto citar a marca da concorrente
+("DESTRAVA") é uma aposta de sequenciamento melhor pra depois que a conta
+já tiver mostrado que "mostra, não ataca". Vídeo final: 6.7s, 9:16,
+mudo, 4 cards (Oswald Bold, contorno branco pra legibilidade sobre
+qualquer trecho do fundo) — "Trava a tela." → "O app trava junto." →
+"O nosso não." → "Xanthus. Não trava com você." — sobre o fundo Wan 2.2
+5B já aprovado acima, overlay de texto real via ffmpeg (nunca renderizado
+pelo modelo de vídeo). Entregue pro dono do projeto revisar antes de
+postar manualmente (nunca automatizado, ver "O que nunca fazer" acima).
+
 ## Como manter isso vivo
 
 Sempre que uma decisão nova de tom, formato, gancho que funcionou/não
