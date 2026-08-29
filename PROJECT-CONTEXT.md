@@ -897,46 +897,52 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   - ~~Ciclofaixa como "lugar pra correr" de fato~~ — **descartado** pelo
     dono do projeto em 2026-08-23, não vale reabrir sem pedido explícito
     de novo.
-  - **"Coach ao vivo" — treinador acompanhando e falando com o aluno durante
-    a corrida em tempo real** (pedido em 2026-08-23, nada escopado em
-    detalhe, ideia rica com vários pedaços):
-    - **Acesso a dado de saúde ao vivo pro treinador** (FC/zona de esforço,
-      possivelmente outros dados do smartwatch) durante uma corrida
-      compartilhada — **consentimento próprio, começando desligado por
-      padrão, o aluno ativa manualmente quando quiser** (explicitamente
-      pedido pelo dono do projeto) — **separado** do consentimento geral
-      de dados de saúde já existente (`healthDataConsent`,
-      `HEALTH_DATA_ENABLED`, ver seção de smartwatch acima): aquele é
-      "o app lê meu HealthKit/Health Connect", este seria "meu treinador
-      específico vê isso ao vivo enquanto eu corro" — duas permissões
-      concentricamente diferentes, não a mesma flag reaproveitada.
-    - **Treinador manda mensagem → vira voz durante a corrida do aluno**,
-      numa voz claramente diferente do aviso padrão do app, anunciada
-      como tal ("Seu treinador está pedindo pra reduzir o ritmo", "Seu
-      treinador quer que você acelere nessa reta final", "Seu treinador
-      está pedindo pra você parar"). **Decisão de produto (2026-08-24)**:
-      **frases pré-gravadas que o treinador só escolhe, não digita** —
-      descartado TTS de texto livre (custo/latência/dependência de API
-      externa nova). Reaproveita o banco de voz atual
-      (`scripts/generate-voice-bank.ts`, tarefas #82-85), só precisa
-      gravar as frases fixas do treinador como clipes novos no mesmo
-      pipeline — sem incompatibilidade técnica pra resolver. Ainda não
-      implementado.
-    - **Previsão de chegada/tempo final ao vivo**, visível pro treinador
-      (o app já expõe métricas ao vivo pro próprio atleta — conferir se
-      dá pra reaproveitar o mesmo cálculo, não construir um novo).
-    - **Analogia usada pelo dono do projeto**: "treinador de time de
-      quadra orientando posicionamento do jogador ao vivo, só que pra
-      corrida" — acompanhado do notebook ou celular.
-    - **Problema de escala reconhecido pelo próprio dono do projeto**: fácil
-      com 1 aluno; com vários simultâneos, uma visão única fica poluída de
-      informação. Preferência dele: visão geral simples (quem tá correndo
-      agora) + entrar no perfil de UM aluno por vez pra ver o live
-      detalhado e mandar mensagem — não um painel único mostrando tudo de
-      todo mundo ao mesmo tempo. **Isso é literalmente o mesmo problema já
-      escopado na Fase C do "Modo treinador com IA"** (painel web "Sala de
-      Treino", ver seção própria acima) — vale desenhar as duas coisas
-      juntas, não em paralelo sem se falar.
+  - ~~"Coach ao vivo" — treinador acompanhando e falando com o aluno durante
+    a corrida em tempo real~~ — **implementado**, commit `6f6228a`
+    ("Adicionar amigo por perto (opt-in) e 'coach ao vivo' (FC, ETA,
+    avisos por voz)"), escopado via plan mode e codado numa sessão
+    anterior a esta mesma leva — essa entrada ficou parada descrevendo a
+    ideia como "nada escopado em detalhe" por várias sessões depois de já
+    ter sido construída; corrigida agora (achado ao investigar o pedido
+    "vamo pro coach ao vivo" de novo — a primeira ação real foi ler o
+    código antes de desenhar algo do zero). Endereça as três peças do
+    pedido original:
+    - **FC ao vivo pro treinador**: `preferences.ts`'s
+      `shareHeartRateWithCoach`, opt-in **por corrida**, desligado por
+      padrão, separado do consentimento geral de HealthKit/Health Connect
+      (`healthDataConsent`) — exatamente a "permissão concêntrica"
+      pedida. Lê via `Health.readSamples` (janela de tempo livre, não
+      presa a um Workout) e envia junto no ping de 6s de `live_runs`
+      (`LiveRun.heartRateBpm`, `src/lib/liveRuns.ts`).
+    - **Avisos por voz pré-gravados**: 3 frases fixas, nunca texto livre
+      (`CoachCueId` = `reduce-pace`/`increase-pace`/`stop`,
+      `sendCoachCue`/`ackCoachCue` em `liveRuns.ts`,
+      `announceCoachCue` em `voiceBank.ts`, botões em
+      `treinador/coach-cue-buttons.tsx`, usados tanto em
+      `/treinador/sala` quanto `/treinador/aluno`). Os 3 clipes (× 2
+      vozes) foram gerados nesta sessão com o mesmo modelo/voice_settings
+      do banco real — único item da lista de pendências do commit
+      original que ainda estava aberto.
+    - **Previsão de chegada ao vivo pro treinador**: `LiveRun.forecastSecondsRemaining`
+      espelha `state.forecastSecondsRemaining` que o próprio atleta já
+      via — reaproveitado, não recalculado.
+    - O "problema de escala" (vários alunos ao mesmo tempo) não precisou
+      de desenho novo — os cues/FC/ETA aparecem dentro do mesmo
+      drill-into-one-student que a Fase C do "Modo treinador com IA"
+      ("Sala de Treino") já resolvia.
+    - Bônus do mesmo commit, fora do pedido original mas relacionado:
+      "amigo por perto" (`Profile.nearbyOptIn`, `friendPresence.ts`,
+      badge "Por perto agora" em `/amigos`) — leitura pontual de
+      localização ao voltar o app pro primeiro plano, nunca rastreamento
+      contínuo.
+    - **Ainda pendente, só o dono do projeto**: rodar
+      `scripts/appwrite-setup.ts` em produção (tabela `friend_presence` +
+      colunas novas em `live_runs`) e redeployar `client-actions`
+      (actions `refresh-presence`/`send-coach-cue` + atualização de
+      `start-live-session`/`refresh-live-audience`) — sem escopo novo de
+      permissão, mesma trilha de sempre; e testar em aparelho real (FC ao
+      vivo precisa de um relógio de verdade sincronizando, "amigo por
+      perto" precisa de dois aparelhos).
   - **Lugares pra correr em outras capitais** (pedido nesta mesma sessão,
     confirmado "vários lugares por capital", com um critério de "pelo
     menos ~3km" de percurso que ficou cortado no áudio original — não
@@ -952,14 +958,28 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
     `parque-da-juventude`) não têm nenhuma, porque nenhum teve ilustração
     comissionada ainda (deliberado desde o commit original, não é bug —
     `coverImage` já é opcional por design e a UI degrada bem sem ela).
-    Plano de execução: gerar as 58 ilustrações via Recraft na mesma
-    direção de arte já estabelecida (`SOCIAL-CONTEXT.md`), depois soltar
-    cada `.webp` em `public/lugares/` e adicionar a linha `coverImage` em
-    `src/lib/places.ts` — trabalho incremental, uma imagem por vez, não
-    precisa esperar as 58 de uma vez. Em aberto: priorizar por capital ou
-    tentar tudo de uma vez, e quem gera (o dono do projeto no Recraft
-    Studio, como as 10 já feitas, ou via API do Recraft se
-    `RECRAFT_API_KEY` for exposta a uma sessão).
+    **Geração via API iniciada em 2026-08-29** — `RECRAFT_API_KEY` já
+    exposta nesta sessão, então virou execução direta em vez de esperar o
+    dono do projeto no Recraft Studio. Receita validada por teste
+    comparativo real antes de gerar em lote: `style_reference_urls` (data
+    URI de `parque-villa-lobos.webp`, um dos 10 já existentes) +
+    `style_match: "precise"` reproduz a paleta de azuis/contorno preto/
+    corredor-em-silhueta-azul do catálogo original quase perfeitamente —
+    muito melhor que descrever o estilo em texto (`style: "digital_illustration"`
+    + `substyle: "hand_drawn_outline"` sozinho rendeu um corredor com pele
+    realista nua, fora da identidade visual). O `style_id` devolvido nessa
+    primeira chamada (`5f782920-2244-4899-9833-579a076bf8e0`) é reaproveitado
+    em todas as chamadas seguintes — mais barato (35 vs. 40 créditos) e
+    dispensa reenviar a imagem de referência a cada vez. **56 lugares**
+    sem `coverImage` (recontado no código, não os "58" estimados antes).
+    **Rodada real, 2026-08-29**: 9 de 56 gerados com sucesso antes da
+    conta do Recraft ficar sem crédito (`not_enough_credits`) — os 9
+    arquivos já estão salvos em `public/lugares/*.webp`, ainda não
+    linkados em `places.ts` (isso e os outros 47 ficam pra depois do dono
+    do projeto recarregar o crédito da conta Recraft). Script descartável
+    de geração fica em scratchpad, não commitado — reaproveita o mesmo
+    `style_id` acima; refazer a lista dos 56 IDs/cenas antes de rodar de
+    novo é rápido (regex sobre `places.ts` por `coverImage` ausente).
 
 - **Dados de saúde do smartwatch** (escopado em 2026-08 numa sessão anterior,
   contexto recuperado do transcript bruto porque nunca foi salvo aqui —
