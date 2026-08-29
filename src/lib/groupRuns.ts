@@ -39,12 +39,16 @@ export interface GroupRun extends Models.Row {
   startsAt: string;
   expiresAt: string;
   status: GroupRunStatus;
+  /** The lobby's "go" signal — null while waiting, set once by `startGroupRun` to the moment every polling client should start its own run. */
+  startedAt: string | null;
 }
 
 export interface GroupRunParticipant extends Models.Row {
   sessionCode: string;
   userId: string;
   joinedAt: string;
+  /** Whether this participant has marked themselves ready in the lobby — toggled by `setParticipantReady`. */
+  ready: boolean;
 }
 
 export interface GroupRunParticipantConnection {
@@ -122,6 +126,7 @@ export async function createGroupRun(name: string, startsAt: number): Promise<Cr
           startsAt: new Date(startsAt).toISOString(),
           expiresAt,
           status: "open",
+          startedAt: null,
         },
         // Table-level permissions already allow any signed-in account to
         // read every session (the code is the gate) — this grants only the
@@ -251,6 +256,64 @@ export async function pairRunSession(code: string): Promise<PairRunSessionResult
     }
     const reason = "error" in body ? body.error : "failed";
     return { ok: false, reason: reason ?? "failed" };
+  } catch {
+    return { ok: false, reason: "failed" };
+  }
+}
+
+/**
+ * Marks (or unmarks) the caller ready in the QR-pairing lobby — safe
+ * client-direct, unlike most writes here that need a Function: the
+ * participant row already grants the caller `update` on their own row
+ * (see join-group-run/pair-run-session in client-actions), and this only
+ * ever writes to that one row, never anyone else's.
+ */
+export async function setParticipantReady(code: string, ready: boolean): Promise<boolean> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return false;
+  const rowId = await participantRowId(normalizeJoinCode(code));
+  if (!rowId) return false;
+  try {
+    await appwrite.tablesDB.updateRow<GroupRunParticipant>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.groupRunParticipants,
+      rowId,
+      data: { ready },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+type StartGroupRunFailureReason = "unavailable" | "failed";
+
+export type StartGroupRunResult = { ok: true; groupRun: GroupRun } | { ok: false; reason: StartGroupRunFailureReason };
+
+/**
+ * Runs the `start-group-run` Function action, which writes the shared
+ * `startedAt` signal every lobby poll reacts to and best-effort pushes
+ * every other participant. Function-mediated (not a client-direct
+ * `updateRow`) because only the host holds row-level `update` on
+ * `group_runs` — a non-host participant's client has no permission to
+ * write this row at all, same reasoning as `startLiveSession` in
+ * liveRuns.ts.
+ */
+export async function startGroupRun(code: string): Promise<StartGroupRunResult> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return { ok: false, reason: "unavailable" };
+  const normalized = normalizeJoinCode(code);
+  try {
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "start-group-run", sessionCode: normalized }),
+    });
+    const body = JSON.parse(execution.responseBody || "{}") as { ok: true; groupRun: GroupRun } | { error: string };
+    if (execution.responseStatusCode >= 200 && execution.responseStatusCode < 300 && "ok" in body && body.ok) {
+      return { ok: true, groupRun: body.groupRun };
+    }
+    return { ok: false, reason: "failed" };
   } catch {
     return { ok: false, reason: "failed" };
   }

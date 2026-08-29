@@ -32,6 +32,7 @@ import {
 } from "@/lib/groupRuns";
 import { PairingQrCode } from "../pairing-qr";
 import { AccountPrompt } from "../account-prompt";
+import { GroupRunLobby } from "../group-run-lobby";
 import { useGroupLiveRuns, buildGroupMarkers } from "@/lib/useGroupLiveRuns";
 import { useAuth } from "@/lib/useAuth";
 import { GroupLiveMap } from "../group-live-map";
@@ -944,6 +945,8 @@ export default function RunPage() {
   );
   const [pairingInviteBusy, setPairingInviteBusy] = useState(false);
   const [pairingInviteError, setPairingInviteError] = useState<string | null>(null);
+  /** The shared "waiting room" after generating or confirming a pairing — see group-run-lobby.tsx. */
+  const [lobbyOpen, setLobbyOpen] = useState(false);
 
   /**
    * Resolves a `?parear=CODE` opened via deep link (QR scan) into a
@@ -988,6 +991,7 @@ export default function RunPage() {
     }
     setLongaoSession(result.groupRun);
     setShareLongao(true);
+    setLobbyOpen(true);
   };
 
   const handleEndLongao = async () => {
@@ -998,7 +1002,10 @@ export default function RunPage() {
         ? await closeGroupRun(longaoSession.$id)
         : await leaveGroupRun(longaoSession.$id);
     setEndingLongao(false);
-    if (ok) setLongaoSession(null);
+    if (ok) {
+      setLongaoSession(null);
+      setLobbyOpen(false);
+    }
   };
 
   const handleConfirmPairing = async () => {
@@ -1015,13 +1022,17 @@ export default function RunPage() {
       );
       return;
     }
-    // Full navigation, not local state — the idle-refresh effect above that
-    // resolves `longaoSession` from `getActiveGroupRunCode()` only runs on
-    // mount/status-change, same reasoning already documented there; a fresh
-    // load is simpler than duplicating that logic here, and also drops the
-    // now-consumed `?parear=` param from the URL.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.assign("/run");
+    // Local state, not a full reload — the reload used to be the only way
+    // this screen re-resolved `longaoSession`, but it also meant pairing
+    // success was silent: the joiner just landed back on the same idle
+    // form with zero confirmation anything happened. Dropping straight
+    // into the lobby is the actual fix for that "escaneei, voltei, não
+    // aconteceu nada" report.
+    setLongaoSession(result.groupRun);
+    setShareLongao(true);
+    setPairingInvite(null);
+    setLobbyOpen(true);
+    window.history.replaceState(null, "", "/run");
   };
 
   /** Which metric gets the giant focus number on the tracking screen — a per-run UI choice, not persisted anywhere (defaults back to "ritmo" on the next run). */
@@ -3064,6 +3075,26 @@ export default function RunPage() {
       )}
 
       {showAccountPrompt && <AccountPrompt onClose={() => setShowAccountPrompt(false)} returnTo="/run" />}
+
+      {lobbyOpen && longaoSession && account && (
+        <GroupRunLobby
+          sessionCode={longaoSession.$id}
+          myUserId={account.id}
+          isHost={longaoSession.hostId === account.id}
+          onStarted={() => {
+            setLobbyOpen(false);
+            // Same trigger the Apple Watch/Wear OS "start" action already
+            // uses (see the onWatchAction effect below) — reuses whatever
+            // options the idle form already has configured, rather than
+            // re-deriving them here.
+            if (state.status === "idle") handleStartRef.current();
+          }}
+          onCancelled={() => {
+            setLobbyOpen(false);
+            setLongaoSession(null);
+          }}
+        />
+      )}
     </div>
   );
 }

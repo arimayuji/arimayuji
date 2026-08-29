@@ -534,18 +534,49 @@ async function joinGroupRun({ userId, body, client, res, error }) {
     }
   }
 
+  let joined = true;
   try {
     await tablesDB.createRow({
       databaseId: DATABASE_ID,
       tableId: "group_run_participants",
       rowId: `${sessionCode}_${userId}`,
-      data: { sessionCode, userId, joinedAt: new Date().toISOString() },
-      permissions: [Permission.delete(Role.user(userId))],
+      // Update granted alongside delete — a self-grant (the row's own
+      // userId getting update on its own row), not the "permission for
+      // another user's role" bug class documented in PROJECT-CONTEXT.md.
+      // It's what lets the lobby's "mark myself ready" toggle be a plain
+      // client-direct updateRow afterward, no Function needed for that.
+      data: { sessionCode, userId, joinedAt: new Date().toISOString(), ready: false },
+      permissions: [Permission.delete(Role.user(userId)), Permission.update(Role.user(userId))],
     });
   } catch (err) {
-    if (err.code !== 409) {
+    if (err.code === 409) {
+      joined = false; // already a participant — not a fresh join, skip the host push below
+    } else {
       error(`Falha ao entrar em ${sessionCode} para ${userId}: ${err.message}`);
       return res.json({ error: "failed" }, 500);
+    }
+  }
+
+  // Best-effort, same reasoning as send-friend-request's own push: a missed
+  // notification just means the host finds out next time they check the
+  // lobby instead of right away. Never fires for the host auto-joining
+  // their own session (createGroupRun's own call into this action), nor
+  // for a redundant re-join (409 above).
+  if (joined && groupRun.hostId !== userId) {
+    try {
+      const joinerName = await tablesDB
+        .getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: userId })
+        .then((row) => row.displayName || `@${row.handle}`)
+        .catch(() => "Alguém");
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "Alguém entrou na corrida",
+        body: `${joinerName} entrou na sua sala de espera.`,
+        users: [groupRun.hostId],
+      });
+    } catch (err) {
+      error(`join-group-run: push best-effort falhou pra ${groupRun.hostId}: ${err.message}`);
     }
   }
 
@@ -636,22 +667,131 @@ async function pairRunSession({ userId, body, client, res, error }) {
     return res.json({ error: "failed" }, 500);
   }
 
+  let joined = true;
   try {
     await tablesDB.createRow({
       databaseId: DATABASE_ID,
       tableId: "group_run_participants",
       rowId: `${sessionCode}_${userId}`,
-      data: { sessionCode, userId, joinedAt: new Date().toISOString() },
-      permissions: [Permission.delete(Role.user(userId))],
+      // See join-group-run's identical grant for why `update` is safe to
+      // add here (self-grant, unlocks the lobby's client-direct "ready" toggle).
+      data: { sessionCode, userId, joinedAt: new Date().toISOString(), ready: false },
+      permissions: [Permission.delete(Role.user(userId)), Permission.update(Role.user(userId))],
     });
   } catch (err) {
-    if (err.code !== 409) {
+    if (err.code === 409) {
+      joined = false; // already a participant — skip the host push below
+    } else {
       error(`pair-run-session: falha ao entrar em ${sessionCode} para ${userId}: ${err.message}`);
       return res.json({ error: "failed" }, 500);
     }
   }
 
+  // Best-effort — see join-group-run's identical push for the reasoning.
+  // `hostId === userId` is already rejected above ("self"), so no extra
+  // guard needed here.
+  if (joined) {
+    try {
+      const joinerName = await tablesDB
+        .getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: userId })
+        .then((row) => row.displayName || `@${row.handle}`)
+        .catch(() => "Alguém");
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "Alguém entrou na corrida",
+        body: `${joinerName} escaneou seu QR e já está na sala de espera.`,
+        users: [hostId],
+      });
+    } catch (err) {
+      error(`pair-run-session: push best-effort falhou pra ${hostId}: ${err.message}`);
+    }
+  }
+
   return res.json({ ok: true, groupRun });
+}
+
+/**
+ * action: "start-group-run" — writes the shared "go" signal every lobby
+ * poll reacts to (`group_runs.startedAt`), then best-effort pushes every
+ * other participant that the run is starting. Function-mediated rather
+ * than a plain client-side updateRow because only the host holds
+ * row-level `update` on `group_runs` (granted at createGroupRun time) —
+ * a non-host participant's client has no permission to write this row at
+ * all, same reasoning that already moved start-live-session/
+ * refresh-live-audience server-side. Idempotent: a second call after
+ * `startedAt` is already set is a no-op success, so two people tapping
+ * "Começar" within the same lobby poll window can't double-fire the push
+ * or clobber an earlier startedAt with a later one.
+ */
+async function startGroupRun({ userId, body, client, res, error }) {
+  const sessionCode = String(body.sessionCode ?? "").toUpperCase();
+  if (!sessionCode) {
+    return res.json({ error: "missing-session-code" }, 400);
+  }
+
+  const tablesDB = new TablesDB(client);
+  let groupRun;
+  try {
+    groupRun = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "group_runs", rowId: sessionCode });
+  } catch {
+    return res.json({ error: "not-found" }, 404);
+  }
+  if (groupRun.status === "closed") {
+    return res.json({ error: "closed" }, 403);
+  }
+
+  // Caller must actually be a participant — not open to anyone who merely
+  // knows the code, unlike the read-only listParticipants call.
+  try {
+    await tablesDB.getRow({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      rowId: `${sessionCode}_${userId}`,
+    });
+  } catch {
+    return res.json({ error: "not-a-participant" }, 403);
+  }
+
+  if (groupRun.startedAt) {
+    return res.json({ ok: true, groupRun }); // already started — idempotent no-op
+  }
+
+  const startedAt = new Date().toISOString();
+  let updated;
+  try {
+    updated = await tablesDB.updateRow({
+      databaseId: DATABASE_ID,
+      tableId: "group_runs",
+      rowId: sessionCode,
+      data: { startedAt },
+    });
+  } catch (err) {
+    error(`start-group-run: falha ao marcar início de ${sessionCode}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  try {
+    const participants = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      queries: [Query.equal("sessionCode", sessionCode), Query.limit(50)],
+    });
+    const others = participants.rows.map((row) => row.userId).filter((id) => id !== userId);
+    if (others.length > 0) {
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "A corrida vai começar",
+        body: `${groupRun.name} está começando agora.`,
+        users: others,
+      });
+    }
+  } catch (err) {
+    error(`start-group-run: push best-effort falhou pra ${sessionCode}: ${err.message}`);
+  }
+
+  return res.json({ ok: true, groupRun: updated });
 }
 
 /** action: "claim-owned-row" — the only path allowed to create the first profiles/profile_stats/place_run_stats row for an account. Originally appwrite-functions/claim-owned-row. */
@@ -1517,6 +1657,7 @@ const ACTIONS = {
   "start-live-session": startLiveSession,
   "refresh-live-audience": refreshLiveAudience,
   "pair-run-session": pairRunSession,
+  "start-group-run": startGroupRun,
   "claim-owned-row": claimOwnedRow,
   "send-friend-request": sendFriendRequest,
   "propose-coach-relationship": proposeCoachRelationship,

@@ -603,6 +603,17 @@ async function main() {
       required: true,
     }),
   );
+  // The "everyone's ready, go" signal for the QR-pairing lobby — null
+  // means still waiting, set once (by the host, via the start-group-run
+  // Function action) to the moment every polling client should treat as
+  // "start now". Deliberately a new column rather than a third `status`
+  // value: `status` already means "can people still join / is this
+  // session over", a different axis from "has the run itself begun",
+  // and widening a live Appwrite enum column is a real migration this
+  // avoids.
+  await ensure("group_runs.startedAt", () =>
+    tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "group_runs", key: "startedAt", required: false }),
+  );
 
   // ------------------------------------------------------ group_run_participants
   console.log("\ngroup_run_participants");
@@ -639,6 +650,21 @@ async function main() {
   );
   await ensure("group_run_participants.joinedAt", () =>
     tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "group_run_participants", key: "joinedAt", required: true }),
+  );
+  // Lobby ready-up flag, toggled client-direct once the row also grants
+  // the participant `update` on themselves (see join-group-run/
+  // pair-run-session in client-actions) — `required: false` +
+  // `xdefault: false` rather than `required: true`, since the Appwrite
+  // SDK rejects a default value on a required column; every row still
+  // reads as `false` until the participant marks themselves ready.
+  await ensure("group_run_participants.ready", () =>
+    tablesDB.createBooleanColumn({
+      databaseId: DATABASE_ID,
+      tableId: "group_run_participants",
+      key: "ready",
+      required: false,
+      xdefault: false,
+    }),
   );
   await waitForColumn("group_run_participants", "sessionCode");
   await ensure("group_run_participants index: sessionCode", () =>
