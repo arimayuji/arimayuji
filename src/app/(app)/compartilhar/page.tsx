@@ -52,6 +52,7 @@ import {
   type Shoe,
 } from "@/lib/tracking/storage";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
+import { ensureDecodableImage } from "@/lib/heicConvert";
 import { PHOTO_FILTER_IDS, PHOTO_FILTERS, type PhotoFilterId } from "@/lib/shareCard/photoFilters";
 import { TEXT_ENTRANCE_IDS, TEXT_ENTRANCES, type TextEntranceId } from "@/lib/shareCard/textEntrances";
 
@@ -313,8 +314,10 @@ function CompartilharContent() {
    * background just because `photos` hasn't caught up yet.
    */
   const [photosSettled, setPhotosSettled] = useState(true);
-  /** Set when every photo in the current pick failed to decode (e.g. a HEIC file the browser can't render) — surfaced as an explicit message instead of quietly drawing the cenário while "Sua foto" stays selected. */
+  /** Set when every photo in the current pick failed to decode (HEIC is handled separately by `ensureDecodableImage` before this ever sees the file — this now only catches genuinely unusual formats/corrupt files) — surfaced as an explicit message instead of quietly drawing the cenário while "Sua foto" stays selected. */
   const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
+  /** True while `ensureDecodableImage` is converting a HEIC pick to JPEG — a real wait (WASM decode), worth its own label instead of looking like the picker just did nothing. */
+  const [photosConverting, setPhotosConverting] = useState(false);
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [photoFilter, setPhotoFilter] = useState<PhotoFilterId>("original");
   const [textEntrance, setTextEntrance] = useState<TextEntranceId>("bumerangue");
@@ -732,19 +735,26 @@ function CompartilharContent() {
     };
   }, [videoUrl]);
 
-  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []).slice(0, MAX_SHARE_PHOTOS);
     event.target.value = "";
     if (files.length === 0) return;
     setPhotos([]);
     setPhotoFilter("original");
     setPhotoLoadFailed(false);
-    setPhotoUrls(files.map((file) => URL.createObjectURL(file)));
     setVideo(null);
     setVideoUrl(null);
     setVideoLoadFailed(false);
     setBackgroundMode("foto");
     setMediaPickerTab("foto");
+    setPhotosConverting(true);
+    // A no-op pass-through for anything that isn't HEIC/HEIF — see the
+    // module's own comment for why this has to happen before the object
+    // URLs below even exist to try decoding (no browser can decode HEIC
+    // via a plain <img>, this app's WebView included).
+    const decodable = await Promise.all(files.map(ensureDecodableImage));
+    setPhotosConverting(false);
+    setPhotoUrls(decodable.map((file) => URL.createObjectURL(file)));
   }
 
   function handleVideoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -890,6 +900,9 @@ function CompartilharContent() {
                 className="sr-only"
                 onChange={handlePhotoChange}
               />
+              {photosConverting && (
+                <span className="text-xs text-muted">Convertendo foto…</span>
+              )}
               {photoUrls.length > 0 && (
                 <>
                   <span className="text-xs text-muted">
@@ -1175,9 +1188,9 @@ function CompartilharContent() {
           )}
           {mediaLoadFailed && (
             <p className="mb-4 text-xs leading-relaxed text-warn" role="status">
-              Esse {videoUrl ? "vídeo" : "arquivo"} não abriu — o formato pode não ser suportado
-              (ex.: fotos em HEIC). Por enquanto o card usa um cenário no lugar. Tenta escolher
-              outra foto ou vídeo, ou exportar em JPG/PNG antes de subir.
+              Esse {videoUrl ? "vídeo" : "arquivo"} não abriu — o formato pode não ser suportado.
+              Por enquanto o card usa um cenário no lugar. Tenta escolher outra foto ou vídeo, ou
+              exportar em JPG/PNG antes de subir.
             </p>
           )}
           <div
