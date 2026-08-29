@@ -7,8 +7,9 @@ import {
   SHARE_CARD_DURATION_MS,
   SHARE_CARD_HEIGHT,
   SHARE_CARD_WIDTH,
-  defaultLayoutAnchors,
+  shareCardHitBoxes,
   drawShareCardFrame,
+  type ShareCardHitBox,
   type ShareCardLayoutOverrides,
   type ShareCardScene,
 } from "@/lib/shareCard/renderer";
@@ -16,37 +17,44 @@ import {
 const PREVIEW_FRAME_INTERVAL_MS = 1000 / 30;
 
 /**
- * One draggable handle over the live preview — a plain circle sitting at
- * the element's current position (default anchor + whatever offset is
- * already applied), never rendered into the actual card/video. Reports
- * drag deltas in *canvas* units (the same 720×1280 space `drawShareCardFrame`
- * draws into), converted from screen pixels via the canvas's own current
+ * A direct drag/tap area sitting right over one element's actual footprint
+ * (default box + whatever offset is already applied) — never rendered into
+ * the exported card/video, and never a separate floating handle icon
+ * either. An earlier version drew a small circle with a 4-arrow "move"
+ * glyph next to each element; a real athlete testing it on their own phone
+ * called it out as reading like a game joystick rather than part of the
+ * card (2026-08-29) — touching the number/medal/route itself, with no
+ * extra icon standing in for it, is the direct fix. Reports drag deltas in
+ * *canvas* units (the same 720×1280 space `drawShareCardFrame` draws
+ * into), converted from screen pixels via the canvas's own current
  * bounding rect — this works regardless of how big the canvas is actually
  * rendered on screen (phone vs. desktop, `w-full` scaling it either way),
  * since the rect is re-measured on every drag start rather than cached.
  */
-function LayoutHandle({
+function DragArea({
   canvasRef,
-  anchor,
+  box,
   offset,
   label,
   onChange,
   onRemove,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  anchor: { x: number; y: number };
+  box: ShareCardHitBox;
   offset: { dx: number; dy: number };
   label: string;
   onChange: (offset: { dx: number; dy: number }) => void;
-  /** Every element on the card is optional, not just draggable — this removes it from the render entirely. See the small "×" badge below, and the restore chip `ShareCardPreview` shows in its place once hidden. */
-  onRemove: () => void;
+  /** Omitted for an element with no remove affordance — the route trace, dropping it entirely defeats the point of this template. */
+  onRemove?: () => void;
 }) {
   const dragRef = useRef<{ pointerId: number; startOffset: { dx: number; dy: number }; startX: number; startY: number; unitsPerPxX: number; unitsPerPxY: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    setDragging(true);
     dragRef.current = {
       pointerId: event.pointerId,
       startOffset: offset,
@@ -67,55 +75,58 @@ function LayoutHandle({
   };
 
   const endDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+    if (dragRef.current?.pointerId === event.pointerId) {
+      dragRef.current = null;
+      setDragging(false);
+    }
   };
 
-  const x = anchor.x + offset.dx;
-  const y = anchor.y + offset.dy;
-  const leftPct = `${(x / SHARE_CARD_WIDTH) * 100}%`;
-  const topPct = `${(y / SHARE_CARD_HEIGHT) * 100}%`;
+  const left = box.x + offset.dx;
+  const top = box.y + offset.dy;
+  const leftPct = `${(left / SHARE_CARD_WIDTH) * 100}%`;
+  const topPct = `${(top / SHARE_CARD_HEIGHT) * 100}%`;
+  const widthPct = `${(box.width / SHARE_CARD_WIDTH) * 100}%`;
+  const heightPct = `${(box.height / SHARE_CARD_HEIGHT) * 100}%`;
 
   return (
     <>
       <button
         type="button"
-        aria-label={label}
+        aria-label={`Arrastar ${label.toLowerCase()}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        // 48px hit target (was 36px) — a real thumb on a real phone kept
-        // missing the smaller circle, which read as "dragging doesn't work"
-        // when it was actually just missing the touch. Grows slightly on
-        // grab (active:scale-110) rather than shrinking like a normal button
-        // press, so picking it up reads as "you're now holding this," not
-        // "you tapped a button."
-        className="absolute z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center rounded-full border-2 border-white/80 bg-black/45 text-white shadow-lg backdrop-blur-sm active:scale-110"
-        style={{ left: leftPct, top: topPct }}
-      >
-        <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        aria-label={`Remover ${label.replace(/^Arrastar /i, "").toLowerCase()}`}
-        onClick={onRemove}
-        // Sits at the drag handle's own anchor, nudged up-right by a fixed
-        // 22px so it never overlaps the 48px drag hit-area beneath it —
-        // its own separate tap target, not part of the drag gesture.
-        className="absolute z-20 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-bad text-white shadow active:scale-90"
-        style={{ left: leftPct, top: topPct, marginLeft: 22, marginTop: -22 }}
-      >
-        <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </button>
+        // A faint dashed outline at rest — enough to hint "this has a
+        // boundary" without reading as a control widget sitting on top of
+        // the card; brightens while actually held so a drag in progress is
+        // still obvious feedback.
+        className={`absolute touch-none rounded-2xl border transition-colors ${
+          dragging ? "border-white/70 bg-white/10" : "border-dashed border-white/20"
+        }`}
+        style={{ left: leftPct, top: topPct, width: widthPct, height: heightPct }}
+      />
+      {onRemove && (
+        <button
+          type="button"
+          aria-label={`Remover ${label.toLowerCase()}`}
+          onClick={onRemove}
+          // Sits at the drag area's own top-right corner rather than a
+          // fixed offset from a point — its own separate tap target, drawn
+          // after (so it stacks above) the drag area beneath it.
+          className="absolute z-20 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-bad text-white shadow active:scale-90"
+          style={{ left: `${((left + box.width) / SHARE_CARD_WIDTH) * 100}%`, top: topPct }}
+        >
+          <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      )}
     </>
   );
 }
 
-/** Stands in for a removed element (see `LayoutHandle`'s own "×" badge) — a fixed corner chip rather than something positioned at the hidden element's old spot, since that spot no longer has anything visually anchoring it once the element is gone. */
+/** Stands in for a removed element (see `DragArea`'s own "×" badge) — a fixed corner chip rather than something positioned at the hidden element's old spot, since that spot no longer has anything visually anchoring it once the element is gone. */
 function RestoreChip({ label, className, onClick }: { label: string; className: string; onClick: () => void }) {
   return (
     <button
@@ -148,10 +159,10 @@ export function ShareCardPreview({
   durationMs?: number;
   className?: string;
   /**
-   * Passing both of these turns on the drag handles below — omit them (as
+   * Passing both of these turns on the drag areas below — omit them (as
    * every caller besides the main `/compartilhar` preview does, e.g. the
    * swipeable template thumbnails) and the preview behaves exactly as
-   * before, no handles, no pointer listeners.
+   * before, no drag areas, no pointer listeners.
    */
   layoutOverrides?: ShareCardLayoutOverrides;
   onLayoutOverridesChange?: (next: ShareCardLayoutOverrides) => void;
@@ -211,19 +222,19 @@ export function ShareCardPreview({
     };
   }, [play]);
 
-  // Used to wait for the full ~15s reveal to finish before showing handles
-  // (avoiding a visual disagreement between the handle and the still-animating
-  // element) — in practice that made the drag feature undiscoverable, since
-  // nothing on screen hints that waiting out the whole animation (or tapping
-  // the easy-to-miss "Parar" button) unlocks it. Handles now show immediately;
-  // the brief mismatch during the reveal is a smaller cost than a feature
-  // nobody finds.
+  // Used to wait for the full ~15s reveal to finish before showing drag
+  // areas (avoiding a visual disagreement between the outline and the
+  // still-animating element) — in practice that made the drag feature
+  // undiscoverable, since nothing on screen hints that waiting out the
+  // whole animation (or tapping the easy-to-miss "Parar" button) unlocks
+  // it. Drag areas now show immediately; the brief mismatch during the
+  // reveal is a smaller cost than a feature nobody finds.
   const draggable = !!onLayoutOverridesChange;
-  const anchors = defaultLayoutAnchors(scene.layout);
+  const boxes = shareCardHitBoxes(scene);
   const hasPlateAccessory = !!scene.record || !!scene.shoe;
   const statsHidden = !!layoutOverrides?.hidden?.stats;
   const plateHidden = !!layoutOverrides?.hidden?.plate;
-  const hasOverride = !!(layoutOverrides?.stats || layoutOverrides?.plate || statsHidden || plateHidden);
+  const hasOverride = !!(layoutOverrides?.stats || layoutOverrides?.plate || layoutOverrides?.route || statsHidden || plateHidden);
 
   return (
     <div className={`relative overflow-hidden rounded-3xl border border-border ${className}`}>
@@ -235,12 +246,21 @@ export function ShareCardPreview({
         role="img"
         aria-label={`Card da corrida de ${scene.distance} ${scene.distanceUnit} em ${scene.duration}, ritmo ${scene.pace} por ${scene.distanceUnit}`}
       />
-      {draggable && !statsHidden && (
-        <LayoutHandle
+      {draggable && boxes.route && (
+        <DragArea
           canvasRef={canvasRef}
-          anchor={anchors.stats}
+          box={boxes.route}
+          offset={layoutOverrides?.route ?? { dx: 0, dy: 0 }}
+          label="rota"
+          onChange={(route) => onLayoutOverridesChange({ ...layoutOverrides, route })}
+        />
+      )}
+      {draggable && !statsHidden && (
+        <DragArea
+          canvasRef={canvasRef}
+          box={boxes.stats}
           offset={layoutOverrides?.stats ?? { dx: 0, dy: 0 }}
-          label="Arrastar estatísticas"
+          label="estatísticas"
           onChange={(stats) => onLayoutOverridesChange({ ...layoutOverrides, stats })}
           onRemove={() => onLayoutOverridesChange({ ...layoutOverrides, hidden: { ...layoutOverrides?.hidden, stats: true } })}
         />
@@ -253,11 +273,11 @@ export function ShareCardPreview({
         />
       )}
       {draggable && hasPlateAccessory && !plateHidden && (
-        <LayoutHandle
+        <DragArea
           canvasRef={canvasRef}
-          anchor={anchors.plate}
+          box={boxes.plate}
           offset={layoutOverrides?.plate ?? { dx: 0, dy: 0 }}
-          label={scene.record ? "Arrastar medalha" : "Arrastar tênis"}
+          label={scene.record ? "medalha" : "tênis"}
           onChange={(plate) => onLayoutOverridesChange({ ...layoutOverrides, plate })}
           onRemove={() => onLayoutOverridesChange({ ...layoutOverrides, hidden: { ...layoutOverrides?.hidden, plate: true } })}
         />

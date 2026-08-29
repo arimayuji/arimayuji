@@ -469,13 +469,17 @@ export interface ShareCardTrack {
 export interface ShareCardLayoutOverrides {
   stats?: { dx: number; dy: number };
   plate?: { dx: number; dy: number };
+  /** The route trace itself (the "trajeto" layout's GPS line) — never offered on "numero", which has no line to move. */
+  route?: { dx: number; dy: number };
   /**
    * True removes that element from the render entirely — every element on
    * this card is optional, not just draggable. Kept separate from
    * `stats`/`plate` above (a position offset) rather than folded into
    * them, since hiding needs to survive independently of whatever offset
    * was already dragged in — un-hiding later should put it back exactly
-   * where it was, not reset to the default position too.
+   * where it was, not reset to the default position too. The route has no
+   * hide flag — dropping the trace entirely defeats the point of the
+   * "trajeto" template (pick "número" instead if the route shouldn't show).
    */
   hidden?: { stats?: boolean; plate?: boolean };
 }
@@ -1240,21 +1244,58 @@ const NUMERO_PLATE_SLOT: PlateSlot = { x: SHARE_CARD_WIDTH / 2, y: 990, size: 22
 const TRAJETO_PLATE_POP_START = ROUTE_DRAW_END + 480;
 const NUMERO_PLATE_POP_START = 1450;
 
+export interface ShareCardHitBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Generous approximation of the TEMPO/PACE row's footprint on "numero" — centred, same math `drawNumberStats` uses to place it. */
+const NUMERO_STATS_BOX: ShareCardHitBox = { x: 120, y: 704, width: 480, height: 148 };
+/** Covers the "when" line, the big distance number and the TEMPO/PACE row on "trajeto" — wide enough for a long distance string, tight enough to stay clear of the plate slot beside it. */
+const TRAJETO_STATS_BOX: ShareCardHitBox = { x: 36, y: 850, width: 520, height: 320 };
+
+function plateHitBox(slot: PlateSlot): ShareCardHitBox {
+  const pad = 14;
+  return { x: slot.x - slot.size / 2 - pad, y: slot.y - slot.size / 2 - pad, width: slot.size + pad * 2, height: slot.size + pad * 2 };
+}
+
 /**
- * Where the draggable stats block and plate/shoe accessory sit by default
- * (canvas units, before any `ShareCardLayoutOverrides` offset), so the
- * picker UI can place drag handles without duplicating the layout
- * constants above — the one place outside this file that's allowed to know
- * these numbers exist at all.
+ * Where the draggable stats block, plate/shoe accessory and (on "trajeto")
+ * the route trace actually sit — direct hit-areas over each element's real
+ * footprint, not a small handle floating near a single anchor point, so
+ * touching the number/medal/line itself is what starts a drag (see
+ * `share-card-preview.tsx`'s own comment on why: a separate floating
+ * "joystick" icon read as an odd control widget rather than the card's own
+ * content, real-device feedback 2026-08-29). The route box is computed from
+ * `scene.projected` (the run's actual traced points) since — unlike
+ * stats/plate — its footprint isn't a fixed layout constant; `null` when
+ * there's no line to drag (the "numero" layout never draws one).
  */
-export function defaultLayoutAnchors(layout: ShareCardLayout): {
-  stats: { x: number; y: number };
-  plate: { x: number; y: number };
+export function shareCardHitBoxes(scene: ShareCardScene): {
+  stats: ShareCardHitBox;
+  plate: ShareCardHitBox;
+  route: ShareCardHitBox | null;
 } {
-  const plateSlot = layout === "numero" ? NUMERO_PLATE_SLOT : TRAJETO_PLATE_SLOT;
+  const isNumero = scene.layout === "numero";
+  const plateSlot = isNumero ? NUMERO_PLATE_SLOT : TRAJETO_PLATE_SLOT;
+  let route: ShareCardHitBox | null = null;
+  if (!isNumero && scene.timeline && scene.projected.length >= 2) {
+    const xs = scene.projected.map((p) => p.x);
+    const ys = scene.projected.map((p) => p.y);
+    // Half the thickest outer stroke (20px) plus the start/end circle radius
+    // (14px), rounded up — enough padding that the hit-area covers the line
+    // itself, not just the points it interpolates between.
+    const pad = 36;
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    route = { x: minX - pad, y: minY - pad, width: Math.max(...xs) - minX + pad * 2, height: Math.max(...ys) - minY + pad * 2 };
+  }
   return {
-    stats: { x: STAT_LEFT, y: STAT_DISTANCE_BASELINE },
-    plate: { x: plateSlot.x, y: plateSlot.y },
+    stats: isNumero ? NUMERO_STATS_BOX : TRAJETO_STATS_BOX,
+    plate: plateHitBox(plateSlot),
+    route,
   };
 }
 
@@ -1653,8 +1694,14 @@ export function drawShareCardFrame(
   else if (scene.photos.length === 1) drawPhoto(ctx, scene.photos[0], scene.photoFilter);
   else drawScenario(ctx, scene.scenario);
 
-  if (scene.layout === "numero") drawNumberHero(ctx, scene, t);
-  else drawRoute(ctx, scene, t);
+  if (scene.layout === "numero") {
+    drawNumberHero(ctx, scene, t);
+  } else {
+    const routeOffset = scene.layoutOverrides.route;
+    if (routeOffset) ctx.translate(routeOffset.dx, routeOffset.dy);
+    drawRoute(ctx, scene, t);
+    if (routeOffset) ctx.translate(-routeOffset.dx, -routeOffset.dy);
+  }
 
   // A record and a shoe want the same slot; the record wins, because a card
   // announcing a PR is doing a different job than one showing off the kit.
