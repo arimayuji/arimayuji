@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Haptics, NotificationType } from "@capacitor/haptics";
 import {
   ANNOUNCE_MAX_METERS,
   ANNOUNCE_MIN_METERS,
@@ -1199,6 +1200,8 @@ function AppModeCard() {
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
+  /** Drives the "Testar vibração" button's own label swap — see that button's comment for why it exists. */
+  const [vibrateTested, setVibrateTested] = useState(false);
 
   return (
     <>
@@ -1391,6 +1394,27 @@ export default function PerfilPage() {
                   onChange={(checked) => update({ vibrateOnPaceDelay: checked })}
                 />
               </div>
+              {/*
+                Isolates "o toggle não vibra durante a corrida" into two
+                separate questions someone can answer without waiting 20s
+                atrasado no meio de uma corrida de verdade: aperta aqui —
+                se não vibrar, o problema é o aparelho/plugin (modo
+                silencioso bloqueando o motor, permissão negada, etc.), não
+                a lógica de atraso de ritmo em si; se vibrar aqui mas nunca
+                durante uma corrida, o problema é a condição de disparo
+                (meta não é "Ritmo", ou nunca ficou 20s atrasado de verdade).
+              */}
+              <button
+                type="button"
+                onClick={() => {
+                  setVibrateTested(true);
+                  void Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
+                  window.setTimeout(() => setVibrateTested(false), 2000);
+                }}
+                className="mt-3 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition-colors active:text-foreground"
+              >
+                {vibrateTested ? "Vibrou agora? Isso testa só o aparelho." : "Testar vibração"}
+              </button>
             </fieldset>
 
             <fieldset className="mt-6 border-t border-border pt-5">
