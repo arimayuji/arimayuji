@@ -84,8 +84,8 @@ function PersonRow({
 type FriendTab = "convites" | "amigos";
 
 const FRIEND_TABS = [
-  { id: "convites", label: "Convites" },
   { id: "amigos", label: "Amigos" },
+  { id: "convites", label: "Convites" },
 ] as const;
 
 export default function AmigosPage() {
@@ -101,7 +101,7 @@ export default function AmigosPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   /** Which of the two actions on the *same* incoming request `busyId` is currently mid-flight — `busyId` alone can't tell Aceitar and Recusar's busy labels apart, since both buttons share it. */
   const [busyAction, setBusyAction] = useState<"accept" | "decline" | null>(null);
-  const [activeTab, setActiveTab] = useState<FriendTab>("convites");
+  const [activeTab, setActiveTab] = useState<FriendTab>("amigos");
 
   // Prefills from an invite link (?h=) — either the web landing page's own
   // fallback instructions, or the deep-link handler in

@@ -2436,6 +2436,66 @@ tomar gel bem na reta final.
   gatilho por tempo já existente e comprovado dos anúncios de pace,
   mesmo tick loop, mesmo padrão de refs.
 
+## Mais feedback de teste real num aparelho (2026-08-29, segunda rodada)
+
+Continuação da rodada de achados de "Três achados de teste real num
+aparelho" acima, mesma sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+**ainda não deployado em produção**:
+
+- **`/amigos` abria na aba errada**: a tela tinha "Convites" como aba
+  padrão e primeira da lista, exigindo um toque extra pra chegar em
+  "Amigos" — a ação mais comum da tela. Princípio geral aplicado (do
+  próprio dono do projeto): a ação mais frequente é o padrão de um toque
+  só; ações secundárias (mandar/ver convite) custam o toque extra, nunca
+  o contrário. Corrigido em `src/app/(app)/amigos/page.tsx`: `FRIEND_TABS`
+  reordenado (`amigos` primeiro) e `activeTab` inicial trocado pra
+  `"amigos"`. O formulário de "Adicionar amigo" já era renderizado
+  incondicionalmente acima das abas (nunca dependeu de `activeTab`), então
+  a mudança não afeta o fluxo de convite.
+- **Trilha sonora deixou de ser um passo do fluxo de compartilhar e virou
+  campo da própria corrida**: feedback real — "anexar música/playlist à
+  corrida pra lembrar o que tocou" é diferente de "escolher música pro
+  card", já que o Instagram já tem seu próprio passo de música. Busca,
+  adicionar e remover track (`searchTracks`/`updateRunTracks`, já
+  existentes) migraram de `/compartilhar` pra
+  `historico/detalhe/run-detail.tsx`, novo card "Trilha sonora" ao lado do
+  card "Lugar" (mesmo padrão dos dois: texto livre/busca + salvar, sem
+  Appwrite, tudo local). `/compartilhar` só lê `run.tracks` (read-only)
+  pra decidir se os templates "Foto + música"/"Música" desbloqueiam, e um
+  card pequeno mostra a faixa já anexada com link pro detalhe da corrida
+  pra editar. O template travado, ao ser tocado, agora navega direto pro
+  detalhe da corrida em vez de rolar até um card de busca que não existe
+  mais ali.
+- **Card exportável sem trajeto já existia — só difícil de achar**:
+  levantada a ideia de também poder tirar o trajeto de dentro do template
+  "Trajeto" — mas o template "Número" (só os números, sem rota) já cobre
+  exatamente isso, escolha do dono do projeto foi só torná-lo mais fácil
+  de achar em vez de duplicar a opção dentro do outro template.
+  `buildTemplateOptions` (`compartilhar/page.tsx`) trocou a ordem de
+  iteração (música por fora, layout por dentro, antes o inverso) — as
+  duas variantes "Foto" (`trajeto-none` e `numero-none`, as únicas que
+  nunca ficam travadas) agora são sempre as duas primeiras miniaturas da
+  fileira, lado a lado, em vez do "Número" ficar depois de dois cards
+  travados de música. O template padrão continua sendo "Trajeto · Foto"
+  (`templates[0]` não mudou).
+- **Investigado, sem bug de código encontrado — "Ganho de elevação" preso
+  em "Indisponível"**: `src/lib/elevation.ts` lido por completo; testado
+  ao vivo com `curl` contra a API real da MapTiler usando a chave real de
+  `.env.local` — tanto lookup de um ponto só quanto o batch usado pelo
+  código funcionam (`200 OK`, JSON válido nos dois). O workflow do CI
+  (`.github/workflows/android-build.yml`) já repassa
+  `NEXT_PUBLIC_MAPTILER_KEY` corretamente pro step de build do web export.
+  Achado importante: **esse env var só é consumido nesse um lugar em todo
+  o `src/`** — o basemap visível do mapa usa um sistema totalmente
+  separado (Protomaps/PMTiles, `NEXT_PUBLIC_TILES_BASE_URL`), então nada
+  mais no app hoje prova se esse secret específico está configurado
+  certo em produção. Conclusão mais provável: o secret
+  `NEXT_PUBLIC_MAPTILER_KEY` no GitHub Actions (Settings → Secrets →
+  Actions do repo `xanthus`) está ausente ou com o valor errado — algo só
+  o dono do projeto pode conferir/corrigir, não uma correção de código.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
+  **Não testado em aparelho real** — mesma pendência padrão de sempre.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play

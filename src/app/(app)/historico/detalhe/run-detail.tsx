@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { computeElevationProfile, elevationGainFromProfile, type ElevationSample } from "@/lib/elevation";
 import { fetchRecoveryContext, fetchRunHealthData, HEALTH_DATA_ENABLED, type RecoveryContext, type RunHealthData } from "@/lib/health";
+import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import { syncProfileStats } from "@/lib/profileStats";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
@@ -32,7 +33,9 @@ import {
   runMovingSeconds,
   updateRunElevationGain,
   updateRunPlaceName,
+  updateRunTracks,
   type CompletedRun,
+  type RunTrack,
   type StoredPoint,
 } from "@/lib/tracking/storage";
 import { usePreferences } from "@/lib/usePreferences";
@@ -553,6 +556,22 @@ export function RunDetail({ id }: { id: string }) {
   const [sharingId, setSharingId] = useState<string | null>(null);
   /** Mirrors `run.placeName` as a controlled input value — only ever shown/editable when the route doesn't already match the catalog (see the render below). */
   const [placeNameInput, setPlaceNameInput] = useState("");
+  /**
+   * Which song/track was playing during this run — a property of the run
+   * itself (like `placeName`), not of the share-card export flow. Used to
+   * live under `/compartilhar`'s own search box, which confused what it
+   * actually recorded: real-device feedback (2026-08-29) pointed out that
+   * "attach the song to the run so I remember what I ran to" reads as
+   * something the run should remember regardless of ever posting it
+   * anywhere, not a step inside generating a share card. `/compartilhar`
+   * still reads `run.tracks` (unchanged) to decide whether its "música"
+   * templates are available — only the editing UI moved here.
+   */
+  const [manualTracks, setManualTracks] = useState<RunTrack[]>([]);
+  const [musicQuery, setMusicQuery] = useState("");
+  const [musicResults, setMusicResults] = useState<TrackCandidate[] | null>(null);
+  const [musicSearching, setMusicSearching] = useState(false);
+  const [musicSearchFailed, setMusicSearchFailed] = useState(false);
   /** The last value actually persisted — separate from `placeNameInput` so the Save button can tell "typed but not saved yet" apart from "already saved", without waiting on a full reload of `load.run` (which this screen never re-fetches after a save). */
   const [savedPlaceName, setSavedPlaceName] = useState("");
   const [savingPlaceName, setSavingPlaceName] = useState(false);
@@ -572,6 +591,7 @@ export function RunDetail({ id }: { id: string }) {
       setOpenedMeters(run.openedRecordMeters ?? []);
       setPlaceNameInput(run.placeName ?? "");
       setSavedPlaceName(run.placeName ?? "");
+      setManualTracks(run.tracks ?? []);
       setLoad({ status: "ready", run, records: computeRunRecords(run, allRuns) });
     });
     return () => {
@@ -694,6 +714,46 @@ export function RunDetail({ id }: { id: string }) {
     await updateRunPlaceName(run.id, trimmed);
     setSavedPlaceName(trimmed);
     setSavingPlaceName(false);
+  };
+
+  const handleMusicSearch = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!musicQuery.trim()) return;
+    setMusicSearching(true);
+    setMusicSearchFailed(false);
+    try {
+      setMusicResults(await searchTracks(musicQuery));
+    } catch {
+      setMusicResults(null);
+      setMusicSearchFailed(true);
+    } finally {
+      setMusicSearching(false);
+    }
+  };
+
+  const handleAddManualTrack = async (candidate: TrackCandidate) => {
+    const newTrack: RunTrack = {
+      name: candidate.name,
+      artist: candidate.artist,
+      // Only ever runs from the click below, never during render; can't wrap
+      // this in useCallback like /run's own copy of this handler does, since
+      // this one is declared after this component's early "loading"/"not-found"
+      // returns (rules-of-hooks forbids a hook after a conditional return).
+      // eslint-disable-next-line react-hooks/purity
+      playedAt: Date.now(),
+      artworkUrl: candidate.artworkUrl || undefined,
+    };
+    const next = [...manualTracks, newTrack];
+    setManualTracks(next);
+    setMusicQuery("");
+    setMusicResults(null);
+    await updateRunTracks(run.id, next);
+  };
+
+  const handleRemoveTrack = async (removed: RunTrack) => {
+    const next = manualTracks.filter((t) => t !== removed);
+    setManualTracks(next);
+    await updateRunTracks(run.id, next);
   };
 
   const handleShareWithCoach = async (coachId: string) => {
@@ -856,6 +916,90 @@ export function RunDetail({ id }: { id: string }) {
                 </button>
               </div>
             </>
+          )}
+        </Card>
+
+        <Card className="pr-enter" style={delay(87)}>
+          <CardTitle>Trilha sonora</CardTitle>
+          <p className="text-xs leading-relaxed text-muted text-pretty">
+            Anexa a música ou playlist que tocou nessa corrida, pra lembrar depois o que rolou —
+            fica salva na corrida, com ou sem card pra postar.
+          </p>
+
+          {manualTracks.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1.5">
+              {[...manualTracks].sort((a, b) => b.playedAt - a.playedAt).map((t) => (
+                <li
+                  key={`${t.name}-${t.artist}-${t.playedAt}`}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2"
+                >
+                  {t.artworkUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={t.artworkUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {t.name} <span className="text-muted">— {t.artist}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void handleRemoveTrack(t)}
+                    aria-label={`Remover ${t.name}`}
+                    className="shrink-0 rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <form onSubmit={handleMusicSearch} className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={musicQuery}
+              onChange={(event) => setMusicQuery(event.target.value)}
+              placeholder="nome da música ou artista"
+              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+            <button
+              type="submit"
+              disabled={musicSearching || !musicQuery.trim()}
+              className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent disabled:opacity-60"
+            >
+              {musicSearching ? "Buscando…" : "Buscar"}
+            </button>
+          </form>
+
+          {musicSearchFailed && (
+            <p className="mt-2 text-xs text-bad">Não deu pra buscar agora — confere a internet e tenta de novo.</p>
+          )}
+
+          {!musicSearchFailed && musicResults !== null && musicResults.length === 0 && (
+            <p className="mt-2 text-xs text-muted">Nada encontrado.</p>
+          )}
+
+          {musicResults !== null && musicResults.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {musicResults.map((candidate, i) => (
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => void handleAddManualTrack(candidate)}
+                    className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-sm hover:bg-background"
+                  >
+                    {candidate.artworkUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={candidate.artworkUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                    )}
+                    <span className="truncate">
+                      {candidate.name} <span className="text-muted">— {candidate.artist}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </Card>
 
