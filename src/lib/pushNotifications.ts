@@ -43,7 +43,10 @@ export async function registerForPushNotifications(): Promise<void> {
     const granted =
       permission.receive === "granted" ||
       (permission.receive === "prompt" && (await PushNotifications.requestPermissions()).receive === "granted");
-    if (!granted) return;
+    if (!granted) {
+      console.warn("[push] permission not granted:", permission.receive);
+      return;
+    }
 
     registered = true; // set before the async register() call, not after — a second sign-in racing this one shouldn't also register.
 
@@ -73,11 +76,17 @@ export async function registerForPushNotifications(): Promise<void> {
         method: ExecutionMethod.POST,
         body: JSON.stringify({ action: "subscribe-update-topic", targetId, platform }),
       })
-      .catch(() => {});
-  } catch {
+      .catch((error) => console.error("[push] subscribe-update-topic failed:", error));
+  } catch (error) {
     // Best-effort, same as every other native-capability call in this app
     // (geolocation, health data, live activities) — a missing provider, a
-    // denied permission, or no network shouldn't be treated as a crash.
+    // denied permission, or no network shouldn't be treated as a crash. But
+    // silent here is exactly what hid the friendships/coach_relationships
+    // and live_runs permission bugs for weeks — log it so a real device's
+    // `adb logcat`/Console.app can actually say which step failed
+    // (registrationError from the OS, or createPushTarget rejecting).
+    registered = false; // let a later sign-in retry instead of getting stuck on a failed attempt forever.
+    console.error("[push] registerForPushNotifications failed:", error);
   }
 }
 
