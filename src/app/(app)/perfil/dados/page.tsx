@@ -1,31 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  BoxGeometry,
-  CapsuleGeometry,
-  Color,
-  DirectionalLight,
-  DoubleSide,
-  Group,
-  HemisphereLight,
-  LatheGeometry,
-  Mesh,
-  MeshStandardMaterial,
-  PerspectiveCamera,
-  Raycaster,
-  Scene,
-  SphereGeometry,
-  Vector2,
-  WebGLRenderer,
-} from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useHeaderClose } from "../../app-shell";
 import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../../ui";
 import { PillSlider } from "../../pill-slider";
 import { ModalPortal } from "../../modal-portal";
-import { useEffectiveColorScheme } from "@/lib/theme";
 import {
   listPainCheckIns,
   reportPain,
@@ -67,284 +47,26 @@ function sinceLabel(timestamp: number, now = Date.now()): string {
 interface BodyZone {
   id: string;
   label: string;
-  side?: "E" | "D";
+  hint?: string;
 }
 
-/** The running-specific injury sites a tap-to-select diagram actually needs — shoulders down to ankles, the same list a physio would ask about after an overuse complaint. Ids double as the actual `Mesh.name` values `BodyModel3D` raycasts against below. */
+/** The running-specific injury sites a physio would ask about after an overuse complaint. Only the two names that aren't self-explanatory ("Lombar", "Canela") carry a hint. */
 const BODY_ZONES: BodyZone[] = [
-  { id: "ombro-e", label: "Ombro", side: "E" },
-  { id: "ombro-d", label: "Ombro", side: "D" },
-  { id: "lombar", label: "Lombar" },
+  { id: "ombro-e", label: "Ombro esquerdo" },
+  { id: "ombro-d", label: "Ombro direito" },
+  { id: "lombar", label: "Lombar", hint: "parte baixa das costas" },
   { id: "quadril", label: "Quadril" },
-  { id: "coxa-e", label: "Coxa", side: "E" },
-  { id: "coxa-d", label: "Coxa", side: "D" },
-  { id: "joelho-e", label: "Joelho", side: "E" },
-  { id: "joelho-d", label: "Joelho", side: "D" },
-  { id: "canela-e", label: "Canela", side: "E" },
-  { id: "canela-d", label: "Canela", side: "D" },
-  { id: "tornozelo-e", label: "Tornozelo", side: "E" },
-  { id: "tornozelo-d", label: "Tornozelo", side: "D" },
+  { id: "coxa-e", label: "Coxa esquerda" },
+  { id: "coxa-d", label: "Coxa direita" },
+  { id: "joelho-e", label: "Joelho esquerdo" },
+  { id: "joelho-d", label: "Joelho direito" },
+  { id: "canela-e", label: "Canela esquerda", hint: "frente da perna, abaixo do joelho" },
+  { id: "canela-d", label: "Canela direita", hint: "frente da perna, abaixo do joelho" },
+  { id: "tornozelo-e", label: "Tornozelo esquerdo" },
+  { id: "tornozelo-d", label: "Tornozelo direito" },
 ];
 
 type BodyZoneId = string;
-
-function zoneLabel(zone: BodyZone): string {
-  return zone.side ? `${zone.label} ${zone.side}` : zone.label;
-}
-
-/**
- * 3D body model for tap-to-select pain location — replaces the flat SVG
- * silhouette with a real WebGL scene the athlete can rotate (drag) and tap,
- * mirroring `Xanthus Dor 3D.dc.html`/`Xanthus Corpo 3D.html`. Colors come
- * from `--muted`/`--accent` read live off the document at mount and again
- * on every theme change, the same "follow the app's own tokens instead of
- * the mock's hardcoded ones" rule the old `BodyDiagram` comment stated —
- * `--accent` in particular isn't the same hex in light vs. dark mode here.
- *
- * The reference prototype's mesh only names 17 generic body parts (head,
- * neck, torso, hips, arms, hands, feet) — no separate shoulder, knee,
- * ankle, or lower-back object at all, just continuous limb capsules. This
- * app's own pain check-in needs exactly those four instead (the actual
- * common running-injury sites), so small extra marker meshes are added at
- * those joints on top of the prototype's own geometry — everything else
- * (head/neck/torso/arms/forearms/hands/feet) renders for a recognizable
- * silhouette but isn't a hit target, since none of it is in `BODY_ZONES`.
- */
-function BodyModel3D({
-  zoneId,
-  onSelect,
-}: {
-  zoneId: BodyZoneId | null;
-  onSelect: (id: BodyZoneId | null) => void;
-}) {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
-  const isDarkMode = useEffectiveColorScheme() === "dark";
-
-  const zoneIdRef = useRef(zoneId);
-  const onSelectRef = useRef(onSelect);
-  useEffect(() => {
-    zoneIdRef.current = zoneId;
-    onSelectRef.current = onSelect;
-  });
-  /** Populated by the mount effect below; the theme-change effect calls through these instead of rebuilding the whole scene just to swap two colors. */
-  const applyHighlightRef = useRef<((name: string | null) => void) | null>(null);
-  const readColorsRef = useRef<() => void>(() => {});
-
-  useEffect(() => {
-    const el = mountRef.current;
-    if (!el) return;
-    const w = el.clientWidth;
-    const h = el.clientHeight;
-
-    const scene = new Scene();
-    const camera = new PerspectiveCamera(32, w / h, 0.1, 10);
-    camera.position.set(0, 1.0, 2.6);
-    const renderer = new WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
-    el.innerHTML = "";
-    el.appendChild(renderer.domElement);
-
-    scene.add(new HemisphereLight(0xffffff, 0x222233, 1.1));
-    const key = new DirectionalLight(0xffffff, 1.3);
-    key.position.set(2, 3, 2);
-    scene.add(key);
-    const fill = new DirectionalLight(0x6a86c9, 0.4);
-    fill.position.set(-2, 1, -1);
-    scene.add(fill);
-
-    const colors = { base: new Color(0x8a8f99), accent: new Color(0x4a78e0) };
-    const readColors = () => {
-      const styles = getComputedStyle(document.documentElement);
-      const muted = styles.getPropertyValue("--muted").trim();
-      const accent = styles.getPropertyValue("--accent").trim();
-      if (muted) colors.base.set(muted);
-      if (accent) colors.accent.set(accent);
-    };
-    readColors();
-    readColorsRef.current = readColors;
-
-    const inertMaterial = new MeshStandardMaterial({ color: colors.base, roughness: 0.6, metalness: 0.15, side: DoubleSide });
-    const materials: Record<string, MeshStandardMaterial> = {};
-    const matFor = (name: string) => {
-      if (!materials[name]) {
-        materials[name] = new MeshStandardMaterial({ color: colors.base, roughness: 0.6, metalness: 0.15, side: DoubleSide });
-      }
-      return materials[name];
-    };
-
-    const group = new Group();
-
-    // --- silhouette only, not selectable: head, neck, torso, arms, hands, feet ---
-    const head = new Mesh(new SphereGeometry(0.11, 24, 24), inertMaterial);
-    head.position.set(0, 1.62, 0);
-    group.add(head);
-
-    const neck = new Mesh(new CapsuleGeometry(0.045, 0.06, 6, 12), inertMaterial);
-    neck.position.set(0, 1.48, 0);
-    group.add(neck);
-
-    const torsoPts = [
-      [0.0, 0.85], [0.16, 0.85], [0.15, 0.92], [0.17, 1.02], [0.2, 1.2], [0.19, 1.35], [0.16, 1.45], [0.0, 1.48],
-    ].map(([x, y]) => new Vector2(x, y - 0.85));
-    const torso = new Mesh(new LatheGeometry(torsoPts, 32), inertMaterial);
-    torso.position.y = 0.85;
-    group.add(torso);
-
-    ([-1, 1] as const).forEach((side) => {
-      const shoulderX = side * 0.21;
-      const upperArm = new Mesh(new CapsuleGeometry(0.045, 0.28, 6, 12), inertMaterial);
-      upperArm.position.set(shoulderX * 1.05, 1.22, 0);
-      upperArm.rotation.z = side * 0.18;
-      group.add(upperArm);
-
-      const lowerArm = new Mesh(new CapsuleGeometry(0.038, 0.26, 6, 12), inertMaterial);
-      lowerArm.position.set(shoulderX * 1.18, 0.92, 0);
-      lowerArm.rotation.z = side * 0.06;
-      group.add(lowerArm);
-
-      const hand = new Mesh(new SphereGeometry(0.04, 12, 12), inertMaterial);
-      hand.position.set(shoulderX * 1.22, 0.76, 0);
-      group.add(hand);
-
-      const foot = new Mesh(new BoxGeometry(0.08, 0.045, 0.16), inertMaterial);
-      foot.position.set(side * 0.095, 0.01, 0.03);
-      group.add(foot);
-    });
-
-    // --- selectable zones — BODY_ZONES ids become the actual Mesh.name raycast targets ---
-    const hipsPts = [[0, 0.82], [0.13, 0.82], [0.155, 0.9], [0.16, 1.0], [0, 1.0]].map(
-      ([x, y]) => new Vector2(x, y),
-    );
-    const hips = new Mesh(new LatheGeometry(hipsPts, 32), matFor("quadril"));
-    hips.name = "quadril";
-    group.add(hips);
-
-    // A short horizontal bar low on the back of the torso — the prototype's mesh has no lower-back object at all. Pushed well past the hips' own back surface (z ≈ -0.155 at this height) so the ray hits it before it hits the hips mesh behind it.
-    const lombar = new Mesh(new CapsuleGeometry(0.1, 0.12, 6, 12), matFor("lombar"));
-    lombar.name = "lombar";
-    lombar.rotation.x = Math.PI / 2;
-    lombar.position.set(0, 0.95, -0.22);
-    group.add(lombar);
-
-    ([-1, 1] as const).forEach((side) => {
-      // Pushed past both the torso's own radius at this height (~0.19) and the upper arm's (0.045), or it'd sit half-buried inside one or the other from the camera's side.
-      const shoulderId = side < 0 ? "ombro-e" : "ombro-d";
-      const shoulder = new Mesh(new SphereGeometry(0.075, 16, 16), matFor(shoulderId));
-      shoulder.name = shoulderId;
-      shoulder.position.set(side * 0.25, 1.38, 0.04);
-      group.add(shoulder);
-
-      const hipX = side * 0.095;
-      const thighId = side < 0 ? "coxa-e" : "coxa-d";
-      const thigh = new Mesh(new CapsuleGeometry(0.075, 0.38, 6, 12), matFor(thighId));
-      thigh.name = thighId;
-      thigh.position.set(hipX, 0.55, 0);
-      group.add(thigh);
-
-      // Sits in the overlap between thigh and shin (their capsule caps already interpenetrate there). The forward offset (0.09) has to clear the thigh's own radius (0.075) — anything less and the thigh's front surface is still closer to the camera than this marker at the same x/y, so the ray hits the thigh first.
-      const kneeId = side < 0 ? "joelho-e" : "joelho-d";
-      const knee = new Mesh(new SphereGeometry(0.07, 16, 16), matFor(kneeId));
-      knee.name = kneeId;
-      knee.position.set(hipX, 0.355, 0.09);
-      group.add(knee);
-
-      const shinId = side < 0 ? "canela-e" : "canela-d";
-      const shin = new Mesh(new CapsuleGeometry(0.055, 0.36, 6, 12), matFor(shinId));
-      shin.name = shinId;
-      shin.position.set(hipX, 0.19, 0);
-      group.add(shin);
-
-      // Same reasoning as the knee marker — clears the shin's own radius (0.055) and the foot's front edge.
-      const ankleId = side < 0 ? "tornozelo-e" : "tornozelo-d";
-      const ankle = new Mesh(new SphereGeometry(0.06, 16, 16), matFor(ankleId));
-      ankle.name = ankleId;
-      ankle.position.set(hipX, 0.0, 0.08);
-      group.add(ankle);
-    });
-
-    group.position.y = -0.82;
-    scene.add(group);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enablePan = false;
-    controls.minDistance = 1.6;
-    controls.maxDistance = 3.6;
-    controls.target.set(0, 0, 0);
-    controls.update();
-
-    const raycaster = new Raycaster();
-    const pointer = new Vector2();
-
-    const applyHighlight = (name: string | null) => {
-      inertMaterial.color.copy(colors.base);
-      Object.entries(materials).forEach(([n, m]) => m.color.copy(n === name ? colors.accent : colors.base));
-    };
-    applyHighlightRef.current = applyHighlight;
-    applyHighlight(zoneIdRef.current);
-
-    const onClick = (event: MouseEvent) => {
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects(group.children).find((h) => materials[h.object.name]);
-      if (!hit) return;
-      const name = hit.object.name;
-      const next = zoneIdRef.current === name ? null : name;
-      applyHighlight(next);
-      onSelectRef.current(next);
-    };
-    renderer.domElement.addEventListener("click", onClick);
-
-    let raf = 0;
-    const animate = () => {
-      raf = requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    animate();
-    setReady(true);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      renderer.domElement.removeEventListener("click", onClick);
-      controls.dispose();
-      applyHighlightRef.current = null;
-      inertMaterial.dispose();
-      Object.values(materials).forEach((m) => m.dispose());
-      group.traverse((obj) => {
-        if (obj instanceof Mesh) obj.geometry.dispose();
-      });
-      renderer.dispose();
-      el.innerHTML = "";
-    };
-    // Intentionally mount-once: `zoneId`/`onSelect` are read through the refs above so this never has to tear down and rebuild the whole WebGL scene just because the selection changed.
-  }, []);
-
-  // Selection changed for a reason other than this component's own click handler (e.g. cleared after a successful submit) — just re-tint, no scene rebuild.
-  useEffect(() => {
-    applyHighlightRef.current?.(zoneId);
-  }, [zoneId]);
-
-  // Theme toggled — re-read --muted/--accent and re-tint with the new values.
-  useEffect(() => {
-    readColorsRef.current();
-    applyHighlightRef.current?.(zoneIdRef.current);
-  }, [isDarkMode]);
-
-  return (
-    <div className="relative h-[300px] w-full overflow-hidden rounded-2xl bg-background">
-      <div ref={mountRef} className="h-full w-full" />
-      {!ready && (
-        <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">
-          Carregando modelo…
-        </div>
-      )}
-    </div>
-  );
-}
 
 /**
  * Whether the athlete is dealing with pain, read from an append-only log
@@ -372,7 +94,7 @@ function PainCard() {
 
   const submit = async () => {
     setBusy(true);
-    await reportPain({ severity: selected.value, region: selectedZone ? zoneLabel(selectedZone) : undefined });
+    await reportPain({ severity: selected.value, region: selectedZone?.label });
     setZoneId(null);
     setSeverityIndex(0);
     setBusy(false);
@@ -415,13 +137,33 @@ function PainCard() {
             Sentindo alguma dor ou desconforto? Sinalizar aqui reduz o volume da semana no plano em
             vez de ignorar e seguir subindo.
           </p>
-          <div className="mb-4">
-            <BodyModel3D zoneId={zoneId} onSelect={setZoneId} />
-            <p
-              className={`mt-1 text-center text-sm font-bold ${selectedZone ? "text-foreground" : "text-muted font-semibold"}`}
-            >
-              {selectedZone ? zoneLabel(selectedZone) : "Toque no local da dor (opcional)"}
-            </p>
+          <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+            Onde dói (opcional)
+          </span>
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            {BODY_ZONES.map((zone) => {
+              const active = zoneId === zone.id;
+              return (
+                <button
+                  key={zone.id}
+                  type="button"
+                  onClick={() => setZoneId(active ? null : zone.id)}
+                  aria-pressed={active}
+                  className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                    active
+                      ? "border-accent bg-accent text-accent-foreground"
+                      : "border-border bg-background text-foreground hover:border-accent"
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{zone.label}</span>
+                  {zone.hint && (
+                    <span className={`block text-[11px] ${active ? "text-accent-foreground/80" : "text-muted"}`}>
+                      {zone.hint}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
