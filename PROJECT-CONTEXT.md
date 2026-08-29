@@ -829,34 +829,43 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
   Ainda não escopado em detalhe nem implementado.
 - **Backlog de ideias soltas (sessão 2026-08-23, nenhuma escopada em detalhe
   ainda — só registrando pra não perder)**:
-  - **Editor do card de compartilhar com elementos arrastáveis** (pedido
-    em 2026-08-24, confirmado via pergunta direta ao dono do projeto qual
-    das telas ele queria dizer): em `/compartilhar`, poder arrastar a
-    ilustração da rota e os números grandes (distância/tempo/pace)
-    livremente dentro do card antes de exportar/postar — tipo editor de
-    story do Instagram/Stories, em vez do layout fixo atual. Confirmado
-    por leitura de código que não existe nenhum drag-and-drop hoje em
-    `src/app/(app)/compartilhar/page.tsx`/`src/lib/shareCard/` — layout é
-    inteiramente fixo. Ainda não escopado (precisa decidir: arrastar livre
-    por pixel, ou só reordenar/trocar posições entre slots fixos; se a
-    posição persiste por corrida ou é só uma preferência de template) nem
-    implementado.
+  - ~~Editor do card de compartilhar com elementos arrastáveis~~ — **já
+    implementado** (a nota anterior aqui, dizendo "ainda não escopado",
+    estava desatualizada — achado ao reabrir esse item pra escopar de novo
+    em 2026-08-29). `share-card-preview.tsx`'s `DragArea` (pointer events
+    nativos, sem lib) já deixa arrastar livremente rota/estatísticas/
+    medalha-tênis sobre o card (renderizado em `<canvas>`,
+    `shareCard/renderer.ts`), remover cada elemento (exceto a rota) e
+    "Repor tudo" — tasks #119 (trocar o handle-joystick por tocar direto
+    no elemento) e #123 (permitir remover). Não persiste entre sessões e
+    move os 3 grupos como blocos (não km/tempo/pace individualmente) —
+    limitações conhecidas, não pedidas de novo agora.
+  - ~~Nomear/filtrar o histórico pelo lugar onde a corrida aconteceu~~ —
+    **já implementado** (mesma nota desatualizada do item acima).
+    `CompletedRun.placeName` (texto livre, preenchido na tela de detalhe
+    quando `placeMatch.ts` não acha um lugar do catálogo) + `resolvePlaceLabel`
+    já combinam os dois em um só rótulo, já usado pela busca e pelos chips
+    de sugestão de `/historico`.
   - **Repetir corrida**: no histórico, um botão "repetir corrida" que
     reabre `/run` já configurado com a mesma meta (distância/tempo/ritmo) —
     e possivelmente o mesmo trajeto, se fizer sentido — de uma corrida
-    passada. Escopo pequeno, não iniciado.
-  - **Nomear/filtrar o histórico pelo lugar onde a corrida aconteceu**:
-    pedido do dono do projeto pra poder filtrar o histórico por "lugares
-    que já corri" — mas a infra que já existe (`placeMatch.ts`,
-    tarefas #74-78) só casa uma corrida contra os poucos lugares com
-    `circuits` (rota rastreada) do catálogo de `places.ts`, tipicamente
-    parques, deixando de fora qualquer corrida de rua que passe por vários
-    bairros. **Decisão de produto (2026-08-24)**: quando não bate com o
-    catálogo, o **atleta digita o nome manualmente** — descartada a opção
-    de geocodificação reversa automática (evita mais uma chamada de API
-    paga/com cota por corrida). Ainda não implementado — falta o campo de
-    texto livre na tela de resumo/detalhe e usar esse valor como filtro no
-    histórico junto com os lugares já reconhecidos pelo catálogo.
+    passada. **Base já existia** (botão em `run-detail.tsx` linkando pra
+    `/run?repeatKm=X`), mas só reconstruía distância — `CompletedRun`
+    nunca guardava a meta original, só o que de fato aconteceu.
+    **Estendido em 2026-08-29, branch `claude/strava-competitor-feedback-cyvop8`**:
+    `CompletedRun.goal` (novo campo, só IndexedDB local, sem Appwrite)
+    passa a persistir a `RunGoal` configurada no início da corrida;
+    `/run?repeatRunId=<id>` (troca o antigo `repeatKm`) lê a corrida
+    inteira e reconstrói a aba certa (Distância/Tempo/Ritmo/Prova) com os
+    valores certos, com fallback pro comportamento antigo (distância a
+    partir do que foi percorrido) pra corridas "livre" ou salvas antes
+    dessa mudança. Também arma por padrão o "ghost" (comparação
+    ritmo-a-ritmo já existente, `ghostRun.ts` — nunca um overlay de rota
+    de verdade) contra essa mesma corrida, entregando "possivelmente o
+    mesmo trajeto" com o mecanismo que o app já tinha. O chip "Repetir
+    última corrida" já existente em `/run` ganhou o mesmo fallback.
+    Verificado: `tsc`, `lint`, `build` limpos. Não testado em aparelho
+    real ainda.
   - **Sugestão de correr com amigo por proximidade**: se dois amigos
     estão com o app aberto e fisicamente perto um do outro, avisar
     ("fulano tá aí perto, bora correr junto?") — dentro do app tá OK, não

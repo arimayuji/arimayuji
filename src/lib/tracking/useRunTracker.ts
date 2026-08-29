@@ -44,6 +44,7 @@ import {
   type ActiveRunSnapshot,
   type CompletedRun,
   type PauseEvent,
+  type RunGoal,
   type RunTrack,
   type StoredPoint,
 } from "./storage";
@@ -59,12 +60,7 @@ export interface LivePauseEvent {
   reason?: string;
 }
 
-export interface RunGoal {
-  distanceMeters?: number;
-  durationSeconds?: number;
-  /** A pace to hold, not a finish line — independent of the other two fields (a distance/duration goal is "get there by X"; this is "stay around this pace the whole time"). */
-  targetPaceSecPerKm?: number;
-}
+export type { RunGoal };
 
 export interface StartOptions {
   announceIntervalMeters?: number;
@@ -189,6 +185,8 @@ export function useRunTracker() {
   /** Cached from `StartOptions` at `start()` — mirrors `state.goal.targetPaceSecPerKm`/`vibrateOnPaceDelay`, but read from a ref rather than state so the per-fix vibration check doesn't need a `setState` round trip. */
   const targetPaceSecPerKmRef = useRef<number | undefined>(undefined);
   const vibrateOnPaceDelayRef = useRef(false);
+  /** The whole `StartOptions.goal`, cached for `finish()` to persist onto `CompletedRun` — `finish` is a stable `useCallback` without `state.goal` in its deps, same reason every other per-run input above lives in a ref. */
+  const goalRef = useRef<RunGoal | null>(null);
   /** Cached from `StartOptions.announceStyle` — read from a ref for the same reason as `vibrateOnPaceDelayRef` above (the per-fix/per-tick split check can't afford a `setState` round trip). */
   const announceStyleRef = useRef<"voz" | "vibracao">("voz");
   /** Hysteresis state for the vibration above — true while already alerted for the current bout of falling behind. */
@@ -936,6 +934,7 @@ export function useRunTracker() {
         announceStyleRef.current = options?.announceStyle ?? "voz";
         targetPaceSecPerKmRef.current = options?.goal?.targetPaceSecPerKm;
         vibrateOnPaceDelayRef.current = options?.vibrateOnPaceDelay ?? false;
+        goalRef.current = options?.goal ?? null;
         paceDelayAlertedRef.current = false;
         carbReminderEnabledRef.current = options?.carbReminderEnabled ?? false;
         carbReminderIntervalSecondsRef.current = options?.carbReminderIntervalSeconds ?? 45 * 60;
@@ -1185,6 +1184,7 @@ export function useRunTracker() {
         ...(extra?.shoeName?.trim() ? { shoeName: extra.shoeName.trim() } : {}),
         ...(pauseEvents.length ? { pauseEvents } : {}),
         ...(gpsGaps.length ? { gpsGaps } : {}),
+        ...(goalRef.current ? { goal: goalRef.current } : {}),
       };
       void saveCompletedRun(run);
       void clearActiveRun();

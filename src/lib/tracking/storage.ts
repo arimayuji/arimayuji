@@ -37,6 +37,19 @@ export interface PauseEvent {
   reason?: string;
 }
 
+/**
+ * The meta the athlete configured before starting — not what actually
+ * happened (`CompletedRun.distanceMeters`/`movingSeconds` are that).
+ * Defined here (not in `useRunTracker.ts`, which imports it back) so
+ * `CompletedRun` can reference it without an import cycle.
+ */
+export interface RunGoal {
+  distanceMeters?: number;
+  durationSeconds?: number;
+  /** A pace to hold, not a finish line — independent of the other two fields (a distance/duration goal is "get there by X"; this is "stay around this pace the whole time"). */
+  targetPaceSecPerKm?: number;
+}
+
 export interface CompletedRun {
   id: string;
   startedAt: number;
@@ -108,6 +121,13 @@ export interface CompletedRun {
    * `resolvePlaceLabel` for how the two sources combine into one label.
    */
   placeName?: string;
+  /**
+   * The goal configured before this run started — used to reconstruct the
+   * right "repetir corrida" goal type/values on `/run` (see `goalTypeFromRunGoal`
+   * there). Omitted for a "livre" run with no goal set, and for any run saved
+   * before this field existed — "repetir" falls back to distance-only for those.
+   */
+  goal?: RunGoal;
 }
 
 /**

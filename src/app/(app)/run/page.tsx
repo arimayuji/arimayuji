@@ -57,6 +57,7 @@ import {
 import {
   clearActiveRun,
   deleteCompletedRun,
+  getCompletedRun,
   listCompletedRuns,
   listPainCheckIns,
   listShoes,
@@ -70,6 +71,7 @@ import {
   type ActiveRunSnapshot,
   type CompletedRun,
   type PainCheckIn,
+  type RunGoal,
   type RunTrack,
   type Shoe,
 } from "@/lib/tracking/storage";
@@ -480,6 +482,22 @@ const GOAL_TYPE_LABELS: Record<"distancia" | "tempo" | "ritmo" | "livre" | "prov
 };
 
 /**
+ * Maps a past run's persisted `goal` back onto one of the goal-type tabs
+ * above, for "Repetir corrida" (run-detail.tsx) — the inverse of
+ * `handleStart`'s own `distanceMeters`/`durationSeconds`/`targetPaceSecPerKm`
+ * construction. Runs saved before `CompletedRun.goal` existed, or a "livre"
+ * run with no goal, return `null` — the caller falls back to reconstructing
+ * distance from what actually happened instead.
+ */
+function goalTypeFromRunGoal(goal: RunGoal): "distancia" | "tempo" | "ritmo" | "prova" | null {
+  if (goal.distanceMeters && goal.durationSeconds) return "prova";
+  if (goal.distanceMeters) return "distancia";
+  if (goal.durationSeconds) return "tempo";
+  if (goal.targetPaceSecPerKm) return "ritmo";
+  return null;
+}
+
+/**
  * "Tipo de meta" category row (Xanthus Preparar Corrida.dc.html) — bare tabs
  * (icon + label, active in accent with an underline bar) rather than boxed
  * pill buttons, so it reads as a different *kind* of control than the preset
@@ -883,22 +901,8 @@ export default function RunPage() {
   const [recoverableRun, setRecoverableRun] = useState<ActiveRunSnapshot | null>(null);
   /** Which of `goalKm`/`goalMinutes`/`goalPaceSec` actually becomes the run's goal on start — mutually exclusive in the UI (Xanthus Preparar Corrida.dc.html's "Tipo de meta" tabs) even though `RunGoal` itself supports distância+tempo together, since showing every value permanently read as "set them all" when only one was ever meant to gate the run. */
   const [goalType, setGoalType] = useState<"distancia" | "tempo" | "ritmo" | "livre" | "prova">("distancia");
-  /**
-   * Defaults to 5, unless the screen was opened via `?repeatKm=X` — a past
-   * run's "Repetir corrida" button (run-detail.tsx) — the only dimension of
-   * a past run's original goal this app can actually reconstruct, since
-   * `CompletedRun` never stored what goal type/target produced it in the
-   * first place (only what actually happened). Read straight from the URL
-   * as a lazy initializer rather than an effect: it's synchronous, derived
-   * once from how this mount was opened, not something to keep syncing
-   * against an external system.
-   */
-  const [goalKm, setGoalKm] = useState(() => {
-    if (typeof window === "undefined") return 5;
-    const raw = new URLSearchParams(window.location.search).get("repeatKm");
-    const km = raw ? Number(raw) : NaN;
-    return Number.isFinite(km) && km > 0 ? Math.round(km * 10) / 10 : 5;
-  });
+  /** Overwritten by the `?repeatRunId=` effect below when the screen was opened via a past run's "Repetir corrida" button (run-detail.tsx). */
+  const [goalKm, setGoalKm] = useState(5);
   const [goalMinutes, setGoalMinutes] = useState(30);
   /** Target pace to hold, seconds/km — 330 = 5:30/km, a typical easy-run pace. */
   const [goalPaceSec, setGoalPaceSec] = useState(330);
@@ -983,6 +987,45 @@ export default function RunPage() {
       if (cancelled) return;
       setPairingInvite({ code: codigo, groupRun, hostName: hostProfile?.displayName ?? "Alguém" });
     })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Resolves a `?repeatRunId=<id>` opened via a past run's "Repetir
+   * corrida" button (run-detail.tsx) — an async IndexedDB lookup, so
+   * (unlike `?parear=`'s simple string) this can't be a lazy state
+   * initializer. Reconstructs the exact original goal type when the run
+   * has one (`CompletedRun.goal`, added specifically for this); falls back
+   * to a plain distance goal from what actually happened for a "livre" run
+   * or a run saved before `goal` existed. Also arms the ghost comparison
+   * against this same run by default — the closest thing this app has to
+   * "repeat the same route" (see `ghostRun.ts`: distance-vs-time only,
+   * never a GPS overlay) — visible and changeable in the ghost picker
+   * below, not a hidden decision.
+   */
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("repeatRunId");
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      const run = await getCompletedRun(id);
+      if (cancelled || !run) return;
+      setRecentRuns((prev) => (prev.some((r) => r.id === run.id) ? prev : [run, ...prev]));
+      setSelectedGhostId(run.id);
+      const type = run.goal ? goalTypeFromRunGoal(run.goal) : null;
+      if (type && run.goal) {
+        setGoalType(type);
+        if (run.goal.distanceMeters) setGoalKm(Math.round((run.goal.distanceMeters / 1000) * 10) / 10);
+        if (run.goal.durationSeconds) setGoalMinutes(Math.round(run.goal.durationSeconds / 60));
+        if (run.goal.targetPaceSecPerKm) setGoalPaceSec(run.goal.targetPaceSecPerKm);
+      } else {
+        setGoalType("distancia");
+        setGoalKm(Math.round((run.distanceMeters / 1000) * 10) / 10);
+      }
+    })();
+    window.history.replaceState(null, "", "/run");
     return () => {
       cancelled = true;
     };
@@ -2046,8 +2089,16 @@ export default function RunPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setGoalType("distancia");
-                    setGoalKm(Math.round((lastRealRun.distanceMeters / 1000) * 10) / 10);
+                    const type = lastRealRun.goal ? goalTypeFromRunGoal(lastRealRun.goal) : null;
+                    if (type && lastRealRun.goal) {
+                      setGoalType(type);
+                      if (lastRealRun.goal.distanceMeters) setGoalKm(Math.round((lastRealRun.goal.distanceMeters / 1000) * 10) / 10);
+                      if (lastRealRun.goal.durationSeconds) setGoalMinutes(Math.round(lastRealRun.goal.durationSeconds / 60));
+                      if (lastRealRun.goal.targetPaceSecPerKm) setGoalPaceSec(lastRealRun.goal.targetPaceSecPerKm);
+                    } else {
+                      setGoalType("distancia");
+                      setGoalKm(Math.round((lastRealRun.distanceMeters / 1000) * 10) / 10);
+                    }
                   }}
                   className="mt-3 flex items-center gap-2 self-start rounded-full border border-border bg-surface px-3.5 py-2 text-xs font-semibold text-muted hover:border-accent hover:text-foreground"
                 >

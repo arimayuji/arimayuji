@@ -711,7 +711,7 @@ export function RunDetail({ id }: { id: string }) {
         badge={
           <div className="flex items-center gap-2">
             <Link
-              href={`/run?repeatKm=${(Math.round((run.distanceMeters / 1000) * 10) / 10).toFixed(1)}`}
+              href={`/run?repeatRunId=${run.id}`}
               aria-label="Repetir essa corrida"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:text-accent"
             >
