@@ -10,6 +10,7 @@ import {
   type StoredPoint,
 } from "@/lib/tracking/storage";
 import { removeFinishedRun } from "@/lib/profileStats";
+import { resolvePlaceLabel } from "@/lib/placeMatch";
 import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { allTimeBests } from "@/lib/tracking/personalRecords";
@@ -358,7 +359,8 @@ function matchesQuery(run: CompletedRun, query: string): boolean {
   const q = query.trim().toLowerCase();
   const dateText = formatRunDate(new Date(run.startedAt)).toLowerCase();
   const shoeText = (run.shoeName ?? "").toLowerCase();
-  return dateText.includes(q) || shoeText.includes(q);
+  const placeText = (resolvePlaceLabel(run) ?? "").toLowerCase();
+  return dateText.includes(q) || shoeText.includes(q) || placeText.includes(q);
 }
 
 /** "3 recentes" caps the result count rather than a date boundary — handled separately in `visibleRuns`, so this treats it like "all" here. */
@@ -539,7 +541,7 @@ function HistorySearchBar({
               setFocused(true);
             }}
             onBlur={handleBlur}
-            placeholder="Buscar por data ou tênis…"
+            placeholder="Buscar por data, tênis ou lugar…"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
           />
           {query && (
@@ -876,11 +878,13 @@ export default function HistoricoPage() {
   const focalRun = focalRunId ? runs.find((run) => run.id === focalRunId) ?? null : null;
   const confirmingRun = confirmingId ? runs.find((run) => run.id === confirmingId) ?? null : null;
 
-  // Up to 2 recent dates + every distinct shoe name — same set the old
-  // inline suggestion row offered, just read fresh from whatever's loaded.
+  // Up to 2 recent dates + every distinct shoe name + every distinct
+  // resolved place — same set the old inline suggestion row offered, just
+  // read fresh from whatever's loaded.
   const suggestions = [
     ...new Set(runs.slice(0, 2).map((run) => formatRunDate(new Date(run.startedAt)))),
     ...new Set(runs.map((run) => run.shoeName).filter((name): name is string => Boolean(name))),
+    ...new Set(runs.map((run) => resolvePlaceLabel(run)).filter((name): name is string => Boolean(name))),
   ].slice(0, 6);
 
   return (

@@ -98,6 +98,16 @@ export interface CompletedRun {
    * Undefined means "not reported", not "zero effort".
    */
   rpe?: number;
+  /**
+   * Where this run happened, typed in by hand — only ever asked for when
+   * `matchPlaceForRoute` (placeMatch.ts) can't already resolve one from the
+   * catalog (a run through several neighborhoods, or a park not seeded yet).
+   * Product decision: reverse-geocoding it automatically was ruled out (an
+   * extra paid/quota-limited API call per run) — the athlete just names it.
+   * Never set for a run that already matches the catalog; see
+   * `resolvePlaceLabel` for how the two sources combine into one label.
+   */
+  placeName?: string;
 }
 
 /**
@@ -293,6 +303,19 @@ export async function updateRunRpe(runId: string, rpe: number): Promise<void> {
   );
   if (!run) return;
   run.rpe = rpe;
+  await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
+}
+
+/** Records the athlete's own typed-in place name for an already-saved run — see `CompletedRun.placeName`. An empty/whitespace-only name clears it (stored as `undefined`, not an empty string) rather than leaving a blank label around. */
+export async function updateRunPlaceName(runId: string, placeName: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const run = await withStore<CompletedRun | undefined>(RUNS_STORE, "readonly", (store) =>
+    store.get(runId),
+  );
+  if (!run) return;
+  const trimmed = placeName.trim();
+  if (trimmed) run.placeName = trimmed;
+  else delete run.placeName;
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
 }
 

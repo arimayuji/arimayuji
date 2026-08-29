@@ -44,3 +44,15 @@ export function matchPlaceForRoute(routePoints: LatLon[]): RunningPlace | null {
   }
   return null;
 }
+
+/**
+ * The one label to show/search for "where did this run happen" — the
+ * athlete's own typed-in name (`CompletedRun.placeName`, only ever set when
+ * the catalog didn't already match) if there is one, otherwise a live
+ * catalog match, otherwise nothing. Never both: a run that already matches
+ * the catalog never gets asked for a manual name in the first place (see
+ * `CompletedRun.placeName`'s own comment).
+ */
+export function resolvePlaceLabel(run: { points: LatLon[]; placeName?: string }): string | null {
+  return run.placeName?.trim() || matchPlaceForRoute(run.points)?.name || null;
+}

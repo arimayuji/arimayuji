@@ -9,6 +9,7 @@ import { computeElevationProfile, elevationGainFromProfile, type ElevationSample
 import { fetchRecoveryContext, fetchRunHealthData, HEALTH_DATA_ENABLED, type RecoveryContext, type RunHealthData } from "@/lib/health";
 import { removeFinishedRun } from "@/lib/profileStats";
 import { listRunComments, type RunComment } from "@/lib/runComments";
+import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { getSyncedRun, shareRunWithCoaches } from "@/lib/runsSync";
 import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
@@ -30,6 +31,7 @@ import {
   markRecordOpened,
   runMovingSeconds,
   updateRunElevationGain,
+  updateRunPlaceName,
   type CompletedRun,
   type StoredPoint,
 } from "@/lib/tracking/storage";
@@ -549,6 +551,11 @@ export function RunDetail({ id }: { id: string }) {
   const [coaches, setCoaches] = useState<CoachConnection[] | null>(null);
   const [sharedWith, setSharedWith] = useState<string[]>([]);
   const [sharingId, setSharingId] = useState<string | null>(null);
+  /** Mirrors `run.placeName` as a controlled input value — only ever shown/editable when the route doesn't already match the catalog (see the render below). */
+  const [placeNameInput, setPlaceNameInput] = useState("");
+  /** The last value actually persisted — separate from `placeNameInput` so the Save button can tell "typed but not saved yet" apart from "already saved", without waiting on a full reload of `load.run` (which this screen never re-fetches after a save). */
+  const [savedPlaceName, setSavedPlaceName] = useState("");
+  const [savingPlaceName, setSavingPlaceName] = useState(false);
 
   useEffect(() => {
     listCoachConnections("accepted").then((rows) => setCoaches(rows.filter((c) => c.myRole === "student")));
@@ -563,6 +570,8 @@ export function RunDetail({ id }: { id: string }) {
         return;
       }
       setOpenedMeters(run.openedRecordMeters ?? []);
+      setPlaceNameInput(run.placeName ?? "");
+      setSavedPlaceName(run.placeName ?? "");
       setLoad({ status: "ready", run, records: computeRunRecords(run, allRuns) });
     });
     return () => {
@@ -650,6 +659,8 @@ export function RunDetail({ id }: { id: string }) {
   const started = new Date(run.startedAt);
   const newRecords = records.filter((r) => r.isNewRecord);
   const splits = computeSplits(run.points, metersPerUnit(unit));
+  /** Only asked for a manual name when this is null — see `CompletedRun.placeName`'s own comment on why the two never coexist. */
+  const matchedPlace = matchPlaceForRoute(run.points);
   const elevationGain = run.elevationGainMeters ?? computedElevationGain;
   const estimatedCalories = runnerProfile.weightKg
     ? estimateCalories(run.distanceMeters, elevationGain, runnerProfile.weightKg)
@@ -675,6 +686,14 @@ export function RunDetail({ id }: { id: string }) {
     await deleteCompletedRun(run.id);
     if (account) void removeFinishedRun(run.distanceMeters);
     router.push("/historico");
+  };
+
+  const handleSavePlaceName = async () => {
+    setSavingPlaceName(true);
+    const trimmed = placeNameInput.trim();
+    await updateRunPlaceName(run.id, trimmed);
+    setSavedPlaceName(trimmed);
+    setSavingPlaceName(false);
   };
 
   const handleShareWithCoach = async (coachId: string) => {
@@ -800,6 +819,43 @@ export function RunDetail({ id }: { id: string }) {
                 />
               )}
             </div>
+          )}
+        </Card>
+
+        <Card className="pr-enter" style={delay(86)}>
+          <CardTitle>Lugar</CardTitle>
+          {matchedPlace ? (
+            <Link
+              href={`/lugares/${matchedPlace.id}`}
+              className="mt-1 inline-block text-sm font-medium text-accent underline underline-offset-2"
+            >
+              {matchedPlace.name}
+            </Link>
+          ) : (
+            <>
+              <p className="text-xs leading-relaxed text-muted text-pretty">
+                Essa rota não bate com nenhum lugar do catálogo — digite onde foi pra poder buscar por
+                isso no histórico depois.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <input
+                  type="text"
+                  value={placeNameInput}
+                  onChange={(event) => setPlaceNameInput(event.target.value)}
+                  placeholder="Ex.: Parque tal, bairro tal…"
+                  maxLength={60}
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  disabled={savingPlaceName || placeNameInput.trim() === savedPlaceName}
+                  onClick={() => void handleSavePlaceName()}
+                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent disabled:opacity-60"
+                >
+                  {savingPlaceName ? "Salvando…" : "Salvar"}
+                </button>
+              </div>
+            </>
           )}
         </Card>
 
