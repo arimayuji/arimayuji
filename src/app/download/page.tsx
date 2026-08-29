@@ -14,10 +14,18 @@ import Link from "next/link";
  * domain) serves the same Worker.
  *
  * The app has been on the Play Store (Teste Fechado - Alpha track) since
- * 2026-08-25, via this same Google Group. That's the primary path now — it
- * gets Play Store auto-updates and skips the "fonte desconhecida" warnings
- * entirely — with the raw APK kept only as a fallback for whoever doesn't
- * want to join a Google group just to install a running app.
+ * 2026-08-25, via this same Google Group. That's the only path recommended
+ * here now (decision, 2026-08-29) — it gets Play Store auto-updates and
+ * skips the "fonte desconhecida" warnings entirely. The raw-APK fallback
+ * this page used to also offer was removed on purpose: always point at
+ * whatever the current real distribution channel is (Play Store today,
+ * same reasoning `/download/ios` always points at TestFlight) instead of
+ * a parallel manual path that never auto-updates and needs its own
+ * "how do I install this .apk" instructions kept in sync separately. The
+ * `.apk` itself is still published by CI (updateCheck.ts still needs
+ * `version.json`'s versionCode, and anyone with an old sideloaded install
+ * still gets nudged here to switch), it's just not linked from this page
+ * anymore.
  */
 const BETA_GROUP_URL = "https://groups.google.com/g/xanthus-runner-tester";
 const BETA_OPTIN_URL = "https://play.google.com/apps/testing/com.xanthus.app";
@@ -129,48 +137,6 @@ export default function DownloadPage() {
           Entrar no grupo de testadores
         </a>
       </div>
-
-      <details className="mt-6 rounded-2xl border border-border bg-background/60 p-5">
-        <summary className="cursor-pointer font-mono text-sm font-semibold">
-          Prefere não entrar no grupo? Baixe o APK direto
-        </summary>
-        <p className="mt-3 text-sm leading-relaxed text-muted">
-          Funciona igual, mas sem atualização automática — você precisa voltar
-          aqui pra baixar cada versão nova.
-        </p>
-        <a
-          href="/download/xanthus.apk"
-          className="mt-4 inline-flex w-full items-center justify-center rounded-full border border-border px-5 py-3.5 text-sm font-semibold transition-colors hover:border-accent hover:text-accent"
-        >
-          Baixar APK
-        </a>
-        <ol className="mt-4 flex flex-col gap-4">
-          <li className="flex items-start gap-3">
-            <StepNumber n={1} />
-            <p className="text-sm leading-relaxed text-muted">
-              Toque em <strong className="text-foreground">Baixar APK</strong> acima
-              e espere o download terminar.
-            </p>
-          </li>
-          <li className="flex items-start gap-3">
-            <StepNumber n={2} />
-            <p className="text-sm leading-relaxed text-muted">
-              Abra o arquivo baixado. Se o Chrome avisar que o app não é
-              comum, toque em <strong className="text-foreground">Baixar mesmo assim</strong> — o
-              aviso aparece pra qualquer app fora da Play Store, não é um
-              problema com o Xanthus.
-            </p>
-          </li>
-          <li className="flex items-start gap-3">
-            <StepNumber n={3} />
-            <p className="text-sm leading-relaxed text-muted">
-              Se o Android pedir permissão pra instalar apps de fontes
-              desconhecidas, ative só pra esse navegador e toque em{" "}
-              <strong className="text-foreground">Instalar</strong>.
-            </p>
-          </li>
-        </ol>
-      </details>
     </main>
   );
 }
