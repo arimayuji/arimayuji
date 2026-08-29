@@ -420,7 +420,7 @@ function GoalTypeIcon({
   id,
   className,
 }: {
-  id: "distancia" | "tempo" | "ritmo" | "livre";
+  id: "distancia" | "tempo" | "ritmo" | "livre" | "prova";
   className?: string;
 }) {
   const common = { viewBox: "0 0 24 24", className, "aria-hidden": true } as const;
@@ -447,6 +447,13 @@ function GoalTypeIcon({
       </svg>
     );
   }
+  if (id === "prova") {
+    return (
+      <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+        <path d="M6 21V4M6 4h12l-3 3.5L18 11H6" />
+      </svg>
+    );
+  }
   return (
     <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
       <path d="M7 12a3 3 0 1 0 5-2 3 3 0 1 0-5 2 3 3 0 1 0 5 2 3 3 0 1 0-5-2z" />
@@ -454,11 +461,12 @@ function GoalTypeIcon({
   );
 }
 
-const GOAL_TYPE_LABELS: Record<"distancia" | "tempo" | "ritmo" | "livre", string> = {
+const GOAL_TYPE_LABELS: Record<"distancia" | "tempo" | "ritmo" | "livre" | "prova", string> = {
   distancia: "Distância",
   tempo: "Tempo",
   ritmo: "Ritmo",
   livre: "Livre",
+  prova: "Prova",
 };
 
 /**
@@ -476,10 +484,10 @@ function GoalTypeTabs({
   value,
   onChange,
 }: {
-  value: "distancia" | "tempo" | "ritmo" | "livre";
-  onChange: (id: "distancia" | "tempo" | "ritmo" | "livre") => void;
+  value: "distancia" | "tempo" | "ritmo" | "livre" | "prova";
+  onChange: (id: "distancia" | "tempo" | "ritmo" | "livre" | "prova") => void;
 }) {
-  const ids = ["distancia", "tempo", "ritmo", "livre"] as const;
+  const ids = ["distancia", "tempo", "ritmo", "prova", "livre"] as const;
   return (
     <div className="flex items-stretch justify-between">
       {ids.map((id) => {
@@ -869,7 +877,7 @@ export default function RunPage() {
    */
   const [recoverableRun, setRecoverableRun] = useState<ActiveRunSnapshot | null>(null);
   /** Which of `goalKm`/`goalMinutes`/`goalPaceSec` actually becomes the run's goal on start — mutually exclusive in the UI (Xanthus Preparar Corrida.dc.html's "Tipo de meta" tabs) even though `RunGoal` itself supports distância+tempo together, since showing every value permanently read as "set them all" when only one was ever meant to gate the run. */
-  const [goalType, setGoalType] = useState<"distancia" | "tempo" | "ritmo" | "livre">("distancia");
+  const [goalType, setGoalType] = useState<"distancia" | "tempo" | "ritmo" | "livre" | "prova">("distancia");
   /**
    * Defaults to 5, unless the screen was opened via `?repeatKm=X` — a past
    * run's "Repetir corrida" button (run-detail.tsx) — the only dimension of
@@ -1621,8 +1629,10 @@ export default function RunPage() {
     setManualTracks([]);
     setMusicQuery("");
     setMusicResults(null);
-    const distanceMeters = goalType === "distancia" && goalKm > 0 ? goalKm * 1000 : undefined;
-    const durationSeconds = goalType === "tempo" && goalMinutes > 0 ? goalMinutes * 60 : undefined;
+    const distanceMeters =
+      (goalType === "distancia" || goalType === "prova") && goalKm > 0 ? goalKm * 1000 : undefined;
+    const durationSeconds =
+      (goalType === "tempo" || goalType === "prova") && goalMinutes > 0 ? goalMinutes * 60 : undefined;
     const targetPaceSecPerKm = goalType === "ritmo" && goalPaceSec > 0 ? goalPaceSec : undefined;
     setActiveGhost(selectedGhost);
     start({
@@ -1999,6 +2009,40 @@ export default function RunPage() {
                   onOpenCustom={() => setCustomSheet("ritmo")}
                   customLabel={PACE_PRESETS_SEC.includes(goalPaceSec) ? null : `${formatPace(goalPaceSec)}/km`}
                 />
+              )}
+              {goalType === "prova" && (
+                <div className="space-y-4">
+                  <div>
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Distância
+                    </span>
+                    <PresetChipRow
+                      presets={DISTANCE_PRESETS_KM.map((km) => ({ value: km, label: `${km} km` }))}
+                      value={goalKm}
+                      onSelect={setGoalKm}
+                      onOpenCustom={() => setCustomSheet("distancia")}
+                      customLabel={DISTANCE_PRESETS_KM.includes(goalKm) ? null : `${goalKm} km`}
+                    />
+                  </div>
+                  <div>
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Terminar em
+                    </span>
+                    <PresetChipRow
+                      presets={TIME_PRESETS_MIN.map((min) => ({ value: min, label: `${min} min` }))}
+                      value={goalMinutes}
+                      onSelect={setGoalMinutes}
+                      onOpenCustom={() => setCustomSheet("tempo")}
+                      customLabel={TIME_PRESETS_MIN.includes(goalMinutes) ? null : `${goalMinutes} min`}
+                    />
+                  </div>
+                  {goalKm > 0 && goalMinutes > 0 && (
+                    <p className="text-xs leading-relaxed text-muted">
+                      Pace médio necessário: <span className="font-semibold text-foreground">{formatPace(Math.round((goalMinutes * 60) / goalKm))}/km</span>.
+                      Durante a corrida, o &quot;Pace necessário&quot; recalcula isso pro trecho que falta, de acordo com o que você já correu.
+                    </p>
+                  )}
+                </div>
               )}
               {goalType === "livre" && (
                 <p className="mt-1 text-xs leading-relaxed text-muted">
@@ -2677,19 +2721,31 @@ export default function RunPage() {
             })()}
           </div>
 
-          {state.goal?.targetPaceSecPerKm && state.finishedRun.distanceMeters > 0 && (
-            <div className="flex flex-col items-center gap-1.5">
-              <span className="text-xs uppercase tracking-wide text-muted">
-                Meta de ritmo · {formatPace(state.goal.targetPaceSecPerKm)}/km
-              </span>
-              <PaceDeltaPill
-                deltaSecPerKm={
-                  (runMovingSeconds(state.finishedRun) / state.finishedRun.distanceMeters) * 1000 -
-                  state.goal.targetPaceSecPerKm
-                }
-              />
-            </div>
-          )}
+          {(() => {
+            // "Ritmo" goals carry the target pace directly; "Prova" goals
+            // (distância + tempo juntos) don't — the target average pace
+            // there is implied, not stated, so it's derived the same way
+            // the live "Pace necessário" card already does.
+            const raceTargetPaceSecPerKm =
+              state.goal?.targetPaceSecPerKm ??
+              (state.goal?.distanceMeters && state.goal?.durationSeconds
+                ? state.goal.durationSeconds / (state.goal.distanceMeters / 1000)
+                : null);
+            if (!raceTargetPaceSecPerKm || state.finishedRun.distanceMeters === 0) return null;
+            return (
+              <div className="flex flex-col items-center gap-1.5">
+                <span className="text-xs uppercase tracking-wide text-muted">
+                  Meta de ritmo · {formatPace(raceTargetPaceSecPerKm)}/km
+                </span>
+                <PaceDeltaPill
+                  deltaSecPerKm={
+                    (runMovingSeconds(state.finishedRun) / state.finishedRun.distanceMeters) * 1000 -
+                    raceTargetPaceSecPerKm
+                  }
+                />
+              </div>
+            );
+          })()}
 
           {finishedRun && (
             <RpeCard
