@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Haptics, NotificationType } from "@capacitor/haptics";
+import { firePaceDelayVibration } from "@/lib/tracking/useRunTracker";
 import {
   ANNOUNCE_MAX_METERS,
   ANNOUNCE_MIN_METERS,
@@ -1471,7 +1471,7 @@ export default function PerfilPage() {
                 type="button"
                 onClick={() => {
                   setVibrateTested(true);
-                  void Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
+                  firePaceDelayVibration();
                   window.setTimeout(() => setVibrateTested(false), 2000);
                 }}
                 className="mt-3 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition-colors active:text-foreground"

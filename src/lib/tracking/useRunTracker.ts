@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import {
   FILTER_CONFIG,
   Kalman2D,
@@ -141,6 +141,22 @@ const TICK_INTERVAL_MS = 1000;
  */
 const PACE_DELAY_VIBRATION_THRESHOLD_SECONDS = 20;
 const PACE_DELAY_CLEAR_THRESHOLD_SECONDS = 10;
+
+/**
+ * Two heavy taps, not one — real-device feedback (2026-08-29) called the
+ * previous single `Haptics.notification({ type: Warning })` too faint to
+ * notice mid-run (phone in an armband/pocket, not in hand). A double pulse
+ * reads as deliberate rather than a stray buzz, the same reason a phone's
+ * own "do not disturb" override pattern is never a single tap. Exported
+ * (not just used below) so /perfil's "Testar vibração" button previews
+ * this exact pattern instead of a different, weaker one.
+ */
+export function firePaceDelayVibration() {
+  void Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+  setTimeout(() => {
+    void Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+  }, 180);
+}
 
 /** Below this much time left in a run with a known goal, a carb-gel reminder is suppressed — no point telling someone to fuel this close to the finish. See `StartOptions.carbReminderEnabled`'s own comment for why there's no such suppression when no goal is set at all. */
 const CARB_REMINDER_SUPPRESS_NEAR_FINISH_SECONDS = 300;
@@ -751,11 +767,7 @@ export function useRunTracker() {
         const delaySeconds = computeElapsedSeconds() - expectedSeconds;
         if (!paceDelayAlertedRef.current && delaySeconds >= PACE_DELAY_VIBRATION_THRESHOLD_SECONDS) {
           paceDelayAlertedRef.current = true;
-          // Best-effort: the web Vibration-API fallback (non-native) can
-          // reject in browsers that gate it behind a user gesture, and
-          // there's nothing useful to do about that mid-run other than not
-          // let it crash the tracking loop over a missed buzz.
-          void Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
+          firePaceDelayVibration();
         } else if (paceDelayAlertedRef.current && delaySeconds <= PACE_DELAY_CLEAR_THRESHOLD_SECONDS) {
           paceDelayAlertedRef.current = false;
         }

@@ -1758,7 +1758,17 @@ export default function RunPage() {
       (goalType === "distancia" || goalType === "prova") && goalKm > 0 ? goalKm * 1000 : undefined;
     const durationSeconds =
       (goalType === "tempo" || goalType === "prova") && goalMinutes > 0 ? goalMinutes * 60 : undefined;
-    const targetPaceSecPerKm = goalType === "ritmo" && goalPaceSec > 0 ? goalPaceSec : undefined;
+    // "Prova" (distância + tempo juntos) implica um ritmo médio alvo mesmo
+    // sem a pessoa ter digitado um diretamente — sem isso, `paceDeltaSecPerKm`
+    // (a pílula "à frente/atrás" sob o número gigante) nunca populava numa
+    // corrida de prova, deixando a tela igual à de qualquer outra meta em vez
+    // de mostrar a única coisa que importa aqui: ritmo atual contra o alvo.
+    const targetPaceSecPerKm =
+      goalType === "ritmo" && goalPaceSec > 0
+        ? goalPaceSec
+        : goalType === "prova" && distanceMeters && durationSeconds
+          ? durationSeconds / (distanceMeters / 1000)
+          : undefined;
     setActiveGhost(selectedGhost);
     start({
       announceIntervalMeters: announceMeters,
@@ -3196,10 +3206,6 @@ export default function RunPage() {
               </svg>
               <span className="relative">Compartilhar</span>
             </Link>
-            <p className="max-w-xs text-xs leading-relaxed text-muted">
-              Escolha foto, filtro, cenário e efeitos, e gere um vídeo com o seu traçado desenhando
-              e os números dessa corrida — pronto pro status do WhatsApp ou pros stories.
-            </p>
           </div>
           <div className="flex w-full max-w-xs flex-col items-center gap-3">
             <button

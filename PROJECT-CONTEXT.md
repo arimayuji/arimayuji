@@ -1707,6 +1707,40 @@ users delete`) — nada de teste ficou em produção. Ainda não testado por um
 usuário real enviando um convite de verdade pelo app, mas o mecanismo em
 si está confirmado funcionando de ponta a ponta.
 
+## Três achados de teste real num aparelho (2026-08-29)
+
+Feedback direto do dono do projeto usando o app de verdade, três coisas
+num só round:
+
+1. **Vibração de atraso de ritmo funcionava, mas era insignificante** —
+   um toque só via `Haptics.notification({ type: Warning })`, fácil de
+   nem perceber correndo (celular no braço/bolso, não na mão). Trocado
+   por dois toques `ImpactStyle.Heavy` espaçados em 180ms
+   (`firePaceDelayVibration`, agora exportada de `useRunTracker.ts` em
+   vez de presa dentro do hook — reaproveitada também pelo botão "Testar
+   vibração" em `/perfil`, que antes mostrava um padrão diferente/mais
+   fraco do que o que dispara de verdade numa corrida).
+2. **Texto descritivo embaixo do botão "Compartilhar"** (tela de corrida
+   terminada) explicando o óbvio ("Escolha foto, filtro, cenário e
+   efeitos...") — removido por poluir a tela sem necessidade, mesma
+   crítica de "texto demais" já aplicada em outras telas.
+3. **Aba "Prova" não tinha o "contra o quê comparar"** — o número gigante
+   já defaulta pra "Ritmo" (pace atual) no início de qualquer corrida,
+   mas a pílula de delta (`PaceDeltaPill`, "à frente/atrás") só aparecia
+   pra meta "Ritmo", porque só essa aba calculava `targetPaceSecPerKm`.
+   Numa corrida de "Prova" (distância+tempo juntos) esse ritmo alvo é
+   implícito (`duração / distância`), só nunca tinha sido calculado — a
+   tela ficava idêntica a qualquer outra meta, sem a única coisa que
+   importa numa prova: ritmo atual contra o ritmo que a pessoa precisa
+   manter. Corrigido em `handleStart` (`run/page.tsx`), computando esse
+   ritmo implícito pra "Prova" do mesmo jeito que a tela de resumo pós-
+   corrida já fazia como fallback (`raceTargetPaceSecPerKm`) — agora
+   populado desde o início da corrida, não só depois de terminar.
+
+Verificado: `tsc`, `lint`, `build` limpos. **Não testado em aparelho
+real ainda** — mesma pendência de sempre, precisa do dono do projeto
+confirmando numa corrida de verdade com meta "Prova".
+
 ## Tela de amigo: comparação lado a lado (2026-08-29)
 
 Pedido direto do dono do projeto vendo `/perfil/ver` de um amigo real:
