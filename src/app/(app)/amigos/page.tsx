@@ -11,6 +11,8 @@ import {
   type FriendConnection,
 } from "@/lib/friendships";
 import { getActiveLiveSession, type LiveRun } from "@/lib/liveRuns";
+import { listFriendsPresence } from "@/lib/friendPresence";
+import { haversineMeters } from "@/lib/tracking/geoFilter";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
@@ -23,6 +25,10 @@ const RETURN_TO = "/amigos";
 const LIVE_STALE_MS = 45_000;
 /** A once-in-a-while badge on a list, not a map someone's staring at — much less frequent than the 5s poll the actual live-viewing screens use. */
 const LIVE_LIST_POLL_MS = 15_000;
+/** A presence ping is a one-shot foreground read (see friend-presence-ping.tsx), not a 6s stream like live_runs — 15min is generous enough that "just opened the app a few minutes ago" still counts as "nearby now" instead of flickering off between pings. */
+const PRESENCE_STALE_MS = 15 * 60_000;
+/** Loose enough to mean "close enough to meet up" (walking/driving distance), not "standing in the exact same spot" — the tighter 150m `placeMatch.ts` uses is answering a different question ("are you at this specific park"). */
+const NEARBY_THRESHOLD_METERS = 1000;
 
 const SEND_ERRORS: Record<string, string> = {
   "not-found": "Ninguém com esse @ por aqui. Confere a escrita — o @ é o mesmo que a pessoa escolheu ao criar a conta.",
@@ -84,7 +90,7 @@ const FRIEND_TABS = [
 
 export default function AmigosPage() {
   useHeaderClose("/perfil");
-  const { status } = useAuth();
+  const { status, account } = useAuth();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [connections, setConnections] = useState<FriendConnection[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -201,6 +207,46 @@ export default function AmigosPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `friends` is a new array every render (derived from `connections` above); keying off `connections` itself instead avoids re-polling every render while still refetching whenever who's actually a friend changes.
   }, [activeTab, connections]);
+
+  /**
+   * "Correr por amigo por perto" — reuses this exact same tab-gated polling
+   * shape as the "Ao vivo" effect above, just against `friend_presence`
+   * instead of `live_runs`. Distance is computed from THIS account's own
+   * presence row (fetched in the same batched call, not a fresh GPS
+   * request on this screen) — if that row doesn't exist yet (opted out, or
+   * no ping has landed recently), nothing here can ever show a distance,
+   * which is exactly the right degrade: no separate "you're not opted in"
+   * UI needed, the feature is just quietly a no-op.
+   */
+  const [nearbyFriends, setNearbyFriends] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (activeTab !== "amigos" || friends.length === 0 || !account) return;
+    let cancelled = false;
+    const poll = async () => {
+      const rows = await listFriendsPresence([account.id, ...friends.map((c) => c.otherId)]);
+      if (cancelled) return;
+      const now = Date.now();
+      const mine = rows.find((row) => row.$id === account.id);
+      if (!mine || now - mine.updatedAtMs > PRESENCE_STALE_MS) {
+        setNearbyFriends(new Set());
+        return;
+      }
+      const next = new Set<string>();
+      for (const row of rows) {
+        if (row.$id === account.id) continue;
+        if (now - row.updatedAtMs > PRESENCE_STALE_MS) continue;
+        if (haversineMeters(mine, row) <= NEARBY_THRESHOLD_METERS) next.add(row.$id);
+      }
+      setNearbyFriends(next);
+    };
+    void poll();
+    const interval = setInterval(poll, LIVE_LIST_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- same reasoning as the "Ao vivo" effect above: keying off `connections` (not the derived `friends` array) avoids re-polling every render.
+  }, [activeTab, connections, account]);
 
   return (
     <>
@@ -402,6 +448,7 @@ export default function AmigosPage() {
                         connection={connection}
                         busy={busyId === connection.friendship.$id}
                         live={liveFriends.has(connection.otherId)}
+                        nearby={nearbyFriends.has(connection.otherId)}
                         onRemove={() => act(connection.friendship.$id, () => removeFriendship(connection.friendship.$id))}
                       />
                     ))}
@@ -476,12 +523,15 @@ function FriendRow({
   connection,
   busy,
   live,
+  nearby,
   onRemove,
 }: {
   connection: FriendConnection;
   busy: boolean;
   /** Whether this friend currently has a live run this account is included in — see the polling effect in `AmigosPage`. */
   live: boolean;
+  /** Whether this friend's last presence ping landed within NEARBY_THRESHOLD_METERS of this account's own — see the polling effect in `AmigosPage`. Only shown when not already `live`: an active run is the stronger, more specific signal. */
+  nearby: boolean;
   onRemove: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -495,6 +545,15 @@ function FriendRow({
         >
           <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden="true" />
           Ao vivo
+        </Link>
+      )}
+      {!live && nearby && !confirming && (
+        <Link
+          href="/run"
+          className="flex items-center gap-1.5 self-center rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+          Por perto agora
         </Link>
       )}
       {confirming ? (

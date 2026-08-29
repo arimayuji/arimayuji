@@ -18,7 +18,16 @@ import { onNotificationAction, onWatchAction } from "@/lib/tracking/geolocation"
 import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { listFriendConnections, type FriendConnection } from "@/lib/friendships";
-import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
+import {
+  startLiveSession,
+  updateLiveSession,
+  endLiveSession,
+  refreshLiveSessionAudience,
+  ackCoachCue,
+  getActiveLiveSession,
+} from "@/lib/liveRuns";
+import { fetchLiveHeartRate } from "@/lib/health";
+import { announceCoachCue } from "@/lib/tracking/voiceBank";
 import {
   buildPairingUrl,
   closeGroupRun,
@@ -42,6 +51,7 @@ import {
   formatDeltaDuration,
   formatDistanceKm,
   formatElapsed,
+  formatGoalEta,
   formatPace,
 } from "@/lib/tracking/geoFilter";
 import {
@@ -570,11 +580,6 @@ function PlanIcon({ className }: { className?: string }) {
       <path d="M7 12l2 2 4-4" />
     </svg>
   );
-}
-
-function formatGoalEta(totalSeconds: number | null): string {
-  if (totalSeconds === null || !Number.isFinite(totalSeconds)) return "--:--";
-  return formatElapsed(Math.round(totalSeconds));
 }
 
 /**
@@ -1374,6 +1379,14 @@ export default function RunPage() {
   const lastLivePushRef = useRef(0);
   const LIVE_PUSH_INTERVAL_MS = 6000;
 
+  /** "Coach ao vivo" HR — updated by its own slower poll below (health reads are comparatively expensive/slow), read synchronously by the position-push effect so that effect itself doesn't need to become async. */
+  const liveHeartRateRef = useRef<number | null>(null);
+  const HEART_RATE_POLL_MS = 20_000;
+  const lastPlayedCueAtMsRef = useRef<number | null>(null);
+  const CUE_POLL_MS = 8_000;
+  /** A cue older than this is ignored outright — e.g. the app was closed and reopened well after the coach sent it. */
+  const CUE_MAX_AGE_MS = 120_000;
+
   /** Kept outside React state — read fresh by the push effect below on its own next tick rather than becoming a dependency, same reasoning `liveSessionActiveRef` already follows. */
   const groupRunParticipantIdsRef = useRef<string[]>([]);
   const PARTICIPANT_POLL_MS = 20_000;
@@ -1438,6 +1451,11 @@ export default function RunPage() {
           elapsedSeconds: state.elapsedSeconds,
           lat: lastPoint.lat,
           lon: lastPoint.lon,
+          // "Coach ao vivo" — both scoped to "a coach is actually in the
+          // viewer set for this run", never sent when only sharing with
+          // friends/a longão.
+          heartRateBpm: liveCoachId ? (liveHeartRateRef.current ?? undefined) : undefined,
+          forecastSecondsRemaining: liveCoachId ? (state.forecastSecondsRemaining ?? undefined) : undefined,
         };
         if (!liveSessionActiveRef.current) {
           liveSessionActiveRef.current = true;
@@ -1468,7 +1486,71 @@ export default function RunPage() {
     state.currentPaceSecPerKm,
     state.elapsedSeconds,
     state.points,
+    state.forecastSecondsRemaining,
   ]);
+
+  /**
+   * "Coach ao vivo" HR feed — its own slower poll, separate from the
+   * position-push effect above, since a health-store read is comparatively
+   * expensive and doesn't need the same 6s cadence as GPS. Only runs when
+   * actually sharing with a coach AND the athlete opted in for this run
+   * (`preferences.shareHeartRateWithCoach`) — see that preference's own
+   * comment for why this is a per-run choice, separate from the general
+   * `healthDataConsent`.
+   */
+  useEffect(() => {
+    const live = state.status === "tracking" || state.status === "paused";
+    if (!live || !liveCoachId || !preferences.shareHeartRateWithCoach) {
+      liveHeartRateRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      const bpm = await fetchLiveHeartRate();
+      if (!cancelled) liveHeartRateRef.current = bpm;
+    };
+    void poll();
+    const interval = setInterval(poll, HEART_RATE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [state.status, liveCoachId, preferences.shareHeartRateWithCoach]);
+
+  /**
+   * "Coach ao vivo" cue playback — the athlete's side of `sendCoachCue`
+   * (src/lib/liveRuns.ts). Reads back the athlete's own live_runs row
+   * (something this app otherwise never does — every other write here is
+   * fire-and-forget) looking for a `pendingCueId` the coach just set. Plays
+   * the clip once, acks it so it never replays, and ignores anything too
+   * old (the app having been closed and reopened well after the cue was
+   * sent, for instance).
+   */
+  useEffect(() => {
+    const live = state.status === "tracking" || state.status === "paused";
+    if (!live || !liveCoachId || !state.runId || !account) return;
+    let cancelled = false;
+    const runId = state.runId;
+    const myUserId = account.id;
+    const poll = async () => {
+      // getActiveLiveSession queries by userId, not by row id — this is the
+      // athlete reading their OWN row back (something this app otherwise
+      // never does), not looking up a coach/friend's.
+      const row = await getActiveLiveSession(myUserId);
+      if (cancelled || !row?.pendingCueId || !row.pendingCueAtMs) return;
+      if (row.pendingCueAtMs === lastPlayedCueAtMsRef.current) return; // already played
+      if (Date.now() - row.pendingCueAtMs > CUE_MAX_AGE_MS) return; // too old to bother with
+      lastPlayedCueAtMsRef.current = row.pendingCueAtMs;
+      announceCoachCue(row.pendingCueId, voiceGender);
+      void ackCoachCue(runId);
+    };
+    void poll();
+    const interval = setInterval(poll, CUE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [state.status, liveCoachId, state.runId, voiceGender, account]);
 
   // Belt-and-suspenders: if this screen unmounts mid-run (navigated away,
   // not "finished" the normal way) the effect above never gets a chance to
@@ -2374,6 +2456,20 @@ export default function RunPage() {
                     </button>
                   ))}
                 </div>
+                {liveCoachId !== null && (
+                  <label className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-3">
+                    <span className="text-xs leading-relaxed text-muted">
+                      Compartilhar frequência cardíaca ao vivo com esse treinador — só aparece se um
+                      relógio estiver sincronizando FC quase em tempo real.
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={preferences.shareHeartRateWithCoach}
+                      onChange={(e) => updatePreferences({ shareHeartRateWithCoach: e.target.checked })}
+                      className="h-5 w-5 shrink-0 accent-accent"
+                    />
+                  </label>
+                )}
               </div>
             )}
 

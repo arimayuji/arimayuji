@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { OAuthCallbackListener } from "./oauth-callback-listener";
 import { PushRegistration } from "./push-registration";
+import { FriendPresencePing } from "./friend-presence-ping";
 import { Splash } from "./splash";
 import { ThemeSync } from "./theme-sync";
 
@@ -85,6 +86,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <OAuthCallbackListener />
         <PushRegistration />
+        <FriendPresencePing />
       </body>
     </html>
   );

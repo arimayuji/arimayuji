@@ -260,3 +260,44 @@ export function announceCarbGelReminder(gender: VoiceGender = "female"): void {
       if (token === currentToken) speak(CARB_GEL_REMINDER_FALLBACK_TEXT);
     });
 }
+
+/** Slug + spoken fallback for each "coach ao vivo" pre-recorded cue — the coach only ever picks one of these three, never free text (see liveRuns.ts's CoachCueId). */
+const COACH_CUE_CLIPS: Record<string, { slug: string; fallbackText: string }> = {
+  "reduce-pace": { slug: "coach-cue-reduce-pace", fallbackText: "Seu treinador está pedindo pra você reduzir o ritmo." },
+  "increase-pace": { slug: "coach-cue-increase-pace", fallbackText: "Seu treinador quer que você acelere." },
+  stop: { slug: "coach-cue-stop", fallbackText: "Seu treinador está pedindo pra você parar." },
+};
+
+/**
+ * Speaks a coach's pre-recorded voice cue — same single-whole-clip shape as
+ * `announceCarbGelReminder` above, just keyed by which of the three fixed
+ * phrases the coach picked (see `sendCoachCue` in liveRuns.ts). An unknown
+ * `cueId` (a future clip this build doesn't know about yet) is a silent
+ * no-op rather than a crash.
+ */
+export function announceCoachCue(cueId: string, gender: VoiceGender = "female"): void {
+  const clip = COACH_CUE_CLIPS[cueId];
+  if (!clip) return;
+
+  stopCurrent();
+  const token = currentToken;
+
+  const ctx = getAudioContext();
+  if (!ctx) {
+    speak(clip.fallbackText);
+    return;
+  }
+
+  loadBuffer(clip.slug, gender, ctx)
+    .then((buffer) => {
+      if (token !== currentToken) return;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      currentSource = source;
+      source.start();
+    })
+    .catch(() => {
+      if (token === currentToken) speak(clip.fallbackText);
+    });
+}

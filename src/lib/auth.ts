@@ -49,6 +49,8 @@ export interface Profile extends Models.Row {
   avatarUrl?: string;
   /** Master switch for the "ranking de lugares" leaderboard — off/absent by default, flipped explicitly from /perfil. */
   leaderboardOptIn?: boolean;
+  /** Lets accepted friends see a one-shot "you're nearby" ping (src/lib/friendPresence.ts) when this account opens the app — off/absent by default, same reasoning as leaderboardOptIn above. */
+  nearbyOptIn?: boolean;
   /** Shown on the *public* leaderboard view instead of `displayName` (falls back to `handle` when unset) — the friends-only view still shows the real `displayName`, same as everywhere else friends already see each other's real name. */
   publicDisplayName?: string;
   /** Links to running playlists (Spotify, Apple Music, whatever) — shown on /perfil and to friends on /perfil/ver. Each entry a JSON string; parse with src/lib/playlistLink.ts's parsePlaylists. */
@@ -563,11 +565,11 @@ export async function createProfile(handle: string, displayName: string): Promis
   return body.row;
 }
 
-/** Partial update of the signed-in account's own profile row — `avatarUrl`, `leaderboardOptIn`, `publicDisplayName`, `playlists` all go through this. No-op (returns `null`) when Appwrite isn't configured, same convention as every other function here. */
+/** Partial update of the signed-in account's own profile row — `avatarUrl`, `leaderboardOptIn`, `nearbyOptIn`, `publicDisplayName`, `playlists` all go through this. No-op (returns `null`) when Appwrite isn't configured, same convention as every other function here. */
 export async function updateProfile(
   userId: string,
   patch: Partial<
-    Pick<Profile, "displayName" | "avatarUrl" | "leaderboardOptIn" | "publicDisplayName" | "playlists">
+    Pick<Profile, "displayName" | "avatarUrl" | "leaderboardOptIn" | "nearbyOptIn" | "publicDisplayName" | "playlists">
   >,
 ): Promise<Profile | null> {
   const appwrite = getAppwrite();

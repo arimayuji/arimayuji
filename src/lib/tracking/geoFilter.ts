@@ -393,3 +393,9 @@ export function formatElapsed(totalSeconds: number): string {
   const ss = s.toString().padStart(2, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
+
+/** Same clock format as `formatElapsed`, for an ETA/forecast that might not exist yet (no goal, no pace reading) — shared by /run's own live screen and a coach's "coach ao vivo" view of a student's forecastSecondsRemaining. */
+export function formatGoalEta(totalSeconds: number | null): string {
+  if (totalSeconds === null || !Number.isFinite(totalSeconds)) return "--:--";
+  return formatElapsed(Math.round(totalSeconds));
+}

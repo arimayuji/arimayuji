@@ -245,6 +245,29 @@ function buildVoiceBank(): VoiceBankEntry[] {
     nextText: null,
   });
 
+  // "Coach ao vivo" cues — same standalone-sentence shape as the carb-gel
+  // reminder above (voiceBank.ts's `announceCoachCue` plays one of these
+  // three directly, never spliced). The coach only ever picks one of these
+  // fixed phrases, never free text — see liveRuns.ts's `CoachCueId`.
+  entries.push({
+    slug: "coach-cue-reduce-pace",
+    text: "Seu treinador está pedindo pra você reduzir o ritmo.",
+    previousText: null,
+    nextText: null,
+  });
+  entries.push({
+    slug: "coach-cue-increase-pace",
+    text: "Seu treinador quer que você acelere.",
+    previousText: null,
+    nextText: null,
+  });
+  entries.push({
+    slug: "coach-cue-stop",
+    text: "Seu treinador está pedindo pra você parar.",
+    previousText: null,
+    nextText: null,
+  });
+
   return entries;
 }
 

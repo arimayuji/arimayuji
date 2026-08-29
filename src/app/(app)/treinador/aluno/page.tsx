@@ -9,13 +9,14 @@ import { getActiveLiveSession, type LiveRun } from "@/lib/liveRuns";
 import { getProfile, type Profile } from "@/lib/auth";
 import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coachPlanOverrides";
 import { mondayOf } from "@/lib/tracking/stats";
-import { formatElapsed, formatPace } from "@/lib/tracking/geoFilter";
+import { formatElapsed, formatGoalEta, formatPace } from "@/lib/tracking/geoFilter";
 import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
 import { LiveMap } from "../../live-map";
 import { useHeaderClose } from "../../app-shell";
 import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
 import { isoDateFromMs, MS_PER_DAY, WeekPlanEditor } from "../week-plan-editor";
+import { CoachCueButtons } from "../coach-cue-buttons";
 
 /** A ping older than this reads as "not really live anymore" rather than a frozen dot pretending to be current — most likely the app closed without a clean end. */
 const LIVE_STALE_MS = 45_000;
@@ -202,6 +203,34 @@ function AlunoContent() {
                   </p>
                 </div>
               </div>
+              {/*
+                "Coach ao vivo" — FC e chegada prevista só aparecem quando o
+                aluno de fato compartilhou (preferences.ts's
+                shareHeartRateWithCoach); nunca inventar um número quando o
+                campo vem ausente da linha.
+              */}
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3">
+                <div>
+                  <span className="text-[10px] uppercase tracking-wide text-muted">FC</span>
+                  <p className="font-mono text-lg tabular-nums">
+                    {liveRun.heartRateBpm ? (
+                      <>
+                        {liveRun.heartRateBpm}
+                        <span className="ml-1 text-xs text-muted">bpm</span>
+                      </>
+                    ) : (
+                      <span className="text-xs font-sans text-muted">não compartilhada</span>
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase tracking-wide text-muted">Chegada prevista</span>
+                  <p className="font-mono text-lg tabular-nums">
+                    {formatGoalEta(liveRun.forecastSecondsRemaining ?? null)}
+                  </p>
+                </div>
+              </div>
+              <CoachCueButtons studentId={studentId} />
             </div>
           </Card>
         )}

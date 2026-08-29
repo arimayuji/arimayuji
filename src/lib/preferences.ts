@@ -94,6 +94,16 @@ export interface Preferences {
   carbReminderEnabled: boolean;
   /** Minutes between reminders, and also when the first one fires — see `CARB_REMINDER_MIN/MAX/STEP_MINUTES`. */
   carbReminderIntervalMinutes: number;
+  /**
+   * "Coach ao vivo" — separate from `healthDataConsent` above on purpose:
+   * that one is "the app may read my watch at all," this one is "my coach
+   * specifically sees this live, this run." Remembered as a default (same
+   * as `vibrateOnPaceDelay`/`carbReminderEnabled`) and surfaced as a toggle
+   * at the same step where the athlete already picks who to share a live
+   * run with — never a separate settings screen, and never on unless a
+   * coach is actually being shared with in the first place.
+   */
+  shareHeartRateWithCoach: boolean;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -126,6 +136,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   appMode: "atleta",
   carbReminderEnabled: false,
   carbReminderIntervalMinutes: 45,
+  shareHeartRateWithCoach: false,
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -218,6 +229,11 @@ function sanitize(raw: unknown): Preferences {
     ? clampCarbReminderMinutes(rawCarbReminderMinutes)
     : DEFAULT_PREFERENCES.carbReminderIntervalMinutes;
 
+  const shareHeartRateWithCoach =
+    typeof value.shareHeartRateWithCoach === "boolean"
+      ? value.shareHeartRateWithCoach
+      : DEFAULT_PREFERENCES.shareHeartRateWithCoach;
+
   return {
     announceIntervalMeters,
     announceIntervalSeconds,
@@ -233,6 +249,7 @@ function sanitize(raw: unknown): Preferences {
     appMode,
     carbReminderEnabled,
     carbReminderIntervalMinutes,
+    shareHeartRateWithCoach,
   };
 }
 

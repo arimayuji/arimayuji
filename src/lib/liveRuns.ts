@@ -31,6 +31,13 @@ export interface LiveRun extends Models.Row {
   updatedAtMs: number;
   /** Which "longão" (group_runs) session this ping belongs to, if any — lets a group of runners find each other's live rows with one query instead of the 1:1 coach case's per-athlete lookup. */
   sessionCode?: string;
+  /** "Coach ao vivo" — only present when the athlete opted in for this run (preferences.ts's shareHeartRateWithCoach) AND a watch/strap is actively syncing near-real-time samples to HealthKit/Health Connect. Absent, not zero, when there's nothing to show — see health.ts's fetchLiveHeartRate. */
+  heartRateBpm?: number;
+  /** Mirrors state.forecastSecondsRemaining from useRunTracker.ts exactly — sent along so a coach never has to re-derive an ETA from raw pace/distance. Only meaningful when the athlete has a distance goal. */
+  forecastSecondsRemaining?: number;
+  /** The "go" signal for a coach's pre-recorded voice cue — set by send-coach-cue (the coach never has `update` on this row, only `read`), cleared by the athlete's own client via `ackCoachCue` once the clip plays. See voiceBank.ts's `announceCoachCue`. */
+  pendingCueId?: string;
+  pendingCueAtMs?: number;
 }
 
 export interface LiveRunUpdate {
@@ -39,6 +46,9 @@ export interface LiveRunUpdate {
   elapsedSeconds: number;
   lat: number;
   lon: number;
+  /** Only sent when the athlete opted in to sharing this for this run — see LiveRun.heartRateBpm's own comment. */
+  heartRateBpm?: number | null;
+  forecastSecondsRemaining?: number | null;
 }
 
 /**
@@ -89,6 +99,8 @@ export async function startLiveSession(
           lat: update.lat,
           lon: update.lon,
           updatedAtMs: Date.now(),
+          heartRateBpm: update.heartRateBpm ?? undefined,
+          forecastSecondsRemaining: update.forecastSecondsRemaining ?? undefined,
         },
       }),
     });
@@ -153,10 +165,59 @@ export async function updateLiveSession(runId: string, update: LiveRunUpdate): P
         lat: update.lat,
         lon: update.lon,
         updatedAtMs: Date.now(),
+        heartRateBpm: update.heartRateBpm ?? undefined,
+        forecastSecondsRemaining: update.forecastSecondsRemaining ?? undefined,
       },
     });
   } catch {
     // Next tick's update will catch up — nothing to recover here.
+  }
+}
+
+export type CoachCueId = "reduce-pace" | "increase-pace" | "stop";
+
+/**
+ * A coach sending one of the pre-recorded voice cues to a live student —
+ * always Function-mediated, never a direct client write: a coach only ever
+ * holds `read` on the student's row (see `liveRunPermissions` in
+ * client-actions), never `update`. Best-effort like every other write in
+ * this file — a dropped cue just means the athlete doesn't hear it this
+ * time, never a broken run.
+ */
+export async function sendCoachCue(studentId: string, cueId: CoachCueId): Promise<boolean> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return false;
+  try {
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "send-coach-cue", studentId, cueId }),
+    });
+    const parsed = JSON.parse(execution.responseBody || "{}") as { ok?: boolean };
+    return !!parsed.ok;
+  } catch (err) {
+    console.error("[liveRuns] sendCoachCue threw:", err);
+    return false;
+  }
+}
+
+/** Clears a played cue on the athlete's own row — a direct client write, since the athlete already owns `update` on their own live_runs row (unlike the coach, who only has `read`). Called right after the clip finishes, so the same cue never plays twice. */
+export async function ackCoachCue(runId: string): Promise<void> {
+  const appwrite = getAppwrite();
+  if (!appwrite) return;
+  try {
+    // `null`, not `undefined` — Appwrite clears an optional attribute only
+    // on an explicit null; an `undefined` key is dropped by JSON.stringify
+    // before the request ever leaves the client, so the old value would
+    // otherwise just linger and the cue would replay on every poll.
+    await appwrite.tablesDB.updateRow({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: TABLES.liveRuns,
+      rowId: runId,
+      data: { pendingCueId: null, pendingCueAtMs: null },
+    });
+  } catch {
+    // Worst case the same cue plays once more on the next poll — not worth retrying.
   }
 }
 

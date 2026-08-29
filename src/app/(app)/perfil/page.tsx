@@ -48,6 +48,7 @@ import { useAuth } from "@/lib/useAuth";
 import { listCoachConnections } from "@/lib/coachRelationships";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
+import { clearMyPresence } from "@/lib/friendPresence";
 import { parsePlaylists, resolvePlaylistCover, serializePlaylists, type PlaylistEntry } from "@/lib/playlistLink";
 import type { RunningPlace } from "@/lib/places";
 
@@ -1016,6 +1017,64 @@ function PlaceLeaderboardCard() {
   );
 }
 
+/**
+ * "Correr por amigo por perto" opt-in — same shape/reasoning as
+ * `PlaceLeaderboardCard` above (`try/finally` around the toggle, same
+ * stuck-switch bug class it already fixed once), but much shorter: there's
+ * no scan/confirm step here, just a switch. Turning it off calls
+ * `clearMyPresence()` so the last known location stops being visible to
+ * friends immediately, not just "stops updating."
+ */
+function NearbyFriendsCard() {
+  const { status, account, profile, refresh } = useAuth();
+  const [savingToggle, setSavingToggle] = useState(false);
+  const [toggleError, setToggleError] = useState(false);
+  const optedIn = profile?.nearbyOptIn ?? false;
+
+  async function handleToggle(next: boolean) {
+    if (!account || savingToggle) return;
+    setSavingToggle(true);
+    setToggleError(false);
+    try {
+      await updateProfile(account.id, { nearbyOptIn: next });
+      if (!next) await clearMyPresence();
+      await refresh();
+    } catch {
+      setToggleError(true);
+    } finally {
+      setSavingToggle(false);
+    }
+  }
+
+  return (
+    <Card className="pr-enter" style={delay(87)}>
+      <CardTitle aside={<NoticeBadge>desligado por padrão</NoticeBadge>}>Amigo por perto</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Avisa quando um amigo aceito também está com o app aberto e fisicamente perto de você —
+        uma leitura pontual da sua localização ao abrir o app, nunca um rastreamento contínuo.
+        Só amigos aceitos veem isso, nunca outra pessoa.
+      </p>
+      {status !== "signed-in" ? (
+        <p className="text-xs text-muted">Precisa de conta pra participar (Google ou Apple, em Conta acima).</p>
+      ) : (
+        <>
+          <PreferenceToggle
+            label="Avisar quando um amigo estiver por perto"
+            hint="desligar apaga sua última leitura na hora"
+            checked={optedIn}
+            onChange={handleToggle}
+          />
+          {toggleError && (
+            <p className="mt-2 text-xs leading-relaxed text-bad">
+              Não deu pra salvar agora — tenta de novo em instantes.
+            </p>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 /** Fallback tile for a playlist link this app can't resolve cover art for (anything non-Spotify) — same glyph `/perfil/ver` shows a friend. */
 function PlaylistNoteIcon() {
   return (
@@ -1312,6 +1371,9 @@ export default function PerfilPage() {
 
         <div className="lg:hidden">
           <PlaceLeaderboardCard />
+        </div>
+        <div className="lg:hidden">
+          <NearbyFriendsCard />
         </div>
         <div className="lg:hidden">
           <PlaylistCard />

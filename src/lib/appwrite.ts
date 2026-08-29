@@ -80,6 +80,7 @@ export const TABLES = {
   groupRunParticipants: "group_run_participants",
   contentIdeas: "content_ideas",
   cityRaces: "city_races",
+  friendPresence: "friend_presence",
 } as const;
 
 /**

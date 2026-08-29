@@ -208,6 +208,17 @@ async function main() {
   await ensure("profiles.leaderboardOptIn", () =>
     tablesDB.createBooleanColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "leaderboardOptIn", required: false }),
   );
+  // Same shape/reasoning as leaderboardOptIn — this decides what OTHER
+  // accounts (accepted friends only) can see, so it has to live here, not
+  // in the local-only preferences.ts: a client-side flag alone wouldn't
+  // gate anything, the refresh-presence Function action is what actually
+  // checks this before granting anyone read on this account's
+  // friend_presence row. Off/absent by default; a friend-nearby ping is a
+  // one-shot foreground location read, never a background watch — see
+  // friend_presence's own table comment.
+  await ensure("profiles.nearbyOptIn", () =>
+    tablesDB.createBooleanColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "nearbyOptIn", required: false }),
+  );
   // Only meaningful once opted in above. The *public* leaderboard view
   // shows this (falling back to `handle`) instead of `displayName`, so a
   // stranger never sees a real name just from participating — the friends
@@ -646,6 +657,62 @@ async function main() {
       type: TablesDBIndexType.Key,
       columns: ["sessionCode"],
     }),
+  );
+  // "Coach ao vivo" — all four optional, all additive to the existing row:
+  // heartRateBpm only appears when the athlete opted in for this specific
+  // run (preferences.ts's shareHeartRateWithCoach) AND a watch/strap is
+  // actually writing near-real-time samples to HealthKit/Health Connect;
+  // forecastSecondsRemaining mirrors exactly what useRunTracker.ts already
+  // computes for the athlete's own screen, just shared along so the coach
+  // never has to re-derive it from raw pace+distance. pendingCueId/
+  // pendingCueAtMs are the "go" signal a coach's pre-recorded voice cue
+  // rides on — same shape as group_runs.startedAt from the QR-lobby
+  // feature (a field a poll reacts to), written by the send-coach-cue
+  // Function action (the coach only ever has `read` on this row, never
+  // `update`) and cleared client-direct by the athlete once the clip plays
+  // (the athlete already owns `update` on their own row).
+  await ensure("live_runs.heartRateBpm", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "heartRateBpm", required: false, min: 0 }),
+  );
+  await ensure("live_runs.forecastSecondsRemaining", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "forecastSecondsRemaining", required: false, min: 0 }),
+  );
+  await ensure("live_runs.pendingCueId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "pendingCueId", size: 40, required: false }),
+  );
+  await ensure("live_runs.pendingCueAtMs", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "live_runs", key: "pendingCueAtMs", required: false, min: 0 }),
+  );
+
+  // --------------------------------------------------------- friend_presence
+  console.log("\nfriend_presence");
+  await ensure("table friend_presence", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "friend_presence",
+      name: "friend_presence",
+      // A one-shot "I opened the app here" ping, not a run — deliberately
+      // its own table rather than reusing live_runs, whose row lifecycle
+      // (deleted the moment a run ends) doesn't fit "just opened the app,
+      // no run happening." No table-level create/read at all: every write
+      // (including the very first one) goes through the refresh-presence
+      // Function action, which is also what grants read to the caller's
+      // accepted friends — a blanket create here would let anyone plant a
+      // row before the Function ever validates the opt-in.
+      permissions: [],
+      rowSecurity: true,
+    }),
+  );
+  // Row ID is the account's own user ID (like profile_stats) — one row per
+  // account, overwritten on every ping, never accumulated.
+  await ensure("friend_presence.lat", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "friend_presence", key: "lat", required: true, min: -90, max: 90 }),
+  );
+  await ensure("friend_presence.lon", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "friend_presence", key: "lon", required: true, min: -180, max: 180 }),
+  );
+  await ensure("friend_presence.updatedAtMs", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "friend_presence", key: "updatedAtMs", required: true, min: 0 }),
   );
 
   // -------------------------------------------------------------- group_runs

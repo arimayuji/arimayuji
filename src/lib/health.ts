@@ -185,6 +185,42 @@ export async function fetchRunHealthData(
   }
 }
 
+/** How far back to look for a heart rate sample during a live run — wide enough that a watch syncing every 10-20s (typical for Apple Watch/Wear OS during an active workout) still has something in range, tight enough that a genuinely stale/no-watch case correctly comes back empty instead of surfacing an old reading as if it were current. */
+const LIVE_HEART_RATE_WINDOW_MS = 90_000;
+
+/**
+ * "Coach ao vivo"'s heart rate feed — deliberately NOT built on
+ * `bestMatchingWorkout`/`queryWorkouts` above (those need a *finished*
+ * workout to overlap against). `Health.readSamples` itself has no such
+ * requirement — it's a plain time-window query — so this just asks for
+ * whatever heart rate samples landed in the last `LIVE_HEART_RATE_WINDOW_MS`
+ * and returns the most recent one. Only ever returns a real number when
+ * something (an Apple Watch running its own Workout app, a paired chest
+ * strap, etc.) is actively writing near-real-time samples to HealthKit/
+ * Health Connect during this run — a watch that only batch-syncs once a
+ * day will correctly come back `null` here, same "nothing to show" as
+ * every other function in this file, never a stale number presented as
+ * live.
+ */
+export async function fetchLiveHeartRate(): Promise<number | null> {
+  if (!hasConsent()) return null;
+  try {
+    if (!(await isHealthAvailable())) return null;
+    if (!(await requestHealthPermissions())) return null;
+    const now = Date.now();
+    const samples = await samplesDuring(
+      "heartRate",
+      new Date(now - LIVE_HEART_RATE_WINDOW_MS).toISOString(),
+      new Date(now).toISOString(),
+    );
+    if (samples.length === 0) return null;
+    const latest = samples.reduce((a, b) => (new Date(b.endDate).getTime() > new Date(a.endDate).getTime() ? b : a));
+    return Math.round(latest.value);
+  } catch {
+    return null;
+  }
+}
+
 export interface RecoveryContext {
   /** bpm — the most recent reading in the days before the run, not tied to the run's own window (resting HR is measured overnight/at rest, never during a workout). */
   restingHeartRateBpm: number | null;

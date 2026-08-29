@@ -327,28 +327,31 @@ async function sendWelcomeEmail({ userId, client, res, log, error }) {
  * negotiated relationship, not something one side asserts — same reasoning
  * that put send-friend-request in this Function in the first place.
  */
-async function resolveLiveViewers(tablesDB, athleteId, viewerIds, sessionCode) {
-  const requested = [...new Set(viewerIds.filter((id) => typeof id === "string" && id && id !== athleteId))];
-  if (requested.length === 0) return [];
-
-  const allowed = new Set();
-
-  // Accepted friendships, in either direction — same two-query merge as
-  // src/lib/friendships.ts (Appwrite has no OR across columns).
+/** Accepted friendships in either direction — same two-query merge as src/lib/friendships.ts (Appwrite has no OR across columns). Shared by resolveLiveViewers below and the presence-sharing action, which both need "who is this account's accepted friends." */
+async function listAcceptedFriendIds(tablesDB, userId) {
   const [asRequester, asAddressee] = await Promise.all([
     tablesDB.listRows({
       databaseId: DATABASE_ID,
       tableId: "friendships",
-      queries: [Query.equal("requesterId", athleteId), Query.equal("status", "accepted"), Query.limit(100)],
+      queries: [Query.equal("requesterId", userId), Query.equal("status", "accepted"), Query.limit(100)],
     }),
     tablesDB.listRows({
       databaseId: DATABASE_ID,
       tableId: "friendships",
-      queries: [Query.equal("addresseeId", athleteId), Query.equal("status", "accepted"), Query.limit(100)],
+      queries: [Query.equal("addresseeId", userId), Query.equal("status", "accepted"), Query.limit(100)],
     }),
   ]);
-  for (const row of asRequester.rows) allowed.add(row.addresseeId);
-  for (const row of asAddressee.rows) allowed.add(row.requesterId);
+  const ids = new Set();
+  for (const row of asRequester.rows) ids.add(row.addresseeId);
+  for (const row of asAddressee.rows) ids.add(row.requesterId);
+  return ids;
+}
+
+async function resolveLiveViewers(tablesDB, athleteId, viewerIds, sessionCode) {
+  const requested = [...new Set(viewerIds.filter((id) => typeof id === "string" && id && id !== athleteId))];
+  if (requested.length === 0) return [];
+
+  const allowed = await listAcceptedFriendIds(tablesDB, athleteId);
 
   // Accepted coaches of this athlete.
   const coaches = await tablesDB.listRows({
@@ -449,6 +452,8 @@ async function startLiveSession({ userId: athleteId, body, client, res, error })
         lon: data.lon,
         updatedAtMs: data.updatedAtMs,
         sessionCode: sessionCode || undefined,
+        heartRateBpm: data.heartRateBpm ?? undefined,
+        forecastSecondsRemaining: data.forecastSecondsRemaining ?? undefined,
       },
       permissions: liveRunPermissions(athleteId, viewerIds),
     });
@@ -494,6 +499,118 @@ async function refreshLiveAudience({ userId: athleteId, body, client, res, error
   } catch (err) {
     if (err.code === 404) return res.json({ error: "not-found" }, 404);
     error(`refresh-live-audience: falha atualizando ${runId} de ${athleteId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
+/**
+ * action: "refresh-presence" — the "correr por perto" one-shot ping. Unlike
+ * live_runs' split between start/refresh (built for a run's 6s-cadence
+ * position writes), presence pings are rare — at most once per app
+ * foreground, throttled client-side to every ~10min — so it's cheap enough
+ * to always recompute the friend audience and rewrite the whole row
+ * together in one call, no separate "refresh audience" action needed the
+ * way live_runs has one.
+ *
+ * Requires `profiles.nearbyOptIn` to already be on: a client-side toggle
+ * alone protects nothing (anyone could call this action directly), so the
+ * actual gate is checked here, server-side, before ever writing a
+ * location anywhere a friend could read it.
+ */
+async function refreshPresence({ userId, body, client, res, error }) {
+  const lat = Number(body.lat);
+  const lon = Number(body.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return res.json({ error: "invalid-location" }, 400);
+
+  const tablesDB = new TablesDB(client);
+  try {
+    const profile = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: userId });
+    if (!profile.nearbyOptIn) return res.json({ error: "not-opted-in" }, 403);
+  } catch (err) {
+    if (err.code === 404) return res.json({ error: "no-profile" }, 404);
+    error(`refresh-presence: falha lendo profile de ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  let friendIds;
+  try {
+    friendIds = [...(await listAcceptedFriendIds(tablesDB, userId))];
+  } catch (err) {
+    error(`refresh-presence: falha resolvendo amigos de ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  const permissions = [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+    ...friendIds.map((id) => Permission.read(Role.user(id))),
+  ];
+
+  try {
+    const row = await tablesDB.upsertRow({
+      databaseId: DATABASE_ID,
+      tableId: "friend_presence",
+      rowId: userId,
+      data: { lat, lon, updatedAtMs: Date.now() },
+      permissions,
+    });
+    return res.json({ ok: true, row });
+  } catch (err) {
+    error(`refresh-presence: falha gravando presença de ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
+const VALID_COACH_CUES = new Set(["reduce-pace", "increase-pace", "stop"]);
+
+/**
+ * action: "send-coach-cue" — the pre-recorded voice-message half of "coach
+ * ao vivo". A coach only ever holds `read` on a student's live_runs row
+ * (see `liveRunPermissions` above), never `update` — writing the cue
+ * signal has to go through here for the same reason `refresh-live-audience`
+ * does: a plain client session can't touch a row it doesn't own. Clearing
+ * the signal after the clip plays is NOT done here — the athlete already
+ * owns `update` on their own row, so that ack is a direct client write
+ * (see `ackCoachCue` in src/lib/liveRuns.ts).
+ */
+async function sendCoachCue({ userId: coachId, body, client, res, error }) {
+  const studentId = String(body.studentId ?? "").trim();
+  const cueId = String(body.cueId ?? "");
+  if (!studentId) return res.json({ error: "missing-student-id" }, 400);
+  if (!VALID_COACH_CUES.has(cueId)) return res.json({ error: "invalid-cue" }, 400);
+
+  const tablesDB = new TablesDB(client);
+  try {
+    const accepted = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "coach_relationships",
+      queries: [
+        Query.equal("coachId", coachId),
+        Query.equal("studentId", studentId),
+        Query.equal("status", "accepted"),
+        Query.limit(1),
+      ],
+    });
+    if (accepted.rows.length === 0) return res.json({ error: "not-coach" }, 403);
+
+    const liveRows = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "live_runs",
+      queries: [Query.equal("userId", studentId), Query.limit(1)],
+    });
+    const liveRow = liveRows.rows[0];
+    if (!liveRow) return res.json({ error: "not-live" }, 404);
+
+    await tablesDB.updateRow({
+      databaseId: DATABASE_ID,
+      tableId: "live_runs",
+      rowId: liveRow.$id,
+      data: { pendingCueId: cueId, pendingCueAtMs: Date.now() },
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    error(`send-coach-cue: falha (${coachId} -> ${studentId}): ${err.message}`);
     return res.json({ error: "failed" }, 500);
   }
 }
@@ -1844,6 +1961,8 @@ const ACTIONS = {
   "join-group-run": joinGroupRun,
   "start-live-session": startLiveSession,
   "refresh-live-audience": refreshLiveAudience,
+  "refresh-presence": refreshPresence,
+  "send-coach-cue": sendCoachCue,
   "pair-run-session": pairRunSession,
   "start-group-run": startGroupRun,
   "claim-owned-row": claimOwnedRow,
