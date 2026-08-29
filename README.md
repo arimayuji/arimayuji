@@ -402,6 +402,41 @@ do que as outras ações já usavam). O check `x-appwrite-user-id` dentro de
 `PUBLIC_ACTIONS` mesmo com execução aberta pra `any` — abrir isso não
 deixa nenhuma das outras nove ações chamável anonimamente.
 
+**Calendário de corridas de rua (`city_races`)** precisa que essa mesma
+Function também rode sozinha, uma vez por semana, sem nenhum cliente
+chamando — Appwrite Functions suportam isso nativamente via um cron
+próprio da Function (`schedule`), sem precisar de uma Function separada
+(o teto de 2 do Free continua em 2). `clientActions()` já detecta essa
+chamada (`req.headers["x-appwrite-trigger"] === "schedule"`, checado
+antes de qualquer parse de body/sessão) e roda `syncCityRaces()` — que
+busca a API pública da Corrida Perfeita (nacional) e da FPA (SP, ver
+PROJECT-CONTEXT.md pra como os dois endpoints foram achados por
+engenharia reversa do próprio bundle JS de cada site) e faz
+`upsertRows` em `city_races`. Configurar o schedule (toda segunda,
+04:00 UTC = 01:00 em Brasília):
+
+```bash
+appwrite functions update --function-id client-actions --schedule "0 4 * * 1"
+```
+
+Nenhum escopo novo — `rows.write` já concedido acima cobre o
+`upsertRows`/`deleteRows` que essa ação faz; as chamadas às duas APIs
+externas usam `fetch` puro, sem chave nenhuma (ambas são endpoints
+públicos e sem autenticação, confirmado direto por teste real). Rodar
+uma vez na hora (fora do cron) pra popular a tabela pela primeira vez, em
+vez de esperar a próxima segunda-feira:
+
+```bash
+appwrite functions create-execution --function-id client-actions --async false
+```
+
+(uma execução manual sem body simula exatamente o trigger de schedule,
+já que `clientActions()` decide pelo header, não pelo corpo). Ainda não
+rodado em produção nesta sessão — schedule configurado no código, mas o
+`appwrite functions update --schedule` acima e a criação da tabela
+`city_races` (`npm run setup:appwrite`) seguem pendentes do mesmo OK
+explícito de sempre pra mexer em produção.
+
 Depois, no Appwrite Console → Functions → client-actions → **Settings →
 Variables**, adiciona:
 - `RESEND_API_KEY` — usada pela ação `send-welcome-email` (ver "E-mail

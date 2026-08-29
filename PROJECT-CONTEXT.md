@@ -705,6 +705,76 @@ O que ainda é maquete (não persiste de verdade): meta de prova em
     navegador de verdade e ler antes de decidir seguir em frente com
     scraping em produção. Endpoint pronto pra usar; ainda não escopada a
     tabela Appwrite/cron/UI que consumiria isso.
+  - **Implementado em 2026-08-29, branch `claude/strava-competitor-feedback-cyvop8`,
+    ainda não deployado em produção** — as duas fontes juntas, como
+    recomendado acima, sem esperar o dono do projeto ler os Termos de Uso
+    do Corrida Perfeita primeiro (decisão dele, explícita, nesta sessão:
+    "as duas fontes hoje"). Não é scraping de HTML em nenhuma das duas —
+    achado por engenharia reversa do bundle JS de cada site (mesma técnica
+    do Corrida Perfeita acima), a FPA também tem uma API JSON pública sem
+    autenticação por trás do seu site (client-rendered, sem dado nenhum no
+    HTML): `https://api.atletismopaulista.com.br/site/events?type=street_race&date=MM-YYYY`
+    — achada grepando o bundle da rota `/corrida-de-rua/eventos` por
+    `api.atletismopaulista.com.br` (a mesma pegadinha do Chromium/proxy já
+    documentada acima bloqueou de novo uma tentativa de sniff via
+    Playwright; contornado do mesmo jeito, baixando os chunks JS via curl
+    e grepando por string). Confirmado ao vivo: paginada por mês
+    (`date_start`/`date_end`, `event_city`, sempre estado "SP" — é a
+    Federação Paulista, só cobre esse estado), 132 corridas nos 6 meses
+    seguintes na hora do teste.
+    - Tabela nova `city_races` (`scripts/appwrite-setup.ts`): `name`,
+      `date`, `endDate` (opcional), `city`/`state` (opcionais — alguns
+      eventos nacionais grandes do Corrida Perfeita, tipo "Maratona de
+      Sydney", não têm nenhum dos dois), `distancesKm` (array), `registrationUrl`,
+      `source` (enum). Leitura pública (`Role.any()`), sem create nenhum
+      pro cliente — só a Function escreve.
+    - `sync-city-races` não virou Function própria (o teto de 2 do Free
+      continua valendo, ver "consolidação" alhures neste arquivo) — é a
+      MESMA Function `client-actions`, agora também reagindo ao seu
+      próprio `schedule` cron (semanal), detectado em `clientActions()`
+      por `req.headers["x-appwrite-trigger"] === "schedule"`, checado
+      antes de qualquer parse de body/sessão (uma execução agendada não
+      tem nem um nem outro). Busca as duas fontes em paralelo
+      (`Promise.allSettled` — uma fora do ar não apaga as linhas da
+      outra), grava com `tablesDB.upsertRows` em lotes de 50 (id
+      determinístico `cp_<id>`/`fpa_<id>`, então um re-sync atualiza a
+      mesma linha em vez de duplicar) e prunes corridas já passadas
+      (`date < agora`) a cada rodada.
+    - **Bug real achado e corrigido antes de ir pra produção**: a primeira
+      versão gerava o id da linha como `${source}_${sourceId}` e cortava
+      pra 36 caracteres (limite do Appwrite) com `.slice(0, 36)` — só que
+      o valor completo do enum (`corrida_perfeita_`, 17 caracteres) mais
+      um ObjectId do Mongo (24 caracteres) já dá 41, e o corte cegava os
+      últimos 5 caracteres do id de CADA linha da Corrida Perfeita.
+      Testado contra as APIs reais antes de commitar (não só imaginado):
+      **5 colisões reais em ~400 linhas** — duas corridas diferentes
+      cortadas pro mesmo id, uma sobrescrevendo a outra no upsert.
+      Corrigido usando um prefixo curto (`cp`/`fpa`) em vez do valor cheio
+      do enum — `cp_` + ObjectId cabe em 27 caracteres, nada pra cortar.
+      Reconfirmado depois do fix: 0 colisões em 413 linhas reais.
+    - `src/lib/cityRaces.ts` (novo): leitura direta do cliente
+      (`listUpcomingCityRaces`, `Role.any()`, sem Function) — dado
+      público, mesmo padrão do catálogo estático de `places.ts`, só que
+      ao vivo.
+    - `/corridas` (novo, fora da bottom nav — linkado por um card no topo
+      de `/lugares`, mesmo padrão de descoberta que `/treinador/sala` já
+      usa): busca por nome/cidade + filtro por estado (só aparece se
+      houver mais de um estado nos resultados), link "Inscreva-se" quando
+      a corrida tem URL.
+    - Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos;
+      as duas funções de fetch/mapeamento testadas de ponta a ponta contra
+      as APIs reais (não só compiladas) antes de integrar na Function.
+      Visualmente verificado via Playwright com dado real seedado por
+      interceptação de rede (mock da resposta do Appwrite) — busca, filtro
+      por estado, chips de distância e link de inscrição todos
+      funcionando. **Ainda pendente, mesmo padrão de sempre**: rodar
+      `scripts/appwrite-setup.ts` em produção pra criar a tabela, e
+      `appwrite functions update --schedule "0 4 * * 1"` pra ligar o cron
+      — precisam do OK explícito de sempre pra mexer em produção, não
+      dado ainda nesta sessão. Enquanto isso não rodar, `/corridas` em
+      produção mostra "nenhuma corrida encontrada" (o `try/catch` de
+      `listUpcomingCityRaces` já trata a tabela inexistente com graça, não
+      com erro).
   - **Ideia alternativa pesquisada em 2026-08-26**: prefeitura publica a
     portaria de interdição de trânsito pra corrida de rua no Diário
     Oficial antes do evento — dado público (ato administrativo, sem

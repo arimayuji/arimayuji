@@ -79,6 +79,7 @@ export const TABLES = {
   groupRuns: "group_runs",
   groupRunParticipants: "group_run_participants",
   contentIdeas: "content_ideas",
+  cityRaces: "city_races",
 } as const;
 
 /**

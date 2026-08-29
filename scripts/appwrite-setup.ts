@@ -89,6 +89,89 @@ async function waitForColumn(tableId: string, key: string): Promise<void> {
 async function main() {
   console.log(`Using existing database "${DATABASE_ID}" (Appwrite Cloud's free plan caps at one per project)...`);
 
+  // ------------------------------------------------------------- city_races
+  console.log("\ncity_races");
+  await ensure("table city_races", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "city_races",
+      name: "city_races",
+      // Public read — a race calendar is public data by nature, same
+      // spirit as `places.ts`'s curated catalog, just sourced live instead
+      // of hand-seeded. No client create at all: rows are only ever
+      // written by the sync-city-races scheduled action inside
+      // client-actions (privileged key), which upserts a row per race
+      // scraped from the Corrida Perfeita API / FPA API. A client-side
+      // create here would let anyone plant a fake race with a phishing
+      // registrationUrl.
+      permissions: [Permission.read(Role.any())],
+      rowSecurity: true,
+    }),
+  );
+  await ensure("city_races.name", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "city_races", key: "name", size: 200, required: true }),
+  );
+  await ensure("city_races.date", () =>
+    tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "city_races", key: "date", required: true }),
+  );
+  // Only meaningfully different from `date` for a multi-day event (FPA
+  // gives date_start/date_end; the Corrida Perfeita API doesn't distinguish
+  // the two, so this is null for every row from that source).
+  await ensure("city_races.endDate", () =>
+    tablesDB.createDatetimeColumn({ databaseId: DATABASE_ID, tableId: "city_races", key: "endDate", required: false }),
+  );
+  // Empty string, not null, when a source didn't tag one (some Corrida
+  // Perfeita entries — big national events like "Maratona de Sydney" —
+  // have no city/state at all) — keeps every row's shape identical for
+  // the client, which just treats "" as "unknown" the same way
+  // CompletedRun.placeName's absence already means "unknown" elsewhere.
+  await ensure("city_races.city", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "city_races", key: "city", size: 100, required: false }),
+  );
+  // UF (2 letters) for Corrida Perfeita rows; always "SP" for FPA rows
+  // (Federação Paulista only covers São Paulo state).
+  await ensure("city_races.state", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "city_races", key: "state", size: 2, required: false }),
+  );
+  // Race distances in km — an event can offer several (10km + 5km on the
+  // same day). Empty array when the source didn't disclose one (FPA's
+  // `distance` is frequently 0, meaning "not informed", not "0km race").
+  await ensure("city_races.distancesKm", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "city_races", key: "distancesKm", required: false, array: true }),
+  );
+  await ensure("city_races.registrationUrl", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "city_races", key: "registrationUrl", size: 500, required: false }),
+  );
+  await ensure("city_races.source", () =>
+    tablesDB.createEnumColumn({
+      databaseId: DATABASE_ID,
+      tableId: "city_races",
+      key: "source",
+      elements: ["corrida_perfeita", "fpa"],
+      required: true,
+    }),
+  );
+  await waitForColumn("city_races", "date");
+  await ensure("city_races index: date", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "city_races",
+      key: "by_date",
+      type: TablesDBIndexType.Key,
+      columns: ["date"],
+    }),
+  );
+  await waitForColumn("city_races", "state");
+  await ensure("city_races index: state", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "city_races",
+      key: "by_state",
+      type: TablesDBIndexType.Key,
+      columns: ["state"],
+    }),
+  );
+
   // ---------------------------------------------------------------- profiles
   console.log("\nprofiles");
   await ensure("table profiles", () =>

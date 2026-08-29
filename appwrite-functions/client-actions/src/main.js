@@ -28,6 +28,20 @@ const GOOGLE_IOS_CLIENT_ID = process.env.GOOGLE_IOS_CLIENT_ID;
 const GEMINI_MODEL = "gemini-2.5-flash";
 const WEEK_START_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_KINDS = ["rest", "easy", "quality", "long"];
+
+// Same table id as scripts/appwrite-setup.ts's city_races.
+const CITY_RACES_TABLE_ID = "city_races";
+// FPA's API is queried one calendar month at a time (see fetchFpaRaces) —
+// this many months, starting with the current one, is enough runway for
+// someone browsing "what's coming up" without querying a year of months
+// nobody will scroll to on a weekly cron.
+const FPA_MONTHS_AHEAD = 6;
+// Both source APIs are public and unauthenticated — found by inspecting
+// each site's own JS bundle for its real fetch call (documented in
+// PROJECT-CONTEXT.md's "Calendário de corridas de rua por cidade"), not
+// from any published API doc.
+const CORRIDA_PERFEITA_ENDPOINT = "https://v2.api.corridaperfeita.com/race_calendar/all";
+const FPA_EVENTS_ENDPOINT = "https://api.atletismopaulista.com.br/site/events";
 const VALID_ZONES = ["easy", "marathon", "threshold", "interval", "repetition"];
 const MAX_KM_PER_WEEK = 500;
 // Mirrors src/lib/plan/volumeProgression.ts — see that file's own comment
@@ -1650,6 +1664,180 @@ async function googleNativeSignIn({ body, client, res, error }) {
   return res.json({ ok: true, userId: token.userId, secret: token.secret });
 }
 
+/**
+ * Deterministic row id so a re-sync updates the same race instead of
+ * duplicating it. Short prefixes ("cp"/"fpa"), not the `source` column's
+ * own full enum value ("corrida_perfeita") — a first version prefixed with
+ * the full enum string and `.slice(0, 36)`'d the result to respect
+ * Appwrite's row id limit, which silently truncated the last few
+ * characters off every Corrida Perfeita id (17-char prefix + 24-char
+ * Mongo ObjectId = 41 chars) and caused real collisions between different
+ * races (confirmed by testing this against the live APIs before shipping
+ * — 5 duplicate ids out of ~400 real rows). "cp_" + a 24-char ObjectId is
+ * 27 chars, comfortably under the limit with nothing to truncate.
+ */
+function raceRowId(source, sourceId) {
+  const prefix = source === "corrida_perfeita" ? "cp" : source;
+  return `${prefix}_${sourceId}`;
+}
+
+function chunk(items, size) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+/**
+ * Corrida Perfeita's own calendar API — confirmed live and unauthenticated
+ * (empty `Authorization` header, exactly what their own frontend sends when
+ * nobody's logged in): `start_date` already filters to "still upcoming",
+ * and `limit=500` comfortably covers the whole future set in one request
+ * (281 races nationwide when this was last checked) — no pagination loop
+ * needed. See PROJECT-CONTEXT.md for how this endpoint was found.
+ */
+async function fetchCorridaPerfeitaRaces(todayIso, log, error) {
+  let response;
+  try {
+    response = await fetch(
+      `${CORRIDA_PERFEITA_ENDPOINT}?start_date=${todayIso}&skip=0&limit=500`,
+      { headers: { Authorization: "" } },
+    );
+  } catch (err) {
+    error(`sync-city-races: Corrida Perfeita request failed: ${err.message}`);
+    return [];
+  }
+  if (!response.ok) {
+    error(`sync-city-races: Corrida Perfeita returned ${response.status}`);
+    return [];
+  }
+  const body = await response.json();
+  const races = (body.data ?? []).map((race) => ({
+    $id: raceRowId("corrida_perfeita", race._id),
+    name: String(race.name ?? "").slice(0, 200),
+    date: race.date,
+    endDate: null,
+    city: (race.city ?? "").slice(0, 100),
+    state: (race.state ?? "").slice(0, 2),
+    distancesKm: Array.isArray(race.distance) ? race.distance.filter((km) => typeof km === "number" && km > 0) : [],
+    registrationUrl: race.url ? String(race.url).slice(0, 500) : null,
+    source: "corrida_perfeita",
+  }));
+  log?.(`sync-city-races: Corrida Perfeita — ${races.length} corridas (total reportado: ${body.total}).`);
+  return races;
+}
+
+/**
+ * FPA's real backend (api.atletismopaulista.com.br), not the atletismopaulista.com.br
+ * site itself — that site is a client-rendered Next.js shell with no data
+ * in its HTML; this endpoint is what its own JS calls. Paginated by
+ * calendar month (`date=MM-YYYY`), one request per month covered by
+ * FPA_MONTHS_AHEAD, run in parallel — a month with no races just comes
+ * back an empty array, never an error.
+ */
+async function fetchFpaRaces(todayIso, log, error) {
+  const now = new Date(`${todayIso}T00:00:00Z`);
+  const months = [];
+  for (let i = 0; i < FPA_MONTHS_AHEAD; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + i, 1));
+    months.push(`${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`);
+  }
+
+  const monthResults = await Promise.all(
+    months.map(async (monthParam) => {
+      try {
+        const response = await fetch(
+          `${FPA_EVENTS_ENDPOINT}?type=street_race&date=${monthParam}`,
+        );
+        if (!response.ok) {
+          error(`sync-city-races: FPA (${monthParam}) returned ${response.status}`);
+          return [];
+        }
+        return await response.json();
+      } catch (err) {
+        error(`sync-city-races: FPA (${monthParam}) request failed: ${err.message}`);
+        return [];
+      }
+    }),
+  );
+
+  // The same race can appear in more than one month's response near a
+  // month boundary — dedupe by FPA's own `id` before mapping.
+  const byId = new Map();
+  for (const event of monthResults.flat()) {
+    if (event && typeof event.id !== "undefined") byId.set(event.id, event);
+  }
+
+  const races = [...byId.values()]
+    .filter((event) => typeof event.date_start === "string" && event.date_start >= todayIso)
+    .map((event) => ({
+      $id: raceRowId("fpa", event.id),
+      name: String(event.name ?? "").slice(0, 200),
+      date: `${event.date_start}T00:00:00.000Z`,
+      endDate: event.date_end && event.date_end !== event.date_start ? `${event.date_end}T00:00:00.000Z` : null,
+      city: (event.event_city ?? "").slice(0, 100),
+      state: "SP",
+      // FPA's `distance` is a single number and frequently 0, which means
+      // "not informed" here, not a real 0km race — see this column's own
+      // comment in appwrite-setup.ts.
+      distancesKm: typeof event.distance === "number" && event.distance > 0 ? [event.distance] : [],
+      registrationUrl: event.info_link ? String(event.info_link).slice(0, 500) : null,
+      source: "fpa",
+    }));
+  log?.(`sync-city-races: FPA — ${races.length} corridas em ${FPA_MONTHS_AHEAD} meses.`);
+  return races;
+}
+
+/**
+ * Runs on this Function's weekly schedule trigger (see clientActions below)
+ * — refreshes the public `city_races` calendar from both sources. Best
+ * effort per source (Promise.allSettled): a Corrida Perfeita outage
+ * shouldn't erase the FPA rows already there, and vice versa. Doesn't
+ * delete anything for a source that came back empty — an empty result is
+ * far more likely a transient fetch failure than "zero races exist",
+ * and silently wiping the whole calendar on a bad day is worse than
+ * leaving it stale until the next weekly run recovers.
+ *
+ * Past races ARE pruned unconditionally, regardless of source health —
+ * that's just "date < today", never ambiguous the way an empty upstream
+ * response is.
+ */
+async function syncCityRaces({ client, log, error }) {
+  const tablesDB = new TablesDB(client);
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const [cpResult, fpaResult] = await Promise.allSettled([
+    fetchCorridaPerfeitaRaces(todayIso, log, error),
+    fetchFpaRaces(todayIso, log, error),
+  ]);
+  const races = [
+    ...(cpResult.status === "fulfilled" ? cpResult.value : []),
+    ...(fpaResult.status === "fulfilled" ? fpaResult.value : []),
+  ];
+  if (cpResult.status === "rejected") error(`sync-city-races: Corrida Perfeita failed: ${cpResult.reason}`);
+  if (fpaResult.status === "rejected") error(`sync-city-races: FPA failed: ${fpaResult.reason}`);
+
+  for (const batch of chunk(races, 50)) {
+    try {
+      await tablesDB.upsertRows({ databaseId: DATABASE_ID, tableId: CITY_RACES_TABLE_ID, rows: batch });
+    } catch (err) {
+      error(`sync-city-races: upsertRows batch failed: ${err.message}`);
+    }
+  }
+
+  try {
+    await tablesDB.deleteRows({
+      databaseId: DATABASE_ID,
+      tableId: CITY_RACES_TABLE_ID,
+      queries: [Query.lessThan("date", new Date().toISOString())],
+    });
+  } catch (err) {
+    error(`sync-city-races: pruning past races failed: ${err.message}`);
+  }
+
+  log?.(`sync-city-races: done — ${races.length} corridas sincronizadas.`);
+  return { ok: true, count: races.length };
+}
+
 const ACTIONS = {
   "delete-account": deleteAccount,
   "send-welcome-email": sendWelcomeEmail,
@@ -1702,6 +1890,19 @@ const PUBLIC_ACTIONS = new Set(["apple-native-signin", "google-native-signin"]);
  * action — see README.md for the exact setup.
  */
 async function clientActions({ req, res, log, error }) {
+  // A scheduled invocation (see this Function's `schedule` cron in the
+  // Console/README) carries no body at all — no user, no `action` — it's
+  // the trigger itself, not a client request, so it's handled before the
+  // JSON-body/user-session checks below even try to apply to it.
+  if (req.headers["x-appwrite-trigger"] === "schedule") {
+    const client = new Client()
+      .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
+      .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
+      .setKey(req.headers["x-appwrite-key"] ?? "");
+    const result = await syncCityRaces({ client, log, error });
+    return res.json(result);
+  }
+
   let body;
   try {
     body = JSON.parse(req.bodyText || "{}");

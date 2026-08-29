@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { CITIES_WITH_PLACES, getPlacesByCity } from "@/lib/places";
 import { useHeaderClose } from "../app-shell";
-import { delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
 import { PlaceCard } from "./place-card";
 
 /** Shown in the city picker so someone outside São Paulo sees the feature exists, not that it's broken. */
@@ -60,6 +61,18 @@ export default function LugaresPage() {
       />
 
       <Screen>
+        <Link href="/corridas" className="pr-enter block" style={delay(10)}>
+          <Card className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Corridas de rua na sua cidade</p>
+              <p className="mt-0.5 text-xs text-muted">Calendário de provas abertas, atualizado toda semana</p>
+            </div>
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </Card>
+        </Link>
+
         <div className="pr-enter -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" style={delay(20)}>
           {CITIES_WITH_PLACES.map((c) => (
             <button
