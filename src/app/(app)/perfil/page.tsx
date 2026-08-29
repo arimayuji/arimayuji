@@ -1239,10 +1239,7 @@ function AppModeCard() {
   return (
     <Card className="pr-enter" style={delay(25)}>
       <CardTitle>Modo do app</CardTitle>
-      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-        Você treina outras pessoas — escolha o que abre primeiro quando você entra no app.
-      </p>
-      <div className="flex gap-2">
+      <div className="mt-3 flex gap-2">
         <SegmentedButton selected={prefs.appMode === "atleta"} onClick={() => update({ appMode: "atleta" })}>
           Atleta
         </SegmentedButton>
