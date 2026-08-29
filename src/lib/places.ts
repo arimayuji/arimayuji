@@ -837,6 +837,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-do-carmo",
+    coverImage: "/lugares/parque-do-carmo.webp",
     name: "Parque do Carmo – Olavo Egydio Setúbal",
     city: "São Paulo",
     neighborhood: "Itaquera · Zona Leste",
@@ -902,6 +903,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-trianon",
+    coverImage: "/lugares/parque-trianon.webp",
     name: "Parque Trianon (Tenente Siqueira Campos)",
     city: "São Paulo",
     neighborhood: "Cerqueira César · Centro-Oeste, dentro da própria Avenida Paulista",
@@ -939,6 +941,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-burle-marx",
+    coverImage: "/lugares/parque-burle-marx.webp",
     name: "Parque Burle Marx",
     city: "São Paulo",
     neighborhood: "Vila Andrade / Morumbi · Zona Sul",
@@ -1015,6 +1018,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-da-juventude",
+    coverImage: "/lugares/parque-da-juventude.webp",
     name: "Parque da Juventude Dom Paulo Evaristo Arns",
     city: "São Paulo",
     neighborhood: "Santana · Zona Norte, no antigo terreno do Complexo Penitenciário do Carandiru",
@@ -1052,6 +1056,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-da-maternidade-rio-branco",
+    coverImage: "/lugares/parque-da-maternidade-rio-branco.webp",
     name: "Parque da Maternidade",
     city: "Rio Branco",
     neighborhood: "Capoeira / Centro, ao longo do Igarapé da Maternidade",
@@ -1074,6 +1079,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "via-chico-mendes-rio-branco",
+    coverImage: "/lugares/via-chico-mendes-rio-branco.webp",
     name: "Via Chico Mendes",
     city: "Rio Branco",
     neighborhood: "Areal, Vila do DNER, Triângulo Velho/Novo, Comara",
@@ -1095,6 +1101,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-pajucara-ponta-verde-jatiuca-maceio",
+    coverImage: "/lugares/orla-pajucara-ponta-verde-jatiuca-maceio.webp",
     name: "Orla de Maceió (Pajuçara, Ponta Verde e Jatiúca)",
     city: "Maceió",
     neighborhood: "Pajuçara / Ponta Verde / Jatiúca",
@@ -1119,6 +1126,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "avenida-fernandes-lima-maceio",
+    coverImage: "/lugares/avenida-fernandes-lima-maceio.webp",
     name: "Avenida Fernandes Lima",
     city: "Maceió",
     neighborhood: "Corredor central, conecta vários bairros",
@@ -1140,6 +1148,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-trapiche-eliezer-levy-macapa",
+    coverImage: "/lugares/orla-trapiche-eliezer-levy-macapa.webp",
     name: "Orla de Macapá (Trapiche Eliezer Levy / Complexo Beira-Rio)",
     city: "Macapá",
     neighborhood: "Centro / Perpétuo Socorro, às margens do Rio Amazonas",
