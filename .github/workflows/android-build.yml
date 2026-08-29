@@ -691,9 +691,13 @@ jobs:
         # APK unchanged has nothing new to announce. Best-effort: a missing
         # secret or a failed push must never block the deploy that just
         # succeeded above. Only reaches accounts that are signed in and
-        # have push registered (see src/lib/pushNotifications.ts) — this is
-        # a nice-to-have nudge to open the app and see the existing passive
-        # "nova versão" bell notification, not the update mechanism itself.
+        # have push registered (see src/lib/pushNotifications.ts) — a
+        # nice-to-have nudge, not the update mechanism itself. `data.route`
+        # (read by listenForPushNotificationTaps in pushNotifications.ts)
+        # sends a tap straight to /download's step-by-step instead of just
+        # opening the app to wherever it happened to launch — sideloaded
+        # APK installs on Android have no auto-update, so "toque pra
+        # atualizar" needs to actually land somewhere that walks through it.
         # `messageId` is deterministic per version code specifically so a
         # workflow re-run for the same build can't double-notify — Appwrite
         # rejects the second create as a conflict instead.
@@ -712,4 +716,4 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-Appwrite-Project: $NEXT_PUBLIC_APPWRITE_PROJECT_ID" \
             -H "X-Appwrite-Key: $APPWRITE_MESSAGING_API_KEY" \
-            -d "{\"messageId\":\"android-update-${ANDROID_VERSION_CODE}\",\"title\":\"Nova versão disponível\",\"body\":\"Abre o Xanthus pra baixar a atualização.\",\"topics\":[\"android-updates\"]}"
+            -d "{\"messageId\":\"android-update-${ANDROID_VERSION_CODE}\",\"title\":\"Nova versão disponível\",\"body\":\"Toque pra ver o passo a passo de como atualizar.\",\"topics\":[\"android-updates\"],\"data\":{\"route\":\"/download\"}}"

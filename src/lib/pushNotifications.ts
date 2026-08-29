@@ -80,3 +80,30 @@ export async function registerForPushNotifications(): Promise<void> {
     // denied permission, or no network shouldn't be treated as a crash.
   }
 }
+
+/**
+ * Routes a tap on a received push notification somewhere useful, instead
+ * of just opening the app to wherever it happened to launch — e.g. the
+ * "nova versão" push (android-build.yml's own push step) carries
+ * `data: { route: "/download" }`, so tapping it lands the athlete straight
+ * on the step-by-step update instructions instead of leaving them to
+ * notice the bell icon and find /notificacoes on their own. A no-op on web
+ * and for any push with no `route` in its data (friend request/milestone
+ * pushes today carry none, and just open the app like before).
+ *
+ * Mounted once for the app's whole lifetime (see push-registration.tsx),
+ * same reasoning as `OAuthCallbackListener`'s long-lived `appUrlOpen`
+ * listener — a push can arrive and be tapped at any point, not just while
+ * some particular screen happens to be mounted.
+ */
+export function listenForPushNotificationTaps(): void {
+  if (!isNativePlatform()) return;
+  PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+    const route: unknown = action.notification.data?.route;
+    // Full navigation, not router.push() — this fires from outside React's
+    // render tree (a tap on a system notification, possibly a cold app
+    // launch), same reasoning every other native-event listener here
+    // already documents for window.location.assign.
+    if (typeof route === "string") window.location.assign(route);
+  });
+}
