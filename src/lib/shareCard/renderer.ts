@@ -469,6 +469,15 @@ export interface ShareCardTrack {
 export interface ShareCardLayoutOverrides {
   stats?: { dx: number; dy: number };
   plate?: { dx: number; dy: number };
+  /**
+   * True removes that element from the render entirely — every element on
+   * this card is optional, not just draggable. Kept separate from
+   * `stats`/`plate` above (a position offset) rather than folded into
+   * them, since hiding needs to survive independently of whatever offset
+   * was already dragged in — un-hiding later should put it back exactly
+   * where it was, not reset to the default position too.
+   */
+  hidden?: { stats?: boolean; plate?: boolean };
 }
 
 /**
@@ -1659,8 +1668,10 @@ export function drawShareCardFrame(
   const plateOffset = scene.layoutOverrides.plate;
   const plateSlot = plateOffset ? { ...plateSlotBase, x: plateSlotBase.x + plateOffset.dx, y: plateSlotBase.y + plateOffset.dy } : plateSlotBase;
   const shoeSlot = plateOffset ? { ...shoeSlotBase, x: shoeSlotBase.x + plateOffset.dx, y: shoeSlotBase.y + plateOffset.dy } : shoeSlotBase;
-  if (scene.record) drawPlate(ctx, scene, scene.record, t, plateSlot, plateStart);
-  else if (scene.shoe) drawShoe(ctx, scene.shoe, t, shoeSlot, shoeStart);
+  if (!scene.layoutOverrides.hidden?.plate) {
+    if (scene.record) drawPlate(ctx, scene, scene.record, t, plateSlot, plateStart);
+    else if (scene.shoe) drawShoe(ctx, scene.shoe, t, shoeSlot, shoeStart);
+  }
 
   const chromeAlpha = easeOut(stage(t, 0, 360));
   drawBrandPill(ctx, STAT_LEFT, CHROME_TOP, t);
@@ -1679,16 +1690,18 @@ export function drawShareCardFrame(
     );
   }
 
-  const statsOffset = scene.layoutOverrides.stats;
-  if (statsOffset) ctx.translate(statsOffset.dx, statsOffset.dy);
+  if (!scene.layoutOverrides.hidden?.stats) {
+    const statsOffset = scene.layoutOverrides.stats;
+    if (statsOffset) ctx.translate(statsOffset.dx, statsOffset.dy);
 
-  if (scene.layout === "numero") {
-    drawNumberStats(ctx, scene, t);
-  } else {
-    drawStats(ctx, scene, t);
+    if (scene.layout === "numero") {
+      drawNumberStats(ctx, scene, t);
+    } else {
+      drawStats(ctx, scene, t);
+    }
+
+    if (statsOffset) ctx.translate(-statsOffset.dx, -statsOffset.dy);
   }
-
-  if (statsOffset) ctx.translate(-statsOffset.dx, -statsOffset.dy);
 
   // The music chip stays put even when the stats block is dragged — it
   // isn't part of the "stats" element the athlete is offered a handle for
