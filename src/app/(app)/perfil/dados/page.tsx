@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useHeaderClose } from "../../app-shell";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../../ui";
+import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../../ui";
 import { PillSlider } from "../../pill-slider";
 import { ModalPortal } from "../../modal-portal";
+import { usePreferences } from "@/lib/usePreferences";
 import {
   listPainCheckIns,
   reportPain,
@@ -15,15 +16,27 @@ import {
 import { activePainSignal } from "@/lib/plan";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import type { RunnerProfile } from "@/lib/runnerProfile";
+import { ShoesCard } from "../shoes-card";
+import { PlaylistCard } from "../playlist-card";
+import { HealthDataCard } from "../health-data-card";
 
 /**
- * Split out of `/perfil` on request: weight and pain are properties of the
- * athlete, not app settings, and sitting between "unidade de distância" and
- * "meus tênis" made the main screen read as one long undifferentiated list
- * ("tem muita coisa na aba de perfil"). This page is reached from the
- * "Conta" card rather than the bottom nav — it has no destination of its
- * own beyond editing these two things.
+ * Split out of `/perfil` on request: everything here is a property of the
+ * athlete/account (corpo, tênis, playlists, dado de saúde), not an app
+ * setting — sitting mixed in with run-experience preferences made the main
+ * screen read as one long undifferentiated list ("tem muita coisa na aba de
+ * perfil"). Reached from the "Conta" card rather than the bottom nav — this
+ * widget has no destination of its own beyond these four tabs.
  */
+
+type DataTab = "corpo" | "tenis" | "playlists" | "relogio";
+
+const DATA_TABS: { id: DataTab; label: string }[] = [
+  { id: "corpo", label: "Corpo" },
+  { id: "tenis", label: "Tênis" },
+  { id: "playlists", label: "Playlists" },
+  { id: "relogio", label: "Saúde do relógio" },
+];
 
 const PAIN_SEVERITY_OPTIONS: { value: PainSeverity; label: string; hint: string }[] = [
   { value: "leve", label: "Leve", hint: "incômodo, dá pra rodar" },
@@ -358,15 +371,30 @@ function WeightCard({
 export default function DadosPessoaisPage() {
   useHeaderClose("/perfil");
   const [profile, updateProfile] = useRunnerProfile();
+  const [prefs] = usePreferences();
+  const [tab, setTab] = useState<DataTab>("corpo");
 
   return (
     <>
       <ScreenHeader panel title="Dados pessoais" />
 
       <Screen panel>
-        <PainCard />
+        <div className="pr-enter mb-4">
+          <PillTabs tabs={DATA_TABS} active={tab} onChange={setTab} />
+        </div>
 
-        <WeightCard profile={profile} updateProfile={updateProfile} />
+        {tab === "corpo" && (
+          <>
+            <PainCard />
+            <WeightCard profile={profile} updateProfile={updateProfile} />
+          </>
+        )}
+
+        {tab === "tenis" && <ShoesCard unit={prefs.distanceUnit} />}
+
+        {tab === "playlists" && <PlaylistCard />}
+
+        {tab === "relogio" && <HealthDataCard />}
 
         <Link
           href="/perfil"
