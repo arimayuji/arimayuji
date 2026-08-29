@@ -701,9 +701,14 @@ export default function PerfilPage() {
               <legend className="text-sm font-medium">Lembrete de gel de carboidrato</legend>
               <p className="mt-1 text-xs leading-relaxed text-muted">
                 Aviso por voz baseado no tempo de corrida.{" "}
-                <Link href="/estudos" className="text-accent underline underline-offset-2">
+                <a
+                  href="https://xanthus.app.br/estudos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline underline-offset-2"
+                >
                   Ver o estudo
-                </Link>
+                </a>
                 .
               </p>
               <div className="mt-3">

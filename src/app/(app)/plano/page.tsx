@@ -13,8 +13,7 @@ import {
   ScreenHeader,
   Stat,
 } from "../ui";
-import { getEvidenceById, getEvidenceForTopicRanked } from "@/lib/evidence";
-import { EvidenceFactRow } from "../evidence-row";
+import { topicLabel } from "@/lib/evidence";
 import { GoalDatePicker } from "../date-picker";
 import {
   activePainSignal,
@@ -164,13 +163,6 @@ const DEMO_WEEK: DisplaySession[] = [
 
 const TOTAL_DEMO_KM = DEMO_WEEK.reduce((sum, session) => sum + (session.km ?? 0), 0);
 const DEMO_SESSION_COUNT = DEMO_WEEK.filter((session) => session.km !== undefined).length;
-
-/** Real citations behind the *shape* of the example week — see EvidenceRow. */
-const FEATURED_EVIDENCE_IDS = [
-  "acsm-fitt-vp-gradual-progression",
-  "80-20-polarized-training",
-  "taper-2-weeks-exponential",
-];
 
 function engineSessionToDisplay(session: EngineSession, day: string, outcome?: SessionOutcome): DisplaySession {
   const kind: SessionKind =
@@ -465,9 +457,14 @@ function SelfPlanSuggestionCard({
               <p className="mb-3 text-base font-bold">Antes de aplicar</p>
               <p className="mb-4 text-sm leading-relaxed text-muted text-pretty">
                 Isso é uma sugestão gerada por IA, baseada nos mesmos estudos citados em{" "}
-                <Link href="/estudos" className="underline underline-offset-2">
+                <a
+                  href="https://xanthus.app.br/estudos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2"
+                >
                   /estudos
-                </Link>
+                </a>
                 , mas travada pelo mesmo motor de segurança do app — nunca sobe mais que o limite
                 seguro de progressão.{" "}
                 <strong className="text-foreground">
@@ -754,12 +751,14 @@ function GoalCard({
         )}
       </fieldset>
 
-      <Link
-        href="/estudos"
+      <a
+        href="https://xanthus.app.br/estudos"
+        target="_blank"
+        rel="noopener noreferrer"
         className="mt-6 inline-block border-t border-border pt-5 text-sm text-accent underline underline-offset-2"
       >
         Ver os estudos por trás dele
-      </Link>
+      </a>
     </Card>
   );
 }
@@ -1179,27 +1178,37 @@ export default function PlanoPage() {
             </div>
           )}
 
-          {/* Full-width reference section, below the three columns — long
-              enough (4 topics, each with several bullets and a citation)
-              that squeezing it into a rail column made every entry wrap
-              awkwardly; a 2-column grid at `lg:` uses the width without
-              stretching any one entry into an unreadably long line. */}
+          {/* Kept deliberately light: naming the topics is enough to show
+              the week isn't arbitrary, without repeating each fact's
+              bullets/caveat/source inline — that whole citation format now
+              lives only at /estudos, opened in the real browser like
+              documentation instead of rendered raw in the app (see this
+              screen's own request history for why). */}
           <Card className="pr-enter" style={delay(260)}>
             <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
               Por que essa semana tem essa cara
             </CardTitle>
-            <ul className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:gap-y-5">
-              {plan.evidenceTopics.map((topic) => {
-                const fact = getEvidenceForTopicRanked(topic)[0];
-                return fact ? <EvidenceFactRow key={topic} fact={fact} topic={topic} /> : null;
-              })}
-            </ul>
-            <Link
-              href="/estudos"
+            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+              Cada decisão do motor vem de um estudo real, não de achismo.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {plan.evidenceTopics.map((topic) => (
+                <span
+                  key={topic}
+                  className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted"
+                >
+                  {topicLabel(topic)}
+                </span>
+              ))}
+            </div>
+            <a
+              href="https://xanthus.app.br/estudos"
+              target="_blank"
+              rel="noopener noreferrer"
               className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
             >
-              Ver todos os estudos por trás do plano
-            </Link>
+              Ver os estudos completos
+            </a>
           </Card>
         </Screen>
       </>
@@ -1285,23 +1294,18 @@ export default function PlanoPage() {
               <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
                 Por que essa semana tem essa cara
               </CardTitle>
-              <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+              <p className="mb-1 text-xs leading-relaxed text-muted text-pretty">
                 A semana acima é inventada, mas o formato dela não é aleatório — cada decisão do
-                motor de treino vem acompanhada da evidência por trás, com a força dela classificada.
-                Aqui vai uma prévia real dessa mecânica.
+                motor de treino vem acompanhada de um estudo real por trás.
               </p>
-              <ul className="flex flex-col gap-3.5">
-                {FEATURED_EVIDENCE_IDS.map((id) => {
-                  const fact = getEvidenceById(id);
-                  return fact ? <EvidenceFactRow key={id} fact={fact} topic={fact.topic} /> : null;
-                })}
-              </ul>
-              <Link
-                href="/estudos"
-                className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
+              <a
+                href="https://xanthus.app.br/estudos"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
               >
-                Ver todos os estudos
-              </Link>
+                Ver os estudos
+              </a>
             </Card>
           </>
         ) : (
