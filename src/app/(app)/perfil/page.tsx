@@ -1323,9 +1323,10 @@ export default function PerfilPage() {
             <CardTitle>Preferências de corrida</CardTitle>
 
             <fieldset>
-              <legend className="text-sm font-medium">Aviso por voz a cada</legend>
+              <legend className="text-sm font-medium">Aviso de parcial a cada</legend>
               <p className="mt-1 text-xs leading-relaxed text-muted">
-                Valor inicial da tela de corrida. Dá pra mudar antes de cada treino.
+                Valor inicial da tela de corrida. Dá pra mudar antes de cada treino, inclusive
+                trocar entre voz e vibração.
               </p>
               <PillSlider
                 className="mt-4"

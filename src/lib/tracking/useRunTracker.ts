@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Haptics, NotificationType } from "@capacitor/haptics";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import {
   FILTER_CONFIG,
   Kalman2D,
@@ -72,7 +72,9 @@ export interface StartOptions {
   announceIntervalSeconds?: number;
   /** "distance" (default) triggers on `announceIntervalMeters` covered since the last announcement; "time" triggers on `announceIntervalSeconds` elapsed instead — useful on a treadmill or a route so winding that a fixed distance interval lands unpredictably. */
   announceMode?: "distance" | "time";
-  /** Which recorded voice bank speaks the announcements — see voiceBank.ts's `VoiceGender`. */
+  /** "voz" (default) speaks the split; "vibracao" fires one haptic tap instead — see preferences.ts's `AnnounceStyle`. Distinct from `vibrateOnPaceDelay` below: this replaces the regular split cue, that adds a separate behind-schedule warning. */
+  announceStyle?: "voz" | "vibracao";
+  /** Which recorded voice bank speaks the announcements — see voiceBank.ts's `VoiceGender`. Irrelevant (but harmless) when `announceStyle` is "vibracao". */
   voiceGender?: "female" | "male";
   goal?: RunGoal;
   /** A previously completed run to race against, compared by distance vs elapsed time only. */
@@ -187,6 +189,8 @@ export function useRunTracker() {
   /** Cached from `StartOptions` at `start()` — mirrors `state.goal.targetPaceSecPerKm`/`vibrateOnPaceDelay`, but read from a ref rather than state so the per-fix vibration check doesn't need a `setState` round trip. */
   const targetPaceSecPerKmRef = useRef<number | undefined>(undefined);
   const vibrateOnPaceDelayRef = useRef(false);
+  /** Cached from `StartOptions.announceStyle` — read from a ref for the same reason as `vibrateOnPaceDelayRef` above (the per-fix/per-tick split check can't afford a `setState` round trip). */
+  const announceStyleRef = useRef<"voz" | "vibracao">("voz");
   /** Hysteresis state for the vibration above — true while already alerted for the current bout of falling behind. */
   const paceDelayAlertedRef = useRef(false);
   /** Consecutive fixes the adaptive plausibility gate has rejected — see its use in `handleFix` for why this resets the filter instead of rejecting forever. */
@@ -241,6 +245,23 @@ export function useRunTracker() {
   const voiceGenderRef = useRef<"female" | "male">("female");
   const lastAnnounceDistanceRef = useRef(0);
   const lastAnnounceTimeRef = useRef<number | null>(null);
+
+  /**
+   * Delivers a regular split cue per `announceStyleRef` — speaks the pace,
+   * or fires one haptic tap in its place (best-effort, same reasoning as
+   * the pace-delay vibration above: nothing useful to do mid-run if the
+   * OS rejects it). Not `useCallback`-wrapped: it only closes over refs
+   * (stable identities, never stale), so it's cheap to recreate every
+   * render and safe to call from the `[]`-deps callbacks below without
+   * listing it as a dependency.
+   */
+  function announceSplit(distanceMeters: number, paceMinutes: number, paceSeconds: number) {
+    if (announceStyleRef.current === "vibracao") {
+      void Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
+    } else {
+      announceDistancePace(distanceMeters, paceMinutes, paceSeconds, voiceGenderRef.current);
+    }
+  }
 
   const carbReminderEnabledRef = useRef(false);
   const carbReminderIntervalSecondsRef = useRef(45 * 60);
@@ -323,7 +344,7 @@ export function useRunTracker() {
           if (splitPaceSecPerKm) {
             const m = Math.floor(splitPaceSecPerKm / 60);
             const sec = Math.round(splitPaceSecPerKm % 60);
-            announceDistancePace(distanceRef.current, m, sec, voiceGenderRef.current);
+            announceSplit(distanceRef.current, m, sec);
           }
           lastAnnounceDistanceRef.current = distanceRef.current;
           lastAnnounceTimeRef.current = Date.now();
@@ -696,7 +717,7 @@ export function useRunTracker() {
         if (splitPaceSecPerKm) {
           const m = Math.floor(splitPaceSecPerKm / 60);
           const s = Math.round(splitPaceSecPerKm % 60);
-          announceDistancePace(distanceRef.current, m, s, voiceGenderRef.current);
+          announceSplit(distanceRef.current, m, s);
         }
         lastAnnounceDistanceRef.current = distanceRef.current;
         lastAnnounceTimeRef.current = timestamp;
@@ -718,7 +739,7 @@ export function useRunTracker() {
         if (splitPaceSecPerKm) {
           const m = Math.floor(splitPaceSecPerKm / 60);
           const sec = Math.round(splitPaceSecPerKm % 60);
-          announceDistancePace(distanceRef.current, m, sec, voiceGenderRef.current);
+          announceSplit(distanceRef.current, m, sec);
         }
         lastAnnounceDistanceRef.current = distanceRef.current;
         lastAnnounceTimeRef.current = timestamp;
@@ -912,6 +933,7 @@ export function useRunTracker() {
         announceIntervalSecondsRef.current = options?.announceIntervalSeconds ?? 300;
         announceModeRef.current = options?.announceMode ?? "distance";
         voiceGenderRef.current = options?.voiceGender ?? "female";
+        announceStyleRef.current = options?.announceStyle ?? "voz";
         targetPaceSecPerKmRef.current = options?.goal?.targetPaceSecPerKm;
         vibrateOnPaceDelayRef.current = options?.vibrateOnPaceDelay ?? false;
         paceDelayAlertedRef.current = false;

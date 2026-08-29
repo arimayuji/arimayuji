@@ -36,11 +36,25 @@ export type AnnounceMode = "distance" | "time";
 /** Which recorded voice bank speaks the announcements — see scripts/generate-voice-bank.ts's VOICES map and voiceBank.ts's CLIP_BASE for the matching clip directories. */
 export type VoiceGender = "female" | "male";
 
+/**
+ * How the periodic split (every `announceIntervalMeters`/`announceIntervalSeconds`)
+ * gets delivered — "voz" speaks the pace out loud (the original, still the
+ * default); "vibracao" replaces the voice clip with a single haptic tap
+ * meaning "glance at the screen, your split is ready" for someone who
+ * doesn't want audio at all (headphones off, a quiet street, etc.). Not the
+ * same signal as `vibrateOnPaceDelay` — that one is a distinct pattern that
+ * only fires when a "ritmo" goal falls behind schedule; this one fires on
+ * every regular split regardless of goal type, replacing speech rather than
+ * adding a warning on top of it.
+ */
+export type AnnounceStyle = "voz" | "vibracao";
+
 export interface Preferences {
   announceIntervalMeters: number;
   /** Only read when `announceMode` is "time". Independent of `announceIntervalMeters` so switching modes back and forth doesn't lose either choice. */
   announceIntervalSeconds: number;
   announceMode: AnnounceMode;
+  announceStyle: AnnounceStyle;
   voiceGender: VoiceGender;
   distanceUnit: DistanceUnit;
   /** Extra live stat tiles on /run — the run-so-far average pace and the pace of the km currently in progress. Both on by default; each is one more tile competing for space on a screen a sweaty thumb glances at mid-stride, so /perfil lets either be turned off. */
@@ -101,6 +115,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   announceIntervalMeters: 1000,
   announceIntervalSeconds: 300,
   announceMode: "distance",
+  announceStyle: "voz",
   voiceGender: "female",
   distanceUnit: "km",
   showAveragePaceLive: true,
@@ -149,6 +164,11 @@ function sanitize(raw: unknown): Preferences {
     value.announceMode === "distance" || value.announceMode === "time"
       ? value.announceMode
       : DEFAULT_PREFERENCES.announceMode;
+
+  const announceStyle: AnnounceStyle =
+    value.announceStyle === "voz" || value.announceStyle === "vibracao"
+      ? value.announceStyle
+      : DEFAULT_PREFERENCES.announceStyle;
 
   const voiceGender: VoiceGender =
     value.voiceGender === "female" || value.voiceGender === "male"
@@ -202,6 +222,7 @@ function sanitize(raw: unknown): Preferences {
     announceIntervalMeters,
     announceIntervalSeconds,
     announceMode,
+    announceStyle,
     voiceGender,
     distanceUnit,
     showAveragePaceLive,

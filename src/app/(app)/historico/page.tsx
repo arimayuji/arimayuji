@@ -827,7 +827,7 @@ export default function HistoricoPage() {
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState<Period>("recent3");
   const [sort, setSort] = useState<SortKey>("recent");
-  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(true);
   const { account } = useAuth();
 
   const handleConfirmDelete = async (id: string) => {
@@ -955,10 +955,12 @@ export default function HistoricoPage() {
             )}
 
             {/*
-             * Collapsed by default, at the end of the screen — someone
-             * opening Histórico almost always wants their runs, not the
-             * summary/records/heatmap around them; those stay a tap away
-             * instead of pushing the list down every time.
+             * Open by default (changed 2026-08-29 per direct feedback —
+             * the earlier collapsed-by-default choice read as "hidden for
+             * no reason" rather than as decluttering). Still collapsible,
+             * not removed: someone who really only wants the run list can
+             * still close it and it'll reopen next visit either way (no
+             * persisted preference, same as before).
              */}
             <button
               type="button"

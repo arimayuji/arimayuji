@@ -1347,6 +1347,7 @@ export default function RunPage() {
   const announceMeters = preferences.announceIntervalMeters;
   const announceSeconds = preferences.announceIntervalSeconds;
   const announceMode = preferences.announceMode;
+  const announceStyle = preferences.announceStyle;
   const voiceGender = preferences.voiceGender;
 
   /**
@@ -1628,6 +1629,7 @@ export default function RunPage() {
       announceIntervalMeters: announceMeters,
       announceIntervalSeconds: announceSeconds,
       announceMode,
+      announceStyle: preferences.announceStyle,
       voiceGender,
       goal:
         distanceMeters || durationSeconds || targetPaceSecPerKm
@@ -2007,7 +2009,7 @@ export default function RunPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Aviso por voz a cada</span>
+                <span className="text-sm font-medium">Aviso de parcial a cada</span>
                 <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
                   {(["distance", "time"] as const).map((mode) => (
                     <button
@@ -2044,25 +2046,51 @@ export default function RunPage() {
                 />
               )}
               <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-muted">Voz</span>
+                <span className="text-xs text-muted">Como avisar</span>
                 <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
-                  {(["female", "male"] as const).map((gender) => (
+                  {(["voz", "vibracao"] as const).map((style) => (
                     <button
-                      key={gender}
+                      key={style}
                       type="button"
-                      onClick={() => updatePreferences({ voiceGender: gender })}
-                      aria-pressed={voiceGender === gender}
+                      onClick={() => updatePreferences({ announceStyle: style })}
+                      aria-pressed={announceStyle === style}
                       className={`px-3 py-1.5 transition-colors ${
-                        voiceGender === gender
+                        announceStyle === style
                           ? "bg-accent text-accent-foreground"
                           : "bg-background text-muted hover:text-foreground"
                       }`}
                     >
-                      {gender === "female" ? "Feminina" : "Masculina"}
+                      {style === "voz" ? "Voz" : "Vibração"}
                     </button>
                   ))}
                 </div>
               </div>
+              {announceStyle === "voz" ? (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-muted">Voz</span>
+                  <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
+                    {(["female", "male"] as const).map((gender) => (
+                      <button
+                        key={gender}
+                        type="button"
+                        onClick={() => updatePreferences({ voiceGender: gender })}
+                        aria-pressed={voiceGender === gender}
+                        className={`px-3 py-1.5 transition-colors ${
+                          voiceGender === gender
+                            ? "bg-accent text-accent-foreground"
+                            : "bg-background text-muted hover:text-foreground"
+                        }`}
+                      >
+                        {gender === "female" ? "Feminina" : "Masculina"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="pt-1 text-xs leading-relaxed text-muted">
+                  Um toque na tela a cada marca — sem voz nenhuma, olha o número na hora.
+                </p>
+              )}
             </div>
 
             {customSheet === "distancia" && (
