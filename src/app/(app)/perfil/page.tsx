@@ -1050,9 +1050,8 @@ function NearbyFriendsCard() {
     <Card className="pr-enter" style={delay(87)}>
       <CardTitle aside={<NoticeBadge>desligado por padrão</NoticeBadge>}>Amigo por perto</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-        Avisa quando um amigo aceito também está com o app aberto e fisicamente perto de você —
-        uma leitura pontual da sua localização ao abrir o app, nunca um rastreamento contínuo.
-        Só amigos aceitos veem isso, nunca outra pessoa.
+        Leitura pontual da localização ao abrir o app — nunca rastreamento contínuo. Só amigos
+        aceitos veem isso.
       </p>
       {status !== "signed-in" ? (
         <p className="text-xs text-muted">Precisa de conta pra participar (Google ou Apple, em Conta acima).</p>
@@ -1134,8 +1133,7 @@ function PlaylistCard() {
     <Card className="pr-enter" style={delay(90)}>
       <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Playlists pra corrida</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-        Cole o link de uma ou mais playlists (Spotify, Apple Music, o que for) — amigos que veem seu
-        perfil conseguem abrir elas direto.
+        Amigos que veem seu perfil conseguem abrir direto.
       </p>
 
       {status !== "signed-in" ? (
@@ -1387,8 +1385,7 @@ export default function PerfilPage() {
             <fieldset>
               <legend className="text-sm font-medium">Aviso de parcial a cada</legend>
               <p className="mt-1 text-xs leading-relaxed text-muted">
-                Valor inicial da tela de corrida. Dá pra mudar antes de cada treino, inclusive
-                trocar entre voz e vibração.
+                Só o valor inicial — dá pra trocar (inclusive voz/vibração) antes de cada corrida.
               </p>
               <PillSlider
                 className="mt-4"
@@ -1408,7 +1405,7 @@ export default function PerfilPage() {
             <fieldset className="mt-6 border-t border-border pt-5">
               <legend className="text-sm font-medium">Unidade de distância</legend>
               <p className="mt-1 text-xs leading-relaxed text-muted">
-                Aplicada no histórico. A tela de corrida segue em km enquanto o tracking está em
+                Vale pro histórico — a tela de corrida ainda mostra km enquanto o tracking está em
                 validação.
               </p>
               <div className="mt-3">
