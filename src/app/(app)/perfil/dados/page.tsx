@@ -79,6 +79,7 @@ type BodyZoneId = string;
 function PainCard() {
   const [checkIns, setCheckIns] = useState<PainCheckIn[] | null>(null);
   const [zoneId, setZoneId] = useState<BodyZoneId | null>(null);
+  const [zoneQuery, setZoneQuery] = useState("");
   const [severityIndex, setSeverityIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
@@ -96,6 +97,7 @@ function PainCard() {
     setBusy(true);
     await reportPain({ severity: selected.value, region: selectedZone?.label });
     setZoneId(null);
+    setZoneQuery("");
     setSeverityIndex(0);
     setBusy(false);
     await refresh();
@@ -140,31 +142,61 @@ function PainCard() {
           <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
             Onde dói (opcional)
           </span>
-          <div className="mb-4 grid grid-cols-2 gap-2">
-            {BODY_ZONES.map((zone) => {
-              const active = zoneId === zone.id;
-              return (
-                <button
-                  key={zone.id}
-                  type="button"
-                  onClick={() => setZoneId(active ? null : zone.id)}
-                  aria-pressed={active}
-                  className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                    active
-                      ? "border-accent bg-accent text-accent-foreground"
-                      : "border-border bg-background text-foreground hover:border-accent"
-                  }`}
-                >
-                  <span className="block text-sm font-medium">{zone.label}</span>
-                  {zone.hint && (
-                    <span className={`block text-[11px] ${active ? "text-accent-foreground/80" : "text-muted"}`}>
-                      {zone.hint}
-                    </span>
+          {selectedZone ? (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{selectedZone.label}</span>
+                {selectedZone.hint && <span className="block text-[11px] text-muted">{selectedZone.hint}</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setZoneId(null);
+                  setZoneQuery("");
+                }}
+                aria-label={`Remover ${selectedZone.label}`}
+                className="shrink-0 rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <input
+                type="text"
+                value={zoneQuery}
+                onChange={(event) => setZoneQuery(event.target.value)}
+                placeholder="Buscar (ex.: joelho, lombar…)"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+              {zoneQuery.trim() && (
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {BODY_ZONES.filter((zone) => zone.label.toLowerCase().includes(zoneQuery.trim().toLowerCase())).map(
+                    (zone) => (
+                      <li key={zone.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setZoneId(zone.id);
+                            setZoneQuery("");
+                          }}
+                          className="flex w-full flex-col rounded-lg px-2.5 py-2 text-left hover:bg-background"
+                        >
+                          <span className="text-sm font-medium">{zone.label}</span>
+                          {zone.hint && <span className="text-[11px] text-muted">{zone.hint}</span>}
+                        </button>
+                      </li>
+                    ),
                   )}
-                </button>
-              );
-            })}
-          </div>
+                  {BODY_ZONES.every((zone) => !zone.label.toLowerCase().includes(zoneQuery.trim().toLowerCase())) && (
+                    <li className="px-2.5 py-2 text-xs text-muted">Nada encontrado.</li>
+                  )}
+                </ul>
+              )}
+            </div>
+          )}
 
           <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
             Intensidade
