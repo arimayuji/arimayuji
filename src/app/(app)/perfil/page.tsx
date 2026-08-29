@@ -28,7 +28,6 @@ import {
 } from "../ui";
 import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
-import { ShareCardTeaser } from "../share-card";
 import { Shoe3DViewer } from "../shoe-3d-viewer";
 import { ShoeShowcase } from "../shoe-showcase";
 import {
@@ -152,8 +151,8 @@ function HeartbeatIcon({ className }: { className?: string }) {
  * label/caption, a status tag, a chevron. The compact list-row treatment
  * the redesign handoff (Xanthus Perfil.dc.html) uses for every plain
  * "goes to another real screen, nothing else on it" link — as opposed to
- * `ShareCardTeaser`/the health-data preview below, which keep their own
- * dedicated cards because they embed a real visual, not just a caption.
+ * the health-data preview below, which keeps its own dedicated card
+ * because it embeds a real visual, not just a caption.
  */
 function DiscoveryRow({
   href,
@@ -1525,19 +1524,7 @@ export default function PerfilPage() {
         </div>
 
         <div className="lg:hidden">
-          <SectionLabel delayMs={260}>Compartilhar e dados</SectionLabel>
-          <Card className="pr-enter" style={delay(270)}>
-            <CardTitle>Card pra compartilhar</CardTitle>
-            <Link href="/compartilhar" className="block rounded-xl focus:outline-accent">
-              <ShareCardTeaser />
-              <span className="mt-4 block w-full rounded-full border border-border bg-background px-6 py-3.5 text-center text-sm font-semibold">
-                Abrir prévia do card
-              </span>
-            </Link>
-          </Card>
-        </div>
-
-        <div className="lg:hidden">
+          <SectionLabel delayMs={260}>Dados</SectionLabel>
           <Card className="pr-enter" style={delay(300)}>
             <CardTitle aside={<NoticeBadge>{prefs.healthDataConsent ? "ativado" : "desligado"}</NoticeBadge>}>
               Dados de saúde do smartwatch
@@ -1561,6 +1548,20 @@ export default function PerfilPage() {
             </Link>
           </Card>
         </div>
+
+        {/* Always the real hosted domain, on purpose — opens in the system
+            browser (target="_blank") rather than an in-app screen, and the
+            canonical public URL is what belongs there regardless of which
+            host happens to be serving this page (xanthus.app.br in
+            production, but also the .workers.dev host or localhost in dev). */}
+        <a
+          href="https://xanthus.app.br/privacidade"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pr-enter block py-2 text-center text-xs font-medium text-muted underline underline-offset-2 hover:text-foreground"
+        >
+          Política de privacidade
+        </a>
 
       </Screen>
     </>

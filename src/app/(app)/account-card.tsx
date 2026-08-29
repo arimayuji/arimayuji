@@ -157,14 +157,6 @@ export function AccountCard() {
         <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-md lg:px-2.5 lg:py-1">Abrir</span>
       </Link>
 
-      <Link
-        href="/privacidade"
-        className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm lg:mt-2.5 lg:pt-2.5"
-      >
-        <span className="text-muted">Privacidade</span>
-        <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-md lg:px-2.5 lg:py-1">Abrir</span>
-      </Link>
-
       {status === "signed-in" && profile && (
         <Link
           href="/amigos"

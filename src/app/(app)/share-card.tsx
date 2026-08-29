@@ -5,7 +5,7 @@ import {
   SCENARIOS,
   type ScenarioId,
 } from "@/lib/shareCard/scenarios";
-import { ExampleBadge, delay } from "./ui";
+import { delay } from "./ui";
 import { ShoeShowcase } from "./shoe-showcase";
 import { HORSE_BUST_PATHS } from "../horse-mark";
 
@@ -129,13 +129,11 @@ function Scrim() {
 }
 
 export function ShareCard({
-  compact = false,
   scenario = "madrugada",
   layout = "trajeto",
   photoUrl,
   shoe,
 }: {
-  compact?: boolean;
   scenario?: ScenarioId;
   /** "numero" previews the big-number layout instead — see shareCard/renderer.ts for the real, animated version this stands in for. */
   layout?: "trajeto" | "numero";
@@ -250,9 +248,7 @@ export function ShareCard({
 
       {layout === "trajeto" ? (
         <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-          {!compact && (
-            <p className="font-mono text-[11px] tracking-wide text-white/75">{DEMO_STATS.when}</p>
-          )}
+          <p className="font-mono text-[11px] tracking-wide text-white/75">{DEMO_STATS.when}</p>
           <p className="mt-1 font-mono text-5xl font-semibold tabular-nums leading-none">
             {DEMO_STATS.distance}
             <span className="ml-1.5 text-xl font-normal text-white/80">km</span>
@@ -292,24 +288,6 @@ export function ShareCard({
           </dl>
         </div>
       )}
-    </div>
-  );
-}
-
-/** Small entry point used on /perfil. */
-export function ShareCardTeaser() {
-  return (
-    <div className="flex items-center gap-4">
-      <div className="w-24 shrink-0">
-        <ShareCard compact />
-      </div>
-      <div className="min-w-0">
-        <ExampleBadge>composição</ExampleBadge>
-        <p className="mt-2 text-sm leading-relaxed text-muted text-pretty">
-          Sua última corrida vira um vídeo animado pro status — com o traçado se desenhando e os
-          números dela. Escolha o cenário de fundo ou use uma foto sua.
-        </p>
-      </div>
     </div>
   );
 }
