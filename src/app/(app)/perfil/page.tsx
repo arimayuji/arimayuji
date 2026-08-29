@@ -1381,9 +1381,7 @@ export default function PerfilPage() {
             <fieldset className="mt-6 border-t border-border pt-5">
               <legend className="text-sm font-medium">Vibração</legend>
               <p className="mt-1 text-xs leading-relaxed text-muted">
-                Só tem efeito com uma corrida de meta &quot;Ritmo&quot;: o celular vibra quando você
-                acumula 20s de atraso sobre o ritmo alvo — pra olhar a tela sem depender do aviso por
-                voz.
+                Só com meta de &quot;Ritmo&quot; — vibra quando você atrasa 20s do alvo.
               </p>
               <div className="mt-3">
                 <PreferenceToggle
@@ -1398,8 +1396,7 @@ export default function PerfilPage() {
             <fieldset className="mt-6 border-t border-border pt-5">
               <legend className="text-sm font-medium">Lembrete de gel de carboidrato</legend>
               <p className="mt-1 text-xs leading-relaxed text-muted">
-                Aviso por voz em corridas longas, baseado em quanto tempo você já está correndo —
-                não no seu pace, já que a necessidade de carboidrato escala com o tempo de esforço.{" "}
+                Aviso por voz baseado no tempo de corrida.{" "}
                 <Link href="/estudos" className="text-accent underline underline-offset-2">
                   Ver o estudo
                 </Link>

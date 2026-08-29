@@ -78,10 +78,16 @@ function LayoutHandle({
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      className="absolute z-10 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center rounded-full border-2 border-white/80 bg-black/45 text-white shadow-lg backdrop-blur-sm active:scale-95"
+      // 48px hit target (was 36px) — a real thumb on a real phone kept
+      // missing the smaller circle, which read as "dragging doesn't work"
+      // when it was actually just missing the touch. Grows slightly on
+      // grab (active:scale-110) rather than shrinking like a normal button
+      // press, so picking it up reads as "you're now holding this," not
+      // "you tapped a button."
+      className="absolute z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center rounded-full border-2 border-white/80 bg-black/45 text-white shadow-lg backdrop-blur-sm active:scale-110"
       style={{ left: `${(x / SHARE_CARD_WIDTH) * 100}%`, top: `${(y / SHARE_CARD_HEIGHT) * 100}%` }}
     >
-      <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
       </svg>
     </button>

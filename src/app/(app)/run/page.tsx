@@ -21,9 +21,11 @@ import { listFriendConnections, type FriendConnection } from "@/lib/friendships"
 import { startLiveSession, updateLiveSession, endLiveSession, refreshLiveSessionAudience } from "@/lib/liveRuns";
 import {
   buildPairingUrl,
+  closeGroupRun,
   createGroupRun,
   getActiveGroupRunCode,
   getGroupRun,
+  leaveGroupRun,
   listParticipants,
   pairRunSession,
   type GroupRun,
@@ -932,6 +934,8 @@ export default function RunPage() {
   /** "Correr com alguém" (QR pairing) — generating a code from this device. */
   const [generatingPairing, setGeneratingPairing] = useState(false);
   const [pairingGenerateError, setPairingGenerateError] = useState<string | null>(null);
+  /** Backing out of an active pairing — host closes the session for everyone, a joined participant just leaves it. Both routes are already exposed to /longao's own UI; this is the same action from the lighter-weight shortcut here. */
+  const [endingLongao, setEndingLongao] = useState(false);
   /** Hosting a pairing session needs an account (createGroupRun's own "unavailable" reason) — same gate /longao already shows for the same underlying reason, just triggered from this shortcut instead of a dedicated signed-out screen. */
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   /** An incoming pairing invite opened via `?parear=` (see src/app/parear/page.tsx and oauth-callback-listener.tsx) — resolved once on mount, confirmed explicitly rather than joined silently. */
@@ -984,6 +988,17 @@ export default function RunPage() {
     }
     setLongaoSession(result.groupRun);
     setShareLongao(true);
+  };
+
+  const handleEndLongao = async () => {
+    if (!longaoSession || endingLongao) return;
+    setEndingLongao(true);
+    const ok =
+      longaoSession.hostId === account?.id
+        ? await closeGroupRun(longaoSession.$id)
+        : await leaveGroupRun(longaoSession.$id);
+    setEndingLongao(false);
+    if (ok) setLongaoSession(null);
   };
 
   const handleConfirmPairing = async () => {
@@ -2229,6 +2244,14 @@ export default function RunPage() {
                     }`}
                   >
                     Não compartilhar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleEndLongao}
+                    disabled={endingLongao}
+                    className="rounded-full border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-bad hover:text-bad disabled:opacity-60"
+                  >
+                    {endingLongao ? "Cancelando…" : longaoSession.hostId === account?.id ? "Cancelar" : "Sair"}
                   </button>
                 </div>
               </div>
