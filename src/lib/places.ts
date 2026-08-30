@@ -1171,6 +1171,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-do-forte-macapa",
+    coverImage: "/lugares/parque-do-forte-macapa.webp",
     name: "Parque do Forte (Fortaleza de São José de Macapá)",
     city: "Macapá",
     neighborhood: "Centro",
@@ -1192,6 +1193,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-de-ponta-negra-manaus",
+    coverImage: "/lugares/orla-de-ponta-negra-manaus.webp",
     name: "Orla da Ponta Negra",
     city: "Manaus",
     neighborhood: "Ponta Negra, Zona Oeste",
@@ -1214,6 +1216,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "ponte-rio-negro-manaus",
+    coverImage: "/lugares/ponte-rio-negro-manaus.webp",
     name: "Ponte Rio Negro (Ponte Jornalista Phelippe Daou)",
     city: "Manaus",
     neighborhood: "Liga Educandos, em Manaus, a Iranduba",
@@ -1236,6 +1239,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "avenida-jose-lindoso-torres-manaus",
+    coverImage: "/lugares/avenida-jose-lindoso-torres-manaus.webp",
     name: "Avenida Governador José Lindoso (Avenida das Torres)",
     city: "Manaus",
     neighborhood: "Zonas Leste e Norte",
@@ -1259,6 +1263,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-barra-ondina-salvador",
+    coverImage: "/lugares/orla-barra-ondina-salvador.webp",
     name: "Orla da Barra a Ondina (Farol da Barra)",
     city: "Salvador",
     neighborhood: "Barra / Ondina",
@@ -1281,6 +1286,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-de-pituacu-salvador",
+    coverImage: "/lugares/parque-de-pituacu-salvador.webp",
     name: "Parque Metropolitano de Pituaçu",
     city: "Salvador",
     neighborhood: "Pituaçu / Boca do Rio",
@@ -1303,6 +1309,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-joventino-silva-salvador",
+    coverImage: "/lugares/parque-joventino-silva-salvador.webp",
     name: "Parque Joventino Silva (Parque da Cidade)",
     city: "Salvador",
     neighborhood: "Itaigara / Santa Cruz",
@@ -1323,6 +1330,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-de-fortaleza-beira-mar",
+    coverImage: "/lugares/orla-de-fortaleza-beira-mar.webp",
     name: "Avenida Beira-Mar (Orla de Fortaleza / Praia de Iracema)",
     city: "Fortaleza",
     neighborhood: "Meireles / Praia de Iracema, do Mucuripe à Ponte dos Ingleses",
@@ -1345,6 +1353,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-do-coco-fortaleza",
+    coverImage: "/lugares/parque-do-coco-fortaleza.webp",
     name: "Parque Estadual do Rio Cocó (Parque do Cocó)",
     city: "Fortaleza",
     neighborhood: "Entre Cocó, Aldeota e Papicu",
@@ -1366,6 +1375,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "calcadao-da-crasa-fortaleza",
+    coverImage: "/lugares/calcadao-da-crasa-fortaleza.webp",
     name: "Calçadão da Crasa",
     city: "Fortaleza",
     neighborhood: "Aldeota",
@@ -1386,6 +1396,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-da-cidade-sarah-kubitschek-brasilia",
+    coverImage: "/lugares/parque-da-cidade-sarah-kubitschek-brasilia.webp",
     name: "Parque da Cidade Dona Sarah Kubitschek",
     city: "Brasília",
     neighborhood: "Asa Sul, Plano Piloto",
@@ -1409,6 +1420,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "eixao-do-lazer-brasilia",
+    coverImage: "/lugares/eixao-do-lazer-brasilia.webp",
     name: "Eixão do Lazer (Eixo Rodoviário)",
     city: "Brasília",
     neighborhood: "Asa Norte e Asa Sul, via N-S",
@@ -1431,6 +1443,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "praia-de-camburi-vitoria",
+    coverImage: "/lugares/praia-de-camburi-vitoria.webp",
     name: "Praia de Camburi",
     city: "Vitória",
     neighborhood: "Mata da Praia / Jardim da Penha / Jardim Camburi",
@@ -1452,6 +1465,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-pedra-da-cebola-vitoria",
+    coverImage: "/lugares/parque-pedra-da-cebola-vitoria.webp",
     name: "Parque Pedra da Cebola",
     city: "Vitória",
     neighborhood: "Entre Jardim da Penha e Mata da Praia",
@@ -1473,6 +1487,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-areiao-goiania",
+    coverImage: "/lugares/parque-areiao-goiania.webp",
     name: "Parque Areião",
     city: "Goiânia",
     neighborhood: "Setor Pedro Ludovico",
@@ -1494,6 +1509,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-macambira-anicuns-goiania",
+    coverImage: "/lugares/parque-macambira-anicuns-goiania.webp",
     name: "Parque Macambira Anicuns",
     city: "Goiânia",
     neighborhood: "Faiçalville",
@@ -1517,6 +1533,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "sao-luis-avenida-litoranea",
+    coverImage: "/lugares/sao-luis-avenida-litoranea.webp",
     name: "Avenida Litorânea",
     city: "São Luís",
     neighborhood: "Ponta d'Areia / Calhau, seguindo até São José de Ribamar",
@@ -1540,6 +1557,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "sao-luis-lagoa-da-jansen",
+    coverImage: "/lugares/sao-luis-lagoa-da-jansen.webp",
     name: "Parque Ecológico da Lagoa da Jansen",
     city: "São Luís",
     neighborhood: "Jardim Renascença",
@@ -1561,6 +1579,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "cuiaba-parque-mae-bonifacia",
+    coverImage: "/lugares/cuiaba-parque-mae-bonifacia.webp",
     name: "Parque Estadual Mãe Bonifácia",
     city: "Cuiabá",
     neighborhood: "Duque de Caxias",
@@ -1607,6 +1626,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "campo-grande-parque-dos-poderes",
+    coverImage: "/lugares/campo-grande-parque-dos-poderes.webp",
     name: "Parque dos Poderes Governador Pedro Pedrossian",
     city: "Campo Grande",
     neighborhood: "Parque dos Poderes",
@@ -1630,6 +1650,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "lagoa-da-pampulha",
+    coverImage: "/lugares/lagoa-da-pampulha.webp",
     name: "Lagoa da Pampulha",
     city: "Belo Horizonte",
     neighborhood: "Pampulha",
@@ -1653,6 +1674,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-das-mangabeiras",
+    coverImage: "/lugares/parque-das-mangabeiras.webp",
     name: "Parque das Mangabeiras",
     city: "Belo Horizonte",
     neighborhood: "Mangabeiras / Serra",
@@ -1675,6 +1697,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "portal-da-amazonia-belem",
+    coverImage: "/lugares/portal-da-amazonia-belem.webp",
     name: "Portal da Amazônia (Orla de Belém)",
     city: "Belém",
     neighborhood: "Jurunas, até o bairro Universitário próximo à UFPA",
@@ -1697,6 +1720,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-estadual-do-utinga-belem",
+    coverImage: "/lugares/parque-estadual-do-utinga-belem.webp",
     name: "Parque Estadual do Utinga",
     city: "Belém",
     neighborhood: "Curió-Utinga",
@@ -1718,6 +1742,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-de-tambau-cabo-branco",
+    coverImage: "/lugares/orla-de-tambau-cabo-branco.webp",
     name: "Orla de Tambaú e Cabo Branco",
     city: "João Pessoa",
     neighborhood: "Cabo Branco / Tambaú / Manaíra",
@@ -1740,6 +1765,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-do-bessa",
+    coverImage: "/lugares/orla-do-bessa.webp",
     name: "Praia do Bessa",
     city: "João Pessoa",
     neighborhood: "Bessa",
@@ -1761,6 +1787,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-barigui-curitiba",
+    coverImage: "/lugares/parque-barigui-curitiba.webp",
     name: "Parque Barigui",
     city: "Curitiba",
     neighborhood: "Santo Inácio",
@@ -1784,6 +1811,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-tingui-curitiba",
+    coverImage: "/lugares/parque-tingui-curitiba.webp",
     name: "Parque Tingui",
     city: "Curitiba",
     neighborhood: "São João",
@@ -1806,6 +1834,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-boa-viagem-recife",
+    coverImage: "/lugares/orla-boa-viagem-recife.webp",
     name: "Calçadão da Avenida Boa Viagem",
     city: "Recife",
     neighborhood: "Boa Viagem, seguindo até o Pina",
@@ -1829,6 +1858,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "avenida-raul-lopes-teresina",
+    coverImage: "/lugares/avenida-raul-lopes-teresina.webp",
     name: "Avenida Raul Lopes (Complexo Ponte Estaiada)",
     city: "Teresina",
     neighborhood: "Zona Leste, às margens do Rio Poti",
@@ -1851,6 +1881,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "aterro-do-flamengo",
+    coverImage: "/lugares/aterro-do-flamengo.webp",
     name: "Aterro do Flamengo (Parque Brigadeiro Eduardo Gomes)",
     city: "Rio de Janeiro",
     neighborhood: "Flamengo / Glória / Catete",
@@ -1874,6 +1905,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-copacabana-ipanema-leblon",
+    coverImage: "/lugares/orla-copacabana-ipanema-leblon.webp",
     name: "Orla de Copacabana, Ipanema e Leblon",
     city: "Rio de Janeiro",
     neighborhood: "Copacabana / Ipanema / Leblon, Zona Sul",
@@ -1897,6 +1929,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "lagoa-rodrigo-de-freitas",
+    coverImage: "/lugares/lagoa-rodrigo-de-freitas.webp",
     name: "Lagoa Rodrigo de Freitas",
     city: "Rio de Janeiro",
     neighborhood: "Lagoa",
@@ -1920,6 +1953,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "via-costeira-natal",
+    coverImage: "/lugares/via-costeira-natal.webp",
     name: "Via Costeira (Avenida Senador Dinarte Mariz)",
     city: "Natal",
     neighborhood: "Via Costeira, entre Areia Preta e Ponta Negra",
@@ -1942,6 +1976,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "calcadao-ponta-negra-natal",
+    coverImage: "/lugares/calcadao-ponta-negra-natal.webp",
     name: "Calçadão da Praia de Ponta Negra",
     city: "Natal",
     neighborhood: "Ponta Negra",
@@ -1963,6 +1998,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-guaiba-gasometro",
+    coverImage: "/lugares/orla-guaiba-gasometro.webp",
     name: "Orla do Guaíba (Pista do Gasômetro / Parcão)",
     city: "Porto Alegre",
     neighborhood: "Centro Histórico / Praia de Belas, próximo à Usina do Gasômetro",
@@ -1984,6 +2020,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-marinha-do-brasil",
+    coverImage: "/lugares/parque-marinha-do-brasil.webp",
     name: "Parque Marinha do Brasil",
     city: "Porto Alegre",
     neighborhood: "Praia de Belas",
@@ -2005,6 +2042,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "espaco-alternativo-porto-velho",
+    coverImage: "/lugares/espaco-alternativo-porto-velho.webp",
     name: "Espaço Alternativo",
     city: "Porto Velho",
     neighborhood: "Costa e Silva, entre o Hospital de Base e o Aeroporto Governador Jorge Teixeira",
@@ -2028,6 +2066,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-taumanan-boa-vista",
+    coverImage: "/lugares/orla-taumanan-boa-vista.webp",
     name: "Orla Taumanan",
     city: "Boa Vista",
     neighborhood: "Centro, às margens do Rio Branco",
@@ -2049,6 +2088,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-anaua-boa-vista",
+    coverImage: "/lugares/parque-anaua-boa-vista.webp",
     name: "Parque Anauá",
     city: "Boa Vista",
     neighborhood: "Aeroporto",
@@ -2070,6 +2110,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "beira-mar-norte-florianopolis",
+    coverImage: "/lugares/beira-mar-norte-florianopolis.webp",
     name: "Avenida Beira-Mar Norte",
     city: "Florianópolis",
     neighborhood: "Centro / Agronômica, orla continental lado norte",
@@ -2092,6 +2133,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "avenida-das-rendeiras-lagoa-conceicao",
+    coverImage: "/lugares/avenida-das-rendeiras-lagoa-conceicao.webp",
     name: "Avenida das Rendeiras",
     city: "Florianópolis",
     neighborhood: "Lagoa da Conceição",
@@ -2113,6 +2155,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "orla-de-atalaia",
+    coverImage: "/lugares/orla-de-atalaia.webp",
     name: "Orla de Atalaia",
     city: "Aracaju",
     neighborhood: "Atalaia",
@@ -2135,6 +2178,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "calcadao-13-de-julho",
+    coverImage: "/lugares/calcadao-13-de-julho.webp",
     name: "Calçadão da 13 de Julho",
     city: "Aracaju",
     neighborhood: "13 de Julho",
@@ -2156,6 +2200,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "parque-cesamar",
+    coverImage: "/lugares/parque-cesamar.webp",
     name: "Parque Cesamar",
     city: "Palmas",
     neighborhood: "Área Verde 308 Sul, Plano Diretor Sul",
@@ -2177,6 +2222,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
   },
   {
     id: "praca-dos-girassois",
+    coverImage: "/lugares/praca-dos-girassois.webp",
     name: "Praça dos Girassóis",
     city: "Palmas",
     neighborhood: "Plano Diretor Sul",
