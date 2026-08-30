@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { useRunTracker } from "@/lib/tracking/useRunTracker";
+import { useRunTracker, type HeartRateConnectionState } from "@/lib/tracking/useRunTracker";
 import { isNativePlatform } from "@/lib/platform";
 import { onNotificationAction, onWatchAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
@@ -909,6 +909,50 @@ function MetricCard({
   );
 }
 
+const HEART_RATE_ICON = (
+  <svg viewBox="0 0 24 24" className="h-4 w-4 text-accent" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 12h4l2-5 3 10 2-8 2 3h5" />
+  </svg>
+);
+
+/**
+ * Same visual shape as `MetricCard` above, but not keyed by `MetricId` — FC
+ * isn't one of the selectable "big number" templates, just an extra tile
+ * that only ever shows up once a monitor is actually paired
+ * (`preferences.heartRateMonitorDeviceId`). Text instead of a number while
+ * connecting/unavailable, same as every other live stat degrading instead
+ * of showing a fake reading.
+ */
+function HeartRateMetricCard({ bpm, connection }: { bpm: number | null; connection: HeartRateConnectionState }) {
+  const isNumeric = connection === "connected" && bpm !== null;
+  const text = isNumeric
+    ? String(bpm)
+    : connection === "connecting"
+      ? "conectando"
+      : connection === "unavailable"
+        ? "indisponível"
+        : "--";
+
+  return (
+    <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-surface p-3.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">FC</span>
+        {HEART_RATE_ICON}
+      </div>
+      <p
+        className={
+          isNumeric
+            ? "text-metal-run text-[26px] leading-none tabular-nums"
+            : "font-sans text-sm leading-none font-medium text-muted"
+        }
+      >
+        {text}
+        {isNumeric && <span className="ml-1 text-[13px] font-sans font-medium text-muted">bpm</span>}
+      </p>
+    </div>
+  );
+}
+
 interface EmblemProgressEntry {
   key: string;
   icon: ReactNode;
@@ -1658,6 +1702,14 @@ export default function RunPage() {
       liveHeartRateRef.current = null;
       return;
     }
+    // A connected BLE monitor outranks the HealthKit/Health Connect poll
+    // below — it's a live reading updating roughly once a second, not a
+    // slow store lookup — so this only falls back to `fetchLiveHeartRate()`
+    // when no sensor is paired/connected.
+    if (state.heartRateConnection === "connected") {
+      liveHeartRateRef.current = state.heartRateBpm;
+      return;
+    }
     let cancelled = false;
     const poll = async () => {
       const bpm = await fetchLiveHeartRate();
@@ -1669,7 +1721,13 @@ export default function RunPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [state.status, liveCoachId, preferences.shareHeartRateWithCoach]);
+  }, [
+    state.status,
+    liveCoachId,
+    preferences.shareHeartRateWithCoach,
+    state.heartRateConnection,
+    state.heartRateBpm,
+  ]);
 
   /**
    * "Coach ao vivo" cue playback — the athlete's side of `sendCoachCue`
@@ -1896,6 +1954,7 @@ export default function RunPage() {
       carbReminderEnabled: preferences.carbReminderEnabled,
       carbReminderIntervalSeconds: preferences.carbReminderIntervalMinutes * 60,
       iosSkipRoadSnapping: preferences.iosSkipRoadSnapping,
+      heartRateMonitorDeviceId: preferences.heartRateMonitorDeviceId,
     });
   };
   // Lets the watch-action effect below call the latest `handleStart`
@@ -2029,7 +2088,7 @@ export default function RunPage() {
 
   const handleRecoverContinue = () => {
     if (!recoverableRun) return;
-    recover(recoverableRun);
+    recover(recoverableRun, preferences.heartRateMonitorDeviceId);
     setRecoverableRun(null);
   };
 
@@ -2835,6 +2894,9 @@ export default function RunPage() {
                 )}
                 {preferences.showCurrentKmPaceLive && state.currentKmPaceSecPerKm !== null && (
                   <MetricCard icon="ritmo" label="Pace do km atual" value={formatPace(state.currentKmPaceSecPerKm)} unit="/km" />
+                )}
+                {preferences.heartRateMonitorDeviceId && (
+                  <HeartRateMetricCard bpm={state.heartRateBpm} connection={state.heartRateConnection} />
                 )}
               </div>
 

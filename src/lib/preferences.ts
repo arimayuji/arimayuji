@@ -117,6 +117,16 @@ export interface Preferences {
    * rather than a blind default flip.
    */
   iosSkipRoadSnapping: boolean;
+  /**
+   * The last BLE heart rate monitor paired from `/perfil/sensor` — separate
+   * from `shareHeartRateWithCoach` above, which is about consenting to
+   * *share* a reading, not which sensor to read from in the first place.
+   * Undefined means "no sensor paired", not "paired but forgotten" (there's
+   * no tri-state here); `heartRateMonitorName` is cosmetic only, so the
+   * pairing screen can show what was paired without a fresh scan.
+   */
+  heartRateMonitorDeviceId?: string;
+  heartRateMonitorName?: string;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -253,6 +263,16 @@ function sanitize(raw: unknown): Preferences {
       ? value.iosSkipRoadSnapping
       : DEFAULT_PREFERENCES.iosSkipRoadSnapping;
 
+  const heartRateMonitorDeviceId =
+    typeof value.heartRateMonitorDeviceId === "string" && value.heartRateMonitorDeviceId.length > 0
+      ? value.heartRateMonitorDeviceId
+      : undefined;
+
+  const heartRateMonitorName =
+    typeof value.heartRateMonitorName === "string" && value.heartRateMonitorName.length > 0
+      ? value.heartRateMonitorName
+      : undefined;
+
   return {
     announceIntervalMeters,
     announceIntervalSeconds,
@@ -270,6 +290,8 @@ function sanitize(raw: unknown): Preferences {
     carbReminderIntervalMinutes,
     shareHeartRateWithCoach,
     iosSkipRoadSnapping,
+    heartRateMonitorDeviceId,
+    heartRateMonitorName,
   };
 }
 

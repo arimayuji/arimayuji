@@ -828,6 +828,21 @@ export default function PerfilPage() {
               </fieldset>
             )}
 
+            <fieldset className="mt-5 border-t border-border pt-4">
+              <legend className="text-sm font-medium">Sensor de frequência cardíaca</legend>
+              <Link
+                href="/perfil/sensor"
+                className="mt-3 flex items-center justify-between gap-3 text-sm"
+              >
+                <span className="text-muted">
+                  {prefs.heartRateMonitorDeviceId
+                    ? `Pareado: ${prefs.heartRateMonitorName ?? "sensor Bluetooth"}`
+                    : "Nenhum sensor pareado"}
+                </span>
+                <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
+              </Link>
+            </fieldset>
+
             <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">
               Meta de prova e tempo recente ficam na aba{" "}
               <Link href="/plano" className="text-accent underline underline-offset-2">

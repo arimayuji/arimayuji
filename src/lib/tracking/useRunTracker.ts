@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { App } from "@capacitor/app";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import {
   FILTER_CONFIG,
@@ -41,6 +42,11 @@ import { unlockSpeech } from "./speech";
 import { announceCarbGelReminder, announceDistancePace, unlockVoiceBank } from "./voiceBank";
 import { WakeLockController } from "./wakeLock";
 import {
+  connectHeartRateMonitor,
+  disconnectHeartRateMonitor,
+  type HeartRateConnectionState,
+} from "./heartRateMonitor";
+import {
   clearActiveRun,
   saveActiveRun,
   saveCompletedRun,
@@ -64,6 +70,7 @@ export interface LivePauseEvent {
 }
 
 export type { RunGoal };
+export type { HeartRateConnectionState };
 
 export interface StartOptions {
   announceIntervalMeters?: number;
@@ -94,6 +101,8 @@ export interface StartOptions {
   carbReminderIntervalSeconds?: number;
   /** iOS only, ignored elsewhere — see `preferences.ts`'s `iosSkipRoadSnapping` for the accuracy trade-off this makes. */
   iosSkipRoadSnapping?: boolean;
+  /** A previously paired BLE heart rate monitor (`preferences.ts`'s `heartRateMonitorDeviceId`) to connect to opportunistically — never blocks `start()` if the connection fails or the sensor is out of range. */
+  heartRateMonitorDeviceId?: string;
 }
 
 export interface RunTrackerState {
@@ -123,6 +132,10 @@ export interface RunTrackerState {
   pauseEvents: LivePauseEvent[];
   /** `Date.now()` at the moment a carb-gel reminder last fired, so a caller can drive a one-shot toast off it via `useEffect` — the voice cue itself doesn't need this, only the visual accessibility-parity toast does. Null until the first reminder of the run. */
   carbReminderFiredAt: number | null;
+  /** Latest BPM reading from a paired BLE heart rate monitor — null with no monitor paired, or before the first reading arrives. First time FC is shown to the athlete themselves (`liveHeartRateRef` in run/page.tsx has always existed, but only ever fed a coach's live view via `LiveRun.heartRateBpm`, never this hook's own state). */
+  heartRateBpm: number | null;
+  /** "disconnected" whenever nothing is paired — never "connecting"/"unavailable" without a `heartRateMonitorDeviceId` actually set on `start()`. */
+  heartRateConnection: HeartRateConnectionState;
 }
 
 const PERSIST_INTERVAL_MS = 10_000;
@@ -190,6 +203,8 @@ export function useRunTracker() {
     points: [],
     pauseEvents: [],
     carbReminderFiredAt: null,
+    heartRateBpm: null,
+    heartRateConnection: "disconnected",
   });
 
   const wakeLockRef = useRef(new WakeLockController());
@@ -330,6 +345,23 @@ export function useRunTracker() {
   const lastNotificationUpdateAtRef = useRef(0);
 
   const ghostSeriesRef = useRef<GhostSeriesPoint[] | null>(null);
+
+  /** The paired sensor's id for the run in progress, if any — set by `start()`/`recover()`, read by the app-resume reconnect effect below and cleared on `finish()`/`reset()`. Null means "no monitor paired", same as `preferences.ts`'s own field. */
+  const heartRateDeviceIdRef = useRef<string | null>(null);
+  /** Mirrors `state.status`/`state.heartRateConnection` for the resume-reconnect effect below, which needs to read both without depending on `state` itself (that would tear the watch's connection down and rebuild it on every unrelated re-render). */
+  const statusRef = useRef<RunStatus>("idle");
+  const heartRateConnectionRef = useRef<HeartRateConnectionState>("disconnected");
+
+  const connectHeartRate = useCallback((deviceId: string) => {
+    void connectHeartRateMonitor(
+      deviceId,
+      (bpm) => setState((s) => ({ ...s, heartRateBpm: bpm })),
+      (connection) => {
+        heartRateConnectionRef.current = connection;
+        setState((s) => ({ ...s, heartRateConnection: connection }));
+      },
+    );
+  }, []);
 
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1005,6 +1037,7 @@ export function useRunTracker() {
         carbReminderIntervalSecondsRef.current = options?.carbReminderIntervalSeconds ?? 45 * 60;
         lastCarbReminderElapsedRef.current = 0;
         iosSkipRoadSnappingRef.current = options?.iosSkipRoadSnapping ?? false;
+        heartRateDeviceIdRef.current = options?.heartRateMonitorDeviceId ?? null;
         // kmMarkDistanceRef/kmMarkTimeRef aren't reset here — the
         // warmup-completion block always recomputes both fresh from
         // `distanceRef.current` (0 for a new run, the recovered distance for
@@ -1040,6 +1073,11 @@ export function useRunTracker() {
         // screen right away, not wait up to 5s for the next throttled refresh.
         sendWatchUpdate({ status: "warming", distanceLabel: "0,00 km", paceLabel: "--:--/km", timeLabel: "00:00" });
 
+        // Opportunistic — a failed/timed-out connection surfaces as
+        // `heartRateConnection: "unavailable"` and never blocks the run
+        // itself, same as every other native capability this hook touches.
+        if (heartRateDeviceIdRef.current) connectHeartRate(heartRateDeviceIdRef.current);
+
         setState((s) => ({
           status: "warming",
           runId: runIdRef.current,
@@ -1062,6 +1100,8 @@ export function useRunTracker() {
           carbReminderFiredAt: null,
           points: [],
           pauseEvents: [],
+          heartRateBpm: null,
+          heartRateConnection: heartRateDeviceIdRef.current ? "connecting" : "disconnected",
         }));
       } catch (err) {
         console.error("[run] start() threw", err);
@@ -1071,7 +1111,7 @@ export function useRunTracker() {
         }));
       }
     },
-    [beginWatch],
+    [beginWatch, connectHeartRate],
   );
 
   /**
@@ -1084,7 +1124,7 @@ export function useRunTracker() {
    * that buffer was write-only and the recorded run was simply gone.
    */
   const recover = useCallback(
-    (snapshot: ActiveRunSnapshot) => {
+    (snapshot: ActiveRunSnapshot, heartRateMonitorDeviceId?: string) => {
       if (typeof navigator === "undefined" || (!isNativePlatform() && !("geolocation" in navigator))) {
         setState((s) => ({ ...s, error: "Geolocalização não é suportada neste navegador." }));
         return;
@@ -1120,9 +1160,11 @@ export function useRunTracker() {
       lastCarbReminderElapsedRef.current = 0;
       ghostSeriesRef.current = null;
       recoveringRef.current = true;
+      heartRateDeviceIdRef.current = heartRateMonitorDeviceId ?? null;
 
       void wakeLockRef.current.acquire();
       beginWatch();
+      if (heartRateDeviceIdRef.current) connectHeartRate(heartRateDeviceIdRef.current);
 
       setState({
         status: "warming",
@@ -1143,9 +1185,11 @@ export function useRunTracker() {
         carbReminderFiredAt: null,
         points: snapshot.points,
         pauseEvents: [],
+        heartRateBpm: null,
+        heartRateConnection: heartRateDeviceIdRef.current ? "connecting" : "disconnected",
       });
     },
-    [beginWatch],
+    [beginWatch, connectHeartRate],
   );
 
   const pause = useCallback(() => {
@@ -1210,6 +1254,8 @@ export function useRunTracker() {
       clearWatch();
       stopTicking();
       void wakeLockRef.current.release();
+      heartRateDeviceIdRef.current = null;
+      void disconnectHeartRateMonitor();
 
       const finishedAt = Date.now();
       // Finishing while still paused would otherwise leave the last pause event open forever,
@@ -1307,6 +1353,8 @@ export function useRunTracker() {
     clearWatch();
     stopTicking();
     void wakeLockRef.current.release();
+    heartRateDeviceIdRef.current = null;
+    void disconnectHeartRateMonitor();
     // Ends any Live Activity still showing — `finish()` already did this on
     // its own path, this only matters for "descartar corrida"/"Cancelar",
     // which skip finish() entirely and would otherwise leave the lock-screen
@@ -1343,8 +1391,37 @@ export function useRunTracker() {
       carbReminderFiredAt: null,
       points: [],
       pauseEvents: [],
+      heartRateBpm: null,
+      heartRateConnection: "disconnected",
     });
   }, [clearWatch, stopTicking, computeElapsedSeconds]);
+
+  useEffect(() => {
+    statusRef.current = state.status;
+  }, [state.status]);
+
+  /**
+   * A dropped BLE connection (sensor out of range while backgrounded, OS
+   * reclaiming the radio) only ever calls back through `onDisconnect` while
+   * the app is in the foreground to see it — same class of problem
+   * `friend-presence-ping.tsx` solves for location, just for a GATT link
+   * instead. One reconnect attempt per foreground, not a retry loop: a
+   * monitor that's genuinely out of range (taken off, out of the room)
+   * shouldn't have this hammering `connect()` every resume.
+   */
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    const subscription = App.addListener("resume", () => {
+      const deviceId = heartRateDeviceIdRef.current;
+      if (!deviceId) return;
+      if (statusRef.current !== "tracking" && statusRef.current !== "paused") return;
+      if (heartRateConnectionRef.current === "connected" || heartRateConnectionRef.current === "connecting") return;
+      connectHeartRate(deviceId);
+    });
+    return () => {
+      void subscription.then((handle) => handle.remove());
+    };
+  }, [connectHeartRate]);
 
   useEffect(() => {
     const wakeLock = wakeLockRef.current;

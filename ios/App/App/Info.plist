@@ -51,6 +51,17 @@
 	<string>O Xanthus lê frequência cardíaca, calorias, passos, FC em repouso, variabilidade de FC (HRV), VO2 máx e sono do seu relógio, pra completar os dados dessa corrida.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>O Xanthus não grava nada no Saúde — essa permissão é exigida pelo sistema mesmo assim.</string>
+	<!--
+	  @capacitor-community/bluetooth-le (src/lib/tracking/heartRateMonitor.ts)
+	  — required the moment the plugin's BleClient.initialize() runs, even
+	  just to scan; without it iOS crashes outright instead of showing a
+	  permission prompt (same class of requirement as the HealthKit keys
+	  above). Separate mechanism from HealthKit: this is a live GATT
+	  connection to a chest strap/watch during the run, never a read of a
+	  finished workout from the Health store.
+	-->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>O Xanthus se conecta a uma cinta ou relógio Bluetooth pra mostrar sua frequência cardíaca ao vivo durante a corrida.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

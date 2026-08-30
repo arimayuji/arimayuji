@@ -31,7 +31,7 @@ export interface LiveRun extends Models.Row {
   updatedAtMs: number;
   /** Which "longão" (group_runs) session this ping belongs to, if any — lets a group of runners find each other's live rows with one query instead of the 1:1 coach case's per-athlete lookup. */
   sessionCode?: string;
-  /** "Coach ao vivo" — only present when the athlete opted in for this run (preferences.ts's shareHeartRateWithCoach) AND a watch/strap is actively syncing near-real-time samples to HealthKit/Health Connect. Absent, not zero, when there's nothing to show — see health.ts's fetchLiveHeartRate. */
+  /** "Coach ao vivo" — only present when the athlete opted in for this run (preferences.ts's shareHeartRateWithCoach) AND a reading is actually available, either from a paired BLE monitor (useRunTracker.ts's RunTrackerState.heartRateBpm, preferred when connected — see run/page.tsx's liveHeartRateRef effect) or, without one, HealthKit/Health Connect's slower near-real-time sync (health.ts's fetchLiveHeartRate). Absent, not zero, when there's nothing to show. */
   heartRateBpm?: number;
   /** Mirrors state.forecastSecondsRemaining from useRunTracker.ts exactly — sent along so a coach never has to re-derive an ETA from raw pace/distance. Only meaningful when the athlete has a distance goal. */
   forecastSecondsRemaining?: number;
