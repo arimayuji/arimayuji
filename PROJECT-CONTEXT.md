@@ -3042,6 +3042,20 @@ ponto. Verificado visualmente via Playwright contra a CSS real compilada
 do app (mesma técnica de outras verificações desta sessão) antes e
 depois da troca.
 
+**Curva de temperatura trocada de novo, por carinhas feliz/neutra/triste
+(mesmo dia, 2026-08-30)**: pedido direto do dono do projeto — copiar a
+ideia de apps de clima que usam carinha feliz (bom)/neutra (razoável)/
+triste (ruim) por hora, em vez da curva. Confirmado via pergunta direta
+que as carinhas **substituem** a curva de vez (não convivem lado a lado).
+`HappyFaceIcon`/`NeutralFaceIcon`/`SadFaceIcon` (`run/weather-card.tsx`)
+são ícones de linha desenhados na mesma convenção do resto do app
+(`viewBox 20x20`, `stroke="currentColor"`, mesmo peso de traço de
+`RepeatIcon`/`WarmupIcon` em `run/page.tsx`) — nunca emoji de verdade
+(não pegaria a cor `--good`/`--warn`/`--bad` nem o peso de traço do
+app). Uma carinha por hora, colorida pelo tier, com o grau e a hora
+embaixo — a temperatura continua aparecendo, só a curva em si que saiu.
+Verificado visualmente via Playwright contra a CSS real compilada.
+
 ## Aquecimento (pré-corrida) e Alongamento (pós-corrida) guiados (2026-08-30)
 
 Pedido do dono do projeto: rotina guiada de aquecimento/alongamento, "com

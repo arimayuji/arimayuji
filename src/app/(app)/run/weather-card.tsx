@@ -6,40 +6,64 @@ import { Card } from "../ui";
 import { fetchRunningWeather, type RunWeatherForecast } from "@/lib/runningWeather";
 
 type WeatherStatus = "idle" | "loading" | "ready" | "denied" | "failed";
+type Score = RunWeatherForecast["hours"][number]["score"];
 
-/** Same `--good`/`--warn`/`--bad` tokens used elsewhere for pace-vs-goal deltas — read as CSS custom properties (not Tailwind classes) so the SVG's `stroke`/`fill` can pick a color per point rather than per whole element. */
-const SCORE_STROKE: Record<RunWeatherForecast["hours"][number]["score"], string> = {
-  bom: "var(--good)",
-  razoavel: "var(--warn)",
-  ruim: "var(--bad)",
+/** Same `--good`/`--warn`/`--bad` tokens used elsewhere for pace-vs-goal deltas, as Tailwind text-color classes so the face icon (stroked with `currentColor`) picks up the right color per hour. */
+const SCORE_TEXT_CLASS: Record<Score, string> = {
+  bom: "text-good",
+  razoavel: "text-warn",
+  ruim: "text-bad",
 };
 
-const CHART_HEIGHT = 32;
-const CHART_TOP_PAD = 4;
-const CHART_BOTTOM_PAD = 4;
+const FACE_ICON_PROPS = {
+  viewBox: "0 0 20 20",
+  "aria-hidden": true,
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.6,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
 
-/**
- * One x/y point per hour (feels-like temperature, normalized to the
- * window's own min/max) plus that hour's stroke color — a temperature
- * curve reads as "how the next few hours actually trend" better than a
- * bar-per-hour "verdict" chart did (the previous design, replaced after
- * user feedback that it looked off). Same viewBox-percentage /
- * `preserveAspectRatio="none"` convention as `Sparkline` in
- * `historico/detalhe/run-detail.tsx` (not reused directly — that one's
- * local to that file and always single-colored via `currentColor`).
- */
-function buildLinePoints(hours: RunWeatherForecast["hours"]) {
-  const temps = hours.map((h) => h.feelsLikeC);
-  const min = Math.min(...temps);
-  const max = Math.max(...temps);
-  const span = max - min || 1;
-  const usableHeight = CHART_HEIGHT - CHART_TOP_PAD - CHART_BOTTOM_PAD;
-  return hours.map((hour, i) => {
-    const x = hours.length > 1 ? (i / (hours.length - 1)) * 100 : 50;
-    const y = CHART_HEIGHT - CHART_BOTTOM_PAD - ((hour.feelsLikeC - min) / span) * usableHeight;
-    return { x, y, hour };
-  });
+/** Copies the happy/neutral/sad face convention from weather apps, per direct request — replaces the earlier temperature-curve design (also replaced after feedback) as the hour-by-hour verdict. Line-art style, matching every other icon in this app (`RepeatIcon`/`WarmupIcon` in `run/page.tsx`), never emoji characters (wouldn't pick up the `--good`/`--warn`/`--bad` color or the app's own line weight). */
+function HappyFaceIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} {...FACE_ICON_PROPS}>
+      <circle cx="10" cy="10" r="7.5" />
+      <circle cx="7.2" cy="8.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="12.8" cy="8.5" r="0.9" fill="currentColor" stroke="none" />
+      <path d="M7 11.8Q10 14.8 13 11.8" />
+    </svg>
+  );
 }
+
+function NeutralFaceIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} {...FACE_ICON_PROPS}>
+      <circle cx="10" cy="10" r="7.5" />
+      <circle cx="7.2" cy="8.8" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="12.8" cy="8.8" r="0.9" fill="currentColor" stroke="none" />
+      <path d="M7 12.8L13 12.8" />
+    </svg>
+  );
+}
+
+function SadFaceIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} {...FACE_ICON_PROPS}>
+      <circle cx="10" cy="10" r="7.5" />
+      <circle cx="7.2" cy="9" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="12.8" cy="9" r="0.9" fill="currentColor" stroke="none" />
+      <path d="M7 14Q10 11 13 14" />
+    </svg>
+  );
+}
+
+const FACE_ICON: Record<Score, typeof HappyFaceIcon> = {
+  bom: HappyFaceIcon,
+  razoavel: NeutralFaceIcon,
+  ruim: SadFaceIcon,
+};
 
 /**
  * "Clima pra corrida" — collapsed by default (just a button), never fetches
@@ -90,50 +114,20 @@ export function RunWeatherCard() {
       {status === "loading" && <p className="text-xs text-muted">Buscando previsão…</p>}
 
       {status === "ready" && forecast && (
-        <div className="space-y-2">
-          <svg
-            viewBox={`0 0 100 ${CHART_HEIGHT}`}
-            preserveAspectRatio="none"
-            className="h-16 w-full overflow-visible"
-            aria-hidden="true"
-          >
-            {buildLinePoints(forecast.hours).map((point, i, points) => {
-              if (i === 0) return null;
-              const prev = points[i - 1];
+        <div className="space-y-3">
+          <div className="flex justify-between">
+            {forecast.hours.map((hour) => {
+              const FaceIcon = FACE_ICON[hour.score];
               return (
-                <line
-                  key={point.hour.time}
-                  x1={prev.x}
-                  y1={prev.y}
-                  x2={point.x}
-                  y2={point.y}
-                  stroke={SCORE_STROKE[prev.hour.score]}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  vectorEffect="non-scaling-stroke"
-                />
+                <div key={hour.time} className="flex flex-1 flex-col items-center gap-1">
+                  <FaceIcon className={`h-6 w-6 ${SCORE_TEXT_CLASS[hour.score]}`} />
+                  <span className="text-[10px] font-semibold text-foreground">{Math.round(hour.tempC)}°</span>
+                  <span className="text-[9px] text-muted">{hour.time.slice(11, 13)}h</span>
+                </div>
               );
             })}
-            {buildLinePoints(forecast.hours).map((point) => (
-              <circle
-                key={point.hour.time}
-                cx={point.x}
-                cy={point.y}
-                r={2.4}
-                fill={SCORE_STROKE[point.hour.score]}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </svg>
-          <div className="flex justify-between">
-            {forecast.hours.map((hour) => (
-              <div key={hour.time} className="flex flex-1 flex-col items-center gap-0.5">
-                <span className="text-[10px] font-semibold text-foreground">{Math.round(hour.tempC)}°</span>
-                <span className="text-[9px] text-muted">{hour.time.slice(11, 13)}h</span>
-              </div>
-            ))}
           </div>
-          <p className="pt-1 text-xs leading-relaxed text-foreground">{forecast.summary}</p>
+          <p className="text-xs leading-relaxed text-foreground">{forecast.summary}</p>
           <p className="text-[10px] leading-relaxed text-muted">
             Estimativa simples do app (temperatura, chuva, vento) — não é uma recomendação médica.
           </p>
