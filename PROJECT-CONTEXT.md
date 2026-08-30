@@ -3717,6 +3717,151 @@ verificado visualmente dentro do app de verdade** (só via contact sheet
 fora do Next.js) — vale conferir o card/detalhe de alguns desses lugares
 rodando o app antes de considerar 100% fechado.
 
+## Sincronização de plano/perfil entre aparelhos + FC ao vivo via BLE (2026-08-30)
+
+Dois itens do backlog que estavam parados — um por decisão de produto não
+fechada (sync), outro por depender de hardware/plugin novo (FC via
+Bluetooth) — destravados nesta sessão: "vamos tocar" nos dois, depois de
+duas perguntas diretas resolverem as decisões de produto pendentes:
+**escopo do sync** = perfil/meta **+** um resumo leve de cada corrida
+(pace/distância/data, nunca o traçado GPS), não só o perfil sozinho —
+sem o resumo de corrida o desktop não teria dado nenhum pra desenhar uma
+curva de progresso; **conflito de sync** = "o mais recente vence"
+(last-write-wins por timestamp), não uma tela de resolução de conflito.
+Escopado via plan mode (2 agentes Explore + 1 Plan, com leitura direta
+dos arquivos reais confirmando os achados antes de fechar o plano — spec
+completa em `/root/.claude/plans/pure-knitting-cosmos.md`). Implementado
+na mesma sessão, branch `claude/strava-competitor-feedback-cyvop8`,
+**ainda não deployado em produção**.
+
+### Feature 1 — sincronização de plano/perfil
+
+**Achado crítico que mudou o desenho**: `saveRunnerProfile()`
+(`src/lib/runnerProfile.ts`) reancora `planStartDate` pra "esta
+segunda-feira" sempre que a meta muda (ou nunca foi setada) — é assim
+que `/plano` sabe "que semana é essa" sem reiniciar o plano a cada
+visita. Um pull de sync ingênuo, passando o snapshot remoto por essa
+mesma função, corrigiria o `planStartDate` certo por um errado sempre
+que os dois aparelhos divergissem em qualquer campo de meta — mesmo
+quando a causa real era só "isso veio de outro aparelho", não uma meta
+nova de verdade. Corrigido com uma função própria pro pull,
+`applySyncedRunnerProfile()`, que escreve direto no `localStorage`
+**sem nunca passar** pela lógica de reancoragem — o caminho interativo
+(`/plano`) continua 100% intocado.
+
+- Duas tabelas novas (`scripts/appwrite-setup.ts`): `runner_profile_sync`
+  (uma linha por conta, sem `read("any")` — dado pessoal de meta/peso,
+  nunca visível pro treinador, igual já era antes) e `run_summaries`
+  (uma linha por corrida, `userId`/`startedAtMs`/`distanceMeters`/
+  `movingSeconds` apenas — nunca `points`).
+- `src/lib/runnerProfile.ts`: segunda chave de localStorage
+  (`updatedAtMs`, stampada incondicionalmente a cada `saveRunnerProfile()`,
+  mesmo com sync desligado — barato, e garante que o timestamp já é
+  significativo no dia em que o sync for ligado), `loadRunnerProfileUpdatedAtMs()`
+  e `applySyncedRunnerProfile()` novos.
+- `src/lib/useRunnerProfile.ts`: `invalidateRunnerProfileCache()` novo —
+  deixa uma escrita de sync na mesma aba disparar o mesmo re-render que
+  o listener de `storage` já dispara pra outras abas.
+- `src/lib/runnerProfileSync.ts`/`src/lib/runSummariesSync.ts` (novos):
+  o algoritmo LWW (push via `client-actions`'s `"claim-owned-row"` na
+  primeira linha, pull/push direto depois) e o CRUD do resumo de corrida
+  (`syncRunSummary`/`deleteRunSummary`/`listRunSummaries`/
+  `backfillRunSummaries`, em lote — uma execução por até 500 corridas,
+  não uma por corrida).
+- `appwrite-functions/client-actions/src/main.js`: branch novo em
+  `claimOwnedRow()` pra `runner_profile_sync`, mais `sync-run-summary`/
+  `backfill-run-summaries` — **bug pego antes de commitar**: o handler de
+  backfill retornava um objeto puro em vez de chamar `res.json(...)`,
+  achado relendo o dispatcher (`return handler(...)`, sem wrapping —
+  cada handler é responsável por chamar `res.json` sozinho).
+- `Profile.runSyncOptIn?: boolean` (`src/lib/auth.ts`) — desligado por
+  padrão, mesmo padrão de `leaderboardOptIn`.
+- **Tela de consentimento** `/perfil/sincronizacao` (não um toggle
+  inline em `/perfil` — ligar isso também dispara um backfill real do
+  histórico local, merece a explicação mais longa que uma tela própria
+  dá) + card curto em `/perfil` linkando pra lá. Ligar o toggle chama
+  `syncRunnerProfile()` uma vez e `backfillRunSummaries(await listCompletedRuns())`.
+- `src/app/runner-profile-sync-ping.tsx` (novo, montado em `layout.tsx`
+  ao lado do `FriendPresencePing`): mesmo padrão de "leitura pontual no
+  foreground" do amigo por perto, só que chamando `syncRunnerProfile()`
+  em vez de ler geolocalização.
+- Call sites de `syncRunSummary`/`deleteRunSummary`: os mesmos 4 pontos
+  que já chamam `syncProfileStats()` (`run/page.tsx` × 2,
+  `historico/detalhe/run-detail.tsx`, `progresso/activity-feed.tsx`).
+  `/plano`: `updateProfile` (o setter de `useRunnerProfile()`) virou um
+  wrapper que chama `syncRunnerProfile()` depois de cada edição de meta,
+  sem tocar os 6 call sites que já chamavam `updateProfile({...})`.
+
+Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos;
+confirmado visualmente via Playwright (mock de rede) — o toggle de
+`/perfil/sincronizacao` liga/desliga de verdade (PATCH real disparado
+pro Appwrite). **Não verificado**: sync de fato entre dois aparelhos
+reais (precisa de duas sessões/contas), e rodar
+`scripts/appwrite-setup.ts` + redeployar `client-actions` em produção
+(pendente do OK de sempre).
+
+### Feature 2 — frequência cardíaca ao vivo via Bluetooth (BLE)
+
+Diferente do que já existe (`src/lib/health.ts`, leitura **pós-corrida**
+via HealthKit/Health Connect) — isso é conexão direta a um sensor BLE
+transmitindo o Heart Rate Service GATT padrão (UUID `0x180D`/`0x2A37`)
+durante a corrida, **ao vivo**. Apple Watch não aparece aqui — não
+transmite nesse modo; cobre cinta peitoral e relógios (Garmin, a maioria
+dos Wear OS) em modo de broadcast aberto.
+
+- `@capacitor-community/bluetooth-le` instalado via npm normal + `npx
+  cap sync` — plugin Capacitor comum, **não** vendorizado em
+  `native-plugins/` como o de GPS (só é vendorizado o que tem patch
+  próprio; BLE não precisa de nenhum). `npx cap sync` já resolveu
+  Android/iOS sozinho, sem edição manual de projeto nativo.
+  **Confirmado que o próprio manifest do plugin já injeta
+  `BLUETOOTH_SCAN`/`BLUETOOTH_CONNECT` (e o par legado `BLUETOOTH`/
+  `BLUETOOTH_ADMIN`, `maxSdkVersion=30`) no merge do Android** — rodado
+  `:app:processDebugMainManifest` de verdade neste sandbox (SDK/Gradle
+  reais) e `grep`ado o manifest final antes de considerar necessário
+  editar `AndroidManifest.xml` à mão; não foi. `:app:assembleDebug`
+  completo também rodado com sucesso.
+- `src/lib/tracking/heartRateMonitor.ts` (novo): `startHeartRateScan()`
+  (retorna um `stop()` que o chamador precisa lembrar de invocar —
+  scan aberto é custo de bateria real, não só formalidade),
+  `connectHeartRateMonitor()`/`disconnectHeartRateMonitor()`, e o parser
+  do flags-byte do formato padrão GATT (8 ou 16 bit conforme o bit 0).
+- `src/lib/tracking/useRunTracker.ts`: `RunTrackerState` ganha
+  `heartRateBpm`/`heartRateConnection`, mesmo padrão de `gpsQuality`.
+  Conecta de forma oportunista em `start()`/`recover()` (nunca bloqueia
+  o início da corrida se falhar); **não desconecta em `pause()`** — FC
+  durante uma pausa ainda é dado real e útil, e a conexão BLE é do stack
+  do SO, não da execução JS. Um efeito novo escuta `App.addListener("resume", ...)`
+  e tenta reconectar **uma vez** se a corrida ainda está
+  `tracking`/`paused` e a conexão caiu — mesma classe de problema que
+  `friend-presence-ping.tsx` já resolve pra localização, aqui pra um
+  link GATT. Desconecta em `finish()`/`reset()`.
+- `preferences.ts`: `heartRateMonitorDeviceId`/`heartRateMonitorName`
+  (pareamento do sensor) — conceito separado de
+  `shareHeartRateWithCoach` (consentimento de *compartilhar* a leitura),
+  já existente.
+- Nova tela `/perfil/sensor` (escaneia, lista, "Conectar"/"Esquecer"),
+  linkada de um fieldset novo em `/perfil` → "Preferências de corrida".
+- `/run`: tile novo de FC ao vivo na grade de stats (só aparece com um
+  sensor pareado), com estados "conectando"/"indisponível" em vez de
+  fingir uma leitura. `liveHeartRateRef` (o que já alimentava o "coach
+  ao vivo") agora prefere `state.heartRateBpm` quando há um BLE
+  conectado, caindo pro poll de HealthKit/Health Connect só na ausência
+  de sensor — `LiveRun.heartRateBpm`/`LiveRunUpdate.heartRateBpm`
+  (`liveRuns.ts`) não mudaram de formato, só o comentário explicando a
+  fonte nova.
+- `ios/App/App/Info.plist`: `NSBluetoothAlwaysUsageDescription` — sem
+  isso o app crasha (não só nega permissão) no primeiro
+  `BleClient.initialize()`.
+
+Verificado: `tsc --noEmit`, `npm run lint`, `npm run build`,
+`:app:assembleDebug` (Android, SDK real neste sandbox) — todos limpos;
+confirmado visualmente via Playwright que `/perfil/sensor` e o novo link
+em `/perfil` renderizam certinho, e que `/run` não quebrou com os campos
+novos do hook. **Não verificável neste ambiente**: sensor BLE real,
+scan/conexão de verdade, build iOS (sem Xcode/macOS aqui — só o CI
+depois do push confirma).
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
