@@ -2847,6 +2847,54 @@ montagem do componente, nunca clicável:
   sempre**: deploy de `appwrite-setup.ts`/`client-actions` e teste real
   de ponta a ponta com duas contas, ainda não rodados.
 
+## Preparar corrida: dois widgets consolidados em Card+PillTabs (2026-08-30)
+
+Feedback direto do dono do projeto vendo `/run` (tela "Preparar corrida"):
+duas seções empilhadas pareciam soltas demais — pedido de consolidar em
+"widget único". Branch `claude/strava-competitor-feedback-cyvop8`, **ainda
+não deployado em produção**.
+
+- **"Aviso de parcial a cada"**: a grade de chips de preset (250 m/500 m/
+  1 km/2 km/5 km) + o toggle Distância/Tempo num canto viraram um único
+  `Card` com `PillTabs` (Distância/Tempo, o mesmo componente já usado em
+  Amigos/Longão) no topo e um `PillSlider` (o mesmo já usado no RPE
+  pós-corrida) por baixo, ligado direto em `ANNOUNCE_MIN/MAX/STEP_METERS`/
+  `_SECONDS` (`preferences.ts`) — os mesmos limites que já validavam o
+  antigo "valor personalizado". Como o slider já cobre o intervalo
+  inteiro, os dois `CustomValueSheet` de voz (`voz`/`voz-tempo`) e as
+  constantes `VOICE_PRESETS_M`/`VOICE_PRESETS_S` viraram mortos e foram
+  removidos. "Como avisar" (Voz/Vibração) e "Voz" (Feminina/Masculina)
+  continuam como toggles compactos dentro do mesmo Card, sem mudança.
+- **"Correr com alguém" (QR) + "Compartilhar ao vivo" (treinador) +
+  "Compartilhar com amigos"**: três blocos com título próprio, empilhados,
+  viraram um só `Card` "Compartilhar corrida" com `PillTabs` entre
+  "Convite"/"Treinador"/"Amigos" — pedido explícito do dono do projeto foi
+  "pill tabs igual a primeira seção, porém sem parte de tênis": **Tênis
+  ficou de fora**, continua seu próprio card separado, inalterado. A aba
+  "Convite" resolve pra QR (`Gerar QR`) ou pro card de gestão do longão
+  ativo (`shareLongao`/cancelar/sair), exatamente como já era mutuamente
+  exclusivo antes (`!longaoSession`/`longaoSession`) — só que agora dentro
+  da mesma aba em vez de dois blocos condicionais separados. Tabs
+  "Treinador"/"Amigos" só aparecem quando `coaches.length`/`friends.length`
+  é > 0 — com **só uma aba disponível (o caso comum: sem treinador nem
+  amigo aceito), a barra de tabs nem renderiza**, mostra só o conteúdo do
+  Convite direto (mesma honestidade de não fingir uma escolha que não
+  existe, já usada em outras telas). `shareTab`/`effectiveShareTab`
+  (`run/page.tsx`) cobre o caso de a aba escolhida sumir da lista (ex.:
+  `coaches`/`friends` ainda carregando) caindo de volta pra "Convite".
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
+  Confirmado visualmente via Playwright (mock de rede no `/v1/account`) —
+  o widget "Aviso de parcial a cada" renderiza com o slider mostrando
+  "1 km" e o `PillTabs` Distância/Tempo acima; o card "Tênis" continua
+  separado; "Compartilhar corrida" mostra o conteúdo de Convite (Gerar QR)
+  quando não há treinador/amigo aceito mockado com sucesso — a
+  renderização da barra de abas Treinador/Amigos (quando `coaches`/
+  `friends` têm dados) não foi confirmada visualmente nesta sessão (o
+  mock de `coach_relationships`/`friendships` não pegou o formato real da
+  chamada), mas reaproveita o mesmíssimo `PillTabs` já confirmado
+  funcionando na seção de cima. **Não testado em aparelho real** — mesma
+  pendência de sempre.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
