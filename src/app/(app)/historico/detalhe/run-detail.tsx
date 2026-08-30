@@ -11,7 +11,7 @@ import { fetchRecoveryContext, fetchRunHealthData, HEALTH_DATA_ENABLED, type Rec
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import { syncProfileStats } from "@/lib/profileStats";
 import { listRunComments, type RunComment } from "@/lib/runComments";
-import { matchPlaceForRoute } from "@/lib/placeMatch";
+import { matchPlaceForRoute, resolvePlaceLabel } from "@/lib/placeMatch";
 import { getSyncedRun, setRunFriendsVisibility, shareRunWithCoaches } from "@/lib/runsSync";
 import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
@@ -62,6 +62,22 @@ function formatRunDate(date: Date): string {
   const text = dateFormatter.format(date);
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+/**
+ * Placeholder examples for the feed caption input below — never a preset
+ * the athlete picks from, just inspiration so an empty text box doesn't
+ * read as "type something serious here". One is picked at random per
+ * mount so it's not always the same joke sitting there.
+ */
+const CAPTION_EXAMPLES = [
+  "pace paquera",
+  "pace ressaca",
+  "pace fugindo de cachorro",
+  "pace já vou de boa",
+  "pace café da manhã",
+  "pace resolvendo trauma",
+  "pace só pra foto",
+];
 
 type LoadState =
   | { status: "loading" }
@@ -559,6 +575,10 @@ export function RunDetail({ id }: { id: string }) {
   const [friendCount, setFriendCount] = useState(0);
   const [friendsShared, setFriendsShared] = useState(false);
   const [sharingFriends, setSharingFriends] = useState(false);
+  const [caption, setCaption] = useState("");
+  const [captionPlaceholder] = useState(
+    () => `Ex: ${CAPTION_EXAMPLES[Math.floor(Math.random() * CAPTION_EXAMPLES.length)]}`,
+  );
   /** Mirrors `run.placeName` as a controlled input value — only ever shown/editable when the route doesn't already match the catalog (see the render below). */
   const [placeNameInput, setPlaceNameInput] = useState("");
   /**
@@ -772,7 +792,11 @@ export function RunDetail({ id }: { id: string }) {
   const handleToggleFriendsShare = async () => {
     setSharingFriends(true);
     const next = !friendsShared;
-    const result = await setRunFriendsVisibility(run, next, newRecords.map((r) => r.label));
+    const result = await setRunFriendsVisibility(run, next, newRecords.map((r) => r.label), {
+      caption: caption.trim() || undefined,
+      placeName: resolvePlaceLabel(run) ?? undefined,
+      elevationGainMeters: elevationGain ?? undefined,
+    });
     setSharingFriends(false);
     if (result.ok) setFriendsShared(next);
   };
@@ -1117,6 +1141,14 @@ export function RunDetail({ id }: { id: string }) {
             <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
               Aparece no feed de todos os seus amigos aceitos, com kudos — nunca só pra um por vez.
             </p>
+            <input
+              type="text"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder={captionPlaceholder}
+              maxLength={140}
+              className="mb-3 w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm outline-none focus:border-accent"
+            />
             <button
               type="button"
               disabled={sharingFriends}

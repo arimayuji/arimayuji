@@ -72,6 +72,24 @@ function MusicIcon({ className }: { className?: string }) {
   );
 }
 
+function PinIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z" />
+      <circle cx="12" cy="9.5" r="2.4" />
+    </svg>
+  );
+}
+
+function ElevationIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M3 17.5 9 8l4 5.5 2.5-3L21 17.5" />
+      <path d="M15.5 6.5h4v4" />
+    </svg>
+  );
+}
+
 /**
  * The GPS trace as a flattened SVG, same `projectRoute` math /historico and
  * `matched-runs-card.tsx`'s thumbnail already use — real geometry (breaks at
@@ -137,6 +155,25 @@ function FeedItemCard({
           </p>
         </div>
       </div>
+
+      {item.caption && <p className="text-sm text-foreground text-pretty">&quot;{item.caption}&quot;</p>}
+
+      {(item.placeName || (item.elevationGainMeters ?? 0) > 0) && (
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
+          {item.placeName && (
+            <span className="flex items-center gap-1">
+              <PinIcon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{item.placeName}</span>
+            </span>
+          )}
+          {(item.elevationGainMeters ?? 0) > 0 && (
+            <span className="flex items-center gap-1">
+              <ElevationIcon className="h-3.5 w-3.5 shrink-0" />
+              {Math.round(item.elevationGainMeters ?? 0)} m
+            </span>
+          )}
+        </div>
+      )}
 
       <RouteBanner points={item.points} />
 

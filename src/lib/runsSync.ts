@@ -62,7 +62,14 @@ export type ShareRunResult = { ok: true } | { ok: false; reason: "unavailable" |
  */
 async function callShareRun(
   run: CompletedRun,
-  extra: { coachIds?: string[]; shareWithFriends?: boolean; achievementLabels?: string[] },
+  extra: {
+    coachIds?: string[];
+    shareWithFriends?: boolean;
+    achievementLabels?: string[];
+    caption?: string;
+    placeName?: string;
+    elevationGainMeters?: number;
+  },
 ): Promise<ShareRunResult> {
   const appwrite = getAppwrite();
   if (!appwrite) return { ok: false, reason: "unavailable" };
@@ -84,6 +91,9 @@ async function callShareRun(
         // never re-derived by the Function. See share-run's own comment.
         achievements: extra.achievementLabels && extra.achievementLabels.length > 0 ? extra.achievementLabels : undefined,
         tracks: run.tracks && run.tracks.length > 0 ? run.tracks.map((t) => ({ name: t.name, artist: t.artist })) : undefined,
+        caption: extra.caption,
+        placeName: extra.placeName,
+        elevationGainMeters: extra.elevationGainMeters,
         coachIds: extra.coachIds,
         shareWithFriends: extra.shareWithFriends,
       }),
@@ -122,13 +132,18 @@ export async function shareRunWithCoaches(
  * PRs this run set) rides along so the feed card can show them —
  * computed by the caller, which already has the full run history needed
  * to know what's actually a new record (see personalRecords.ts).
+ * `extras.caption` is the athlete's own free-text line for the post (a
+ * "pace paquera" kind of joke — never a preset the app suggests);
+ * `placeName`/`elevationGainMeters` are whatever run-detail.tsx already
+ * resolved for its own display, just carried along as a snapshot.
  */
 export async function setRunFriendsVisibility(
   run: CompletedRun,
   shareWithFriends: boolean,
   achievementLabels: string[] = [],
+  extras: { caption?: string; placeName?: string; elevationGainMeters?: number } = {},
 ): Promise<ShareRunResult> {
-  return callShareRun(run, { shareWithFriends, achievementLabels });
+  return callShareRun(run, { shareWithFriends, achievementLabels, ...extras });
 }
 
 /**

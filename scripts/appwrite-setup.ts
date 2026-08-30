@@ -627,6 +627,23 @@ async function main() {
   await ensure("runs.tracks", () =>
     tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "tracks", size: 2000, required: false }),
   );
+  // A free-text "vibe" for the post ("pace paquera" and friends) — the
+  // athlete's own words, never a preset list (a canned menu of jokes
+  // would read as the app being funny at someone, not the runner being
+  // funny). `placeName`/`elevationGainMeters` mirror the same "computed
+  // on-device, sent as a snapshot" shape as everything else here —
+  // `resolvePlaceLabel`/`elevationGain` in run-detail.tsx already resolve
+  // these for local display, share-run just carries the resolved value
+  // along instead of re-deriving it.
+  await ensure("runs.caption", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "caption", size: 140, required: false }),
+  );
+  await ensure("runs.placeName", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "placeName", size: 100, required: false }),
+  );
+  await ensure("runs.elevationGainMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "elevationGainMeters", required: false, min: 0 }),
+  );
   // Defaults private conceptually — same Appwrite constraint as above, the
   // app must pass `visibility: "private"` explicitly rather than omitting it.
   await ensure("runs.visibility", () =>

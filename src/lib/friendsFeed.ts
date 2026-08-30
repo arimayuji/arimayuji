@@ -39,6 +39,10 @@ export interface FriendFeedItem {
   /** New-record labels (e.g. "5 km") the sharer's own device determined this run set — never re-derived here. */
   achievements: string[];
   tracks: FeedTrack[];
+  /** The athlete's own free-text line for the post (e.g. "pace paquera") — never generated or suggested by the app, see run-detail.tsx's caption input. */
+  caption: string | null;
+  placeName: string | null;
+  elevationGainMeters: number | null;
   kudosCount: number;
   kudosGivenByMe: boolean;
 }

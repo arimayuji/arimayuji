@@ -670,6 +670,12 @@ async function shareRun({ userId, body, client, res, error }) {
         .slice(0, 10)
         .map((t) => ({ name: t.name, artist: t.artist }))
     : undefined;
+  // The athlete's own free-text vibe for the post ("pace paquera" and
+  // friends) — trimmed and capped to the column size, never templated or
+  // suggested server-side.
+  const caption = typeof body.caption === "string" && body.caption.trim() ? body.caption.trim().slice(0, 140) : undefined;
+  const placeName = typeof body.placeName === "string" && body.placeName.trim() ? body.placeName.trim() : undefined;
+  const elevationGainMeters = Number.isFinite(body.elevationGainMeters) ? Number(body.elevationGainMeters) : undefined;
 
   const tablesDB = new TablesDB(client);
   const startedAtIso = new Date(startedAtMs).toISOString();
@@ -720,6 +726,9 @@ async function shareRun({ userId, body, client, res, error }) {
     shoeName,
     achievements: achievements && achievements.length > 0 ? JSON.stringify(achievements) : undefined,
     tracks: tracks && tracks.length > 0 ? JSON.stringify(tracks) : undefined,
+    caption,
+    placeName,
+    elevationGainMeters,
     visibility,
   };
 
@@ -863,6 +872,9 @@ async function listFriendsFeed({ userId, client, res, error }) {
       points: run.points ?? null,
       achievements: safeParseJsonArray(run.achievements),
       tracks: safeParseJsonArray(run.tracks),
+      caption: run.caption ?? null,
+      placeName: run.placeName ?? null,
+      elevationGainMeters: run.elevationGainMeters ?? null,
       kudosCount: kudos.count,
       kudosGivenByMe: kudos.givenByMe,
     };

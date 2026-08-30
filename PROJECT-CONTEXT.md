@@ -2806,6 +2806,47 @@ que já existia (distância/tempo/pace/kudos):
   mesmo deploy pendente (tabela `runs` com as 2 colunas novas +
   `client-actions` redeployada) já registrado na seção do feed acima.
 
+**Legenda livre + lugar + elevação no post do Feed, mesmo dia
+(2026-08-30)**: pedido do dono do projeto vendo os cards enriquecidos —
+"podíamos ter tipo algo sarcástico a pessoa colocar, pace paquera, pace
+sei lá o quê" + aprovação explícita pra também anexar elevação e lugar.
+Decisão de tom importante, coerente com o `SOCIAL-CONTEXT.md` ("nunca
+hype vazio, sempre humor autodepreciativo real"): a legenda é **sempre
+texto livre que o próprio atleta digita, nunca uma lista de opções pra
+escolher** — uma lista de piadas prontas soaria como "o app sendo
+engraçado por você", não "você sendo engraçado". `CAPTION_EXAMPLES`
+(`run-detail.tsx`) é só inspiração de placeholder, sorteada uma vez por
+montagem do componente, nunca clicável:
+```
+"pace paquera", "pace ressaca", "pace fugindo de cachorro",
+"pace já vou de boa", "pace café da manhã", "pace resolvendo trauma",
+"pace só pra foto"
+```
+- `runs` ganha 3 colunas novas (`scripts/appwrite-setup.ts`): `caption`
+  (string, 140), `placeName` (string, 100), `elevationGainMeters`
+  (float) — todas opcionais.
+- `share-run` (`client-actions/src/main.js`) valida/trunca `caption`
+  (trim + `.slice(0,140)`, vira `undefined` se vazio) e valida
+  `elevationGainMeters` como número finito; grava as três junto do resto
+  do snapshot. `list-friends-feed` devolve as três por item.
+- `run-detail.tsx`: input de texto livre (placeholder aleatório de
+  `CAPTION_EXAMPLES`, `maxLength=140`) no card "Compartilhar com
+  amigos", ao lado do toggle — nunca salvo sozinho, só junto do próximo
+  toggle de compartilhamento. `placeName` (via `resolvePlaceLabel(run)`,
+  já existente) e `elevationGainMeters` (o mesmo valor já resolvido/
+  calculado que a própria tela de detalhe mostra) são anexados
+  automaticamente, sem campo novo pra digitar — dado que o app já sabe,
+  não precisa perguntar de novo.
+- `/feed`: legenda renderiza como aspas itálicas logo abaixo do
+  cabeçalho do card; lugar/elevação viram uma linha de meta com ícone de
+  pin/elevação, só aparece se pelo menos um dos dois existir.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build`, `node
+  --check` limpos. Confirmado visualmente via Playwright (mock de rede)
+  — legendas ("pace paquera hoje", "pace fugindo de cachorro") e a linha
+  de lugar/elevação renderizando juntas no card. **Mesma pendência de
+  sempre**: deploy de `appwrite-setup.ts`/`client-actions` e teste real
+  de ponta a ponta com duas contas, ainda não rodados.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
