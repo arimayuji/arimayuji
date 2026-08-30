@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useHeaderClose } from "../../app-shell";
 import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../../ui";
@@ -374,27 +374,88 @@ export default function DadosPessoaisPage() {
   const [prefs] = usePreferences();
   const [tab, setTab] = useState<DataTab>("corpo");
 
+  const trackRef = useRef<HTMLDivElement>(null);
+  const panelRefs = useRef<Record<DataTab, HTMLDivElement | null>>({
+    corpo: null,
+    tenis: null,
+    playlists: null,
+    relogio: null,
+  });
+  /** Set right before a programmatic `scrollIntoView` (tapping a pill) so the scroll listener below doesn't fight it mid-animation by "correcting" `tab` back from whatever panel is passing under the viewport. Cleared once the smooth scroll settles. */
+  const programmaticScrollRef = useRef(false);
+
+  const goToTab = useCallback((next: DataTab) => {
+    setTab(next);
+    programmaticScrollRef.current = true;
+    panelRefs.current[next]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    window.setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, 500);
+  }, []);
+
+  // Swiping between panels updates which pill reads as active — same
+  // "one state, two ways to change it" relationship as a native iOS
+  // settings carousel (tap a dot, or swipe; either one syncs the other).
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const onScroll = () => {
+      if (programmaticScrollRef.current) return;
+      const index = Math.round(track.scrollLeft / track.clientWidth);
+      const next = DATA_TABS[index]?.id;
+      if (next) setTab((current) => (current === next ? current : next));
+    };
+    track.addEventListener("scroll", onScroll, { passive: true });
+    return () => track.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <>
       <ScreenHeader panel title="Dados pessoais" />
 
       <Screen panel>
         <div className="pr-enter mb-4">
-          <PillTabs tabs={DATA_TABS} active={tab} onChange={setTab} />
+          <PillTabs tabs={DATA_TABS} active={tab} onChange={goToTab} />
         </div>
 
-        {tab === "corpo" && (
-          <>
+        <div ref={trackRef} className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto">
+          <div
+            ref={(el) => {
+              panelRefs.current.corpo = el;
+            }}
+            className="flex w-full shrink-0 snap-start flex-col gap-5 lg:gap-4"
+          >
             <PainCard />
             <WeightCard profile={profile} updateProfile={updateProfile} />
-          </>
-        )}
+          </div>
 
-        {tab === "tenis" && <ShoesCard unit={prefs.distanceUnit} />}
+          <div
+            ref={(el) => {
+              panelRefs.current.tenis = el;
+            }}
+            className="w-full shrink-0 snap-start"
+          >
+            <ShoesCard unit={prefs.distanceUnit} />
+          </div>
 
-        {tab === "playlists" && <PlaylistCard />}
+          <div
+            ref={(el) => {
+              panelRefs.current.playlists = el;
+            }}
+            className="w-full shrink-0 snap-start"
+          >
+            <PlaylistCard />
+          </div>
 
-        {tab === "relogio" && <HealthDataCard />}
+          <div
+            ref={(el) => {
+              panelRefs.current.relogio = el;
+            }}
+            className="w-full shrink-0 snap-start"
+          >
+            <HealthDataCard />
+          </div>
+        </div>
 
         <Link
           href="/perfil"

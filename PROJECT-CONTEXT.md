@@ -3144,6 +3144,51 @@ rotina passa de 11 pra 13 passos, ~8 min no total (calculado
 dinamicamente pela tela, nenhum número fixo pra atualizar em outro
 lugar). Verificado: `tsc`, `lint`, `build` limpos.
 
+## /perfil/dados: PillTabs virou carrossel deslizável (2026-08-30)
+
+Feedback do dono do projeto sobre o widget de 4 abas (Corpo/Tênis/
+Playlists/Saúde do relógio, `src/app/(app)/perfil/dados/page.tsx`): a
+estética de "clicar em cada tópico" poderia ser um slider horizontal —
+arrastar entre os painéis, não só tocar na pill. Branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+- **Sem lib nova**: scroll nativo com `scroll-snap` (`snap-x
+  snap-mandatory` + `snap-start` por painel) — mesma convenção Tailwind
+  já usada na fileira de templates de `/compartilhar` (`no-scrollbar`
+  + `snap-x snap-mandatory`), só que aplicada a painéis de conteúdo
+  inteiros em vez de uma fileira de chips.
+- Os 4 painéis ficam **todos montados o tempo todo**, lado a lado num
+  container `overflow-x-auto` — preserva o estado local de cada aba
+  (ex.: o que já foi digitado no formulário de dor) ao invés do padrão
+  antigo (`{tab === "x" && <Conteudo/>}`), que desmontava e remontava
+  cada aba a cada troca.
+- **PillTabs continua funcionando** — tocar numa pill chama `scrollIntoView({behavior:"smooth"})`
+  no painel certo; um listener de `scroll` no container detecta o
+  painel mais visível (`Math.round(scrollLeft / clientWidth)`) e
+  atualiza qual pill está ativa — então tocar e arrastar sincronizam os
+  dois sentidos, confirmado nos dois via Playwright (clique na pill
+  "Tênis" rolou até lá; um scroll horizontal sintético de "Tênis" pra
+  "Playlists" atualizou a pill ativa sozinho).
+- `programmaticScrollRef`: uma flag que ignora o listener de scroll por
+  500ms logo depois de tocar numa pill — sem isso, o próprio scroll
+  disparado pelo toque seria lido como um "swipe" no meio da animação,
+  trocando a aba de novo antes do scroll suave terminar.
+- **Trade-off aceito**: como os 4 painéis são `align-items: stretch`
+  (padrão do flex) dentro do mesmo container, o container inteiro fica
+  tão alto quanto o painel mais alto ("Corpo", com dois cards
+  empilhados) — os outros 3 painéis mostram espaço em branco embaixo
+  quando ativos. Sem redimensionamento dinâmico de altura por JS nesta
+  entrega (mediria a altura do painel ativo com `ResizeObserver`/
+  `useLayoutEffect`) — mais simples, aceitável, e o mesmo tipo de
+  trade-off que carrosséis de configuração de apps reais (Duolingo,
+  etc.) também fazem.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos;
+  confirmado visualmente via Playwright (clique em pill + scroll
+  horizontal sintético simulando swipe, ambos sincronizando o estado
+  ativo corretamente). **Não testado em aparelho real** — gesto de
+  swipe de verdade com o dedo, mesma pendência padrão de sempre.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
