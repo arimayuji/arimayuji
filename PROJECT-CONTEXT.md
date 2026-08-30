@@ -3628,6 +3628,41 @@ produção**.
   real perdendo sinal, e o toggle de iOS em rua vs. parque, mesma
   pendência padrão de sempre.
 
+## Duas filas curtas de UI fechadas (2026-08-30)
+
+Últimos dois itens da ordem pedida pelo dono do projeto ("bora nessa
+ordem aí mesmo listada do backlog, e depois gps ultra preciso e depois
+filas curtas de UI"), depois do GPS. Branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+- **Toggles "Como avisar"/"Voz" redesenhados** (commit `2e79c25`): o
+  widget "Aviso de parcial a cada" em `/run` tinha dois pares de botão
+  bordado apertados (`px-3 py-1.5`, dividindo espaço num
+  `flex justify-between`) que sentiam pequenos demais pra tocar — mesmo
+  problema já resolvido antes em `/perfil/dados` com `PillTabs`. Trocados
+  pelo mesmíssimo `PillTabs` (altura `h-9`, largura cheia, um toque) já
+  usado no toggle Distância/Tempo do card logo acima — sem componente
+  novo, só reaproveitar o padrão certo.
+- **Comparação de amigo em `/perfil/ver` virou barra, não só texto**
+  (commit `9d22b97`): pedido direto do dono do projeto vendo a tela real
+  ("essa tabela de comparação... escrota ser só texto e não ter
+  gráficos"). Cada métrica (km corridos, corridas, essa semana,
+  sequência, PRs de 5/10/21/42km) virou um par de barras horizontais
+  "Você"/primeiro nome do amigo, escaladas pelo maior dos dois valores —
+  barra maior lê como "quem está na frente" sem precisar ler o número
+  primeiro. PRs (tempo, onde menor é melhor) usam a mesma barra mas
+  escalada por `1/valor`, então "barra maior = melhor" nunca inverte
+  entre as linhas. "Última corrida" (dias atrás) ficou como texto — não é
+  uma magnitude que uma barra represente bem. Sem lib de gráfico nova —
+  reaproveita só cor/hairline do tema, mesma convenção já usada pelo
+  `CompareBar` de `plan-dashboard.tsx`.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos nos
+  dois; confirmado visualmente via Playwright (toggle de Voz/Vibração
+  trocando de estado ao vivo; barras de comparação renderizando com dado
+  sintético, incluindo o caso "só um lado tem dado"). **Não testado em
+  aparelho real** — mesma pendência padrão de sempre.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
