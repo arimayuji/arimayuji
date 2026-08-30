@@ -2275,7 +2275,7 @@ export default function RunPage() {
                 </div>
               ) : (
                 <p className="pt-1 text-xs leading-relaxed text-muted">
-                  Um toque na tela a cada marca — sem voz nenhuma, olha o número na hora.
+                  Vibra a cada marca, sem voz.
                 </p>
               )}
             </div>
@@ -2410,8 +2410,7 @@ export default function RunPage() {
               <div className="block space-y-2">
                 <span className="text-sm font-medium">Correr com alguém</span>
                 <p className="text-xs text-muted">
-                  Gere um código pra parear com quem for correr com você agora — ela vê sua posição,
-                  você vê a dela, e não precisa já ser amigo no app.
+                  Compartilhem posição um do outro, sem precisar ser amigos no app.
                 </p>
                 <button
                   type="button"
@@ -2538,8 +2537,7 @@ export default function RunPage() {
               <div className="block space-y-2">
                 <span className="text-sm font-medium">Compartilhar com amigos (opcional)</span>
                 <p className="text-xs text-muted">
-                  Toque pra escolher quem vê sua posição e seu pace num mapa enquanto a corrida rolar —
-                  pode escolher mais de um. Some sozinho quando a corrida terminar.
+                  Escolha quem vê sua posição e pace ao vivo — some ao terminar.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {friends.map((connection) => (

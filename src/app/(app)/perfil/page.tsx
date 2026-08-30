@@ -187,6 +187,37 @@ function SectionLabel({ children, delayMs }: { children: React.ReactNode; delayM
 }
 
 /**
+ * A compact horizontal alternative to `PreferenceToggle` for a cluster of
+ * independent booleans that would otherwise stack into a tall list of
+ * full-width rows (each with its own label + hint line) — same active/
+ * inactive pill language the search filters (`/progresso`'s activity feed,
+ * `PillTabs`) already use, just multi-select instead of one-at-a-time.
+ */
+function ToggleChip({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`flex-1 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+        checked ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
  * Opt-in card for the "ranking de lugares" leaderboard — off by default,
  * one master toggle (`Profile.leaderboardOptIn`) that gates whether this
  * account's km ever shows on any place's leaderboard at all. The actual
@@ -287,9 +318,7 @@ function PlaceLeaderboardCard() {
     <Card className="pr-enter" style={delay(85)}>
       <CardTitle aside={<NoticeBadge>desligado por padrão</NoticeBadge>}>Ranking de lugares</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-        Quanto de km você já correu em cada lugar cadastrado, num ranking público e um só entre
-        amigos. Fica desligado até você ligar — e mesmo ligado, cada corrida só entra depois de
-        você confirmar que foi ali.
+        Seu km por lugar, num ranking público e um entre amigos.
       </p>
 
       {status !== "signed-in" ? (
@@ -323,8 +352,7 @@ function PlaceLeaderboardCard() {
                 />
               </label>
               <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-                No ranking público, aparece esse nome (ou seu @, se deixar em branco) — nunca seu
-                nome de conta. Pra amigos, sempre mostra seu nome de verdade.
+                Amigos sempre veem seu nome de verdade.
               </p>
 
               <div className="mt-4 border-t border-border pt-4">
@@ -604,11 +632,8 @@ export default function PerfilPage() {
 
             <fieldset>
               <legend className="text-sm font-medium">Aviso de parcial a cada</legend>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                Só o valor inicial — dá pra trocar (inclusive voz/vibração) antes de cada corrida.
-              </p>
               <PillSlider
-                className="mt-4"
+                className="mt-3"
                 min={ANNOUNCE_MIN_METERS}
                 max={ANNOUNCE_MAX_METERS}
                 step={ANNOUNCE_STEP_METERS}
@@ -622,12 +647,8 @@ export default function PerfilPage() {
               </div>
             </fieldset>
 
-            <fieldset className="mt-6 border-t border-border pt-5">
+            <fieldset className="mt-5 border-t border-border pt-4">
               <legend className="text-sm font-medium">Unidade de distância</legend>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                Vale pro histórico — a tela de corrida ainda mostra km enquanto o tracking está em
-                validação.
-              </p>
               <div className="mt-3">
                 <PillTabs
                   tabs={UNITS.map((unit) => ({ id: unit.value, label: unit.label }))}
@@ -640,40 +661,24 @@ export default function PerfilPage() {
               </div>
             </fieldset>
 
-            <fieldset className="mt-6 border-t border-border pt-5">
+            <fieldset className="mt-5 border-t border-border pt-4">
               <legend className="text-sm font-medium">Estatísticas na tela de corrida</legend>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                Além do pace ao vivo, que fica sempre em destaque.
-              </p>
-              <div className="mt-3 flex flex-col gap-3.5">
-                <PreferenceToggle
+              <div className="mt-3 flex gap-2">
+                <ToggleChip
                   label="Pace total"
-                  hint="média da corrida inteira até agora"
                   checked={prefs.showAveragePaceLive}
                   onChange={(checked) => update({ showAveragePaceLive: checked })}
                 />
-                <PreferenceToggle
+                <ToggleChip
                   label="Pace do km atual"
-                  hint="desde a última marca de km fechado"
                   checked={prefs.showCurrentKmPaceLive}
                   onChange={(checked) => update({ showCurrentKmPaceLive: checked })}
                 />
               </div>
             </fieldset>
 
-            <fieldset className="mt-6 border-t border-border pt-5">
+            <fieldset className="mt-5 border-t border-border pt-4">
               <legend className="text-sm font-medium">Vibração</legend>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                Só com meta de &quot;Ritmo&quot; — vibra quando você atrasa 20s do alvo.
-              </p>
-              <div className="mt-3">
-                <PreferenceToggle
-                  label="Vibrar quando atrasar do ritmo"
-                  hint="silencioso o resto do tempo, mesmo com meta de ritmo ativa"
-                  checked={prefs.vibrateOnPaceDelay}
-                  onChange={(checked) => update({ vibrateOnPaceDelay: checked })}
-                />
-              </div>
               {/*
                 Isolates "o toggle não vibra durante a corrida" into two
                 separate questions someone can answer without waiting 20s
@@ -684,37 +689,35 @@ export default function PerfilPage() {
                 durante uma corrida, o problema é a condição de disparo
                 (meta não é "Ritmo", ou nunca ficou 20s atrasado de verdade).
               */}
-              <button
-                type="button"
-                onClick={() => {
-                  setVibrateTested(true);
-                  firePaceDelayVibration();
-                  window.setTimeout(() => setVibrateTested(false), 2000);
-                }}
-                className="mt-3 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition-colors active:text-foreground"
-              >
-                {vibrateTested ? "Vibrou agora? Isso testa só o aparelho." : "Testar vibração"}
-              </button>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <PreferenceToggle
+                    label="Vibrar quando atrasar do ritmo"
+                    hint="só com meta de ritmo, ao passar 20s do alvo"
+                    checked={prefs.vibrateOnPaceDelay}
+                    onChange={(checked) => update({ vibrateOnPaceDelay: checked })}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVibrateTested(true);
+                    firePaceDelayVibration();
+                    window.setTimeout(() => setVibrateTested(false), 2000);
+                  }}
+                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition-colors active:text-foreground"
+                >
+                  {vibrateTested ? "Vibrou?" : "Testar"}
+                </button>
+              </div>
             </fieldset>
 
-            <fieldset className="mt-6 border-t border-border pt-5">
+            <fieldset className="mt-5 border-t border-border pt-4">
               <legend className="text-sm font-medium">Lembrete de gel de carboidrato</legend>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                Aviso por voz baseado no tempo de corrida.{" "}
-                <a
-                  href="https://xanthus.app.br/estudos"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent underline underline-offset-2"
-                >
-                  Ver o estudo
-                </a>
-                .
-              </p>
               <div className="mt-3">
                 <PreferenceToggle
                   label="Lembrar de tomar gel"
-                  hint="silencioso em corridas curtas — só dispara depois do primeiro intervalo"
+                  hint="baseado no tempo de corrida, silencioso em corridas curtas"
                   checked={prefs.carbReminderEnabled}
                   onChange={(checked) => update({ carbReminderEnabled: checked })}
                 />
@@ -735,6 +738,14 @@ export default function PerfilPage() {
                   </div>
                 </div>
               )}
+              <a
+                href="https://xanthus.app.br/estudos"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-xs text-accent underline underline-offset-2"
+              >
+                Ver o estudo
+              </a>
             </fieldset>
 
             <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">
