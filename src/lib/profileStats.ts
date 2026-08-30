@@ -28,17 +28,26 @@ import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite }
 import { buildStatsSnapshot } from "./tracking/stats";
 import { listCompletedRuns } from "./tracking/storage";
 
+/**
+ * `| null` on every optional field, not just `?:` — Appwrite always returns
+ * every schema attribute on a row, using `null` (never an omitted key) for
+ * one that was never written. A row synced before these columns existed, or
+ * from `share-run` never sending a value, comes back with `null`, not
+ * `undefined` — a caller that only ever checks `!== undefined` (as
+ * `/perfil/ver` once did) renders the literal string "null" and treats
+ * `null` `lastRunAt` as the Unix epoch, both really shipped once.
+ */
 export interface ProfileStats extends Models.Row {
   userId: string;
   totalMeters: number;
   totalRuns: number;
-  weekMeters?: number;
-  streakWeeks?: number;
-  lastRunAt?: number;
-  pr5kSeconds?: number;
-  pr10kSeconds?: number;
-  prHalfSeconds?: number;
-  prFullSeconds?: number;
+  weekMeters?: number | null;
+  streakWeeks?: number | null;
+  lastRunAt?: number | null;
+  pr5kSeconds?: number | null;
+  pr10kSeconds?: number | null;
+  prHalfSeconds?: number | null;
+  prFullSeconds?: number | null;
 }
 
 /**

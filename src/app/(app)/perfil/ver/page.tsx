@@ -266,7 +266,7 @@ function VerPerfilContent() {
                 {formatDistance(myStats?.weekMeters ?? 0, unit)}
               </span>
               <span className="text-center font-mono text-sm tabular-nums">
-                {stats.weekMeters !== undefined ? formatDistance(stats.weekMeters, unit) : "—"}
+                {stats.weekMeters != null ? formatDistance(stats.weekMeters, unit) : "—"}
               </span>
 
               <span className="text-sm text-muted">Sequência</span>
@@ -274,17 +274,17 @@ function VerPerfilContent() {
                 {formatStreakWeeks(myStats?.streakWeeks ?? 0)}
               </span>
               <span className="text-center font-mono text-sm tabular-nums">
-                {stats.streakWeeks !== undefined ? formatStreakWeeks(stats.streakWeeks) : "—"}
+                {stats.streakWeeks != null ? formatStreakWeeks(stats.streakWeeks) : "—"}
               </span>
 
-              {(myStats?.lastRunAt || stats.lastRunAt !== undefined) && (
+              {(myStats?.lastRunAt || stats.lastRunAt != null) && (
                 <>
                   <span className="text-sm text-muted">Última corrida</span>
                   <span className="text-center font-mono text-sm tabular-nums">
                     {myStats?.lastRunAt ? formatRelativeDays(myStats.lastRunAt) : "—"}
                   </span>
                   <span className="text-center font-mono text-sm tabular-nums">
-                    {stats.lastRunAt !== undefined ? formatRelativeDays(stats.lastRunAt) : "—"}
+                    {stats.lastRunAt != null ? formatRelativeDays(stats.lastRunAt) : "—"}
                   </span>
                 </>
               )}
@@ -292,7 +292,7 @@ function VerPerfilContent() {
               {PR_COMPARISON_ROWS.map(({ label, key }) => {
                 const mine = myStats?.[key] ?? null;
                 const theirs = stats[key];
-                if (mine === null && theirs === undefined) return null;
+                if (mine === null && theirs == null) return null;
                 return (
                   <Fragment key={key}>
                     <span className="text-sm text-muted">{label}</span>
