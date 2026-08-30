@@ -2971,6 +2971,64 @@ não deployado em produção**.
       broadcast mas nunca Apple Watch (não transmite por BLE); não é
       excludente com o Caminho A, só uma fase futura possível.
 
+## "Clima pra corrida" — previsão hora-a-hora antes de correr (2026-08-30)
+
+Pedido do dono do projeto vendo um print do The Weather Channel
+(Android): uma "Previsão de Corrida" com resumo em frase + gráfico de
+barras hora-a-hora (Bom/Razoável/Ruim). Escopado via plan mode antes de
+codar (2 agentes Explore); implementado na mesma sessão, branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+- **Fonte de dados: Open-Meteo** (`api.open-meteo.com/v1/forecast`) —
+  diferente do MapTiler (elevação), **não precisa de chave** — elimina
+  qualquer wiring novo de secret/CI. `src/lib/runningWeather.ts`
+  (`fetchRunningWeather(lat, lon)`) segue a mesma convenção de
+  `elevation.ts`: nunca lança erro, `null` em qualquer falha.
+- **Pontuação Bom/Razoável/Ruim é uma heurística simples do próprio app**
+  (`scoreHour`, baseada em `apparent_temperature`/`precipitation_probability`/
+  `wind_speed_10m`) — **não** é uma recomendação clínica nem baseada em
+  `evidence/facts.ts` (não existe fato equivalente a WBGT/heat-index pra
+  exercício no corpus hoje). Copy no card deixa isso explícito: "estimativa
+  simples do app... não é uma recomendação médica" — mesma honestidade já
+  aplicada ao motor de treino determinístico.
+- **Localização**: leitura avulsa de baixa precisão
+  (`Geolocation.getCurrentPosition({enableHighAccuracy:false})`,
+  `@capacitor/geolocation`) disparada só quando a pessoa toca "Ver
+  previsão" — nunca em background, nunca automática. Mesmo padrão já
+  usado em `friend-presence-ping.tsx` ("amigo por perto"). **Sem
+  preferência/toggle novo em `/perfil`** — o próprio toque já é o
+  consentimento, mesma lógica do botão "Gerar QR" ao lado.
+- `src/app/(app)/run/weather-card.tsx` (novo componente, fora de
+  `page.tsx`): card colapsado por padrão (só título + botão), nunca busca
+  nada sozinho — evita tanto pedir permissão de localização de surpresa
+  quanto adicionar peso visual à tela que acabou de ser enxugada nesta
+  mesma sessão (ver seção "Preparar corrida: dois widgets consolidados"
+  acima). Estados `idle/loading/ready/denied/failed`; nunca bloqueia
+  "Iniciar corrida". Renderiza no topo do form "Preparar corrida", antes
+  do card "Tipo de meta".
+- `src/app/(app)/privacidade/page.tsx`: `<li>` novo na lista de
+  terceiros, ao lado do MapTiler, avisando sobre o Open-Meteo.
+- **Achado de verificação real**: a barra por hora inicialmente usava
+  `rounded-full` numa `<div>` larga (`w-full max-w-8`) com alturas
+  pequenas (`h-1.5`/`h-4`/`h-8`) — visualmente virava bolinhas/cápsulas,
+  não barras de gráfico. Corrigido pra uma largura fixa e estreita
+  (`w-2.5`), que já lê como barra vertical de verdade. Achado só depois
+  de renderizar de verdade (Playwright, CSS compilada real do dev
+  server) — não seria óbvio só lendo o JSX.
+- **Pegadinha de verificação neste ambiente**: `Geolocation.getCurrentPosition`
+  nunca resolveu de verdade neste sandbox headless (a permissão de
+  contexto do Playwright foi concedida, mas a chamada real do browser
+  nunca respondeu, caindo no timeout interno de 10s do próprio plugin e
+  indo pro estado `denied`) — confirma que o estado de erro degrada bem,
+  mas não confirma o fetch real do Open-Meteo nem o estado `ready` contra
+  geolocalização de verdade. O estado `ready` (barras coloridas + resumo)
+  foi verificado à parte, com uma página HTML standalone usando a mesma
+  CSS compilada do app e dado sintético.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
+  **Não testado em aparelho real** — geolocalização de verdade, permissão
+  negada de verdade, mesma pendência padrão de sempre.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra

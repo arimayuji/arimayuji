@@ -40,6 +40,7 @@ import {
   type GroupRun,
 } from "@/lib/groupRuns";
 import { PairingQrCode } from "../pairing-qr";
+import { RunWeatherCard } from "./weather-card";
 import { AccountPrompt } from "../account-prompt";
 import { GroupRunLobby } from "../group-run-lobby";
 import { useGroupLiveRuns, buildGroupMarkers } from "@/lib/useGroupLiveRuns";
@@ -2131,6 +2132,8 @@ export default function RunPage() {
                 </button>
               )}
             </div>
+
+            <RunWeatherCard />
 
             <Card>
               <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">

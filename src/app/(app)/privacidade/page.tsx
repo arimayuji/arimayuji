@@ -93,6 +93,11 @@ export default function PrivacidadePage() {
               recebe só as coordenadas da corrida, sem identificar você.
             </li>
             <li>
+              <strong className="text-foreground">Open-Meteo</strong> — dá a previsão do tempo pra
+              corrida, só quando você toca em &quot;Ver previsão&quot; em /run; recebe só a
+              coordenada daquele momento, sem identificar você.
+            </li>
+            <li>
               <strong className="text-foreground">Cloudflare</strong> — hospeda o app e os mapas
               (tiles); vê seu IP como qualquer acesso a um site.
             </li>
