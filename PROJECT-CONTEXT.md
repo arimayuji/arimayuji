@@ -2701,16 +2701,23 @@ na hora com a chave admin — `visibility: "friends"` na linha de `runs`
   uma corrida de amigo.
 
 Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos
-(`node --check` na Function também). **Não verificável neste ambiente
-remoto**: rodar `scripts/appwrite-setup.ts` (tabela `run_kudos` nova) +
-redeployar `client-actions` (pendente do OK de sempre), e o teste real
-de ponta a ponta com duas contas — compartilhar uma corrida, dar/tirar
-kudos, confirmar que a segunda conta vê no feed — mesma trilha já usada
-pra fechar os bugs de `friendships`/`live_runs`, ainda não rodada aqui.
-Tentativa de verificação visual via Playwright ficou travada em
-"Verificando sua conta..." (checagem de sessão Appwrite nunca resolveu
-neste sandbox) — não chegou a confirmar a aba Feed renderizando com
-dado real.
+(`node --check` na Function também). Verificação visual real via
+Playwright com sessão Appwrite/dado real ficou travada em "Verificando
+sua conta..." (a checagem de sessão nunca resolveu neste sandbox) —
+contornado interceptando a rede (`page.route`, mockando `GET /v1/account`,
+`GET .../tables/profiles/rows/<id>`, `GET .../tables/friendships/rows`
+vazio, e `POST /v1/functions/client-actions/executions` respondendo
+`list-friends-feed`/`toggle-run-kudos` com 4 corridas sintéticas) —
+mesma técnica já usada antes nesta sessão pra verificar `/plano`
+desktop. Confirmado assim: a aba Feed renderiza avatar/nome/distância/
+tempo/pace/kudos de verdade, e clicar no botão de kudos atualiza o
+contador e o estado preenchido na hora (1 → 2, coração vazio → cheio),
+sem reload. **Ainda não verificável de ponta a ponta contra produção
+real**: rodar `scripts/appwrite-setup.ts` (tabela `run_kudos` nova) +
+redeployar `client-actions` (pendente do OK de sempre), e o teste com
+duas contas reais — compartilhar uma corrida, dar/tirar kudos, confirmar
+que a segunda conta vê no feed — mesma trilha já usada pra fechar os
+bugs de `friendships`/`live_runs`, ainda não rodada aqui.
 
 ## Perguntas em aberto (preencher quando puder)
 
