@@ -18,6 +18,7 @@ import { onNotificationAction, onWatchAction } from "@/lib/tracking/geolocation"
 import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { listFriendConnections, type FriendConnection } from "@/lib/friendships";
+import { useNearbyFriends } from "@/lib/useNearbyFriends";
 import {
   startLiveSession,
   updateLiveSession,
@@ -583,6 +584,69 @@ function WarmupIcon({ className }: { className?: string }) {
       <path d="M10 2.5c1 2.5-1.5 3.5-1.5 6a3.5 3.5 0 0 0 7 0c0-1-.5-1.8-1-2.3.2 1-.3 1.8-1 1.8-1 0-1-1-.7-2 .5-1.5-.3-2.8-2.8-3.5Z" />
       <path d="M6.5 9.5c-.8 1-1.2 2-1.2 3a4.7 4.7 0 0 0 9.4 0c0-1-.2-1.8-.5-2.5" />
     </svg>
+  );
+}
+
+/** Two overlapping heads — "amigo por perto", not the single-person icon `Avatar` already stands in for elsewhere. */
+function NearbyFriendsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="7" cy="6.5" r="2.3" />
+      <path d="M2.8 15c0-2.5 1.9-4.2 4.2-4.2s4.2 1.7 4.2 4.2" />
+      <circle cx="13.5" cy="6.8" r="1.9" />
+      <path d="M11.8 10.9c1.6.4 2.9 1.8 2.9 4" />
+    </svg>
+  );
+}
+
+/**
+ * "Fulano tá por perto agora, bora correr junto?" — reads the same
+ * `friend_presence` opt-in data /amigos already shows as a passive badge
+ * (see `useNearbyFriends`'s own comment), but surfaces it here as an actual
+ * suggestion at the one moment it's directly actionable: about to start a
+ * run. Dismissible per this screen visit only (plain local state, not
+ * persisted) — reappears next time /run opens and someone's still nearby,
+ * same "quiet, no push notification" posture as the rest of this feature.
+ */
+function NearbyFriendCard() {
+  const nearby = useNearbyFriends();
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed || nearby.length === 0) return null;
+
+  const names =
+    nearby.length === 1
+      ? nearby[0].displayName
+      : nearby.length === 2
+        ? `${nearby[0].displayName} e ${nearby[1].displayName}`
+        : `${nearby[0].displayName} e mais ${nearby.length - 1}`;
+
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+      <NearbyFriendsIcon className="h-5 w-5 shrink-0 text-accent" />
+      <p className="flex-1 text-xs leading-relaxed text-pretty">
+        <strong className="font-semibold">{names}</strong> {nearby.length === 1 ? "tá" : "tão"} por perto
+        agora — bora correr junto?
+      </p>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        aria-label="Dispensar"
+        className="shrink-0 text-muted hover:text-foreground"
+      >
+        <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <path d="M5 5l10 10M15 5L5 15" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
@@ -2158,6 +2222,8 @@ export default function RunPage() {
                 Aquecer antes de correr
               </Link>
             </div>
+
+            <NearbyFriendCard />
 
             <RunWeatherCard />
 
