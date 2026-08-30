@@ -3663,6 +3663,60 @@ produção**.
   sintético, incluindo o caso "só um lado tem dado"). **Não testado em
   aparelho real** — mesma pendência padrão de sempre.
 
+## Ilustrações de capa: 46 dos 56 lugares fechadas (2026-08-30)
+
+Continuação de "Ilustrações dos lugares" (2026-08-29, acima) — a conta do
+Recraft ficou sem crédito de **API** logo na primeira leva (9/56). Decisão
+importante: **API e Studio usam saldos separados** — a assinatura Pro
+mostrada no app do Recraft (créditos "1.730") é só pro Studio (web); a API
+usa "API Units", pré-pago à parte (US$1 = 1.000 units, ~35-40 units por
+imagem). Não dava pra recarregar um achando que resolvia o outro.
+**Decisão do dono do projeto**: gerar as ilustrações manualmente no
+Recraft Studio (créditos do plano já pagos) em vez de recarregar API
+Units — evita gasto duplicado.
+
+Passado o brief (lista dos 47 lugares + o que precisa aparecer em cada
+cena + prompt fixo com a regra de estilo do app), a primeira leva de 5
+testes trouxe 3 problemas reais: sem o corredor em silhueta azul (o
+elemento de identidade obrigatório), texto embutido na imagem com erro
+de grafia ("RIO NEGAS" em vez de "Rio Negro"), e paleta inconsistente
+entre as imagens (sem a referência de estilo travada). Corrigido com um
+prompt único revisado, reunindo os 3 fixes.
+
+**Resultado, 46 das 47 fechadas** (branch `claude/strava-competitor-feedback-cyvop8`,
+commit `5bc2684`, **ainda não deployado em produção**): o dono do
+projeto gerou as 47 de uma vez no Studio e mandou um `.zip`. Os nomes de
+arquivo saíram genéricos (o export do Recraft usa o texto do prompt
+truncado, igual pra quase todas) — sem informação de qual lugar era
+qual. Pareamento feito por identificação visual de cada uma das 47
+(contact sheets numerados gerados via PIL, revisados manualmente): 13
+tinham marco único reconhecível (farol da Barra, Ponte Rio Negro,
+calçadão de Copacabana, Cristo Redentor, fortaleza de Macapá, araucárias
+de Curitiba, Igreja da Pampulha, arquibancada do Areião, etc.) — essas
+com alta confiança; as demais são cenas genéricas de parque/lagoa/orla
+sem marco distintivo, pareadas por tema (praia com praia, lago com lago)
+já que a ilustração é sobre atmosfera, não reprodução fotográfica exata.
+Grade completa com o pareamento proposto (cores por confiança:
+cinza=alta, laranja=aproximado, vermelho=fraco/genérico) mandada pro
+dono do projeto revisar antes de qualquer commit — aprovado sem
+mudanças ("pode manter assim").
+
+Cada imagem: crop centralizado de 1280×832 pra 960×644 (mesma proporção
+3:2 das 19 já existentes, escolhida nessa mesma leva por já bater com o
+formato existente) e exportada como webp qualidade 82 — sem esticar a
+ilustração original.
+
+**Uma ficou de fora**: `campo-grande-parque-nacoes-indigenas` — o
+arquivo que o Recraft exportou pra esse prompt saiu como um grid de 4
+sub-cenas (bug de export, não do prompt em si), não uma imagem única
+usável. Precisa gerar essa de novo isoladamente.
+
+Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos (66
+páginas estáticas de lugares geradas, incluindo as 46 novas). **Não
+verificado visualmente dentro do app de verdade** (só via contact sheet
+fora do Next.js) — vale conferir o card/detalhe de alguns desses lugares
+rodando o app antes de considerar 100% fechado.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
