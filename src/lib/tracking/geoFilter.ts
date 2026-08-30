@@ -143,6 +143,11 @@ class AxisKalman1D {
     return this.Ppp;
   }
 
+  /** Full covariance snapshot (position/velocity variances + their cross-term) — `rtsSmoothAxis` below needs all three, not just `positionVariance`, to run the backward pass. */
+  get covariance(): { Ppp: number; Ppv: number; Pvv: number } {
+    return { Ppp: this.Ppp, Ppv: this.Ppv, Pvv: this.Pvv };
+  }
+
   predict(dtSeconds: number, accelVarianceMps2: number) {
     if (dtSeconds <= 0) return;
     this.pos += this.vel * dtSeconds;
@@ -398,4 +403,165 @@ export function formatElapsed(totalSeconds: number): string {
 export function formatGoalEta(totalSeconds: number | null): string {
   if (totalSeconds === null || !Number.isFinite(totalSeconds)) return "--:--";
   return formatElapsed(Math.round(totalSeconds));
+}
+
+/**
+ * Post-run route smoothing (Rauch-Tung-Striebel): a second, backward pass
+ * over the already-recorded, already-live-Kalman-filtered route points.
+ *
+ * The live filter above is forward-only by necessity — at fix k it can only
+ * use fixes 0..k, so a single noisy stretch lingers until enough later fixes
+ * drag the estimate back. Once a run is over, every fix is already known, so
+ * a backward pass can use fix k+1..N to also correct fix k. This is the
+ * standard second half of a Kalman smoother (see e.g. Bar-Shalom et al.,
+ * or any GPS-trajectory post-processing writeup): the same constant-velocity
+ * model, run forward once to collect each step's filtered AND predicted
+ * (state, covariance), then backward once more to blend each filtered
+ * estimate toward what the *next* step's smoothed estimate implies it should
+ * have been.
+ *
+ * Deliberately scoped to the stored route shape only — `distanceMeters` (the
+ * total credited live, spoken by the voice announcements, shown in the
+ * finish summary) is never touched by this. Confirmed by reading
+ * `splits.ts`: split/PR/achievement distances already come from a fresh
+ * `haversineMeters` sum over `points`, entirely independent of
+ * `distanceMeters` — so this already-existing split between "what was
+ * announced live" and "what recorded route positions imply" is not a new
+ * inconsistency this introduces, it's the app's existing architecture. What
+ * this changes is: the drawn map line stops wobbling through the exact same
+ * GPS jitter the live filter already reduced but couldn't fully remove
+ * before finding out how the trajectory actually continued, and everything
+ * computed from `points` (splits, PR detection, elevation sampling, matched-
+ * route comparison) inherits that same cleaner path.
+ */
+const ROUTE_SMOOTH_CONFIG = {
+  /** Same order of magnitude as the live filter's own process noise (`FILTER_CONFIG.accelProcessNoiseMps2`) — this is smoothing the same physical motion, not a different model. */
+  accelProcessNoiseMps2: 1.2,
+  /**
+   * Residual measurement noise assumed on each *already live-filtered*
+   * point, ~4m std. Deliberately tighter than a raw GPS fix's own accuracy
+   * (`FILTER_CONFIG.maxAcceptableAccuracy` allows up to 25m) — these points
+   * already went through the live Kalman update once, so what's left is a
+   * smaller residual, not the original fix noise.
+   */
+  measurementVarianceM2: 16,
+  /** Fewer points than this can't usefully be smoothed (no meaningful "future" to look back from) — returned unchanged. */
+  minPoints: 3,
+} as const;
+
+/**
+ * One axis (E or N) of the backward pass. `dts[i]` is the elapsed seconds
+ * between `measurements[i]` and `measurements[i + 1]`. Returns the smoothed
+ * mean position per point — the smoothed *covariance* is never computed
+ * because nothing downstream needs it: this recursion for the mean only
+ * requires each step's already-known filtered/predicted (state, covariance)
+ * from the forward pass, never the smoothed covariance of a later step.
+ */
+function rtsSmoothAxis(measurements: number[], dts: number[], accelProcessNoiseMps2: number, measurementVarianceM2: number): number[] {
+  const n = measurements.length;
+
+  const filtPos = new Array<number>(n);
+  const filtVel = new Array<number>(n);
+  const filtCov = new Array<{ Ppp: number; Ppv: number; Pvv: number }>(n);
+  const predPos = new Array<number>(n);
+  const predVel = new Array<number>(n);
+  const predCov = new Array<{ Ppp: number; Ppv: number; Pvv: number }>(n);
+
+  const axis = new AxisKalman1D(measurements[0], 0, measurementVarianceM2, ROUTE_SMOOTH_CONFIG.accelProcessNoiseMps2 ** 2);
+  filtPos[0] = axis.position;
+  filtVel[0] = axis.velocity;
+  filtCov[0] = axis.covariance;
+  predPos[0] = axis.position;
+  predVel[0] = axis.velocity;
+  predCov[0] = axis.covariance;
+
+  for (let k = 1; k < n; k++) {
+    axis.predict(dts[k - 1], accelProcessNoiseMps2);
+    predPos[k] = axis.position;
+    predVel[k] = axis.velocity;
+    predCov[k] = axis.covariance;
+    axis.updatePosition(measurements[k], measurementVarianceM2);
+    filtPos[k] = axis.position;
+    filtVel[k] = axis.velocity;
+    filtCov[k] = axis.covariance;
+  }
+
+  const smoothPos = new Array<number>(n);
+  const smoothVel = new Array<number>(n);
+  smoothPos[n - 1] = filtPos[n - 1];
+  smoothVel[n - 1] = filtVel[n - 1];
+
+  for (let k = n - 2; k >= 0; k--) {
+    const dt = dts[k];
+    const { Ppp: a, Ppv: b, Pvv: c } = filtCov[k];
+    const { Ppp: pp, Ppv: pv, Pvv: vv } = predCov[k + 1];
+    const det = pp * vv - pv * pv;
+    if (!(det > 0) || !Number.isFinite(det)) {
+      // Degenerate covariance (can happen right after a very long GPS gap,
+      // where predicted variance explodes) — nothing sane to blend toward,
+      // fall back to the forward-only filtered estimate for this point.
+      smoothPos[k] = filtPos[k];
+      smoothVel[k] = filtVel[k];
+      continue;
+    }
+
+    // Smoother gain C = P_filt[k] · Fᵀ · P_pred[k+1]⁻¹, F = [[1, dt], [0, 1]].
+    const m00 = a + b * dt;
+    const m01 = b;
+    const m10 = b + c * dt;
+    const m11 = c;
+    const c00 = (m00 * vv - m01 * pv) / det;
+    const c01 = (m01 * pp - m00 * pv) / det;
+    const c10 = (m10 * vv - m11 * pv) / det;
+    const c11 = (m11 * pp - m10 * pv) / det;
+
+    const dPos = smoothPos[k + 1] - predPos[k + 1];
+    const dVel = smoothVel[k + 1] - predVel[k + 1];
+    smoothPos[k] = filtPos[k] + c00 * dPos + c01 * dVel;
+    smoothVel[k] = filtVel[k] + c10 * dPos + c11 * dVel;
+  }
+
+  return smoothPos;
+}
+
+export interface RoutePointLike {
+  lat: number;
+  lon: number;
+  timestamp: number;
+}
+
+/**
+ * Applies the RTS backward pass (see above) to a finished run's recorded
+ * route, in a local metre frame (same reasoning as `Kalman2D`: mixing
+ * lat/lon degrees directly into one noise model ignores that a degree of
+ * longitude isn't a fixed distance). Pure and synchronous — safe to call
+ * once, at `finish()`, on the final `points` array before it's persisted.
+ */
+export function smoothRoutePoints<T extends RoutePointLike>(points: T[]): T[] {
+  if (points.length < ROUTE_SMOOTH_CONFIG.minPoints) return points;
+
+  const origin = points[0];
+  const local = points.map((p) => latLonToLocalMeters(origin, p));
+  const dts = [];
+  for (let i = 1; i < points.length; i++) {
+    dts.push(Math.max(0.001, (points[i].timestamp - points[i - 1].timestamp) / 1000));
+  }
+
+  const smoothedE = rtsSmoothAxis(
+    local.map((p) => p.e),
+    dts,
+    ROUTE_SMOOTH_CONFIG.accelProcessNoiseMps2,
+    ROUTE_SMOOTH_CONFIG.measurementVarianceM2,
+  );
+  const smoothedN = rtsSmoothAxis(
+    local.map((p) => p.n),
+    dts,
+    ROUTE_SMOOTH_CONFIG.accelProcessNoiseMps2,
+    ROUTE_SMOOTH_CONFIG.measurementVarianceM2,
+  );
+
+  return points.map((point, i) => ({
+    ...point,
+    ...localMetersToLatLon(origin, { e: smoothedE[i], n: smoothedN[i] }),
+  }));
 }

@@ -16,6 +16,7 @@ import {
   isPlausibleStep,
   latLonToLocalMeters,
   localMetersToLatLon,
+  smoothRoutePoints,
   speedHeadingToVelocity,
   totalGapSeconds,
   type GpsGap,
@@ -1185,12 +1186,20 @@ export function useRunTracker() {
 
       const movingSeconds = Math.max(0, computeElapsedSeconds() - totalGapSeconds(gpsGaps));
 
+      // Route-shape-only post-processing (see `smoothRoutePoints`'s own
+      // comment) — `distanceMeters` right below stays exactly what was
+      // credited live, the same number the voice already announced during
+      // the run. Only the drawn path (and anything derived from it: splits,
+      // PR detection, elevation sampling, matched-route comparison) gets the
+      // benefit of the backward pass.
+      const smoothedPoints = smoothRoutePoints(pointsRef.current);
+
       const run: CompletedRun = {
         id: runIdRef.current,
         startedAt: startedAtRef.current ?? finishedAt,
         finishedAt,
         distanceMeters: distanceRef.current,
-        points: pointsRef.current,
+        points: smoothedPoints,
         movingSeconds,
         ...(extra?.tracks?.length ? { tracks: extra.tracks } : {}),
         ...(extra?.shoeName?.trim() ? { shoeName: extra.shoeName.trim() } : {}),
