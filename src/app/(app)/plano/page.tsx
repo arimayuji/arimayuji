@@ -13,7 +13,6 @@ import {
   ScreenHeader,
   Stat,
 } from "../ui";
-import { topicLabel } from "@/lib/evidence";
 import { GoalDatePicker } from "../date-picker";
 import {
   activePainSignal,
@@ -396,8 +395,8 @@ function SelfPlanSuggestionCard({
       <Card className="pr-enter" style={delay(230)}>
         <CardTitle aside={<NoticeBadge>experimental</NoticeBadge>}>Sugestão de treino com IA</CardTitle>
         <p className="text-sm leading-relaxed text-muted text-pretty">
-          Entra na sua conta pra pedir uma sugestão pra essa semana, grounded nos mesmos estudos
-          citados acima.
+          Entra na sua conta pra pedir uma sugestão pra essa semana, travada pelo mesmo motor de
+          segurança do resto do app.
         </p>
       </Card>
     );
@@ -428,9 +427,8 @@ function SelfPlanSuggestionCard({
     <Card className="pr-enter" style={delay(230)}>
       <CardTitle aside={<NoticeBadge>experimental</NoticeBadge>}>Sugestão de treino com IA</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-        Pede uma sugestão pra essa semana específica, grounded nos mesmos estudos citados acima —
-        travada pelo mesmo limite seguro de progressão que o resto do app usa. Só 1 sugestão por
-        semana.
+        Pede uma sugestão pra essa semana específica, travada pelo mesmo limite seguro de
+        progressão que o resto do app usa. Só 1 sugestão por semana.
       </p>
       <textarea
         value={athleteNote}
@@ -464,17 +462,8 @@ function SelfPlanSuggestionCard({
               <div className="mx-auto mb-5 h-1 w-9 rounded-full bg-border" />
               <p className="mb-3 text-base font-bold">Antes de aplicar</p>
               <p className="mb-4 text-sm leading-relaxed text-muted text-pretty">
-                Isso é uma sugestão gerada por IA, baseada nos mesmos estudos citados em{" "}
-                <a
-                  href="https://xanthus.app.br/estudos"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2"
-                >
-                  /estudos
-                </a>
-                , mas travada pelo mesmo motor de segurança do app — nunca sobe mais que o limite
-                seguro de progressão.{" "}
+                Isso é uma sugestão gerada por IA, travada pelo mesmo motor de segurança do app —
+                nunca sobe mais que o limite seguro de progressão.{" "}
                 <strong className="text-foreground">
                   Não substitui orientação de um profissional de saúde/educação física.
                 </strong>
@@ -758,15 +747,6 @@ function GoalCard({
           <p className="mt-2 text-center text-xs text-warn">Falta escolher a distância desse tempo.</p>
         )}
       </fieldset>
-
-      <a
-        href="https://xanthus.app.br/estudos"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-6 inline-block border-t border-border pt-5 text-sm text-accent underline underline-offset-2"
-      >
-        Ver os estudos por trás dele
-      </a>
     </Card>
   );
 }
@@ -1199,41 +1179,6 @@ export default function PlanoPage() {
             </div>
           )}
 
-          {/* Kept deliberately light: naming the topics is enough to show
-              the week isn't arbitrary, without repeating each fact's
-              bullets/caveat/source inline — that whole citation format now
-              lives only at /estudos, opened in the real browser like
-              documentation instead of rendered raw in the app (see this
-              screen's own request history for why). */}
-          <Card className="pr-enter" style={delay(260)}>
-            <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
-              Por que essa semana tem essa cara
-            </CardTitle>
-            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-              Cada decisão do motor vem de um estudo real, não de achismo.
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {plan.evidenceTopics.map((topic) => (
-                <a
-                  key={topic}
-                  href={`https://xanthus.app.br/estudos#${topic}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted hover:border-accent hover:text-accent"
-                >
-                  {topicLabel(topic)}
-                </a>
-              ))}
-            </div>
-            <a
-              href="https://xanthus.app.br/estudos"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
-            >
-              Ver os estudos completos
-            </a>
-          </Card>
         </Screen>
       </>
     );
@@ -1312,24 +1257,6 @@ export default function PlanoPage() {
                 Números de demonstração. Assim que os dois itens acima estiverem prontos, essa tela
                 vira o seu plano de verdade.
               </p>
-            </Card>
-
-            <Card className="pr-enter" style={delay(260)}>
-              <CardTitle aside={<NoticeBadge>citações reais</NoticeBadge>}>
-                Por que essa semana tem essa cara
-              </CardTitle>
-              <p className="mb-1 text-xs leading-relaxed text-muted text-pretty">
-                A semana acima é inventada, mas o formato dela não é aleatório — cada decisão do
-                motor de treino vem acompanhada de um estudo real por trás.
-              </p>
-              <a
-                href="https://xanthus.app.br/estudos"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-block border-t border-border pt-4 text-xs text-accent underline underline-offset-2"
-              >
-                Ver os estudos
-              </a>
             </Card>
           </>
         ) : (

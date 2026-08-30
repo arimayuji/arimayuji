@@ -777,14 +777,6 @@ export default function PerfilPage() {
                   </div>
                 </div>
               )}
-              <a
-                href="https://xanthus.app.br/estudos#nutrition_timing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-block text-xs text-accent underline underline-offset-2"
-              >
-                Ver o estudo
-              </a>
             </fieldset>
 
             <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">

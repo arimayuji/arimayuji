@@ -661,16 +661,8 @@ export function IntensityRingCard({
         </p>
       )}
       <p className="mt-3 text-[11px] leading-relaxed text-muted">
-        Alvo de referência: ~80% em intensidade baixa, ~20% em alta (
-        <a
-          href="https://xanthus.app.br/estudos#periodization"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-accent underline underline-offset-2"
-        >
-          ver o estudo
-        </a>
-        ). O corte da zona cinza acima é uma estimativa do próprio app, não um número da fonte.
+        Alvo de referência: ~80% em intensidade baixa, ~20% em alta. O corte da zona cinza acima é
+        uma estimativa do próprio app, não um número exato de fonte nenhuma.
       </p>
     </div>
   );

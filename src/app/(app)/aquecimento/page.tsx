@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { topicLabel } from "@/lib/evidence";
 import { WakeLockController } from "@/lib/tracking/wakeLock";
 import { routineByType, totalDurationSeconds, type WarmupRoutine } from "@/lib/warmupRoutines";
 import { useHeaderClose } from "../app-shell";
@@ -60,10 +59,6 @@ function CountdownRing({ secondsLeft, totalSeconds }: { secondsLeft: number; tot
 }
 
 function IntroScreen({ routine, onStart }: { routine: WarmupRoutine; onStart: () => void }) {
-  const topics = useMemo(
-    () => Array.from(new Set(routine.steps.map((s) => s.evidenceTopic).filter((t): t is NonNullable<typeof t> => !!t))),
-    [routine],
-  );
   return (
     <Card>
       <h1 className="mb-1 font-mono text-xl font-semibold tracking-wide text-balance">{routine.title}</h1>
@@ -71,7 +66,7 @@ function IntroScreen({ routine, onStart }: { routine: WarmupRoutine; onStart: ()
       <p className="mb-3 text-[11px] font-semibold tracking-wide text-muted uppercase">
         {routine.steps.length} passos · {formatMinSec(totalDurationSeconds(routine.steps))} no total
       </p>
-      <ul className="mb-4 space-y-1.5">
+      <ul className="mb-5 space-y-1.5">
         {routine.steps.map((step) => (
           <li key={step.id} className="flex items-center justify-between text-sm">
             <span>{step.name}</span>
@@ -79,29 +74,6 @@ function IntroScreen({ routine, onStart }: { routine: WarmupRoutine; onStart: ()
           </li>
         ))}
       </ul>
-      {topics.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {topics.map((topic) => (
-            <a
-              key={topic}
-              href={`https://xanthus.app.br/estudos#${topic}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted hover:border-accent hover:text-accent"
-            >
-              {topicLabel(topic)}
-            </a>
-          ))}
-        </div>
-      )}
-      <a
-        href="https://xanthus.app.br/estudos"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mb-5 inline-block text-xs text-accent underline underline-offset-2"
-      >
-        Ver os estudos completos
-      </a>
       <button
         type="button"
         onClick={onStart}
