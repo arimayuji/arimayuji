@@ -3485,6 +3485,66 @@ humana, não de merge automático de agente).
   decisão sobre o tópico novo de fisioterapia, e a mesclagem de fato em
   `facts.ts`. Os dois relatórios completos só existem no transcript desta
   sessão — se perdidos, a pesquisa precisaria ser refeita.
+  **Atualização 2026-08-30, mesmo dia: mesclado** — ver seção própria logo
+  abaixo. O dono do projeto decidiu não revisar o conteúdo científico caso
+  a caso (a validação real — fonte aberta e lida, revista/instituição
+  séria — já tinha sido feita pelos agentes; não há como uma revisão
+  não-especialista agregar nisso), só confirmou que a curadoria editorial
+  (redação, escolha de tópico, decisão de criar `injury_rehab`) ficasse
+  comigo.
+
+## Os 27 fatos de evidência mesclados em facts.ts + tópico novo `injury_rehab` (2026-08-30)
+
+Os dois relatórios de pesquisa da seção anterior foram integrados de
+verdade em `src/lib/evidence/facts.ts` — não sobrou nada só no
+transcript. Branch `claude/strava-competitor-feedback-cyvop8`, commit
+`252381a`, **ainda não deployado em produção**.
+
+- **`facts.ts` vai de 50 pra 77 fatos**: pace_zones 1→3, race_time_prediction
+  1→2, taper 2→3, hydration 2→4, nutrition_timing 3→6, overtraining 3→5,
+  periodization 3→6, cooldown 5→6, injury_prevention 5→9, mais os 8
+  novos de `injury_rehab` (tópico novo, ver abaixo). Todo fato escrito
+  no formato exato já existente (`id`/`claim`/`bullets`/`strength`/
+  `source`/`caveat` em pt-BR, `**...**` marcando o número-chave) — nada
+  copiado direto do relatório em inglês, cada um reescrito pra bater
+  com o tom do arquivo.
+- **`DecisionTopic` novo: `injury_rehab`** ("Reabilitação e retorno",
+  ícone de bandagem em `topic-icons.tsx`) — os 13 fatos de fisioterapia
+  pesquisados majoritariamente não cabiam em `injury_prevention`
+  (decisão de treino de um corredor **saudável**, ex.: quanto de volume
+  é seguro) nem em `static_stretch_*`/`cooldown` (rotina de treino, não
+  tratamento). `injury_rehab` cobre especificamente **o que fazer com
+  uma lesão já diagnosticada**: carga excêntrica pra tendinopatia
+  (Aquiles/patelar), regra de retorno à corrida por resposta de dor
+  (fratura por estresse), alongamento específico da fáscia plantar,
+  fortalecimento de abdutor de quadril pra ITBS, agulhamento seco/
+  terapia manual — 8 fatos entraram aqui; os outros 5 (foam rolling,
+  reeducação de cadência/pisada, fortalecimento quadril+core como
+  prevenção, reanálise do exercício nórdico) na verdade já eram sobre
+  prevenção ou rotina de um corredor saudável, então foram pra
+  `cooldown`/`injury_prevention` mesmo, não pro tópico novo — a
+  categorização de cada um foi decisão minha, não um corte automático
+  do relatório do agente.
+  Criar o tópico exigiu tocar `types.ts` (union), `evidence/index.ts`
+  (`DECISION_TOPICS_IN_DISPLAY_ORDER` + `TOPIC_LABEL`) e
+  `topic-icons.tsx` (glifo novo) juntos — os três são `Record<DecisionTopic,...>`
+  ou dependem da união, então o TypeScript já força não esquecer nenhum.
+- **Nenhum fato genuinamente novo foi inventado nem por mim nem pelos
+  agentes** — cada um tem fonte real com link, aberta e lida por um
+  agente com WebFetch/WebSearch nesta mesma sessão (não por memória de
+  treino). Onde a fonte primária estava atrás de paywall (vários casos,
+  ex. JOSPT retornando 403 pro fetch direto), o `caveat` do próprio
+  fato registra isso e como o número foi confirmado por fonte
+  secundária/mirror, em vez de esconder a limitação.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos,
+  sem id duplicado (`grep` de conferência). Verificado visualmente via
+  Playwright: `/estudos` mostra "Reabilitação e retorno" no índice, no
+  card com ícone e badge de contagem (8), fatos ordenados por força de
+  evidência (forte primeiro) igual a qualquer outro tópico. **Não
+  revisado por um especialista humano** — a validação de qualidade de
+  fonte já é o que os agentes de pesquisa fizeram (revista com peer
+  review, pesquisador credenciado, amostra real), decisão consciente do
+  dono do projeto de não tentar re-validar isso ele mesmo.
 
 ## Como manter isso vivo
 
