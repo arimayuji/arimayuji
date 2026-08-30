@@ -10,6 +10,7 @@ import { computeElevationProfile, elevationGainFromProfile, type ElevationSample
 import { fetchRecoveryContext, fetchRunHealthData, HEALTH_DATA_ENABLED, type RecoveryContext, type RunHealthData } from "@/lib/health";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import { syncProfileStats } from "@/lib/profileStats";
+import { deleteRunSummary } from "@/lib/runSummariesSync";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { matchPlaceForRoute, resolvePlaceLabel } from "@/lib/placeMatch";
 import { getSyncedRun, setRunFriendsVisibility, shareRunWithCoaches } from "@/lib/runsSync";
@@ -555,7 +556,7 @@ function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
 export function RunDetail({ id }: { id: string }) {
   useHeaderClose("/perfil?tab=progresso");
   const router = useRouter();
-  const { account } = useAuth();
+  const { account, profile } = useAuth();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [{ distanceUnit: unit }] = usePreferences();
   const [runnerProfile] = useRunnerProfile();
@@ -731,6 +732,7 @@ export function RunDetail({ id }: { id: string }) {
     setDeleting(true);
     await deleteCompletedRun(run.id);
     if (account) void syncProfileStats();
+    if (profile?.runSyncOptIn) void deleteRunSummary(run.id);
     router.push("/perfil?tab=progresso");
   };
 

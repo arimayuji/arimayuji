@@ -464,6 +464,37 @@ function NearbyFriendsCard() {
 }
 
 /**
+ * Link-out card for the cross-device sync opt-in — kept thin on purpose
+ * (unlike `PlaceLeaderboardCard`/`NearbyFriendsCard`, the toggle itself
+ * lives on its own screen, `/perfil/sincronizacao`, because turning it on
+ * also kicks off a real backfill of local run history and deserves the
+ * fuller explanation that screen gives, not a one-line hint here).
+ */
+function RunSyncCard() {
+  const { profile } = useAuth();
+  const optedIn = profile?.runSyncOptIn ?? false;
+
+  return (
+    <Card className="pr-enter" style={delay(90)}>
+      <CardTitle aside={<NoticeBadge>{optedIn ? "ativado" : "desligado"}</NoticeBadge>}>
+        Sincronização entre aparelhos
+      </CardTitle>
+      <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
+        Meta de prova e um resumo do seu histórico, disponíveis em qualquer aparelho onde você
+        entrar — nunca o traçado GPS.
+      </p>
+      <Link
+        href="/perfil/sincronizacao"
+        className="flex items-center justify-between gap-3 border-t border-border pt-4 text-sm"
+      >
+        <span className="text-muted">{optedIn ? "Gerenciar" : "Ativar"}</span>
+        <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold">Abrir</span>
+      </Link>
+    </Card>
+  );
+}
+
+/**
  * A toggle between the "atleta" and "treinador" home — renders nothing at
  * all unless this account actually coaches at least one accepted student,
  * since for everyone else (almost everyone) there's no second mode to
@@ -663,6 +694,9 @@ export default function PerfilPage() {
         </div>
         <div className="lg:hidden">
           <NearbyFriendsCard />
+        </div>
+        <div className="lg:hidden">
+          <RunSyncCard />
         </div>
 
         <div className="lg:hidden">

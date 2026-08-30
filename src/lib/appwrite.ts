@@ -81,6 +81,8 @@ export const TABLES = {
   contentIdeas: "content_ideas",
   cityRaces: "city_races",
   friendPresence: "friend_presence",
+  runnerProfileSync: "runner_profile_sync",
+  runSummaries: "run_summaries",
 } as const;
 
 /**

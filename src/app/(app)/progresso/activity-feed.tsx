@@ -9,6 +9,7 @@ import {
   type StoredPoint,
 } from "@/lib/tracking/storage";
 import { syncProfileStats } from "@/lib/profileStats";
+import { deleteRunSummary } from "@/lib/runSummariesSync";
 import { resolvePlaceLabel } from "@/lib/placeMatch";
 import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
@@ -762,7 +763,7 @@ export function ActivityFeed({
   unit: DistanceUnit;
   onRunDeleted: (id: string) => void;
 }) {
-  const { account } = useAuth();
+  const { account, profile } = useAuth();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [focalRunId, setFocalRunId] = useState<string | null>(null);
@@ -797,6 +798,7 @@ export function ActivityFeed({
     setDeletingId(id);
     await deleteCompletedRun(id);
     if (account) void syncProfileStats();
+    if (profile?.runSyncOptIn) void deleteRunSummary(id);
     onRunDeleted(id);
     setConfirmingId(null);
     setDeletingId(null);

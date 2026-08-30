@@ -33,6 +33,7 @@ import { suggestPlanForSelf, type PlanSuggestion, type SuggestPlanForSelfReason 
 import { useAuth } from "@/lib/useAuth";
 import { currentMondayIsoDate, type RunnerProfile } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
+import { syncRunnerProfile } from "@/lib/runnerProfileSync";
 import {
   estimateWeeklyKm,
   listCompletedRuns,
@@ -752,8 +753,22 @@ function GoalCard({
 }
 
 export default function PlanoPage() {
-  const { account } = useAuth();
-  const [profile, updateProfile] = useRunnerProfile();
+  const { account, profile: authProfile } = useAuth();
+  const [profile, setRunnerProfile] = useRunnerProfile();
+  /**
+   * Every goal-editing call site below already calls `updateProfile({...})`
+   * — wrapping the raw setter here (instead of touching each call site) is
+   * what makes each of those edits also kick off a `syncRunnerProfile()`
+   * round, gated on the opt-in, without duplicating that check six times.
+   */
+  const runSyncOptIn = authProfile?.runSyncOptIn ?? false;
+  const updateProfile = useCallback(
+    (patch: Partial<RunnerProfile>) => {
+      setRunnerProfile(patch);
+      if (runSyncOptIn) void syncRunnerProfile();
+    },
+    [setRunnerProfile, runSyncOptIn],
+  );
   const [completedRuns, setCompletedRuns] = useState<CompletedRun[] | null>(null);
   const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [coachOverrides, setCoachOverrides] = useState<Map<string, ParsedPlanOverride>>(new Map());

@@ -51,6 +51,15 @@ export const GOAL_DISTANCE_OPTIONS = [
 export const DEFAULT_RUNNER_PROFILE: RunnerProfile = {};
 
 const STORAGE_KEY = "xanthus:runner-profile";
+/**
+ * Epoch ms of the last successful local write — stamped unconditionally by
+ * `saveRunnerProfile()`, whether or not cross-device sync is even turned on,
+ * so the timestamp is already meaningful the moment a device later opts in
+ * (instead of "whichever device flips the toggle first arbitrarily wins").
+ * Read by `runnerProfileSync.ts`'s last-write-wins comparison — see that
+ * file for the full algorithm.
+ */
+const UPDATED_AT_STORAGE_KEY = "xanthus:runner-profile-updated-at";
 
 function sanitize(raw: unknown): RunnerProfile {
   if (typeof raw !== "object" || raw === null) return DEFAULT_RUNNER_PROFILE;
@@ -160,6 +169,49 @@ export function saveRunnerProfile(patch: Partial<RunnerProfile>): RunnerProfile 
   if (typeof window === "undefined") return next;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(UPDATED_AT_STORAGE_KEY, String(Date.now()));
+  } catch {
+    // Storage disabled: the profile simply doesn't persist across reloads.
+  }
+  return next;
+}
+
+/** Epoch ms of the last local edit, or `null` if this device has never saved a profile (or storage is unavailable). */
+export function loadRunnerProfileUpdatedAtMs(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(UPDATED_AT_STORAGE_KEY);
+    if (!raw) return null;
+    const ms = Number(raw);
+    return Number.isFinite(ms) ? ms : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The only path a cross-device sync *pull* is allowed to use — deliberately
+ * bypasses `saveRunnerProfile()` entirely, never routing a remote snapshot
+ * through its goal-change detection. That logic exists to catch an
+ * *interactive* edit (comparing a patch against what this device already
+ * had) and reacts by stamping `planStartDate` to "this Monday" — exactly
+ * wrong for a pull, which is "adopt this already-anchored snapshot as-is,"
+ * not a new goal being set on this device. Routing pulls through
+ * `saveRunnerProfile` would risk clobbering a correctly-anchored
+ * `planStartDate` the instant any goal field merely differs from local
+ * state, even when the real cause is just "this is a different device's
+ * data," not a fresh goal.
+ *
+ * `remoteUpdatedAtMs` is stamped as-is (not `Date.now()`) into the local
+ * bookkeeping key: this write is exactly as "old" as the value it carries,
+ * so a later sync comparison against another device stays honest.
+ */
+export function applySyncedRunnerProfile(remote: RunnerProfile, remoteUpdatedAtMs: number): RunnerProfile {
+  const next = sanitize(remote);
+  if (typeof window === "undefined") return next;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(UPDATED_AT_STORAGE_KEY, String(remoteUpdatedAtMs));
   } catch {
     // Storage disabled: the profile simply doesn't persist across reloads.
   }

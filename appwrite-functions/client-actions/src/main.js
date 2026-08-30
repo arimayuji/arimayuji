@@ -1278,7 +1278,48 @@ async function startGroupRun({ userId, body, client, res, error }) {
   return res.json({ ok: true, groupRun: updated });
 }
 
-/** action: "claim-owned-row" — the only path allowed to create the first profiles/profile_stats/place_run_stats row for an account. Originally appwrite-functions/claim-owned-row. */
+/**
+ * Whitelists+validates the `RunnerProfile` fields out of a request body —
+ * shared by `claim-owned-row`'s `runner_profile_sync` branch (first row)
+ * and nothing else, since every later write goes through a direct client
+ * `updateRow` (see runnerProfileSync.ts). Mirrors the same optionality and
+ * range checks as `sanitize()` in src/lib/runnerProfile.ts (kept in sync by
+ * hand, same reasoning as facts.ts/volumeProgression.ts's own duplication
+ * comments — this Function has no build step to import from the app).
+ */
+function runnerProfileSyncFields(body) {
+  const out = {};
+  if (typeof body.goalDistanceMeters === "number" && body.goalDistanceMeters > 0) {
+    out.goalDistanceMeters = body.goalDistanceMeters;
+  }
+  if (typeof body.goalDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.goalDate)) {
+    out.goalDate = body.goalDate;
+  }
+  if (typeof body.planStartDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.planStartDate)) {
+    out.planStartDate = body.planStartDate;
+  }
+  if (typeof body.recentRaceDistanceMeters === "number" && body.recentRaceDistanceMeters > 0) {
+    out.recentRaceDistanceMeters = body.recentRaceDistanceMeters;
+  }
+  if (typeof body.recentRaceTimeSeconds === "number" && body.recentRaceTimeSeconds > 0) {
+    out.recentRaceTimeSeconds = body.recentRaceTimeSeconds;
+  }
+  if (typeof body.weeklyRunDays === "number" && body.weeklyRunDays >= 2 && body.weeklyRunDays <= 6) {
+    out.weeklyRunDays = body.weeklyRunDays;
+  }
+  if (typeof body.weightKg === "number" && body.weightKg >= 25 && body.weightKg <= 250) {
+    out.weightKg = body.weightKg;
+  }
+  if (body.weeklyTargetKind === "runs" || body.weeklyTargetKind === "km") {
+    out.weeklyTargetKind = body.weeklyTargetKind;
+  }
+  if (typeof body.weeklyTargetValue === "number" && body.weeklyTargetValue > 0) {
+    out.weeklyTargetValue = body.weeklyTargetValue;
+  }
+  return out;
+}
+
+/** action: "claim-owned-row" — the only path allowed to create the first profiles/profile_stats/place_run_stats/runner_profile_sync row for an account. Originally appwrite-functions/claim-owned-row. */
 async function claimOwnedRow({ userId, body, client, res, error }) {
   const { tableId } = body;
   const tablesDB = new TablesDB(client);
@@ -1305,6 +1346,17 @@ async function claimOwnedRow({ userId, body, client, res, error }) {
     rowId = userId;
     data = { userId, totalMeters, totalRuns };
     permissions = [`read("any")`, `update("user:${userId}")`, `delete("user:${userId}")`];
+  } else if (tableId === "runner_profile_sync") {
+    const updatedAtMs = Number(body.updatedAtMs);
+    if (!Number.isFinite(updatedAtMs) || updatedAtMs <= 0) {
+      return res.json({ error: "missing-fields" }, 400);
+    }
+    rowId = userId;
+    data = { userId, ...runnerProfileSyncFields(body), updatedAtMs };
+    // No read("any") — unlike profile_stats/place_run_stats, this is
+    // private goal/weight data, never shown to anyone else (not even an
+    // accepted coach — see runnerProfileSync.ts's own comment on why).
+    permissions = [`read("user:${userId}")`, `update("user:${userId}")`, `delete("user:${userId}")`];
   } else if (tableId === "place_run_stats") {
     const placeId = String(body.placeId ?? "").trim();
     const totalMeters = Number(body.totalMeters);
@@ -1330,6 +1382,114 @@ async function claimOwnedRow({ userId, body, client, res, error }) {
     error(`claim-owned-row failed for ${tableId}/${rowId}: ${err.message}`);
     return res.json({ error: "failed" }, 500);
   }
+}
+
+const RUN_ID_PATTERN = /^run_\d+_[a-z0-9]+$/;
+
+/** Validates+extracts one run-summary payload — shared by `sync-run-summary` and `backfill-run-summaries`. Returns `null` on anything malformed rather than throwing, so a bad item in a backfill batch can be skipped instead of failing the whole call. */
+function parseRunSummaryItem(item) {
+  const runId = String(item?.runId ?? "");
+  const startedAtMs = Number(item?.startedAtMs);
+  const distanceMeters = Number(item?.distanceMeters);
+  const movingSeconds = Number(item?.movingSeconds);
+  if (
+    !RUN_ID_PATTERN.test(runId) ||
+    runId.length > 64 ||
+    !Number.isFinite(startedAtMs) ||
+    startedAtMs <= 0 ||
+    !Number.isFinite(distanceMeters) ||
+    distanceMeters < 0 ||
+    !Number.isFinite(movingSeconds) ||
+    movingSeconds < 0
+  ) {
+    return null;
+  }
+  return { runId, startedAtMs, distanceMeters, movingSeconds };
+}
+
+/**
+ * action: "sync-run-summary" — first-time creation of one `run_summaries`
+ * row (a lightweight, GPS-free summary of a single completed run, synced
+ * only when the athlete opted in — see runnerProfileSync.ts/preferences
+ * for the `runSyncOptIn` gate this action's caller already checked before
+ * invoking it). Unlike `claim-owned-row` (exactly one row per account),
+ * `run_summaries` is many-rows-per-account keyed by the run's own local
+ * id, so "is this the first time we've seen this id" is a per-call
+ * existence check here rather than the one-row-per-account shape
+ * `claim-owned-row` assumes — hence its own dedicated action instead of a
+ * new `claim-owned-row` branch. Idempotent: a 409 on create (the row
+ * already exists — a retried call, or the row was already synced) falls
+ * back to `updateRow` rather than erroring, so a caller never needs to
+ * pre-check existence itself.
+ */
+async function syncRunSummary({ userId, body, client, res, error }) {
+  const parsed = parseRunSummaryItem(body);
+  if (!parsed) return res.json({ error: "missing-fields" }, 400);
+
+  const tablesDB = new TablesDB(client);
+  const data = { userId, startedAtMs: parsed.startedAtMs, distanceMeters: parsed.distanceMeters, movingSeconds: parsed.movingSeconds };
+  const permissions = [Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId))];
+
+  try {
+    const row = await tablesDB.createRow({ databaseId: DATABASE_ID, tableId: "run_summaries", rowId: parsed.runId, data, permissions });
+    return res.json({ ok: true, row });
+  } catch (err) {
+    if (err.code === 409) {
+      try {
+        const row = await tablesDB.updateRow({ databaseId: DATABASE_ID, tableId: "run_summaries", rowId: parsed.runId, data });
+        return res.json({ ok: true, row });
+      } catch (updateErr) {
+        error(`sync-run-summary: update fallback failed for ${parsed.runId}: ${updateErr.message}`);
+        return res.json({ error: "failed" }, 500);
+      }
+    }
+    error(`sync-run-summary failed for ${parsed.runId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
+/**
+ * action: "backfill-run-summaries" — same per-item create-or-update logic
+ * as `sync-run-summary`, batched into one Function execution instead of
+ * one per run, so turning `runSyncOptIn` on with years of local history
+ * doesn't hammer the Functions API. Capped at 500 items per call
+ * (src/lib/runSummariesSync.ts chunks a bigger history client-side); a
+ * malformed item is skipped, not fatal to the rest of the batch.
+ */
+async function backfillRunSummaries({ userId, body, client, res, error }) {
+  const items = Array.isArray(body.items) ? body.items.slice(0, 500) : [];
+  const tablesDB = new TablesDB(client);
+  const permissions = [Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId))];
+
+  let created = 0;
+  let skipped = 0;
+  for (const item of items) {
+    const parsed = parseRunSummaryItem(item);
+    if (!parsed) {
+      skipped += 1;
+      continue;
+    }
+    const data = { userId, startedAtMs: parsed.startedAtMs, distanceMeters: parsed.distanceMeters, movingSeconds: parsed.movingSeconds };
+    try {
+      await tablesDB.createRow({ databaseId: DATABASE_ID, tableId: "run_summaries", rowId: parsed.runId, data, permissions });
+      created += 1;
+    } catch (err) {
+      if (err.code === 409) {
+        try {
+          await tablesDB.updateRow({ databaseId: DATABASE_ID, tableId: "run_summaries", rowId: parsed.runId, data });
+          created += 1;
+        } catch (updateErr) {
+          error(`backfill-run-summaries: update fallback failed for ${parsed.runId}: ${updateErr.message}`);
+          skipped += 1;
+        }
+      } else {
+        error(`backfill-run-summaries failed for ${parsed.runId}: ${err.message}`);
+        skipped += 1;
+      }
+    }
+  }
+
+  return res.json({ ok: true, created, skipped });
 }
 
 /**
@@ -2322,6 +2482,8 @@ const ACTIONS = {
   "pair-run-session": pairRunSession,
   "start-group-run": startGroupRun,
   "claim-owned-row": claimOwnedRow,
+  "sync-run-summary": syncRunSummary,
+  "backfill-run-summaries": backfillRunSummaries,
   "send-friend-request": sendFriendRequest,
   "propose-coach-relationship": proposeCoachRelationship,
   "set-plan-override": setPlanOverride,

@@ -575,6 +575,101 @@ async function main() {
     tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "profile_stats", key: "prFullSeconds", required: false, min: 0 }),
   );
 
+  // ------------------------------------------------------ runner_profile_sync
+  console.log("\nrunner_profile_sync");
+  await ensure("table runner_profile_sync", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "runner_profile_sync",
+      name: "runner_profile_sync",
+      // Unlike profile_stats/place_run_stats above, this is private
+      // goal/weight data — no read("any"). Never surfaced to a coach: the
+      // app already tolerates a coach never seeing a student's real
+      // planStartDate (treinador/aluno guesses Monday boundaries instead),
+      // and this table doesn't change that. *Create* still goes through
+      // claim-owned-row for the same LGPD finding #12 reasoning as every
+      // other one-row-per-account table here.
+      permissions: [],
+      rowSecurity: true,
+    }),
+  );
+  // Row ID is the account's own user ID — one row per account, mirrors
+  // RunnerProfile (src/lib/runnerProfile.ts) field-for-field, plus
+  // updatedAtMs for the last-write-wins comparison (runnerProfileSync.ts).
+  await ensure("runner_profile_sync.userId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "userId", size: 36, required: true }),
+  );
+  await ensure("runner_profile_sync.goalDistanceMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "goalDistanceMeters", required: false, min: 0 }),
+  );
+  await ensure("runner_profile_sync.goalDate", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "goalDate", size: 10, required: false }),
+  );
+  await ensure("runner_profile_sync.planStartDate", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "planStartDate", size: 10, required: false }),
+  );
+  await ensure("runner_profile_sync.recentRaceDistanceMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "recentRaceDistanceMeters", required: false, min: 0 }),
+  );
+  await ensure("runner_profile_sync.recentRaceTimeSeconds", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "recentRaceTimeSeconds", required: false, min: 0 }),
+  );
+  await ensure("runner_profile_sync.weeklyRunDays", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "weeklyRunDays", required: false, min: 2, max: 6 }),
+  );
+  await ensure("runner_profile_sync.weightKg", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "weightKg", required: false, min: 25, max: 250 }),
+  );
+  await ensure("runner_profile_sync.weeklyTargetKind", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "weeklyTargetKind", size: 8, required: false }),
+  );
+  await ensure("runner_profile_sync.weeklyTargetValue", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "weeklyTargetValue", required: false, min: 0 }),
+  );
+  await ensure("runner_profile_sync.updatedAtMs", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "updatedAtMs", required: true, min: 0 }),
+  );
+
+  // ------------------------------------------------------------- run_summaries
+  console.log("\nrun_summaries");
+  await ensure("table run_summaries", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "run_summaries",
+      name: "run_summaries",
+      // Owner-only, no sharing — same shape as runner_profile_sync above.
+      // Row ID is the run's own local id (CompletedRun.id), not the
+      // account's, so *create* can't go through claim-owned-row's
+      // one-row-per-account assumption — see sync-run-summary/
+      // backfill-run-summaries in client-actions instead.
+      permissions: [],
+      rowSecurity: true,
+    }),
+  );
+  await ensure("run_summaries.userId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "run_summaries", key: "userId", size: 36, required: true }),
+  );
+  await ensure("run_summaries.startedAtMs", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "run_summaries", key: "startedAtMs", required: true, min: 0 }),
+  );
+  // Never the GPS trace (CompletedRun.points) — distance + moving time is
+  // enough to derive pace for a progression graph; see runSummariesSync.ts.
+  await ensure("run_summaries.distanceMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "run_summaries", key: "distanceMeters", required: true, min: 0 }),
+  );
+  await ensure("run_summaries.movingSeconds", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "run_summaries", key: "movingSeconds", required: true, min: 0 }),
+  );
+  await ensure("run_summaries index: userId + startedAtMs", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "run_summaries",
+      key: "user_started_at",
+      type: TablesDBIndexType.Key,
+      columns: ["userId", "startedAtMs"],
+    }),
+  );
+
   // ------------------------------------------------------------------ runs
   console.log("\nruns");
   await ensure("table runs", () =>

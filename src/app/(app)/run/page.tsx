@@ -86,6 +86,7 @@ import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
 import { sendMilestoneNotification } from "@/lib/milestoneNotifications";
 import { syncProfileStats } from "@/lib/profileStats";
+import { syncRunSummary, deleteRunSummary } from "@/lib/runSummariesSync";
 import { getProfile, updateProfile } from "@/lib/auth";
 import type { RunningPlace } from "@/lib/places";
 import { RouteMap } from "../route-map";
@@ -1324,7 +1325,8 @@ export default function RunPage() {
   useEffect(() => {
     if (state.status !== "finished" || !state.finishedRun || !account) return;
     void syncProfileStats();
-  }, [state.status, state.finishedRun, account]);
+    if (profile?.runSyncOptIn) void syncRunSummary(state.finishedRun);
+  }, [state.status, state.finishedRun, account, profile?.runSyncOptIn]);
 
   /**
    * "Ranking de lugares" match — same run-once-per-finish timing as the
@@ -2021,6 +2023,7 @@ export default function RunPage() {
     setDiscarding(true);
     await deleteCompletedRun(state.finishedRun.id);
     if (account) void syncProfileStats();
+    if (profile?.runSyncOptIn) void deleteRunSummary(state.finishedRun.id);
     handleReset();
   };
 

@@ -55,6 +55,8 @@ export interface Profile extends Models.Row {
   publicDisplayName?: string;
   /** Links to running playlists (Spotify, Apple Music, whatever) — shown on /perfil and to friends on /perfil/ver. Each entry a JSON string; parse with src/lib/playlistLink.ts's parsePlaylists. */
   playlists?: string[];
+  /** Master switch for cross-device sync of the goal/plan (RunnerProfile) and a lightweight run-history summary — off/absent by default, flipped explicitly from a settings screen, same reasoning as leaderboardOptIn above. Never read by any coach-facing code — see runnerProfileSync.ts. */
+  runSyncOptIn?: boolean;
 }
 
 const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
@@ -565,11 +567,14 @@ export async function createProfile(handle: string, displayName: string): Promis
   return body.row;
 }
 
-/** Partial update of the signed-in account's own profile row — `avatarUrl`, `leaderboardOptIn`, `nearbyOptIn`, `publicDisplayName`, `playlists` all go through this. No-op (returns `null`) when Appwrite isn't configured, same convention as every other function here. */
+/** Partial update of the signed-in account's own profile row — `avatarUrl`, `leaderboardOptIn`, `nearbyOptIn`, `publicDisplayName`, `playlists`, `runSyncOptIn` all go through this. No-op (returns `null`) when Appwrite isn't configured, same convention as every other function here. */
 export async function updateProfile(
   userId: string,
   patch: Partial<
-    Pick<Profile, "displayName" | "avatarUrl" | "leaderboardOptIn" | "nearbyOptIn" | "publicDisplayName" | "playlists">
+    Pick<
+      Profile,
+      "displayName" | "avatarUrl" | "leaderboardOptIn" | "nearbyOptIn" | "publicDisplayName" | "playlists" | "runSyncOptIn"
+    >
   >,
 ): Promise<Profile | null> {
   const appwrite = getAppwrite();

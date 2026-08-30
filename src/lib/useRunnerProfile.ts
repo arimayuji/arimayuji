@@ -23,6 +23,11 @@ function handleStorage(): void {
   emit();
 }
 
+/** Re-reads the profile from localStorage and notifies every `useRunnerProfile()` subscriber — for a same-tab write that isn't the `storage` event (which only fires in *other* tabs/windows), e.g. `runnerProfileSync.ts` applying a pull. */
+export function invalidateRunnerProfileCache(): void {
+  handleStorage();
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   if (!storageListenerAttached) {
