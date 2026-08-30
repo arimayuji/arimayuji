@@ -7,12 +7,39 @@ import { fetchRunningWeather, type RunWeatherForecast } from "@/lib/runningWeath
 
 type WeatherStatus = "idle" | "loading" | "ready" | "denied" | "failed";
 
-/** Bar height reads as "how much this hour asks for caution" — a good hour barely shows a dot, a bad one grows tall — same visual language as the reference screenshot this feature was requested from. Color is the primary signal (`--good`/`--warn`/`--bad`, already used elsewhere for pace-vs-goal deltas); height is secondary emphasis. */
-const SCORE_BAR_CLASS: Record<RunWeatherForecast["hours"][number]["score"], string> = {
-  bom: "bg-good h-1.5",
-  razoavel: "bg-warn h-4",
-  ruim: "bg-bad h-8",
+/** Same `--good`/`--warn`/`--bad` tokens used elsewhere for pace-vs-goal deltas — read as CSS custom properties (not Tailwind classes) so the SVG's `stroke`/`fill` can pick a color per point rather than per whole element. */
+const SCORE_STROKE: Record<RunWeatherForecast["hours"][number]["score"], string> = {
+  bom: "var(--good)",
+  razoavel: "var(--warn)",
+  ruim: "var(--bad)",
 };
+
+const CHART_HEIGHT = 32;
+const CHART_TOP_PAD = 4;
+const CHART_BOTTOM_PAD = 4;
+
+/**
+ * One x/y point per hour (feels-like temperature, normalized to the
+ * window's own min/max) plus that hour's stroke color — a temperature
+ * curve reads as "how the next few hours actually trend" better than a
+ * bar-per-hour "verdict" chart did (the previous design, replaced after
+ * user feedback that it looked off). Same viewBox-percentage /
+ * `preserveAspectRatio="none"` convention as `Sparkline` in
+ * `historico/detalhe/run-detail.tsx` (not reused directly — that one's
+ * local to that file and always single-colored via `currentColor`).
+ */
+function buildLinePoints(hours: RunWeatherForecast["hours"]) {
+  const temps = hours.map((h) => h.feelsLikeC);
+  const min = Math.min(...temps);
+  const max = Math.max(...temps);
+  const span = max - min || 1;
+  const usableHeight = CHART_HEIGHT - CHART_TOP_PAD - CHART_BOTTOM_PAD;
+  return hours.map((hour, i) => {
+    const x = hours.length > 1 ? (i / (hours.length - 1)) * 100 : 50;
+    const y = CHART_HEIGHT - CHART_BOTTOM_PAD - ((hour.feelsLikeC - min) / span) * usableHeight;
+    return { x, y, hour };
+  });
+}
 
 /**
  * "Clima pra corrida" — collapsed by default (just a button), never fetches
@@ -63,16 +90,50 @@ export function RunWeatherCard() {
       {status === "loading" && <p className="text-xs text-muted">Buscando previsão…</p>}
 
       {status === "ready" && forecast && (
-        <div className="space-y-3">
-          <div className="flex items-end justify-between gap-1.5">
+        <div className="space-y-2">
+          <svg
+            viewBox={`0 0 100 ${CHART_HEIGHT}`}
+            preserveAspectRatio="none"
+            className="h-16 w-full overflow-visible"
+            aria-hidden="true"
+          >
+            {buildLinePoints(forecast.hours).map((point, i, points) => {
+              if (i === 0) return null;
+              const prev = points[i - 1];
+              return (
+                <line
+                  key={point.hour.time}
+                  x1={prev.x}
+                  y1={prev.y}
+                  x2={point.x}
+                  y2={point.y}
+                  stroke={SCORE_STROKE[prev.hour.score]}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+            {buildLinePoints(forecast.hours).map((point) => (
+              <circle
+                key={point.hour.time}
+                cx={point.x}
+                cy={point.y}
+                r={2.4}
+                fill={SCORE_STROKE[point.hour.score]}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+          </svg>
+          <div className="flex justify-between">
             {forecast.hours.map((hour) => (
-              <div key={hour.time} className="flex flex-1 flex-col items-center gap-1.5">
-                <div className={`w-2.5 rounded-full ${SCORE_BAR_CLASS[hour.score]}`} aria-hidden="true" />
-                <span className="text-[10px] text-muted">{hour.time.slice(11, 13)}h</span>
+              <div key={hour.time} className="flex flex-1 flex-col items-center gap-0.5">
+                <span className="text-[10px] font-semibold text-foreground">{Math.round(hour.tempC)}°</span>
+                <span className="text-[9px] text-muted">{hour.time.slice(11, 13)}h</span>
               </div>
             ))}
           </div>
-          <p className="text-xs leading-relaxed text-foreground">{forecast.summary}</p>
+          <p className="pt-1 text-xs leading-relaxed text-foreground">{forecast.summary}</p>
           <p className="text-[10px] leading-relaxed text-muted">
             Estimativa simples do app (temperatura, chuva, vento) — não é uma recomendação médica.
           </p>

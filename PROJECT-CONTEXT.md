@@ -3029,6 +3029,19 @@ produção**.
   **Não testado em aparelho real** — geolocalização de verdade, permissão
   negada de verdade, mesma pendência padrão de sempre.
 
+**Gráfico do "Clima pra corrida" trocado por curva de temperatura (mesmo
+dia, 2026-08-30)**: feedback direto do dono do projeto vendo o widget de
+verdade — a barra por hora (bom/razoável/ruim como altura) "ficou
+ridículo". Trocado por uma curva de temperatura real (feels-like por
+hora, SVG com `stroke`/`fill` em `var(--good)`/`var(--warn)`/`var(--bad)`
+por segmento/ponto, mesma convenção de viewBox percentual do `Sparkline`
+já usado em `historico/detalhe/run-detail.tsx`, mas com cor por ponto em
+vez de uma cor só) — mostra a tendência das próximas horas, não só um
+veredito isolado por hora. Temperatura e hora aparecem embaixo de cada
+ponto. Verificado visualmente via Playwright contra a CSS real compilada
+do app (mesma técnica de outras verificações desta sessão) antes e
+depois da troca.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
