@@ -1193,12 +1193,15 @@ export default function PlanoPage() {
             </p>
             <div className="flex flex-wrap gap-1.5">
               {plan.evidenceTopics.map((topic) => (
-                <span
+                <a
                   key={topic}
-                  className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted"
+                  href={`https://xanthus.app.br/estudos#${topic}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted hover:border-accent hover:text-accent"
                 >
                   {topicLabel(topic)}
-                </span>
+                </a>
               ))}
             </div>
             <a

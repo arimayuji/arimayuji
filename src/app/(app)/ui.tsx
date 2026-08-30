@@ -262,13 +262,17 @@ export function Card({
   children,
   className = "",
   style,
+  id,
 }: {
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
+  /** Forwarded to the root `<section>` — lets a page anchor-link straight to one card (e.g. /estudos#warmup) instead of only ever landing at the top of the screen. */
+  id?: string;
 }) {
   return (
     <section
+      id={id}
       style={style}
       className={`rounded-2xl border border-border bg-surface p-5 lg:rounded-lg lg:p-4 ${className}`}
     >
