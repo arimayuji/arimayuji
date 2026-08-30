@@ -3189,6 +3189,43 @@ produção**.
   ativo corretamente). **Não testado em aparelho real** — gesto de
   swipe de verdade com o dedo, mesma pendência padrão de sempre.
 
+## /perfil/relogio: texto longo movido pra uma página externa (2026-08-30)
+
+Feedback direto do dono do projeto vendo `/perfil/relogio` de verdade:
+"tem muito texto nessa parte de relógio" — pedido pra aplicar o mesmo
+padrão já usado em `/plano` (evidência científica bruta movida pra fora
+do app, atrás de um link que abre no navegador do sistema) a qualquer
+tela com descrição longa de "o que é feito e como". Branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+- **Nova rota `src/app/(app)/perfil/relogio/como-funciona/page.tsx`**:
+  recebeu o card inteiro "Como isso funciona" (os 3 itens técnicos —
+  lê do repositório de saúde, não do relógio direto; casa pela janela
+  de ±10 min; some em silêncio sem treino correspondente) mais o
+  parágrafo completo de "Onde aparece" (histórico + card de
+  Recuperação), ambos **na íntegra**, sem cortar nada — só saíram do
+  app, não saíram de existir.
+- **`/perfil/relogio` original**: card de consentimento (`Ler dados de
+  saúde`) **intocado** — é o texto de consentimento LGPD de verdade, tem
+  que continuar visível antes do toggle, não é "descrição longa"
+  substituível por link. Card "Onde aparece" cortado pra uma frase
+  ("Direto no card da corrida, no seu Histórico — sem tela própria."),
+  mantendo o mockup ilustrativo (`ExampleBadge`) como estava. Card
+  "Como isso funciona" removido inteiro, substituído por um link "Como
+  isso funciona, em detalhe" no fim do card "Onde aparece".
+- **Achado de convenção**: o link usa `<a href="https://xanthus.app.br/...">`
+  simples, nunca `next/link` com `target="_blank"` — confirmado lendo o
+  padrão já estabelecido em `/plano`/`/estudos`: dentro do WebView do
+  Capacitor, só uma URL absoluta com `target="_blank"` de fato escapa
+  pro navegador do sistema; um `<Link>` relativo continuaria navegando
+  dentro do próprio app.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos
+  (rota nova aparece na lista de rotas geradas); confirmado visualmente
+  via Playwright — `/perfil/relogio` bem mais compacto, `/perfil/relogio/
+  como-funciona` com o conteúdo completo preservado. **Não testado em
+  aparelho real** — mesma pendência de sempre.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra

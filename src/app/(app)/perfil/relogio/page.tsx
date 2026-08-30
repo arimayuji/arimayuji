@@ -57,48 +57,6 @@ function StepsIcon({ className }: { className?: string }) {
   );
 }
 
-function ClockIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 8v4l3 2" />
-    </svg>
-  );
-}
-
-function OverlapIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
-      <circle cx="9" cy="12" r="6" />
-      <circle cx="15" cy="12" r="6" />
-    </svg>
-  );
-}
-
-function SilentIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
-      <path d="M3 3l18 18" />
-      <path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c5 0 9 4 10 7-.4 1.1-1.1 2.3-2.1 3.4M6.5 6.6C4.6 7.9 3.1 9.8 2 12c1 3 5 7 10 7 1.4 0 2.7-.3 3.9-.8" />
-    </svg>
-  );
-}
-
-const INFO_ITEMS = [
-  {
-    icon: ClockIcon,
-    text: "O app lê do repositório de saúde do celular (Apple Health ou Google Health Connect), nunca fala com o relógio direto.",
-  },
-  {
-    icon: OverlapIcon,
-    text: "Vincula pela janela de tempo da corrida, com tolerância de ±10 min, e escolhe o treino do relógio com maior sobreposição real.",
-  },
-  {
-    icon: SilentIcon,
-    text: "Sem treino do relógio na janela? Some silenciosamente — a corrida volta ao normal, sem erro na tela.",
-  },
-];
-
 export default function DadosRelogioPage() {
   useHeaderClose("/perfil");
   const [preferences, updatePreferences] = usePreferences();
@@ -133,10 +91,7 @@ export default function DadosRelogioPage() {
         <Card className="pr-enter" style={delay(40)}>
           <CardTitle aside={<NoticeBadge>sem validação em campo</NoticeBadge>}>Onde aparece</CardTitle>
           <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-            Não é uma lista separada — FC média, calorias e passos entram direto no card da
-            corrida, dentro do seu Histórico. FC em repouso, HRV, VO2 máx e sono da noite anterior
-            aparecem num segundo card, &quot;Recuperação&quot;, logo abaixo — só quando o relógio
-            realmente tiver medido isso perto da data da corrida.
+            Direto no card da corrida, no seu Histórico — sem tela própria.
           </p>
 
           <div className="rounded-2xl border border-border p-4">
@@ -171,23 +126,14 @@ export default function DadosRelogioPage() {
           <p className="mt-3 text-center text-xs leading-relaxed text-muted text-pretty">
             Exemplo de como o card da corrida vai ficar — ainda não validado em aparelho real.
           </p>
-        </Card>
-
-        <Card className="pr-enter" style={delay(70)}>
-          <CardTitle>Como isso funciona</CardTitle>
-          <div className="flex flex-col gap-4">
-            {INFO_ITEMS.map((item, index) => (
-              <div
-                key={index}
-                className={`flex items-start gap-3.5 ${index > 0 ? "border-t border-border pt-3.5" : ""}`}
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background text-accent">
-                  <item.icon className="h-4 w-4" />
-                </span>
-                <p className="pt-1.5 text-sm leading-relaxed text-pretty">{item.text}</p>
-              </div>
-            ))}
-          </div>
+          <a
+            href="https://xanthus.app.br/perfil/relogio/como-funciona"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 block text-center text-xs text-accent underline underline-offset-2"
+          >
+            Como isso funciona, em detalhe
+          </a>
         </Card>
 
         <Link
