@@ -3583,6 +3583,51 @@ semana", "Ver os estudos"/"Ver o estudo" e "citações reais" não
 aparecem mais em `/plano` nem `/aquecimento`. **Não testado em aparelho
 real** — mesma pendência de sempre.
 
+## GPS ultra-preciso: dois itens da pesquisa implementados (2026-08-30)
+
+Continuação da "Pesquisa: precisão de distância ao vivo (GPS)" acima,
+pedido do dono do projeto: seguir a ordem do backlog e implementar os
+itens de GPS restantes depois do RTS smoother. Branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+- **Toggle experimental iOS "priorizar rua sobre trilha"** (commit
+  `4baecac`): a pesquisa já tinha achado que `CLActivityType.otherNavigation`
+  é o único valor que a Apple não corrige automaticamente pra colar na rua
+  mais próxima — inclusive `.fitness` (usado por apps como Strava) continua
+  sendo corrigido. Como isso é uma troca real (ajuda em rua, pode
+  atrapalhar em parque/trilha arrastando o fix pra uma rua próxima que não
+  é o caminho real), virou preferência opt-in
+  (`Preferences.iosSkipRoadSnapping`, off por padrão) em vez de um flip
+  cego do default — dá ferramenta pro dono do projeto rodar o teste A/B
+  real que a pesquisa já tinha pedido (uma corrida de rua, uma de parque)
+  sem eu precisar adivinhar de um ambiente remoto sem aparelho.
+  `native-plugins/.../CapgoCapacitorBackgroundGeolocationPlugin.swift`'s
+  `configureLocationManager` lê `useNavigationActivityType` do call e seta
+  `.otherNavigation`/`.other` conforme o toggle; toggle novo em `/perfil`
+  ("GPS — modo experimental (iOS)"), visível só em iOS.
+- **Fallback por pedômetro no Android** (commit `2a1c65e`): hoje um gap
+  real de GPS (tela bloqueada/app em segundo plano por >=60s,
+  `GPS_GAP_THRESHOLD_SECONDS`) é preenchido pelo Kalman filter com uma
+  corda reta entre o fix de antes e o de depois — corta caminho de
+  verdade num trajeto curvo, subestimando distância. `TYPE_STEP_DETECTOR`
+  (best-effort, pede `ACTIVITY_RECOGNITION` de forma não-bloqueante logo
+  após localização/notificação — nunca impede a corrida de começar se
+  negada) agora entrega um `stepCount` cumulativo junto de cada fix;
+  `useRunTracker.ts`'s `handleFix` intercepta um gap real antes do
+  processamento normal do Kalman filter e, se há contagem de passos pros
+  dois lados do gap, credita `passos × 0.75m` (constante deliberadamente
+  conservadora — um step detector não informa comprimento de passada
+  real) em vez da corda reta. Sem dado de passos (iOS, ou Android sem
+  permissão) cai no comportamento de sempre, sem mudança.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` do lado
+  web limpos nos dois; `:app:assembleDebug` do Android **compilou de
+  verdade** neste sandbox (tem SDK/Gradle reais, diferente do iOS que não
+  tem Xcode) — confirma que o Java novo do plugin não quebra o build.
+  **Não testado em aparelho real** — sensor de passos de verdade, GPS
+  real perdendo sinal, e o toggle de iOS em rua vs. parque, mesma
+  pendência padrão de sempre.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
