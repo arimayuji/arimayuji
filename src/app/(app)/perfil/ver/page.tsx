@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import type { Profile } from "@/lib/auth";
 import {
   getProfileByHandle,
@@ -48,6 +48,75 @@ function formatRelativeDays(ms: number): string {
 
 function formatStreakWeeks(weeks: number): string {
   return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
+}
+
+/**
+ * Bar width (%) for one side of a head-to-head comparison, scaled against
+ * the larger of the two values so the two bars are always readable side by
+ * side. For a "lower is better" metric (PR times — a faster runner has a
+ * *smaller* number) the raw value would draw backwards, so this compares
+ * `1/value` instead — the visually longer bar always means "better",
+ * whichever direction the underlying numbers go. `null`/non-positive reads
+ * as "no bar" (the row already shows "—" as its label in that case).
+ */
+function comparisonBarPct(value: number | null, other: number | null, higherIsBetter: boolean): number {
+  if (value == null || value <= 0) return 0;
+  const scale = (v: number) => (higherIsBetter ? v : 1 / v);
+  const mine = scale(value);
+  const theirs = other != null && other > 0 ? scale(other) : 0;
+  const max = Math.max(mine, theirs);
+  if (max <= 0) return 0;
+  return Math.max(6, Math.round((mine / max) * 100));
+}
+
+/**
+ * One metric as two stacked head-to-head bars ("Você" / the friend's first
+ * name) instead of the old plain two-column number table — same numbers,
+ * but a glance at bar length says who's ahead without reading digits first.
+ * `null` still renders as "—" text, never a fake zero-length bar that could
+ * read as "this person ran zero".
+ */
+function CompareBarRow({
+  label,
+  theirName,
+  mine,
+  theirs,
+  formatValue,
+  higherIsBetter = true,
+}: {
+  label: string;
+  theirName: string;
+  mine: number | null;
+  theirs: number | null;
+  formatValue: (value: number) => string;
+  higherIsBetter?: boolean;
+}) {
+  if (mine == null && theirs == null) return null;
+  const minePct = comparisonBarPct(mine, theirs, higherIsBetter);
+  const theirsPct = comparisonBarPct(theirs, mine, higherIsBetter);
+  return (
+    <div>
+      <span className="block text-[11px] font-semibold tracking-wide text-muted uppercase">{label}</span>
+      <div className="mt-1.5 flex items-center gap-2">
+        <span className="w-14 shrink-0 truncate text-right text-[11px] text-muted">Você</span>
+        <div className="h-2 flex-1 rounded-full bg-border/50">
+          <div className="h-2 rounded-full bg-accent" style={{ width: `${minePct}%` }} />
+        </div>
+        <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums">
+          {mine != null ? formatValue(mine) : "—"}
+        </span>
+      </div>
+      <div className="mt-1 flex items-center gap-2">
+        <span className="w-14 shrink-0 truncate text-right text-[11px] text-muted">{theirName}</span>
+        <div className="h-2 flex-1 rounded-full bg-border/50">
+          <div className="h-2 rounded-full bg-good" style={{ width: `${theirsPct}%` }} />
+        </div>
+        <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums">
+          {theirs != null ? formatValue(theirs) : "—"}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 /** Race distances worth comparing between friends — see `buildStatsSnapshot` (stats.ts) for why training splits are left out. Same key names on both `StatsSnapshot` (my own, computed locally) and `ProfileStats` (the friend's, synced) so one lookup works for either side. */
@@ -244,63 +313,67 @@ function VerPerfilContent() {
         {isFriend && stats && (
           <Card className="pr-enter">
             <p className="mb-4 text-sm font-semibold">Comparar</p>
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-3">
-              <span />
-              <span className="text-center text-[11px] font-semibold tracking-wide text-muted uppercase">Você</span>
-              <span className="text-center text-[11px] font-semibold tracking-wide text-muted uppercase">
-                {displayName.split(" ")[0]}
-              </span>
-
-              <span className="text-sm text-muted">{unitLabel(unit)} corridos</span>
-              <span className="text-center font-mono text-sm tabular-nums">
-                {formatDistance(myStats?.totalMeters ?? 0, unit)}
-              </span>
-              <span className="text-center font-mono text-sm tabular-nums">{formatDistance(stats.totalMeters, unit)}</span>
-
-              <span className="text-sm text-muted">Corridas</span>
-              <span className="text-center font-mono text-sm tabular-nums">{myStats?.totalRuns ?? 0}</span>
-              <span className="text-center font-mono text-sm tabular-nums">{stats.totalRuns}</span>
-
-              <span className="text-sm text-muted">Essa semana</span>
-              <span className="text-center font-mono text-sm tabular-nums">
-                {formatDistance(myStats?.weekMeters ?? 0, unit)}
-              </span>
-              <span className="text-center font-mono text-sm tabular-nums">
-                {stats.weekMeters != null ? formatDistance(stats.weekMeters, unit) : "—"}
-              </span>
-
-              <span className="text-sm text-muted">Sequência</span>
-              <span className="text-center font-mono text-sm tabular-nums">
-                {formatStreakWeeks(myStats?.streakWeeks ?? 0)}
-              </span>
-              <span className="text-center font-mono text-sm tabular-nums">
-                {stats.streakWeeks != null ? formatStreakWeeks(stats.streakWeeks) : "—"}
-              </span>
+            <div className="space-y-4">
+              <CompareBarRow
+                label={`${unitLabel(unit)} corridos`}
+                theirName={displayName.split(" ")[0]}
+                mine={myStats?.totalMeters ?? 0}
+                theirs={stats.totalMeters}
+                formatValue={(meters) => formatDistance(meters, unit)}
+              />
+              <CompareBarRow
+                label="Corridas"
+                theirName={displayName.split(" ")[0]}
+                mine={myStats?.totalRuns ?? 0}
+                theirs={stats.totalRuns}
+                formatValue={(count) => String(count)}
+              />
+              <CompareBarRow
+                label="Essa semana"
+                theirName={displayName.split(" ")[0]}
+                mine={myStats?.weekMeters ?? 0}
+                theirs={stats.weekMeters ?? null}
+                formatValue={(meters) => formatDistance(meters, unit)}
+              />
+              <CompareBarRow
+                label="Sequência"
+                theirName={displayName.split(" ")[0]}
+                mine={myStats?.streakWeeks ?? 0}
+                theirs={stats.streakWeeks ?? null}
+                formatValue={(weeks) => formatStreakWeeks(weeks)}
+              />
 
               {(myStats?.lastRunAt || stats.lastRunAt != null) && (
-                <>
-                  <span className="text-sm text-muted">Última corrida</span>
-                  <span className="text-center font-mono text-sm tabular-nums">
-                    {myStats?.lastRunAt ? formatRelativeDays(myStats.lastRunAt) : "—"}
+                <div>
+                  <span className="block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                    Última corrida
                   </span>
-                  <span className="text-center font-mono text-sm tabular-nums">
-                    {stats.lastRunAt != null ? formatRelativeDays(stats.lastRunAt) : "—"}
-                  </span>
-                </>
+                  <div className="mt-1.5 flex items-center justify-between text-xs">
+                    <span className="text-muted">Você</span>
+                    <span className="font-mono tabular-nums">
+                      {myStats?.lastRunAt ? formatRelativeDays(myStats.lastRunAt) : "—"}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-xs">
+                    <span className="text-muted">{displayName.split(" ")[0]}</span>
+                    <span className="font-mono tabular-nums">
+                      {stats.lastRunAt != null ? formatRelativeDays(stats.lastRunAt) : "—"}
+                    </span>
+                  </div>
+                </div>
               )}
 
-              {PR_COMPARISON_ROWS.map(({ label, key }) => {
-                const mine = myStats?.[key] ?? null;
-                const theirs = stats[key];
-                if (mine === null && theirs == null) return null;
-                return (
-                  <Fragment key={key}>
-                    <span className="text-sm text-muted">{label}</span>
-                    <span className="text-center font-mono text-sm tabular-nums">{mine ? formatElapsed(mine) : "—"}</span>
-                    <span className="text-center font-mono text-sm tabular-nums">{theirs ? formatElapsed(theirs) : "—"}</span>
-                  </Fragment>
-                );
-              })}
+              {PR_COMPARISON_ROWS.map(({ label, key }) => (
+                <CompareBarRow
+                  key={key}
+                  label={label}
+                  theirName={displayName.split(" ")[0]}
+                  mine={myStats?.[key] ?? null}
+                  theirs={stats[key] ?? null}
+                  formatValue={(seconds) => formatElapsed(seconds)}
+                  higherIsBetter={false}
+                />
+              ))}
             </div>
           </Card>
         )}
