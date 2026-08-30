@@ -225,6 +225,17 @@ const ANNOUNCE_MODE_TABS = [
   { id: "time", label: "Tempo" },
 ] as const;
 
+/** "Como avisar" / "Voz" switches inside the same card — `PillTabs`, same full-width tap target as `ANNOUNCE_MODE_TABS` above, instead of the old cramped bordered-button pair that felt too small to tap. */
+const ANNOUNCE_STYLE_TABS = [
+  { id: "voz", label: "Voz" },
+  { id: "vibracao", label: "Vibração" },
+] as const;
+
+const VOICE_GENDER_TABS = [
+  { id: "female", label: "Feminina" },
+  { id: "male", label: "Masculina" },
+] as const;
+
 /**
  * Ending a run is the one action here with no undo — the summary screen is
  * already built from whatever `finish()` freezes into `finishedRun`, and
@@ -2334,49 +2345,29 @@ export default function RunPage() {
                   />
                 )}
               </div>
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-xs text-muted">Como avisar</span>
-                <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
-                  {(["voz", "vibracao"] as const).map((style) => (
-                    <button
-                      key={style}
-                      type="button"
-                      onClick={() => updatePreferences({ announceStyle: style })}
-                      aria-pressed={announceStyle === style}
-                      className={`px-3 py-1.5 transition-colors ${
-                        announceStyle === style
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-background text-muted hover:text-foreground"
-                      }`}
-                    >
-                      {style === "voz" ? "Voz" : "Vibração"}
-                    </button>
-                  ))}
-                </div>
+              <div className="mt-4 border-t border-border pt-4">
+                <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                  Como avisar
+                </span>
+                <PillTabs
+                  tabs={ANNOUNCE_STYLE_TABS}
+                  active={announceStyle}
+                  onChange={(style) => updatePreferences({ announceStyle: style })}
+                />
               </div>
               {announceStyle === "voz" ? (
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs text-muted">Voz</span>
-                  <div className="flex overflow-hidden rounded-lg border border-border text-xs font-semibold">
-                    {(["female", "male"] as const).map((gender) => (
-                      <button
-                        key={gender}
-                        type="button"
-                        onClick={() => updatePreferences({ voiceGender: gender })}
-                        aria-pressed={voiceGender === gender}
-                        className={`px-3 py-1.5 transition-colors ${
-                          voiceGender === gender
-                            ? "bg-accent text-accent-foreground"
-                            : "bg-background text-muted hover:text-foreground"
-                        }`}
-                      >
-                        {gender === "female" ? "Feminina" : "Masculina"}
-                      </button>
-                    ))}
-                  </div>
+                <div className="mt-3">
+                  <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                    Voz
+                  </span>
+                  <PillTabs
+                    tabs={VOICE_GENDER_TABS}
+                    active={voiceGender}
+                    onChange={(gender) => updatePreferences({ voiceGender: gender })}
+                  />
                 </div>
               ) : (
-                <p className="pt-1 text-xs leading-relaxed text-muted">
+                <p className="mt-3 text-xs leading-relaxed text-muted">
                   Vibra a cada marca, sem voz.
                 </p>
               )}
