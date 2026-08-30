@@ -68,3 +68,8 @@ next-env.d.ts
 # — throwaway comparison clips for a human to listen to before picking a
 # voice_settings winner, never meant to reach the real 135/270-clip bank
 /public/audio/experiment-*/
+
+# Claude Code personal/machine-local settings (hooks a given session opted
+# into, e.g. the Impeccable design-check hook) — .claude/settings.json
+# would be the shared/team version; this one is deliberately per-machine.
+.claude/settings.local.json

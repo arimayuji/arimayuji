@@ -3862,6 +3862,46 @@ novos do hook. **Não verificável neste ambiente**: sensor BLE real,
 scan/conexão de verdade, build iOS (sem Xcode/macOS aqui — só o CI
 depois do push confirma).
 
+## Merge pra produção + bloqueio novo do Google Play: declaração de recursos de saúde (2026-08-30)
+
+`claude/strava-competitor-feedback-cyvop8` foi mergeada de vez pro `main`
+real (`arimayuji/xanthus`, não `arimayuji/arimayuji` — ver "Pegadinha de
+infra" mais acima) nesta sessão, com OK explícito do dono do projeto.
+Merge sem conflito (`git merge-tree` limpo), `tsc`/`lint`/`build`
+reconfirmados na árvore mergeada antes do push. CI dos dois lados (`iOS
+build` run #173, `Android build` run #186) completou com sucesso.
+
+**Achado real, só depois do dono do projeto reportar "a versão no Play
+Console continua sendo a de ontem"**: o job do Android aparece verde no
+GitHub Actions, mas o release de verdade nunca foi publicado — o step
+`Publish AAB to Google Play` tem `continue-on-error: true` (mesmo padrão
+já usado quando a API do Google estava desabilitada, ver seção "Bug de CI
+achado e corrigido em 2026-08-21" acima), então uma falha real dentro
+dele fica escondida atrás de um job verde. O log de verdade do step
+(pego via `mcp__github__get_job_logs`, não só o resumo do Actions) mostra:
+```
+Uploading android/app/build/outputs/bundle/release/app-release.aab
+Successfully uploaded 1 artifacts
+Committing the Edit
+##[error]You must let us know whether your app includes any health features.
+```
+O `.aab` sobe normalmente, mas o Google recusa **comitar** o release
+(o passo que de fato cria a versão nova visível no Console) até alguém
+responder manualmente um questionário novo de "recursos de saúde" —
+provavelmente destravado pelas permissões de Health Connect
+(`READ_HEART_RATE` etc., já existentes desde antes) somadas ao Bluetooth
+de FC ao vivo desta mesma sessão. **Bloqueio de política do Play Console,
+não bug de código nem do workflow** — mesma classe do bloqueio de API
+desabilitada de 2026-08-21, só que dessa vez o dono do projeto precisa
+resolver em **Play Console → Política e programas → Conteúdo do app**
+(o card de declaração de recursos de saúde deve aparecer destacado no
+painel) antes que qualquer novo push consiga de fato publicar uma versão
+nova — enquanto isso não for feito, `versionCode`/`versionName` seguem
+avançando a cada push (a lógica é `1.0.${github.run_number}`), mas nenhum
+deles chega a virar uma versão real no Console. Depois de resolver, um
+push novo (ou "Re-run jobs" no run que já rodou) deve publicar
+normalmente.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
