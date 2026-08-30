@@ -22,7 +22,7 @@ export default function TrajetoPage() {
 }
 
 function TrajetoContent() {
-  useHeaderClose("/progresso");
+  useHeaderClose("/perfil?tab=progresso");
   const params = useSearchParams();
   const anchor = params.get("anchor");
 
@@ -31,7 +31,7 @@ function TrajetoContent() {
       <Screen>
         <Card>
           <CardTitle>Nenhum trajeto selecionado</CardTitle>
-          <Link href="/progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
+          <Link href="/perfil?tab=progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
             Voltar pro progresso
           </Link>
         </Card>

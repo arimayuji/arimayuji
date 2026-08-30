@@ -190,7 +190,7 @@ export function RouteGroupDetail({ anchorRunId }: { anchorRunId: string }) {
             Esse trajeto pode ter parado de se repetir (menos de duas corridas parecidas no
             histórico) ou a corrida que o ancorava foi apagada.
           </p>
-          <Link href="/progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
+          <Link href="/perfil?tab=progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
             Voltar pro progresso
           </Link>
         </Card>

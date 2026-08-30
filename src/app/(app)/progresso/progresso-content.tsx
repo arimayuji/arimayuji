@@ -28,7 +28,7 @@ import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import type { WeeklyTargetKind } from "@/lib/runnerProfile";
-import { Card, CardTitle, delay, PillTabs, Screen, ScreenHeader, Stat } from "../ui";
+import { Card, CardTitle, delay, PillTabs, Stat } from "../ui";
 import { PillSlider } from "../pill-slider";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 import { MatchedRunsCard } from "../matched-runs-card";
@@ -42,6 +42,12 @@ import { ActivityFeed, PersonalRecords } from "./activity-feed";
  * `CompletedRun[]` this screen reads once on mount; nothing is stored
  * separately, so none of it can drift from what a run's own detail page
  * shows.
+ *
+ * Lives in its own file (not inlined in /perfil) because this used to be
+ * the standalone `/progresso` route — folded into a tab inside /perfil on
+ * request (bottom nav down to 3 tabs: Corrida, Plano, Perfil), but every
+ * component below still deserves the same isolation a top-level screen
+ * would get, not a giant inline block in perfil/page.tsx.
  */
 
 type LoadState =
@@ -641,7 +647,8 @@ function ActivityCard({
   );
 }
 
-export default function EstatisticasPage() {
+/** Everything /progresso used to render inside its own `<Screen>` — now a tab's worth of content inside /perfil instead of a route of its own. Caller supplies the outer `<Screen>`/gap wrapper. */
+export function ProgressoContent() {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [{ distanceUnit: unit }] = usePreferences();
@@ -674,62 +681,60 @@ export default function EstatisticasPage() {
     );
   };
 
+  if (load.status === "loading") {
+    return (
+      <Card className="animate-pulse">
+        <div className="h-4 w-32 rounded bg-border" />
+        <div className="mt-4 h-14 rounded-xl bg-border/70" />
+      </Card>
+    );
+  }
+
+  if (load.status === "error") {
+    return (
+      <Card>
+        <CardTitle>Não deu pra ler o histórico</CardTitle>
+        <p className="text-sm leading-relaxed text-muted">
+          O armazenamento local do navegador não respondeu. Em janela anônima ou com
+          armazenamento bloqueado, as estatísticas não têm de onde vir.
+        </p>
+      </Card>
+    );
+  }
+
+  if (runs.length === 0) {
+    return (
+      <Card className="overflow-hidden">
+        <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
+          <img
+            src="/progresso-empty.png"
+            alt="Ilustração de pegadas numa trilha, começando uma jornada"
+            className="h-full w-full object-cover"
+          />
+        </div>
+        <CardTitle>Nada pra mostrar ainda</CardTitle>
+        <p className="text-sm leading-relaxed text-muted">
+          Assim que a primeira corrida for salva, as estatísticas de rodagem, pace e
+          frequência aparecem aqui.
+        </p>
+      </Card>
+    );
+  }
+
   return (
     <>
-      <ScreenHeader title="Progresso" />
-
-      <Screen>
-        {load.status === "loading" && (
-          <Card className="animate-pulse">
-            <div className="h-4 w-32 rounded bg-border" />
-            <div className="mt-4 h-14 rounded-xl bg-border/70" />
-          </Card>
-        )}
-
-        {load.status === "error" && (
-          <Card>
-            <CardTitle>Não deu pra ler o histórico</CardTitle>
-            <p className="text-sm leading-relaxed text-muted">
-              O armazenamento local do navegador não respondeu. Em janela anônima ou com
-              armazenamento bloqueado, as estatísticas não têm de onde vir.
-            </p>
-          </Card>
-        )}
-
-        {load.status === "ready" && runs.length === 0 && (
-          <Card className="overflow-hidden">
-            <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-              <img
-                src="/progresso-empty.png"
-                alt="Ilustração de pegadas numa trilha, começando uma jornada"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <CardTitle>Nada pra mostrar ainda</CardTitle>
-            <p className="text-sm leading-relaxed text-muted">
-              Assim que a primeira corrida for salva, as estatísticas de rodagem, pace e
-              frequência aparecem aqui.
-            </p>
-          </Card>
-        )}
-
-        {load.status === "ready" && runs.length > 0 && (
-          <>
-            <WeekComparison weeks={weeks} unit={unit} />
-            <ConstancyCard runs={runs} painCheckIns={painCheckIns} />
-            <EmblemsCard />
-            <ActivityCard runs={runs} unit={unit} onRunDeleted={handleRunDeleted} delayMs={60} />
-            <PersonalRecords runs={runs} defaultUnit={unit} delayMs={65} />
-            <WeeklyVolumeChart weeks={weeks} unit={unit} />
-            <RunFrequencyHeatmap runs={runs} unit={unit} delayMs={85} />
-            <PaceTrendChart weeks={weeks} unit={unit} />
-            <MatchedRunsCard runs={runs} unit={unit} delayMs={115} />
-            <MonthCard runs={runs} unit={unit} />
-            <DailyVolumeChart runs={runs} unit={unit} />
-          </>
-        )}
-      </Screen>
+      <WeekComparison weeks={weeks} unit={unit} />
+      <ConstancyCard runs={runs} painCheckIns={painCheckIns} />
+      <EmblemsCard />
+      <ActivityCard runs={runs} unit={unit} onRunDeleted={handleRunDeleted} delayMs={60} />
+      <PersonalRecords runs={runs} defaultUnit={unit} delayMs={65} />
+      <WeeklyVolumeChart weeks={weeks} unit={unit} />
+      <RunFrequencyHeatmap runs={runs} unit={unit} delayMs={85} />
+      <PaceTrendChart weeks={weeks} unit={unit} />
+      <MatchedRunsCard runs={runs} unit={unit} delayMs={115} />
+      <MonthCard runs={runs} unit={unit} />
+      <DailyVolumeChart runs={runs} unit={unit} />
     </>
   );
 }

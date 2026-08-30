@@ -46,7 +46,7 @@ export default function VideoHudPage() {
 }
 
 function VideoHudContent() {
-  useHeaderClose("/progresso");
+  useHeaderClose("/perfil?tab=progresso");
   const runId = useSearchParams().get("run");
   const [prefs] = usePreferences();
   const [load, setLoad] = useState<{ status: "loading" } | { status: "not-found" } | { status: "ready"; run: CompletedRun }>(
@@ -127,7 +127,7 @@ function VideoHudContent() {
             Esse registro não existe mais neste aparelho — pode já ter sido excluído.
           </p>
           <Link
-            href="/progresso"
+            href="/perfil?tab=progresso"
             className="mt-4 flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
           >
             Voltar pro progresso

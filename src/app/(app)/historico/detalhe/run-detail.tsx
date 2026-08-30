@@ -536,7 +536,7 @@ function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
 }
 
 export function RunDetail({ id }: { id: string }) {
-  useHeaderClose("/progresso");
+  useHeaderClose("/perfil?tab=progresso");
   const router = useRouter();
   const { account } = useAuth();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
@@ -664,7 +664,7 @@ export function RunDetail({ id }: { id: string }) {
             Esse registro não existe mais neste aparelho — pode já ter sido excluído.
           </p>
           <Link
-            href="/progresso"
+            href="/perfil?tab=progresso"
             className="mt-4 flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
           >
             Voltar pro progresso
@@ -705,7 +705,7 @@ export function RunDetail({ id }: { id: string }) {
     setDeleting(true);
     await deleteCompletedRun(run.id);
     if (account) void syncProfileStats();
-    router.push("/progresso");
+    router.push("/perfil?tab=progresso");
   };
 
   const handleSavePlaceName = async () => {
@@ -1147,7 +1147,7 @@ export function RunDetail({ id }: { id: string }) {
         </Card>
 
         <Link
-          href="/progresso"
+          href="/perfil?tab=progresso"
           className="pr-enter flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
           style={delay(210)}
         >

@@ -88,7 +88,7 @@ function CollectionGrid({
 }
 
 export default function EmblemasPage() {
-  useHeaderClose("/progresso");
+  useHeaderClose("/perfil?tab=progresso");
   const [runs, setRuns] = useState<CompletedRun[] | null>(null);
   const [openedByCategory, setOpenedByCategory] = useState<Record<EmblemCategory, number[]>>({
     distancia: [],

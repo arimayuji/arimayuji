@@ -36,6 +36,7 @@ import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
 import { clearMyPresence } from "@/lib/friendPresence";
 import type { RunningPlace } from "@/lib/places";
+import { ProgressoContent } from "../progresso/progresso-content";
 
 /**
  * Profile: two halves, kept visually distinct on purpose.
@@ -505,11 +506,39 @@ function AppModeCard() {
   );
 }
 
+type PerfilTab = "ajustes" | "progresso";
+
+const PERFIL_TABS: { id: PerfilTab; label: string }[] = [
+  { id: "ajustes", label: "Ajustes" },
+  { id: "progresso", label: "Progresso" },
+];
+
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
   /** Drives the "Testar vibração" button's own label swap — see that button's comment for why it exists. */
   const [vibrateTested, setVibrateTested] = useState(false);
+  /**
+   * /progresso used to be its own bottom-nav tab; folded in here as a
+   * second tab instead (bottom nav down to 3: Corrida, Plano, Perfil — see
+   * app-shell.tsx). Defaults to "ajustes" everywhere, including desktop,
+   * where the tab switcher itself never renders (`lg:hidden` below) — see
+   * ProgressoContent's own `lg:hidden` wrapper for why.
+   */
+  const [activeTab, setActiveTab] = useState<PerfilTab>("ajustes");
+
+  // A run's "voltar"/"fechar" button (historico/detalhe, historico/video,
+  // /progresso/trajeto, /emblemas) links back here with `?tab=progresso` so
+  // it lands on the tab it actually came from, not always the default.
+  // Read straight off `window.location.search` instead of
+  // `useSearchParams()` so this page doesn't need a Suspense boundary just
+  // for a value only ever read once, on mount — same pattern /amigos uses.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "progresso") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from an external source (the URL), not from other React state; there's nothing to read this from except an effect.
+      setActiveTab("progresso");
+    }
+  }, []);
 
   return (
     <>
@@ -536,10 +565,6 @@ export default function PerfilPage() {
           Aparência survive because they're plain account/device
           preferences that mean the same thing on any surface.
         */}
-        <div className="lg:hidden">
-          <AppModeCard />
-        </div>
-
         <SectionLabel delayMs={20}>Aparência</SectionLabel>
         <Card className="pr-enter lg:rounded-lg lg:p-4" style={delay(30)}>
           <CardTitle>Tema</CardTitle>
@@ -575,6 +600,20 @@ export default function PerfilPage() {
             ))}
           </div>
         </Card>
+
+        <div className="lg:hidden">
+          <PillTabs tabs={PERFIL_TABS} active={activeTab} onChange={setActiveTab} />
+        </div>
+
+        {activeTab === "progresso" ? (
+          <div className="flex flex-col gap-5 lg:hidden">
+            <ProgressoContent />
+          </div>
+        ) : (
+        <>
+        <div className="lg:hidden">
+          <AppModeCard />
+        </div>
 
         <div className="lg:hidden">
           <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
@@ -757,6 +796,8 @@ export default function PerfilPage() {
             </p>
           </Card>
         </div>
+        </>
+        )}
 
         {/* Always the real hosted domain, on purpose — opens in the system
             browser (target="_blank") rather than an in-app screen, and the

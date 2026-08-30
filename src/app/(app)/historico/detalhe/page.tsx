@@ -31,7 +31,7 @@ function DetalheCorridaContent() {
       <Screen>
         <Card>
           <CardTitle>Nenhuma corrida selecionada</CardTitle>
-          <Link href="/progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
+          <Link href="/perfil?tab=progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
             Voltar pro progresso
           </Link>
         </Card>

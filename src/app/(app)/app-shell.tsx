@@ -104,21 +104,6 @@ const TABS: TabDefinition[] = [
     ),
   },
   {
-    href: "/progresso",
-    label: "Progresso",
-    // /historico used to be its own tab; its list screen folded into
-    // /progresso's activity feed (see activity-feed.tsx), but the detail/
-    // video sub-routes kept their original paths — this keeps the tab lit
-    // while looking at a run reached from that feed.
-    alsoMatches: ["/historico"],
-    icon: ({ className }) => (
-      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
-        <path d="M4 15.5 9.5 10l3.5 3.5L20 6" />
-        <path d="M14.5 6h5.5v5.5" />
-      </svg>
-    ),
-  },
-  {
     href: "/plano",
     label: "Plano",
     icon: ({ className }) => (
@@ -133,7 +118,13 @@ const TABS: TabDefinition[] = [
   {
     href: "/perfil",
     label: "Perfil",
-    alsoMatches: ["/compartilhar", "/amigos", "/longao"],
+    // /progresso used to be its own tab; its content (charts + the run
+    // feed, see progresso-content.tsx) folded into a tab inside /perfil.
+    // /historico was already folded into /progresso before that (its list
+    // screen became the activity feed) but its detail/video sub-routes
+    // kept their original paths — this keeps Perfil lit while looking at a
+    // run reached from that feed, same as /progresso itself used to.
+    alsoMatches: ["/compartilhar", "/amigos", "/longao", "/progresso", "/historico"],
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
         <circle cx="12" cy="8.25" r="3.75" />

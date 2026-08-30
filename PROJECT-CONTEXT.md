@@ -2573,6 +2573,62 @@ jogado ao mesmo tempo" em várias telas.
   dado real, barra inferior com as 4 abas). **Não testado em aparelho
   real** — mesma pendência de sempre.
 
+**Segunda rodada, mesmo dia (2026-08-30): `/progresso` também deixou de
+ser aba própria — virou uma segunda aba dentro de `/perfil`.** Motivo:
+perguntado se histórico/progresso não iriam pro perfil (a intenção
+original da sessão anterior era mais ambiciosa que só absorver
+`/historico`) — decisão confirmada via pergunta direta: **mover tudo pra
+dentro de Perfil, barra final com 3 abas** (Corrida, Plano, Perfil), não
+4. Branch `claude/strava-competitor-feedback-cyvop8`, **ainda não
+deployado em produção**.
+
+- Todo o conteúdo de `/progresso` (gráficos + `EmblemsCard` + o feed de
+  atividades absorvido na rodada anterior) foi extraído pro componente
+  `ProgressoContent()` em `src/app/(app)/progresso/progresso-content.tsx`
+  — mesmo arquivo, zero lógica reescrita, só sem o `<ScreenHeader>`/
+  `<Screen>` próprios (o container agora é o `<Screen panel>` de
+  `/perfil`). `src/app/(app)/progresso/page.tsx` foi apagado — a rota
+  `/progresso` não existe mais. `progresso/trajeto` (detalhe de um
+  trajeto repetido) e `progresso/activity-feed.tsx` (o feed em si, já
+  extraído na rodada anterior) continuam exatamente onde estavam, sem
+  mudança de path.
+- `/perfil` (`perfil/page.tsx`) ganhou um `PillTabs` de 2 abas — "Ajustes"
+  (tudo que já existia: Modo do app, Descubra e conecte, Ranking de
+  lugares, Amigo por perto, Preferências de corrida) e "Progresso"
+  (`<ProgressoContent />`) — logo abaixo do card Tema, que continua fora
+  das abas junto com Conta (mesma lógica de "não é dado pessoal" já usada
+  pro widget de 4 abas de `/perfil/dados`). Estado `activeTab` default
+  "ajustes"; um `useEffect` lendo `window.location.search` (padrão já
+  usado em `/amigos`, sem `useSearchParams()`/Suspense) troca pra
+  "progresso" quando a URL chega com `?tab=progresso`. Igual ao resto da
+  tela, tudo isso é `lg:hidden` — o painel desktop do treinador não ganha
+  nem perde nada aqui.
+- `app-shell.tsx`: `TABS` perde a entrada `/progresso` de vez — barra
+  inferior agora é só Corrida/Plano/Perfil (3, não 4). O
+  `alsoMatches: ["/historico"]` que vivia na aba Progresso migrou pra
+  aba Perfil, que ganhou também `"/progresso"` na própria lista (pro
+  `/progresso/trajeto` continuar acendendo Perfil).
+- Todo "voltar"/"fechar" que antes apontava pra `/progresso` agora aponta
+  pra `/perfil?tab=progresso`, pra devolver quem clicou na aba certa em
+  vez de sempre cair em Ajustes: `useHeaderClose` em `emblemas/page.tsx`,
+  `progresso/trajeto/page.tsx`, `historico/video/page.tsx`,
+  `historico/detalhe/run-detail.tsx`; os `<Link href="/progresso">`
+  equivalentes nesses mesmos arquivos mais
+  `progresso/trajeto/route-group-detail.tsx` e
+  `historico/detalhe/page.tsx`; e o `router.push("/progresso")` de
+  `run-detail.tsx` ao apagar uma corrida. `plano/plan-dashboard.tsx`'s
+  dica de "defina uma meta semanal em /progresso" (Constância sem meta
+  configurada) também virou `/perfil?tab=progresso`, com o texto do link
+  trocado de "/progresso" pra "Perfil → Progresso".
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos (a
+  rota `/progresso` desaparece da lista gerada pelo build, só
+  `/progresso/trajeto` continua); visualmente confirmado via Playwright
+  — as duas abas renderizando de verdade (Ajustes com Conta/Tema/
+  Descubra e conecte/Ranking/Amigo por perto; Progresso com Essa
+  semana/Constância/Emblemas), barra inferior com as 3 abas certas, e
+  `?tab=progresso` de fato abrindo direto na aba Progresso. **Não
+  testado em aparelho real** — mesma pendência de sempre.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play

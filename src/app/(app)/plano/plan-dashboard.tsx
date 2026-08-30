@@ -201,8 +201,8 @@ export function PlanKpiStrip({
         ) : (
           <p className="mt-1 text-xs text-muted">
             defina uma meta semanal em{" "}
-            <a href="/progresso" className="text-accent underline underline-offset-2">
-              /progresso
+            <a href="/perfil?tab=progresso" className="text-accent underline underline-offset-2">
+              Perfil → Progresso
             </a>{" "}
             pra acompanhar aqui
           </p>
