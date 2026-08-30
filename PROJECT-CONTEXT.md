@@ -3124,6 +3124,26 @@ produção**.
   no lugar certo. **Não testado em aparelho real** — wake lock e voz por
   Web Speech de verdade, mesma pendência padrão de sempre.
 
+**Conteúdo do alongamento revisado com pesquisa real (mesmo dia,
+2026-08-30)**: feedback do dono do projeto sobre a rotina de alongamento
+— nomear um passo só pela região do corpo (ex. o antigo "Lombar/lateral")
+é confuso, precisa de nome de movimento + exemplo claro. Pesquisado via
+WebSearch (não só inferido) o que fisioterapeutas/guias de corrida
+recomendam pra aquecimento dinâmico pré-corrida e alongamento estático
+pós-corrida — confirmou que o aquecimento já implementado (balanço de
+perna, joelho alto, chute no glúteo, afundo caminhando) já bate com o
+que aparece nessas fontes, sem mudança; achou uma lacuna real no
+alongamento: **flexor do quadril** aparece como um dos grupos padrão
+pra alongar depois de correr e não estava na rotina. `STRETCH_ROUTINE`
+(`src/lib/warmupRoutines.ts`) ganhou "Flexor do quadril (perna direita/
+esquerda)" (alongamento ajoelhado, instrução explícita de posição) e o
+antigo "Lombar/lateral" foi renomeado pra "Alongamento lateral do
+tronco" com a instrução reescrita pra deixar claro que é um movimento
+(inclinar o tronco com o braço esticado), não só uma região do corpo —
+rotina passa de 11 pra 13 passos, ~8 min no total (calculado
+dinamicamente pela tela, nenhum número fixo pra atualizar em outro
+lugar). Verificado: `tsc`, `lint`, `build` limpos.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
