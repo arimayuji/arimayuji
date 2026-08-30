@@ -3305,7 +3305,186 @@ só pesquisa, registrando os achados pra não perder.**
   (pedômetro, barômetro) são de baixíssimo consumo, e o RTS smoother roda
   só uma vez pós-corrida.
 - **Nada implementado ainda** — aguardando o dono do projeto decidir o
-  que priorizar.
+  que priorizar. **Atualização 2026-08-30: o item de melhor custo-benefício
+  (suavização retroativa RTS) já foi implementado** — ver seção própria
+  logo abaixo; essa nota ficou momentaneamente desatualizada entre um
+  parágrafo e outro na mesma sessão.
+
+## Suavização retroativa de rota (RTS) implementada (2026-08-30)
+
+Primeiro item da pesquisa de precisão de GPS acima a sair do papel —
+`src/lib/tracking/geoFilter.ts` ganhou `smoothRoutePoints`/`rtsSmoothAxis`:
+um segundo passe de Kalman, retroativo, rodando **uma vez, no fim da
+corrida** (`useRunTracker.ts`'s `finish()`), sobre os pontos já filtrados
+ao vivo — usa pontos *futuros* pra corrigir um trecho ruim, o que o
+filtro ao vivo (só vê o passado) estruturalmente não pode fazer. Mesma
+família matemática do `Kalman2D` já existente, reaproveitando
+`AxisKalman1D` (ganhou um getter `covariance` novo pra expor
+Ppp/Ppv/Pvv, que o passe retroativo precisa e o filtro ao vivo não
+usava). Testado sintético: percurso reto de 596m com jitter de GPS
+tinha comprimento acumulado de 1782m (zigue-zague quase 3x inflando);
+depois do suavizador, 601m — quase exato.
+
+**Decisão de escopo importante**: `distanceMeters` (o total creditado
+ao vivo, o mesmo que a voz já anunciou durante a corrida) **nunca é
+tocado** por isso — só a forma da rota salva (`CompletedRun.points`) e
+tudo que é derivado dela (splits, detecção de PR, amostragem de
+elevação, comparação de rota similar). Confirmado lendo `splits.ts`:
+splits/PRs/conquistas já calculam a própria distância via soma de
+haversine sobre `points`, **já** independente de `distanceMeters` —
+então essa divisão "número anunciado ao vivo" vs. "o que os pontos
+implicam" não é uma inconsistência nova, é a arquitetura que já existia.
+Branch `claude/strava-competitor-feedback-cyvop8`, commit `347e404`,
+**ainda não deployado em produção**. Não testado numa corrida real —
+mesma pendência padrão de sempre.
+
+## /estudos virou página de referência de verdade (2026-08-30)
+
+Pedido do dono do projeto: os textos burocráticos (estudos, LGPD/
+privacidade) "não é app de leitura" — deveriam ficar acessíveis pelo
+navegador a partir da própria landing, não só de dentro do app.
+Investigado antes de codar: **já era essencialmente assim** — `/estudos`
+e `/privacidade` já são rotas do mesmo build estático servido em
+`xanthus.app.br`, e todo link de dentro do app pra elas já usa
+`<a href="https://xanthus.app.br/...">` absoluto com `target="_blank"`
+(nunca `next/link` relativo) — abre no navegador do sistema, nunca uma
+tela dentro do WebView. A única exceção legítima é o banner de
+consentimento LGPD do onboarding (`privacy-consent.tsx`), que precisa
+ser in-app por ser o próprio consentimento, não documentação.
+
+O que realmente faltava: (1) a landing page (`src/app/page.tsx`) não
+linkava nenhum dos dois — corrigido com "Estudos"/"Privacidade" no
+footer; (2) `/estudos` era uma lista longa sem navegação interna —
+virou uma página de referência de verdade: `Card` ganhou um prop `id`
+(forwardado pro `<section>`), cada card de tópico ganhou esse `id`, e um
+novo card "Índice" no topo linka `#topic` pra cada um. Todo chip de
+tópico que já existia dentro do app (`/plano` × 2 pontos, `/aquecimento`,
+o lembrete de gel em `/perfil`) — antes texto puro — agora linka direto
+pra `https://xanthus.app.br/estudos#<topic>` em vez de sempre jogar o
+leitor no topo da página inteira.
+
+**Decisão de escopo, por pergunta direta ao dono do projeto**: cogitou-se
+escrever artigos completos por tópico (estilo "From the Research" do
+Pheidi, ver seção de pesquisa mais abaixo) ou até um hub único juntando
+isso com as páginas "como funciona" já espalhadas (`/perfil/relogio/
+como-funciona`) — **escolhido o escopo mais barato**: só reorganizar o
+que já existe (fatos + links de fonte), sem escrever conteúdo novo. Motivo
+prático confirmado antes de decidir: **não temos os arquivos/PDFs dos
+estudos** — `facts.ts` é uma tabela curada à mão (o próprio comentário de
+`types.ts` diz "deliberately NOT a vector-search RAG"), cada fato só
+guarda um resumo de 1-2 frases (`claim`) escrito à mão + um link pra
+fonte, nunca o texto do artigo. "RAG" nesse projeto sempre foi apelido
+impreciso pra "grounding por prompt com resumo curado", nunca retrieval
+real contra arquivo.
+
+Branch `claude/strava-competitor-feedback-cyvop8`, commit `9312b04`,
+**ainda não deployado em produção**. Verificado: `tsc`, `lint`, `build`
+limpos.
+
+## Pesquisa pheidi.training: anel 80/20 e calendário do plano com zoom, implementados (2026-08-30)
+
+Depois da pesquisa de features do pheidi.training já registrada acima
+("Pesquisa: precisão de distância..." é seção separada — ver a entrada
+"Modo treinador com IA"/dashboard do `/plano` pra contexto do que já
+existia), o dono do projeto pediu pra implementar direto os dois achados
+de visualização genuinamente novos (o 3º, "Build Log", foi descartado
+explicitamente: "o 3 que se foda"). Implementado na mesma sessão, branch
+`claude/strava-competitor-feedback-cyvop8`, commit `1ea8393`, **ainda
+não deployado em produção**.
+
+- **`IntensityRingCard`** (anel de distribuição de intensidade 80/20):
+  últimos 28 dias, tempo-por-zona (não distância — zona de pace é um
+  conceito de tempo) das corridas já gravadas, calculado via
+  `timeInZones`/`classifyPace` (`src/lib/plan/zones.ts` — já existiam,
+  usados só em `run-detail.tsx`'s "Tempo por zona" por corrida, nunca
+  agregado). As 5 zonas VDOT (fácil/maratona/limiar/intervalado/
+  repetição) colapsam em 3 baldes pro princípio 80/20: fácil = Z1,
+  "zona cinza" = maratona+limiar (o meio-termo que o corredor amador cai
+  sem perceber), forte = intervalado+repetição. Donut SVG artesanal
+  (mesma convenção de gráfico sem lib nova já usada em `trend-charts.tsx`),
+  aviso quando a zona cinza passa de 20% do tempo (limiar próprio do
+  app, explicitamente rotulado como estimativa, não número da fonte —
+  o fato `80-20-polarized-training` já citado em `facts.ts`/`/estudos`
+  não define esse corte específico). Link direto pra
+  `/estudos#periodization`. Requer tempo de prova recente configurado
+  (mesmo pré-requisito de qualquer zona de pace no app); sem isso, mostra
+  aviso em vez de inventar número.
+- **`PlanCalendar`** (calendário do plano inteiro): uma linha por semana,
+  do plano todo até a prova (não só a semana atual, que é tudo que
+  `WeekDayTable` já mostrava) — 7 células coloridas por linha reaproveitando
+  `KIND_STYLE` (mesmas cores já usadas na tabela semanal, nenhuma paleta
+  nova), rótulo de fase (Base/Desenvolvimento/Pico/Polimento) só onde
+  muda, semana atual destacada e auto-scrollada pro centro ao montar.
+  Km total por semana à direita. Resolve a lacuna real que motivou o
+  pedido: o motor de plano (`src/lib/plan/`) já calcula uma rampa/curva
+  de volume real, mas antes disso não existia nenhuma tela que mostrasse
+  essa curva inteira de uma vez — só dava pra navegar semana a semana.
+- **Decisão consciente de escopo, mais barata que a proposta original do
+  Pheidi**: não foram implementados os 4 níveis de zoom (dia/semana/mês/
+  linha do tempo) — só o nível "plano todo", que é o que preenchia a
+  lacuna real (a visão diária/semanal já existe em `WeekDayTable`, o
+  nível "mês" não agregaria nada que a heatmap de frequência já não
+  mostra pro passado).
+- **Dois erros de pureza do React Compiler pegos pelo lint antes de
+  commitar** (não bugs visuais, mas teriam sido problemas reais de
+  memoização/re-render): um acumulador mutável (`offsetPct`) reatribuído
+  dentro de um `.map()` no donut, e outro (`lastPhase`) no calendário —
+  os dois substituídos por cálculo puro (reduce com array novo a cada
+  chamada; comparação com o item anterior do próprio array via índice).
+  E uma chamada direta a `Date.now()` dentro do corpo de um componente —
+  corrigida escondendo atrás de uma função de módulo (`windowCutoffMs`),
+  mesmo padrão que `daysUntil` (já existente no arquivo) usa pra escapar
+  dessa regra de lint.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
+  Confirmado visualmente via Playwright com 12 corridas sintéticas
+  seedadas direto no IndexedDB (paces variados) + perfil com tempo de
+  prova recente configurado — o anel renderizou com percentuais reais
+  (92% fácil / 8% zona cinza / 0% forte nesse dado sintético específico)
+  e o calendário mostrou 13 semanas com rótulo de fase na transição e a
+  semana atual destacada. **Não testado com dado real de um usuário** —
+  mesma pendência padrão de sempre.
+
+## Duas rodadas de pesquisa de evidência científica, pendentes de mesclagem manual (2026-08-30)
+
+Pedido do dono do projeto: ampliar a base de `facts.ts` com mais fontes
+de revistas de esporte/atletismo (focando nos tópicos mais rasos) e
+adicionar cobertura de fisioterapia clínica pré/pós-corrida (hoje quase
+inexistente — o que já existe em `injury_prevention`/`static_stretch_*`
+é sobre decisão de treino de um corredor saudável, não sobre o que um
+fisioterapeuta de verdade prescreve pra uma lesão já diagnosticada).
+Duas pesquisas reais via agente com WebSearch/WebFetch, cada fonte
+de fato aberta e lida, nunca por memória de treino — **nenhum arquivo
+foi editado, os dois são relatórios pra mesclagem manual em sessão
+futura** (curar/decidir formato final de citação é trabalho de revisão
+humana, não de merge automático de agente).
+
+- **Rodada 1 (tópicos rasos)**: 14 fatos candidatos cobrindo
+  `race_time_prediction` (1→2), `pace_zones` (1→3), `taper` (2→3),
+  `hydration` (2→4), `nutrition_timing` (3→6), `overtraining` (3→5),
+  `periodization` (3→6) — cada um no formato exato de `EvidenceFact`,
+  já traduzido pra português, com `caveat` honesto quando a força da
+  fonte é menor que o número sugere. Achado notável: `race_time_prediction`
+  e `taper` ficaram propositalmente rasos ainda — o próprio agente
+  reportou não ter achado evidência controlada nova o bastante pra não
+  duplicar o que já existe, tratando isso como resultado honesto, não
+  atalho.
+- **Rodada 2 (fisioterapia clínica)**: 13 fatos candidatos cobrindo
+  fortalecimento excêntrico (Aquiles/patelar), foam rolling, reeducação
+  de marcha/cadência, protocolos de retorno à corrida pós-lesão (fratura
+  por estresse, fascite plantar, isquiotibiais), agulhamento seco/terapia
+  manual, fortalecimento como prevenção. Achado estrutural importante:
+  **nenhum dos 13 tópicos de `DecisionTopic` existentes descreve bem
+  esse conteúdo** — o agente recomenda um tópico novo (algo como
+  `injury_rehab`/`return_to_run`) pra "o que fazer com uma lesão já
+  diagnosticada", separado de `injury_prevention` ("como treinar sem se
+  machucar"). Criar um `DecisionTopic` novo exige tocar `types.ts` +
+  `topic-icons.tsx` + `evidence/index.ts` juntos — decisão de código
+  deliberada, não feita pelo agente de propósito.
+- **Ainda pendente**: revisão humana de cada fato candidato (qualidade
+  da fonte, redação em pt-BR, escolha final de `strength`/`caveat`),
+  decisão sobre o tópico novo de fisioterapia, e a mesclagem de fato em
+  `facts.ts`. Os dois relatórios completos só existem no transcript desta
+  sessão — se perdidos, a pesquisa precisaria ser refeita.
 
 ## Como manter isso vivo
 
