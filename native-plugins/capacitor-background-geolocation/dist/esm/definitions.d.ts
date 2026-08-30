@@ -130,6 +130,18 @@ export interface StartOptions {
      */
     distanceFilter?: number;
     /**
+     * iOS only, ignored on Android. Sets `CLLocationManager.activityType` to
+     * `.otherNavigation` instead of the system default (`.other`) — the only
+     * `activityType` Apple's automatic snap-to-road correction skips (every
+     * other value, `.fitness` included, still gets corrected). Real
+     * accuracy trade-off: helps on streets, can hurt on a park/trail route
+     * by dragging a fix onto a nearby road that isn't the actual path.
+     *
+     * @since Xanthus fork
+     * @default false
+     */
+    useNavigationActivityType?: boolean;
+    /**
      * When set, each location update is additionally delivered by POSTing it as
      * JSON to this URL directly from native code, in parallel with the
      * JavaScript callback. The request body matches the `Location` object, plus

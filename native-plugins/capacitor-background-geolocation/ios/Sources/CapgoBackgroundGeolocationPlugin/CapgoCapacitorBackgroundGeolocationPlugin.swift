@@ -235,6 +235,16 @@ public class BackgroundGeolocation: CAPPlugin, CLLocationManagerDelegate, CAPBri
         manager.allowsBackgroundLocationUpdates = background
         manager.showsBackgroundLocationIndicator = background
         manager.pausesLocationUpdatesAutomatically = false
+        // `.otherNavigation` is the only CLActivityType Apple's automatic
+        // snap-to-road correction skips — every other value, `.fitness`
+        // included, still gets corrected. Opt-in only: helps accuracy on
+        // streets, can hurt it on a park/trail route. Default (`false`)
+        // keeps the system default `.other`, unchanged behavior.
+        if call.getBool("useNavigationActivityType") == true {
+            manager.activityType = .otherNavigation
+        } else {
+            manager.activityType = .other
+        }
     }
 
     private func handlePermissions(_ manager: CLLocationManager, background: Bool) -> Bool {

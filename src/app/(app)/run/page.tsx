@@ -1882,6 +1882,7 @@ export default function RunPage() {
       vibrateOnPaceDelay: preferences.vibrateOnPaceDelay,
       carbReminderEnabled: preferences.carbReminderEnabled,
       carbReminderIntervalSeconds: preferences.carbReminderIntervalMinutes * 60,
+      iosSkipRoadSnapping: preferences.iosSkipRoadSnapping,
     });
   };
   // Lets the watch-action effect below call the latest `handleStart`

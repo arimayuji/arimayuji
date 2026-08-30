@@ -124,6 +124,10 @@ export function beginGeoWatch(
     title: "Corrida em andamento",
     message: "Rastreando por GPS. Toque para voltar ao Xanthus.",
   },
+  options?: {
+    /** iOS only — the native plugin reads this and skips it silently on Android. See `preferences.ts`'s `iosSkipRoadSnapping` for what this trades off. */
+    iosSkipRoadSnapping?: boolean;
+  },
 ): void {
   if (isNativePlatform()) {
     activeBackend = "background";
@@ -134,6 +138,7 @@ export function beginGeoWatch(
         requestPermissions: true,
         stale: false,
         distanceFilter: 0,
+        useNavigationActivityType: options?.iosSkipRoadSnapping ?? false,
       },
       (location, error) => {
         if (error) {

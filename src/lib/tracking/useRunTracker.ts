@@ -90,6 +90,8 @@ export interface StartOptions {
   carbReminderEnabled?: boolean;
   /** Only read when `carbReminderEnabled` is true — minutes between reminders, converted to seconds by the caller. */
   carbReminderIntervalSeconds?: number;
+  /** iOS only, ignored elsewhere — see `preferences.ts`'s `iosSkipRoadSnapping` for the accuracy trade-off this makes. */
+  iosSkipRoadSnapping?: boolean;
 }
 
 export interface RunTrackerState {
@@ -280,6 +282,7 @@ export function useRunTracker() {
 
   const carbReminderEnabledRef = useRef(false);
   const carbReminderIntervalSecondsRef = useRef(45 * 60);
+  const iosSkipRoadSnappingRef = useRef(false);
   /** Elapsed seconds (not wall-clock) at the last reminder — 0 at `start()`, so the first reminder fires once `elapsedSeconds` itself crosses the interval. */
   const lastCarbReminderElapsedRef = useRef(0);
 
@@ -850,7 +853,9 @@ export function useRunTracker() {
 
   const beginWatch = useCallback(
     (notification?: { title: string; message: string }) => {
-      beginGeoWatch(handleFix, handleError, notification);
+      beginGeoWatch(handleFix, handleError, notification, {
+        iosSkipRoadSnapping: iosSkipRoadSnappingRef.current,
+      });
     },
     [handleError, handleFix],
   );
@@ -952,6 +957,7 @@ export function useRunTracker() {
         carbReminderEnabledRef.current = options?.carbReminderEnabled ?? false;
         carbReminderIntervalSecondsRef.current = options?.carbReminderIntervalSeconds ?? 45 * 60;
         lastCarbReminderElapsedRef.current = 0;
+        iosSkipRoadSnappingRef.current = options?.iosSkipRoadSnapping ?? false;
         // kmMarkDistanceRef/kmMarkTimeRef aren't reset here — the
         // warmup-completion block always recomputes both fresh from
         // `distanceRef.current` (0 for a new run, the recovered distance for

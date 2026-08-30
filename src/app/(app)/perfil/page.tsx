@@ -35,6 +35,7 @@ import { listCoachConnections } from "@/lib/coachRelationships";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
 import { clearMyPresence } from "@/lib/friendPresence";
+import { isIOSPlatform } from "@/lib/platform";
 import type { RunningPlace } from "@/lib/places";
 import { ProgressoContent } from "../progresso/progresso-content";
 
@@ -778,6 +779,20 @@ export default function PerfilPage() {
                 </div>
               )}
             </fieldset>
+
+            {isIOSPlatform() && (
+              <fieldset className="mt-5 border-t border-border pt-4">
+                <legend className="text-sm font-medium">GPS — modo experimental (iOS)</legend>
+                <div className="mt-3">
+                  <PreferenceToggle
+                    label="Priorizar rua sobre trilha"
+                    hint="a Apple corrige o traçado pra colar na rua mais próxima — ajuda em asfalto, pode atrapalhar em parque/trilha"
+                    checked={prefs.iosSkipRoadSnapping}
+                    onChange={(checked) => update({ iosSkipRoadSnapping: checked })}
+                  />
+                </div>
+              </fieldset>
+            )}
 
             <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted">
               Meta de prova e tempo recente ficam na aba{" "}

@@ -104,6 +104,19 @@ export interface Preferences {
    * coach is actually being shared with in the first place.
    */
   shareHeartRateWithCoach: boolean;
+  /**
+   * iOS only — sets `CLLocationManager.activityType = .otherNavigation`
+   * instead of the system default (`.other`), which is the only
+   * `activityType` Apple's snap-to-road correction skips (every other
+   * value, including the seemingly-obvious `.fitness`, still gets
+   * corrected — see PROJECT-CONTEXT.md's GPS-precision research). Real
+   * trade-off, not a strict improvement: helps accuracy running on
+   * streets, can hurt it on a park/trail route by dragging a fix onto a
+   * nearby road that isn't the actual path — off by default until tested
+   * against real runs of both kinds, exposed as an opt-in experiment
+   * rather than a blind default flip.
+   */
+  iosSkipRoadSnapping: boolean;
 }
 
 /** Slider bounds for the voice-announcement interval — was a fixed 3-option choice, now free within this range. */
@@ -137,6 +150,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   carbReminderEnabled: false,
   carbReminderIntervalMinutes: 45,
   shareHeartRateWithCoach: false,
+  iosSkipRoadSnapping: false,
 };
 
 const STORAGE_KEY = "xanthus:preferences";
@@ -234,6 +248,11 @@ function sanitize(raw: unknown): Preferences {
       ? value.shareHeartRateWithCoach
       : DEFAULT_PREFERENCES.shareHeartRateWithCoach;
 
+  const iosSkipRoadSnapping =
+    typeof value.iosSkipRoadSnapping === "boolean"
+      ? value.iosSkipRoadSnapping
+      : DEFAULT_PREFERENCES.iosSkipRoadSnapping;
+
   return {
     announceIntervalMeters,
     announceIntervalSeconds,
@@ -250,6 +269,7 @@ function sanitize(raw: unknown): Preferences {
     carbReminderEnabled,
     carbReminderIntervalMinutes,
     shareHeartRateWithCoach,
+    iosSkipRoadSnapping,
   };
 }
 
