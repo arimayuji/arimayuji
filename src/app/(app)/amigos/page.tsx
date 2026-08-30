@@ -12,11 +12,7 @@ import {
 } from "@/lib/friendships";
 import { getActiveLiveSession, type LiveRun } from "@/lib/liveRuns";
 import { listFriendsPresence } from "@/lib/friendPresence";
-import { listFriendsFeed, toggleRunKudos, type FriendFeedItem } from "@/lib/friendsFeed";
-import type { DistanceUnit } from "@/lib/preferences";
-import { formatElapsed, haversineMeters } from "@/lib/tracking/geoFilter";
-import { formatAveragePace, formatDistance, unitLabel } from "@/lib/units";
-import { usePreferences } from "@/lib/usePreferences";
+import { haversineMeters } from "@/lib/tracking/geoFilter";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
@@ -85,22 +81,21 @@ function PersonRow({
   );
 }
 
-type FriendTab = "feed" | "convites" | "amigos";
+type FriendTab = "convites" | "amigos";
 
-// "Feed" first/default — same "ação mais frequente é a aba de um toque só"
-// rule that already put "Amigos" ahead of "Convites" here (see
-// PROJECT-CONTEXT.md, 2026-08-29): once alguém tem amigos, checar o feed é
-// mais frequente que gerenciar convites ou a própria lista de amigos.
+// "Amigos" first/default — the "ação mais frequente é a aba de um toque
+// só" rule (see PROJECT-CONTEXT.md, 2026-08-29). The activity feed that
+// used to live here as a third tab moved out to its own top-level /feed
+// screen (bottom nav: Corrida, Feed, Plano, Perfil) — this page went back
+// to being just Amigos/Convites, managing who you're connected to.
 const FRIEND_TABS = [
-  { id: "feed", label: "Feed" },
   { id: "amigos", label: "Amigos" },
   { id: "convites", label: "Convites" },
 ] as const;
 
 export default function AmigosPage() {
-  useHeaderClose("/perfil");
+  useHeaderClose("/feed");
   const { status, account } = useAuth();
-  const [{ distanceUnit: unit }] = usePreferences();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [connections, setConnections] = useState<FriendConnection[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -111,7 +106,7 @@ export default function AmigosPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   /** Which of the two actions on the *same* incoming request `busyId` is currently mid-flight — `busyId` alone can't tell Aceitar and Recusar's busy labels apart, since both buttons share it. */
   const [busyAction, setBusyAction] = useState<"accept" | "decline" | null>(null);
-  const [activeTab, setActiveTab] = useState<FriendTab>("feed");
+  const [activeTab, setActiveTab] = useState<FriendTab>("amigos");
 
   // Prefills from an invite link (?h=) — either the web landing page's own
   // fallback instructions, or the deep-link handler in
@@ -258,41 +253,6 @@ export default function AmigosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- same reasoning as the "Ao vivo" effect above: keying off `connections` (not the derived `friends` array) avoids re-polling every render.
   }, [activeTab, connections, account]);
 
-  /**
-   * The friends activity feed — loaded once per visit to the tab (not
-   * polled like live/presence above, since a shared run is a one-time
-   * event, not something that changes second to second). `null` while
-   * loading, `[]` once loaded with nothing to show — same "loading vs.
-   * empty" distinction `connections` already uses.
-   */
-  const [feedItems, setFeedItems] = useState<FriendFeedItem[] | null>(null);
-  useEffect(() => {
-    if (activeTab !== "feed") return;
-    let cancelled = false;
-    listFriendsFeed().then((items) => {
-      if (!cancelled) setFeedItems(items);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab]);
-
-  const [kudosBusyId, setKudosBusyId] = useState<string | null>(null);
-  const handleToggleKudos = async (runRowId: string) => {
-    setKudosBusyId(runRowId);
-    const result = await toggleRunKudos(runRowId);
-    setKudosBusyId(null);
-    if (result.ok) {
-      setFeedItems((current) =>
-        (current ?? []).map((item) =>
-          item.runRowId === runRowId
-            ? { ...item, kudosCount: result.kudosCount, kudosGivenByMe: result.kudosGivenByMe }
-            : item,
-        ),
-      );
-    }
-  };
-
   return (
     <>
       <ScreenHeader
@@ -390,27 +350,7 @@ export default function AmigosPage() {
                 <PillTabs tabs={FRIEND_TABS} active={activeTab} onChange={setActiveTab} />
               </div>
 
-              {activeTab === "feed" ? (
-                feedItems === null ? (
-                  <div className="h-12 animate-pulse rounded-lg bg-background" />
-                ) : feedItems.length === 0 ? (
-                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
-                    Nada por aqui ainda — aparece quando um amigo compartilhar uma corrida.
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-3.5">
-                    {feedItems.map((item) => (
-                      <FeedItemRow
-                        key={item.runRowId}
-                        item={item}
-                        unit={unit}
-                        busy={kudosBusyId === item.runRowId}
-                        onToggleKudos={() => handleToggleKudos(item.runRowId)}
-                      />
-                    ))}
-                  </ul>
-                )
-              ) : activeTab === "convites" ? (
+              {activeTab === "convites" ? (
                 connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : incoming.length === 0 && outgoing.length === 0 ? (
@@ -652,75 +592,3 @@ function FriendRow({
   );
 }
 
-function HeartIcon({ className, filled }: { className?: string; filled: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      aria-hidden="true"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 20.3s-7.5-4.6-9.8-9.1C.7 8 2.1 4.6 5.4 3.8a5 5 0 0 1 6.6 2.2A5 5 0 0 1 18.6 3.8c3.3.8 4.7 4.2 3.2 7.4C19.5 15.7 12 20.3 12 20.3Z" />
-    </svg>
-  );
-}
-
-/**
- * One shared run in the friends feed — no link to a detail screen (see
- * `friendsFeed.ts`'s own comment: v1 only ever shows this aggregate
- * summary, never a friend's map/splits), just who, what, and the kudos
- * button. `Avatar` here takes `displayName`/`avatarUrl` straight off the
- * Function's already-resolved response, not another profile lookup.
- */
-function FeedItemRow({
-  item,
-  unit,
-  busy,
-  onToggleKudos,
-}: {
-  item: FriendFeedItem;
-  unit: DistanceUnit;
-  busy: boolean;
-  onToggleKudos: () => void;
-}) {
-  const pace = formatAveragePace(item.distanceMeters, item.movingSeconds, unit);
-  return (
-    <li className="flex flex-col gap-2.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <div className="flex items-center gap-3">
-        <Avatar name={item.displayName} avatarUrl={item.avatarUrl} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{item.displayName}</p>
-          <p className="truncate text-xs text-muted">
-            {new Date(item.startedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-            {item.shoeName ? ` · ${item.shoeName}` : ""}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex items-baseline gap-3 font-mono text-xs tabular-nums text-muted">
-          <span className="text-sm font-semibold text-foreground">
-            {formatDistance(item.distanceMeters, unit)} {unitLabel(unit)}
-          </span>
-          <span>{formatElapsed(item.movingSeconds)}</span>
-          <span>{pace}</span>
-        </span>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onToggleKudos}
-          aria-pressed={item.kudosGivenByMe}
-          className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold disabled:opacity-60 ${
-            item.kudosGivenByMe ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
-          }`}
-        >
-          <HeartIcon className="h-3.5 w-3.5" filled={item.kudosGivenByMe} />
-          {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
-        </button>
-      </div>
-    </li>
-  );
-}

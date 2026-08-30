@@ -104,6 +104,26 @@ const TABS: TabDefinition[] = [
     ),
   },
   {
+    href: "/feed",
+    label: "Feed",
+    // Its own top-level tab, not a sub-page reached through /amigos — the
+    // opposite direction of every other merge in this file. Requested
+    // explicitly ("tem q ser um feed como foco principal para nao ser uma
+    // tela so de coisa pessoal, no strava a primeira tela é feed"):
+    // /amigos (managing who you're connected to — adding by @, accepting
+    // requests) stays reachable from here (a header link) and from
+    // /perfil's Discovery row, but the feed itself needed its own
+    // destination to read as the app's social home, not a tab buried
+    // inside a "friends settings" screen.
+    alsoMatches: ["/amigos"],
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
+        <rect x="3.5" y="3.5" width="13" height="8.5" rx="2.2" />
+        <rect x="7.5" y="12.5" width="13" height="8" rx="2.2" />
+      </svg>
+    ),
+  },
+  {
     href: "/plano",
     label: "Plano",
     icon: ({ className }) => (
@@ -118,13 +138,15 @@ const TABS: TabDefinition[] = [
   {
     href: "/perfil",
     label: "Perfil",
-    // /progresso used to be its own tab; its content (charts + the run
-    // feed, see progresso-content.tsx) folded into a tab inside /perfil.
-    // /historico was already folded into /progresso before that (its list
-    // screen became the activity feed) but its detail/video sub-routes
-    // kept their original paths — this keeps Perfil lit while looking at a
-    // run reached from that feed, same as /progresso itself used to.
-    alsoMatches: ["/compartilhar", "/amigos", "/longao", "/progresso", "/historico"],
+    // /progresso used to be its own tab; its content (charts + the
+    // personal activity feed, see progresso-content.tsx — not the social
+    // feed above, a different thing despite the shared name) folded into
+    // a tab inside /perfil. /historico was already folded into /progresso
+    // before that (its list screen became the activity feed) but its
+    // detail/video sub-routes kept their original paths — this keeps
+    // Perfil lit while looking at a run reached from that feed, same as
+    // /progresso itself used to.
+    alsoMatches: ["/compartilhar", "/longao", "/progresso", "/historico"],
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
         <circle cx="12" cy="8.25" r="3.75" />

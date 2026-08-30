@@ -2719,6 +2719,47 @@ duas contas reais — compartilhar uma corrida, dar/tirar kudos, confirmar
 que a segunda conta vê no feed — mesma trilha já usada pra fechar os
 bugs de `friendships`/`live_runs`, ainda não rodada aqui.
 
+**Promovido a aba própria da barra inferior no mesmo dia (2026-08-30)**:
+pedido direto do dono do projeto — "tem q ser um feed como foco
+principal para nao ser uma tela so de coisa pessoal, no strava a
+primeira tela é feed". O Feed tinha nascido como uma terceira aba dentro
+de `/amigos`, ao lado de "Amigos"/"Convites" — o problema apontado é
+exatamente esse: dividir espaço com telas de gerenciamento pessoal
+(adicionar amigo, aceitar convite) diminui o feed a mais uma
+configuração, quando no Strava ele é a tela que abre primeiro. Duas
+perguntas fechadas por `AskUserQuestion` antes de mexer: posição na
+barra (**Corrida, Feed, Plano, Perfil** — Corrida continua primeira,
+é o valor-chave do app) e se o Feed vira rota própria (**sim**, `/feed`
+novo, separado de `/amigos`).
+
+- `src/app/(app)/feed/page.tsx` (novo): tudo que só vivia dentro da aba
+  "Feed" de `/amigos` — `listFriendsFeed()`, o toggle de kudos, os
+  estados loading/signed-out/needs-handle/signed-in (mesmo padrão de
+  `/amigos`, texto adaptado) — virou uma tela de primeiro nível própria,
+  sem abas. Ganhou de graça uma vazio mais honesto que antes: se
+  `friendCount === 0` (checado à parte, via `listFriendConnections("accepted")`),
+  o vazio convida a adicionar amigo em vez do genérico "aparece quando
+  alguém compartilhar" que não fazia sentido pra quem não tem nenhum
+  amigo ainda.
+- `src/app/(app)/amigos/page.tsx`: voltou a ser só Amigos/Convites (2
+  abas, "Amigos" continua padrão) — removido tudo relacionado ao feed
+  (estado, efeito, handler de kudos, `FeedItemRow`/`HeartIcon`).
+  `useHeaderClose` trocou de `/perfil` pra `/feed`, já que agora é o
+  Feed quem linka pra cá (botão "Amigos" no cabeçalho, ícone de pessoas),
+  não mais o card "Descubra e conecte" do Perfil sozinho — esse link
+  continua existindo em `/perfil` também, mas o caminho mais curto virou
+  o Feed.
+- `app-shell.tsx`: `TABS` ganha a entrada `/feed` na segunda posição
+  (ícone de cards empilhados) com `alsoMatches: ["/amigos"]` — a barra
+  acende "Feed" enquanto o usuário está gerenciando amigos, não "Perfil"
+  como antes. `/amigos` saiu do `alsoMatches` da aba Perfil.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos
+  (rota `/feed` aparece na lista de rotas geradas); visualmente
+  confirmado via Playwright com a mesma técnica de mock de rede — barra
+  inferior com as 4 abas certas (Corrida, Feed, Plano, Perfil), `/feed`
+  como tela cheia com os 4 itens sintéticos e kudos funcionando, `/amigos`
+  de volta a só 2 abas com a barra acendendo "Feed" ao visitá-la.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play
