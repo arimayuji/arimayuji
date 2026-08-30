@@ -567,6 +567,25 @@ function RepeatIcon({ className }: { className?: string }) {
   );
 }
 
+/** Flame glyph for "Aquecer antes de correr" — the same idea any workout app uses for a warmup shortcut, not a literal exercise depiction. */
+function WarmupIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 2.5c1 2.5-1.5 3.5-1.5 6a3.5 3.5 0 0 0 7 0c0-1-.5-1.8-1-2.3.2 1-.3 1.8-1 1.8-1 0-1-1-.7-2 .5-1.5-.3-2.8-2.8-3.5Z" />
+      <path d="M6.5 9.5c-.8 1-1.2 2-1.2 3a4.7 4.7 0 0 0 9.4 0c0-1-.2-1.8-.5-2.5" />
+    </svg>
+  );
+}
+
 /** Pencil glyph standing in for the word "Custom" on the trailing chip of `PresetChipRow` — "Personalizado" already reads fine written out, but a preset row of short numeric chips (5 km, 10 km, 21 km...) doesn't have room for a whole word on that last one, and "Custom" in English says nothing in Portuguese. */
 function EditIcon({ className }: { className?: string }) {
   return (
@@ -2131,6 +2150,13 @@ export default function RunPage() {
                   Repetir última corrida · {formatDistanceKm(lastRealRun.distanceMeters)} km
                 </button>
               )}
+              <Link
+                href="/aquecimento?tipo=aquecimento"
+                className="mt-3 flex items-center gap-2 self-start rounded-full border border-border bg-surface px-3.5 py-2 text-xs font-semibold text-muted hover:border-accent hover:text-foreground"
+              >
+                <WarmupIcon className="h-3.5 w-3.5" />
+                Aquecer antes de correr
+              </Link>
             </div>
 
             <RunWeatherCard />
@@ -3185,6 +3211,13 @@ export default function RunPage() {
                 <path d="M8.5 10.5l7-4.2M8.5 13.5l7 4.2" />
               </svg>
               <span className="relative">Compartilhar</span>
+            </Link>
+            <Link
+              href="/aquecimento?tipo=alongamento"
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-6 py-3 text-sm font-semibold text-muted hover:border-accent hover:text-foreground"
+            >
+              <WarmupIcon className="h-4 w-4" />
+              Alongar agora
             </Link>
           </div>
           <div className="flex w-full max-w-xs flex-col items-center gap-3">

@@ -3042,6 +3042,74 @@ ponto. Verificado visualmente via Playwright contra a CSS real compilada
 do app (mesma técnica de outras verificações desta sessão) antes e
 depois da troca.
 
+## Aquecimento (pré-corrida) e Alongamento (pós-corrida) guiados (2026-08-30)
+
+Pedido do dono do projeto: rotina guiada de aquecimento/alongamento, "com
+tempos e exemplos de como executar", "estilo aqueles vídeos de treino".
+Escopado via plan mode (2 agentes Explore) antes de codar — branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda não deployado em
+produção**.
+
+- **Tensão resolvida antes de codar**: este projeto não tem pipeline pra
+  gerar vídeo real de demonstração de exercício, e `SOCIAL-CONTEXT.md`
+  já proíbe explicitamente gerar por IA a forma/técnica de exercício
+  (mesmo motivo do "nunca corredor fotorrealista gerado por IA" —
+  biomecânica é o ponto mais frágil desses modelos). **Nenhuma imagem/
+  vídeo de exercício foi gerada** — a "sensação de vídeo de treino" vem
+  de um anel de contagem regressiva grande + avanço automático + voz
+  opcional, não de imagem. Instrução de como fazer cada exercício é só
+  texto curto.
+- **Conteúdo fundamentado em evidência já curada**, não inventado:
+  `src/lib/evidence/facts.ts` já tinha 22 fatos prontos nos tópicos
+  `warmup`/`static_stretch_pre`/`static_stretch_post`/`cooldown` (achado
+  pela pesquisa — nunca tinha sido usado em nenhuma tela). Dois achados
+  mudaram o desenho da rotina em si, não só o texto de apoio: aquecimento
+  **pré**-corrida tem que ser dinâmico (alongar estático antes de correr
+  de fato piora performance, -1.4 a -1.6%); alongamento estático pertence
+  ao **pós**-corrida, com uma caminhada leve de cooldown antes dele — as
+  duas rotinas não são "a mesma coisa em ordem diferente".
+  `src/lib/warmupRoutines.ts`: `WARMUP_ROUTINE` (8 passos, dinâmico, ~5
+  min) e `STRETCH_ROUTINE` (11 passos, caminhada + alongamento estático,
+  ~7 min) — exercícios bilaterais viram dois passos separados no array
+  (mantém o player sem branch por "tem dois lados").
+- **Nenhuma citação bruta dentro do app** — mesma convenção já
+  estabelecida em `/plano`: chips de tópico (`topicLabel`) + link
+  externo pra `/estudos`, nunca `EvidenceFactRow` aqui.
+- `src/app/(app)/aquecimento/page.tsx` (nova rota, `?tipo=aquecimento|
+  alongamento`, lida via `window.location.search` num `useEffect`, mesmo
+  padrão de `/amigos`'s `?h=` — evita Suspense boundary só por isso):
+  três telas por estado local (`intro | playing | done`). Player: anel de
+  progresso SVG com o número de segundos no centro, nome do exercício,
+  instrução, dots de progresso, pausar/pular/sair. `WakeLockController`
+  (`src/lib/tracking/wakeLock.ts`, classe já existente, só usada até
+  agora por `useRunTracker` — reaproveitada aqui como instância própria,
+  sem acoplamento nenhum) mantém a tela acesa enquanto toca. Voz por
+  Web Speech direto (sem clipe novo gravado no ElevenLabs — nomes de
+  exercício variam por rotina, gravar clipe fixo não escala do mesmo
+  jeito que os cues do treinador escalaram), anunciando só o nome do
+  próximo passo na transição, best-effort.
+- **Bug evitado antes de nascer**: a primeira versão do avanço de passo
+  chamava `setSecondsLeft`/`setPhase`/a função de anunciar por voz **de
+  dentro do updater funcional** de `setStepIndex` — efeito colateral
+  dentro de uma função que o React espera pura, o que faria o Strict
+  Mode (dev) anunciar o próximo exercício **duas vezes** por causa da
+  invocação dupla de verificação de pureza. Corrigido usando um `ref`
+  (`stepIndexRef`) sincronizado por `useEffect`, lido/escrito direto por
+  uma função `useCallback`, sem nenhum setState aninhado dentro de outro
+  updater.
+- **Dois pontos de entrada em `/run`**: chip "Aquecer antes de correr" no
+  topo do formulário "Preparar corrida" (deliberadamente só um link, não
+  mais um `Card` — a tela já foi enxugada nesta mesma sessão) e botão
+  "Alongar agora" na tela de corrida terminada, ao lado do botão
+  "Compartilhar".
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
+  Confirmado visualmente via Playwright — intro (aquecimento e
+  alongamento, contando passos/tempo total certo), player com o anel
+  ticando de verdade, pular passo avançando pro passo certo, pausar
+  travando o timer, e os dois pontos de entrada em `/run` renderizando
+  no lugar certo. **Não testado em aparelho real** — wake lock e voz por
+  Web Speech de verdade, mesma pendência padrão de sempre.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
