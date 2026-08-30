@@ -72,6 +72,7 @@ const OWNED_ROWS = [
   { tableId: "profile_stats", columns: ["userId"] },
   { tableId: "live_runs", columns: ["userId"] },
   { tableId: "run_comments", columns: ["authorId"] },
+  { tableId: "run_kudos", columns: ["giverId"] },
   { tableId: "group_runs", columns: ["hostId"] },
   { tableId: "group_run_participants", columns: ["userId"] },
 ];
@@ -612,6 +613,312 @@ async function sendCoachCue({ userId: coachId, body, client, res, error }) {
   } catch (err) {
     error(`send-coach-cue: falha (${coachId} -> ${studentId}): ${err.message}`);
     return res.json({ error: "failed" }, 500);
+  }
+}
+
+/**
+ * action: "share-run" — replaces src/lib/runsSync.ts's client-side
+ * shareRunWithCoaches, which tried to grant Permission.read(Role.user(coachId))
+ * straight from a plain client session and got refused by Appwrite every
+ * time (same `401 user_unauthorized` root cause already fixed in
+ * send-friend-request/start-live-session — see those comments; this one
+ * went unnoticed because the client swallowed the rejection in a bare
+ * `catch`). Also the only place a run's `visibility` ever becomes
+ * "friends", which is what list-friends-feed below reads.
+ *
+ * `coachIds`/`shareWithFriends` are independent knobs, not one combined
+ * "audience" — "Enviar pro treinador" (coachIds only) and "Compartilhar
+ * com amigos" (shareWithFriends only) are two separate buttons in
+ * run-detail.tsx, and neither should silently undo the other's effect on
+ * the same row. `shareWithFriends` is tri-state on the wire (omitted vs.
+ * true vs. false): omitted means "this call isn't about friend
+ * visibility, leave whatever it already was" — otherwise sharing with a
+ * new coach would quietly turn friend-sharing back off, and vice versa.
+ */
+async function shareRun({ userId, body, client, res, error }) {
+  const startedAtMs = Number(body.startedAtMs);
+  const finishedAtMs = Number(body.finishedAtMs);
+  const distanceMeters = Number(body.distanceMeters);
+  const movingSeconds = Number(body.movingSeconds);
+  if (
+    !Number.isFinite(startedAtMs) ||
+    !Number.isFinite(finishedAtMs) ||
+    !Number.isFinite(distanceMeters) ||
+    !Number.isFinite(movingSeconds)
+  ) {
+    return res.json({ error: "invalid-run" }, 400);
+  }
+
+  const requestedCoachIds = Array.isArray(body.coachIds)
+    ? body.coachIds.filter((id) => typeof id === "string" && id)
+    : [];
+  const shareWithFriends = typeof body.shareWithFriends === "boolean" ? body.shareWithFriends : null;
+  const points = typeof body.points === "string" ? body.points : undefined;
+  const shoeName = typeof body.shoeName === "string" ? body.shoeName : undefined;
+
+  const tablesDB = new TablesDB(client);
+  const startedAtIso = new Date(startedAtMs).toISOString();
+
+  let existingRow = null;
+  try {
+    const existing = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "runs",
+      queries: [Query.equal("userId", userId), Query.equal("startedAt", startedAtIso), Query.limit(1)],
+    });
+    existingRow = existing.rows[0] ?? null;
+  } catch (err) {
+    error(`share-run: falha buscando corrida existente de ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  let coachIds = [];
+  if (requestedCoachIds.length > 0) {
+    try {
+      const accepted = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: "coach_relationships",
+        queries: [Query.equal("studentId", userId), Query.equal("status", "accepted"), Query.limit(100)],
+      });
+      const acceptedCoachIds = new Set(accepted.rows.map((row) => row.coachId));
+      coachIds = requestedCoachIds.filter((id) => acceptedCoachIds.has(id));
+    } catch (err) {
+      error(`share-run: falha validando treinadores de ${userId}: ${err.message}`);
+      return res.json({ error: "failed" }, 500);
+    }
+  }
+
+  if (!existingRow && coachIds.length === 0 && shareWithFriends !== true) {
+    return res.json({ error: "no-audience" }, 400);
+  }
+
+  const visibility =
+    shareWithFriends === null ? (existingRow?.visibility ?? "private") : shareWithFriends ? "friends" : "private";
+
+  const data = {
+    userId,
+    startedAt: startedAtIso,
+    finishedAt: new Date(finishedAtMs).toISOString(),
+    distanceMeters,
+    movingSeconds,
+    points,
+    shoeName,
+    visibility,
+  };
+
+  const ownerPermissions = [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+  ];
+  const coachPermissions = coachIds.map((coachId) => Permission.read(Role.user(coachId)));
+
+  try {
+    if (existingRow) {
+      const permissions = [...new Set([...existingRow.$permissions, ...ownerPermissions, ...coachPermissions])];
+      const row = await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: "runs",
+        rowId: existingRow.$id,
+        data,
+        permissions,
+      });
+      return res.json({ ok: true, row });
+    }
+
+    const row = await tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: "runs",
+      rowId: ID.unique(),
+      data,
+      permissions: [...ownerPermissions, ...coachPermissions],
+    });
+    return res.json({ ok: true, row });
+  } catch (err) {
+    error(`share-run: falha compartilhando corrida de ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
+/**
+ * action: "list-friends-feed" — the read half of the friends activity
+ * feed. Deliberately NOT a per-row `Permission.read(Role.user(friendId))`
+ * grant on each `runs` row, unlike coach-sharing above — a friends feed's
+ * audience is "whoever is an accepted friend right now", which changes
+ * continuously, and re-granting permission on every past run each time a
+ * new friendship is accepted doesn't scale (and old runs would stay
+ * invisible to a brand-new friend forever). Instead this resolves the
+ * friend list fresh on every call with the privileged key and reads
+ * `runs` directly; `visibility: "friends"` on a row is a filter value
+ * this query reads, never a real ACL grant.
+ */
+async function listFriendsFeed({ userId, client, res, error }) {
+  const tablesDB = new TablesDB(client);
+
+  let friendIds;
+  try {
+    friendIds = [...(await listAcceptedFriendIds(tablesDB, userId))];
+  } catch (err) {
+    error(`list-friends-feed: falha resolvendo amigos de ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+  if (friendIds.length === 0) return res.json({ ok: true, items: [] });
+
+  let runs;
+  try {
+    const result = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "runs",
+      queries: [
+        Query.equal("userId", friendIds),
+        Query.equal("visibility", "friends"),
+        Query.orderDesc("startedAt"),
+        Query.limit(30),
+      ],
+    });
+    runs = result.rows;
+  } catch (err) {
+    error(`list-friends-feed: falha lendo runs pra ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+  if (runs.length === 0) return res.json({ ok: true, items: [] });
+
+  const ownerIds = [...new Set(runs.map((run) => run.userId))];
+  const profilesById = new Map();
+  try {
+    const profiles = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "profiles",
+      queries: [Query.equal("$id", ownerIds), Query.limit(ownerIds.length)],
+    });
+    for (const profile of profiles.rows) profilesById.set(profile.$id, profile);
+  } catch (err) {
+    // Feed sem nome/avatar ainda é mais útil que feed nenhum.
+    error(`list-friends-feed: falha lendo profiles pra ${userId}: ${err.message}`);
+  }
+
+  const runIds = runs.map((run) => run.$id);
+  const kudosByRun = new Map();
+  try {
+    const kudosRows = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "run_kudos",
+      queries: [Query.equal("runRowId", runIds), Query.limit(1000)],
+    });
+    for (const kudo of kudosRows.rows) {
+      const entry = kudosByRun.get(kudo.runRowId) ?? { count: 0, givenByMe: false };
+      entry.count += 1;
+      if (kudo.giverId === userId) entry.givenByMe = true;
+      kudosByRun.set(kudo.runRowId, entry);
+    }
+  } catch (err) {
+    // Mesma degradação: feed sem contagem de kudos em vez de falhar tudo.
+    error(`list-friends-feed: falha lendo run_kudos pra ${userId}: ${err.message}`);
+  }
+
+  const items = runs.map((run) => {
+    const profile = profilesById.get(run.userId);
+    const kudos = kudosByRun.get(run.$id) ?? { count: 0, givenByMe: false };
+    return {
+      runRowId: run.$id,
+      userId: run.userId,
+      displayName: profile?.displayName ?? "Corredor(a)",
+      avatarUrl: profile?.avatarUrl ?? null,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+      distanceMeters: run.distanceMeters,
+      movingSeconds: run.movingSeconds,
+      shoeName: run.shoeName ?? null,
+      kudosCount: kudos.count,
+      kudosGivenByMe: kudos.givenByMe,
+    };
+  });
+
+  return res.json({ ok: true, items });
+}
+
+/**
+ * action: "toggle-run-kudos" — give or take back a kudos on a friend's
+ * shared run. Same relationship check as list-friends-feed above (a
+ * fresh listAcceptedFriendIds call, not a stored permission): kudos is
+ * only legitimate on an actual accepted friend's run that they chose to
+ * share with friends, never your own run or a stranger's who happens to
+ * know a row id.
+ *
+ * `run_kudos`'s row id is a hash of `runRowId:giverId`, not the two
+ * concatenated raw (`.slice(0, 36)` on a plain concatenation is exactly
+ * the bug that caused real id collisions in city_races, see
+ * PROJECT-CONTEXT.md) — deterministic either way, so a repeat call is a
+ * clean toggle (create if absent, delete if present) without needing a
+ * query first.
+ */
+async function toggleRunKudos({ userId, body, client, res, error }) {
+  const runRowId = String(body.runRowId ?? "").trim();
+  if (!runRowId) return res.json({ error: "missing-run-row-id" }, 400);
+
+  const tablesDB = new TablesDB(client);
+  let run;
+  try {
+    run = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "runs", rowId: runRowId });
+  } catch (err) {
+    if (err.code === 404) return res.json({ error: "not-found" }, 404);
+    error(`toggle-run-kudos: falha lendo run ${runRowId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  if (run.userId === userId) return res.json({ error: "self" }, 400);
+  if (run.visibility !== "friends") return res.json({ error: "not-shared" }, 403);
+
+  try {
+    const friendIds = await listAcceptedFriendIds(tablesDB, userId);
+    if (!friendIds.has(run.userId)) return res.json({ error: "not-friends" }, 403);
+  } catch (err) {
+    error(`toggle-run-kudos: falha resolvendo amigos de ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  const kudosRowId = createHash("sha256").update(`${runRowId}:${userId}`).digest("hex").slice(0, 36);
+
+  try {
+    await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "run_kudos", rowId: kudosRowId });
+    await tablesDB.deleteRow({ databaseId: DATABASE_ID, tableId: "run_kudos", rowId: kudosRowId });
+  } catch (err) {
+    if (err.code !== 404) {
+      error(`toggle-run-kudos: falha checando kudos existente ${kudosRowId}: ${err.message}`);
+      return res.json({ error: "failed" }, 500);
+    }
+    try {
+      await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: "run_kudos",
+        rowId: kudosRowId,
+        data: { runRowId, giverId: userId },
+        permissions: [
+          Permission.read(Role.user(userId)),
+          Permission.delete(Role.user(userId)),
+          Permission.read(Role.user(run.userId)),
+        ],
+      });
+    } catch (createErr) {
+      error(`toggle-run-kudos: falha criando kudos ${kudosRowId}: ${createErr.message}`);
+      return res.json({ error: "failed" }, 500);
+    }
+  }
+
+  try {
+    const kudosRows = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "run_kudos",
+      queries: [Query.equal("runRowId", runRowId), Query.limit(1000)],
+    });
+    return res.json({
+      ok: true,
+      kudosCount: kudosRows.total,
+      kudosGivenByMe: kudosRows.rows.some((row) => row.giverId === userId),
+    });
+  } catch (err) {
+    error(`toggle-run-kudos: falha recontando kudos de ${runRowId}: ${err.message}`);
+    return res.json({ ok: true });
   }
 }
 
@@ -1963,6 +2270,9 @@ const ACTIONS = {
   "refresh-live-audience": refreshLiveAudience,
   "refresh-presence": refreshPresence,
   "send-coach-cue": sendCoachCue,
+  "share-run": shareRun,
+  "list-friends-feed": listFriendsFeed,
+  "toggle-run-kudos": toggleRunKudos,
   "pair-run-session": pairRunSession,
   "start-group-run": startGroupRun,
   "claim-owned-row": claimOwnedRow,

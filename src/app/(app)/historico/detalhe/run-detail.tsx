@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
+import { listFriendConnections } from "@/lib/friendships";
 import { computeElevationProfile, elevationGainFromProfile, type ElevationSample } from "@/lib/elevation";
 import { fetchRecoveryContext, fetchRunHealthData, HEALTH_DATA_ENABLED, type RecoveryContext, type RunHealthData } from "@/lib/health";
 import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import { syncProfileStats } from "@/lib/profileStats";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
-import { getSyncedRun, shareRunWithCoaches } from "@/lib/runsSync";
+import { getSyncedRun, setRunFriendsVisibility, shareRunWithCoaches } from "@/lib/runsSync";
 import { useAuth } from "@/lib/useAuth";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeAchievement } from "@/lib/tracking/achievements";
@@ -554,6 +555,10 @@ export function RunDetail({ id }: { id: string }) {
   const [coaches, setCoaches] = useState<CoachConnection[] | null>(null);
   const [sharedWith, setSharedWith] = useState<string[]>([]);
   const [sharingId, setSharingId] = useState<string | null>(null);
+  /** Only used to decide whether the "Compartilhar com amigos" card has anyone to show at all — the feed itself is all-or-nothing (every accepted friend), never a per-friend picker like coaches above, so the count is all this screen needs. */
+  const [friendCount, setFriendCount] = useState(0);
+  const [friendsShared, setFriendsShared] = useState(false);
+  const [sharingFriends, setSharingFriends] = useState(false);
   /** Mirrors `run.placeName` as a controlled input value — only ever shown/editable when the route doesn't already match the catalog (see the render below). */
   const [placeNameInput, setPlaceNameInput] = useState("");
   /**
@@ -578,6 +583,7 @@ export function RunDetail({ id }: { id: string }) {
 
   useEffect(() => {
     listCoachConnections("accepted").then((rows) => setCoaches(rows.filter((c) => c.myRole === "student")));
+    listFriendConnections("accepted").then((rows) => setFriendCount(rows.length));
   }, []);
 
   useEffect(() => {
@@ -761,6 +767,14 @@ export function RunDetail({ id }: { id: string }) {
     const result = await shareRunWithCoaches(run, [coachId]);
     setSharingId(null);
     if (result.ok) setSharedWith((current) => [...current, coachId]);
+  };
+
+  const handleToggleFriendsShare = async () => {
+    setSharingFriends(true);
+    const next = !friendsShared;
+    const result = await setRunFriendsVisibility(run, next);
+    setSharingFriends(false);
+    if (result.ok) setFriendsShared(next);
   };
 
   return (
@@ -1094,6 +1108,29 @@ export function RunDetail({ id }: { id: string }) {
                 );
               })}
             </ul>
+          </Card>
+        )}
+
+        {friendCount > 0 && (
+          <Card className="pr-enter" style={delay(172)}>
+            <CardTitle>Compartilhar com amigos</CardTitle>
+            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+              Aparece no feed de todos os seus amigos aceitos, com kudos — nunca só pra um por vez.
+            </p>
+            <button
+              type="button"
+              disabled={sharingFriends}
+              onClick={() => void handleToggleFriendsShare()}
+              className={`flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-60 ${
+                friendsShared ? "bg-good/15 text-good" : "border border-border text-foreground hover:border-accent"
+              }`}
+            >
+              {sharingFriends
+                ? "Salvando…"
+                : friendsShared
+                  ? "Compartilhado — toque pra remover do feed"
+                  : "Compartilhar essa corrida com amigos"}
+            </button>
           </Card>
         )}
 

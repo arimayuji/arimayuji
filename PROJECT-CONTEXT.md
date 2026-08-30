@@ -2629,6 +2629,89 @@ deployado em produção**.
   `?tab=progresso` de fato abrindo direto na aba Progresso. **Não
   testado em aparelho real** — mesma pendência de sempre.
 
+## Feed social de amigos (estilo Strava) com kudos — implementado em 2026-08-30
+
+Pedido do dono do projeto: "feed compartilhado, status, estilo rede
+social, igual no Strava". Escopo fechado por pergunta direta: só amigos
+aceitos (sem feed público/descoberta), kudos como única interação (sem
+comentários nessa entrega). Escopado via plan mode, implementado na
+mesma sessão, branch `claude/strava-competitor-feedback-cyvop8`, **ainda
+não deployado em produção**.
+
+**Achado real antes de desenhar algo do zero**: boa parte do alicerce já
+existia, só nunca tinha sido ligado — `runsSync.ts`'s `SyncedRun.visibility`
+já era um enum `"public" | "friends" | "private"` desde a criação da
+tabela `runs`, mas todo código real só gravava `"private"` (compartilhar
+com treinador). E, investigando isso, achado um **bug real e não
+relacionado ao pedido**: `shareRunWithCoaches` tentava conceder
+`Permission.read(Role.user(coachId))` direto de uma sessão de cliente
+comum — a mesma causa raiz (sessão de cliente não pode conceder
+permissão a um `user:<outro-id>`) já encontrada e corrigida duas vezes
+antes em `friendships.ts` (2026-08-26) e `liveRuns.ts` (2026-08-27), só
+que aqui nunca tinha sido pega porque o `catch` engolia o erro em
+silêncio. **Ou seja, "enviar corrida pro treinador" provavelmente nunca
+funcionou de verdade** desde que foi construído — não reproduzido contra
+produção nesta passada (fora do pedido original), mas corrigido junto
+por ser pré-requisito estrutural do feed (o feed reusa esse mesmo tipo
+de escrita).
+
+**Decisão de arquitetura**: diferente de compartilhar com um treinador
+(um leitor por vez, permissão de linha basta), o feed de amigos não
+concede `Permission.read` por amigo na linha de `runs` — a lista de
+amigos muda com o tempo, e re-gravar permissão de toda corrida antiga a
+cada nova amizade não escala. Em vez disso, toda leitura do feed (e a
+contagem/registro de kudos) passa por uma action privilegiada na
+Function `client-actions`, que resolve "quem são meus amigos aceitos"
+na hora com a chave admin — `visibility: "friends"` na linha de `runs`
+é só um filtro que a Function lê, nunca uma permissão de verdade.
+
+- `appwrite-functions/client-actions/src/main.js`: três actions novas —
+  `share-run` (substitui a escrita direta quebrada de
+  `shareRunWithCoaches`; `coachIds`/`shareWithFriends` são knobs
+  independentes — tri-state no corpo da requisição, "omitido" significa
+  "essa chamada não mexe em visibilidade pra amigos", pra "Enviar pro
+  treinador" e "Compartilhar com amigos" nunca se atropelarem mesmo
+  sendo botões separados na mesma corrida); `list-friends-feed`
+  (reaproveita `listAcceptedFriendIds`, já existente pra "amigo por
+  perto"/corrida ao vivo; junta `runs` + `profiles` + `run_kudos` numa
+  resposta só, já pronta pra tela); `toggle-run-kudos` (cria ou apaga a
+  linha de kudos, id determinístico via hash de `runRowId:giverId` — não
+  concatenação truncada, a mesma classe de bug que já causou colisão real
+  em `city_races`).
+- Tabela nova `run_kudos` (`scripts/appwrite-setup.ts`): `runRowId`,
+  `giverId`, `permissions: []` (mesmo padrão de `plan_overrides`/
+  `profile_stats` — só a Function grava/lê).
+- `src/lib/runsSync.ts`: `shareRunWithCoaches` migrada pra chamar a
+  Function em vez de escrever direto; `setRunFriendsVisibility` novo
+  (mesmo call site, `shareWithFriends` no lugar de `coachIds`).
+- `src/lib/friendsFeed.ts` (novo): casca fina — `listFriendsFeed()`,
+  `toggleRunKudos(runRowId)` — chamando as duas actions, mesmo padrão de
+  `sendFriendRequest`.
+- `historico/detalhe/run-detail.tsx`: card novo "Compartilhar com
+  amigos" ao lado de "Enviar pro treinador" — um toggle só (não um
+  picker por amigo, já que o feed é visto por todos os amigos aceitos de
+  uma vez, igual privacidade-por-post do Strava), só aparece se a conta
+  já tem pelo menos um amigo aceito.
+- `/amigos`: nova aba "Feed", virou a aba padrão/primeira (mesmo
+  princípio de "ação mais frequente é a aba de um toque só" já usado
+  pra pôr "Amigos" antes de "Convites" em 2026-08-29) — lista
+  cronológica com avatar/nome/distância/tempo/pace e botão de kudos
+  (contador + estado preenchido). Sem link pro detalhe da corrida nessa
+  v1 — a Function só devolve o resumo agregado, nunca o mapa/splits de
+  uma corrida de amigo.
+
+Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos
+(`node --check` na Function também). **Não verificável neste ambiente
+remoto**: rodar `scripts/appwrite-setup.ts` (tabela `run_kudos` nova) +
+redeployar `client-actions` (pendente do OK de sempre), e o teste real
+de ponta a ponta com duas contas — compartilhar uma corrida, dar/tirar
+kudos, confirmar que a segunda conta vê no feed — mesma trilha já usada
+pra fechar os bugs de `friendships`/`live_runs`, ainda não rodada aqui.
+Tentativa de verificação visual via Playwright ficou travada em
+"Verificando sua conta..." (checagem de sessão Appwrite nunca resolveu
+neste sandbox) — não chegou a confirmar a aba Feed renderizando com
+dado real.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play

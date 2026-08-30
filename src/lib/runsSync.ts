@@ -11,8 +11,8 @@
  *
  * Same degrade-to-empty/false convention as the rest of the backend layer.
  */
-import { ID, type Models, Permission, Query, Role } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
+import { ExecutionMethod, type Models, Query } from "appwrite";
+import { APPWRITE_DATABASE_ID, CLIENT_ACTIONS_FUNCTION_ID, TABLES, getAppwrite } from "./appwrite";
 import { getCurrentAccount } from "./auth";
 import type { CompletedRun, StoredPoint } from "./tracking/storage";
 import { runMovingSeconds } from "./tracking/storage";
@@ -43,70 +43,75 @@ function downsamplePoints(points: StoredPoint[]): StoredPoint[] {
 export type ShareRunResult = { ok: true } | { ok: false; reason: "unavailable" | "no-coach" | "failed" };
 
 /**
- * Shares `run` with every coach in `coachIds` (accepted relationships only —
- * the caller is expected to have filtered to those, same as the UI does).
- * `userId` is deliberately never a parameter, same rule `submitRating` and
- * `sendFriendRequest` follow: it comes from the live session inside this
- * function, not from anything the caller passes in.
+ * Common plumbing for both `shareRunWithCoaches` and
+ * `setRunFriendsVisibility` below: both end up calling the same
+ * `share-run` action in `client-actions`, just with a different slice of
+ * its (independent) `coachIds`/`shareWithFriends` knobs — see that
+ * action's own comment in main.js for why they're kept independent
+ * rather than one combined "audience" the two callers would stomp on
+ * each other's behalf.
+ *
+ * This used to write `runs` directly from here, granting
+ * `Permission.read(Role.user(coachId))` from a plain client session —
+ * which Appwrite always refuses for a role that isn't the caller's own
+ * (`401 user_unauthorized`), the same root cause already found and fixed
+ * in `friendships.ts` (2026-08-26) and `liveRuns.ts` (2026-08-27). The
+ * bare `catch` here swallowed that silently, so sharing a run with a
+ * coach has likely never actually worked. Moved into the Function, same
+ * pattern as `sendFriendRequest`.
  */
-export async function shareRunWithCoaches(run: CompletedRun, coachIds: string[]): Promise<ShareRunResult> {
+async function callShareRun(
+  run: CompletedRun,
+  extra: { coachIds?: string[]; shareWithFriends?: boolean },
+): Promise<ShareRunResult> {
   const appwrite = getAppwrite();
   if (!appwrite) return { ok: false, reason: "unavailable" };
-  if (coachIds.length === 0) return { ok: false, reason: "no-coach" };
-
-  const account = await getCurrentAccount();
-  if (!account) return { ok: false, reason: "unavailable" };
-  const userId = account.id;
-
-  const startedAtIso = new Date(run.startedAt).toISOString();
-  const data = {
-    userId,
-    startedAt: startedAtIso,
-    finishedAt: new Date(run.finishedAt).toISOString(),
-    distanceMeters: run.distanceMeters,
-    movingSeconds: runMovingSeconds(run),
-    points: JSON.stringify(downsamplePoints(run.points)),
-    shoeName: run.shoeName,
-    visibility: "private" as const,
-  };
-
-  const ownerPermissions = [
-    Permission.read(Role.user(userId)),
-    Permission.update(Role.user(userId)),
-    Permission.delete(Role.user(userId)),
-  ];
-  const coachPermissions = coachIds.map((coachId) => Permission.read(Role.user(coachId)));
 
   try {
-    const existing = await appwrite.tablesDB.listRows<SyncedRun>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.runs,
-      queries: [Query.equal("userId", userId), Query.equal("startedAt", startedAtIso), Query.limit(1)],
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({
+        action: "share-run",
+        startedAtMs: run.startedAt,
+        finishedAtMs: run.finishedAt,
+        distanceMeters: run.distanceMeters,
+        movingSeconds: runMovingSeconds(run),
+        points: JSON.stringify(downsamplePoints(run.points)),
+        shoeName: run.shoeName,
+        ...extra,
+      }),
     });
-    const row = existing.rows[0];
-
-    if (row) {
-      const permissions = [...new Set([...row.$permissions, ...ownerPermissions, ...coachPermissions])];
-      await appwrite.tablesDB.updateRow<SyncedRun>({
-        databaseId: APPWRITE_DATABASE_ID,
-        tableId: TABLES.runs,
-        rowId: row.$id,
-        data,
-        permissions,
-      });
-    } else {
-      await appwrite.tablesDB.createRow<SyncedRun>({
-        databaseId: APPWRITE_DATABASE_ID,
-        tableId: TABLES.runs,
-        rowId: ID.unique(),
-        data,
-        permissions: [...ownerPermissions, ...coachPermissions],
-      });
-    }
-    return { ok: true };
-  } catch {
+    const parsed = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; error?: string };
+    if (parsed.ok) return { ok: true };
+    return { ok: false, reason: parsed.error === "no-audience" ? "no-coach" : "failed" };
+  } catch (error) {
+    console.error("[runsSync] share-run failed", error);
     return { ok: false, reason: "failed" };
   }
+}
+
+/**
+ * Shares `run` with every coach in `coachIds` (accepted relationships only —
+ * the caller is expected to have filtered to those, same as the UI does;
+ * the Function re-validates this itself regardless). `userId` is never a
+ * parameter here, same rule `submitRating`/`sendFriendRequest` follow: it
+ * comes from the caller's own session inside the Function, not from
+ * anything the client passes in.
+ */
+export async function shareRunWithCoaches(run: CompletedRun, coachIds: string[]): Promise<ShareRunResult> {
+  if (coachIds.length === 0) return { ok: false, reason: "no-coach" };
+  return callShareRun(run, { coachIds });
+}
+
+/**
+ * Turns this run's visibility in the friends feed on or off — a separate
+ * knob from `shareRunWithCoaches` above, never touching `coachIds`, so
+ * toggling one never silently undoes the other on the same row (see
+ * `callShareRun`'s comment).
+ */
+export async function setRunFriendsVisibility(run: CompletedRun, shareWithFriends: boolean): Promise<ShareRunResult> {
+  return callShareRun(run, { shareWithFriends });
 }
 
 /**

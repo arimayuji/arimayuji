@@ -624,6 +624,41 @@ async function main() {
     }),
   );
 
+  // ------------------------------------------------------------- run_kudos
+  console.log("\nrun_kudos");
+  // Same permission shape as plan_overrides/profile_stats: `permissions: []`
+  // at table level, so no client session can create/read a row directly —
+  // every read (the friends feed's aggregate count) and write (giving/taking
+  // a kudos) goes through client-actions's privileged key instead. See
+  // list-friends-feed's own comment in main.js for why: a friend's kudos on
+  // someone else's run isn't readable by a third friend under any per-row
+  // ACL that would actually scale, so the Function does the aggregation.
+  await ensure("table run_kudos", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "run_kudos",
+      name: "run_kudos",
+      permissions: [],
+      rowSecurity: true,
+    }),
+  );
+  await ensure("run_kudos.runRowId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "run_kudos", key: "runRowId", size: 36, required: true }),
+  );
+  await ensure("run_kudos.giverId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "run_kudos", key: "giverId", size: 36, required: true }),
+  );
+  await waitForColumn("run_kudos", "runRowId");
+  await ensure("run_kudos index: runRowId", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "run_kudos",
+      key: "idx_run_row_id",
+      type: TablesDBIndexType.Key,
+      columns: ["runRowId"],
+    }),
+  );
+
   // -------------------------------------------------------------- live_runs
   console.log("\nlive_runs");
   await ensure("table live_runs", () =>
