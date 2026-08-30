@@ -62,7 +62,7 @@ export type ShareRunResult = { ok: true } | { ok: false; reason: "unavailable" |
  */
 async function callShareRun(
   run: CompletedRun,
-  extra: { coachIds?: string[]; shareWithFriends?: boolean },
+  extra: { coachIds?: string[]; shareWithFriends?: boolean; achievementLabels?: string[] },
 ): Promise<ShareRunResult> {
   const appwrite = getAppwrite();
   if (!appwrite) return { ok: false, reason: "unavailable" };
@@ -79,7 +79,13 @@ async function callShareRun(
         movingSeconds: runMovingSeconds(run),
         points: JSON.stringify(downsamplePoints(run.points)),
         shoeName: run.shoeName,
-        ...extra,
+        // Computed on-device (the athlete's own history/track list is
+        // already available where this is called from — run-detail.tsx),
+        // never re-derived by the Function. See share-run's own comment.
+        achievements: extra.achievementLabels && extra.achievementLabels.length > 0 ? extra.achievementLabels : undefined,
+        tracks: run.tracks && run.tracks.length > 0 ? run.tracks.map((t) => ({ name: t.name, artist: t.artist })) : undefined,
+        coachIds: extra.coachIds,
+        shareWithFriends: extra.shareWithFriends,
       }),
     });
     const parsed = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; error?: string };
@@ -99,19 +105,30 @@ async function callShareRun(
  * comes from the caller's own session inside the Function, not from
  * anything the client passes in.
  */
-export async function shareRunWithCoaches(run: CompletedRun, coachIds: string[]): Promise<ShareRunResult> {
+export async function shareRunWithCoaches(
+  run: CompletedRun,
+  coachIds: string[],
+  achievementLabels: string[] = [],
+): Promise<ShareRunResult> {
   if (coachIds.length === 0) return { ok: false, reason: "no-coach" };
-  return callShareRun(run, { coachIds });
+  return callShareRun(run, { coachIds, achievementLabels });
 }
 
 /**
  * Turns this run's visibility in the friends feed on or off — a separate
  * knob from `shareRunWithCoaches` above, never touching `coachIds`, so
  * toggling one never silently undoes the other on the same row (see
- * `callShareRun`'s comment).
+ * `callShareRun`'s comment). `achievementLabels` (e.g. `["5 km"]` for new
+ * PRs this run set) rides along so the feed card can show them —
+ * computed by the caller, which already has the full run history needed
+ * to know what's actually a new record (see personalRecords.ts).
  */
-export async function setRunFriendsVisibility(run: CompletedRun, shareWithFriends: boolean): Promise<ShareRunResult> {
-  return callShareRun(run, { shareWithFriends });
+export async function setRunFriendsVisibility(
+  run: CompletedRun,
+  shareWithFriends: boolean,
+  achievementLabels: string[] = [],
+): Promise<ShareRunResult> {
+  return callShareRun(run, { shareWithFriends, achievementLabels });
 }
 
 /**

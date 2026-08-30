@@ -656,6 +656,21 @@ async function shareRun({ userId, body, client, res, error }) {
   const points = typeof body.points === "string" ? body.points : undefined;
   const shoeName = typeof body.shoeName === "string" ? body.shoeName : undefined;
 
+  // Both computed client-side (the athlete's own device already has the
+  // full history/track list needed) and only ever taken as a snapshot —
+  // this Function never re-derives a PR against anyone else's data, it
+  // just stores what was sent. Kept short (`.slice`) since these only
+  // feed compact feed-card badges, not a source of truth for anything.
+  const achievements = Array.isArray(body.achievements)
+    ? body.achievements.filter((label) => typeof label === "string" && label).slice(0, 20)
+    : undefined;
+  const tracks = Array.isArray(body.tracks)
+    ? body.tracks
+        .filter((t) => t && typeof t.name === "string" && typeof t.artist === "string")
+        .slice(0, 10)
+        .map((t) => ({ name: t.name, artist: t.artist }))
+    : undefined;
+
   const tablesDB = new TablesDB(client);
   const startedAtIso = new Date(startedAtMs).toISOString();
 
@@ -703,6 +718,8 @@ async function shareRun({ userId, body, client, res, error }) {
     movingSeconds,
     points,
     shoeName,
+    achievements: achievements && achievements.length > 0 ? JSON.stringify(achievements) : undefined,
+    tracks: tracks && tracks.length > 0 ? JSON.stringify(tracks) : undefined,
     visibility,
   };
 
@@ -752,6 +769,17 @@ async function shareRun({ userId, body, client, res, error }) {
  * `runs` directly; `visibility: "friends"` on a row is a filter value
  * this query reads, never a real ACL grant.
  */
+/** `run.achievements`/`run.tracks` are JSON strings written by share-run — never trust a stored string is still valid JSON of the right shape (a future schema change, or a row from before either column existed), so a parse failure degrades to "no badges/no track" rather than failing the whole feed item. */
+function safeParseJsonArray(json) {
+  if (typeof json !== "string" || !json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 async function listFriendsFeed({ userId, client, res, error }) {
   const tablesDB = new TablesDB(client);
 
@@ -829,6 +857,12 @@ async function listFriendsFeed({ userId, client, res, error }) {
       distanceMeters: run.distanceMeters,
       movingSeconds: run.movingSeconds,
       shoeName: run.shoeName ?? null,
+      // Raw JSON strings, parsed client-side (same shape the client sent
+      // to share-run) — `points` in particular can be a ~200KB string
+      // across 30 rows, no reason to parse-and-reserialize it here.
+      points: run.points ?? null,
+      achievements: safeParseJsonArray(run.achievements),
+      tracks: safeParseJsonArray(run.tracks),
       kudosCount: kudos.count,
       kudosGivenByMe: kudos.givenByMe,
     };

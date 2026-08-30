@@ -2760,6 +2760,52 @@ novo, separado de `/amigos`).
   como tela cheia com os 4 itens sintéticos e kudos funcionando, `/amigos`
   de volta a só 2 abas com a barra acendendo "Feed" ao visitá-la.
 
+**Cards do Feed enriquecidos no mesmo dia (2026-08-30)**: feedback direto
+do dono do projeto vendo o feed recém-promovido — "nao tem nem mostrando
+mapa, conquistas, playlist escutada etc, tem que ser bem dopamina".
+Cada card virou seu próprio `Card` (não mais uma linha dentro de uma
+lista) com traçado da rota, badges de recorde e a música tocada, além do
+que já existia (distância/tempo/pace/kudos):
+
+- **Traçado**: reaproveita `projectRoute` (`src/lib/tracking/routeProjection.ts`),
+  o mesmo motor de projeção equiretangular já usado no thumbnail de
+  `matched-runs-card.tsx` e no mapa de `/historico` — nenhuma lib de mapa
+  nova. `runs.points` (já existia na tabela, já era enviado por
+  `shareRunWithCoaches`/agora `share-run`, só nunca tinha sido devolvido
+  pelo `list-friends-feed`) passa a vir na resposta da action; o card
+  desenha um SVG maior (banner de largura cheia, não mais o quadradinho
+  de 56px) via `preserveAspectRatio` em cima da mesma projeção quadrada.
+- **Conquistas**: `runs` ganhou coluna nova `achievements` (JSON, lista de
+  labels tipo `"5 km"`) — calculada no aparelho de quem compartilha, no
+  momento do compartilhamento, reaproveitando o `newRecords` que
+  `historico/detalhe/run-detail.tsx` já calcula pra mostrar "Conquistas
+  dessa corrida" (nunca recalculada de novo do lado do servidor contra o
+  histórico de ninguém). Renderiza como pill com ícone de troféu (mesmo
+  desenho do `PrBadge`).
+- **Playlist**: `runs` ganhou coluna `tracks` (JSON, nome+artista, sem
+  capa — mantém a coluna pequena) — espelha `CompletedRun.tracks`
+  (`src/lib/tracking/storage.ts`), preenchida automaticamente sempre que
+  a corrida tem alguma faixa anexada (não é um campo novo pra
+  preencher, só encaminha o que já existia local).
+- `appwrite-functions/client-actions/src/main.js`: `share-run` valida e
+  grava as duas colunas novas (sempre um snapshot enviado pelo cliente,
+  nunca reconstruído no servidor); `list-friends-feed` devolve
+  `points`/`achievements`/`tracks` por item, com um `safeParseJsonArray`
+  que degrada pra `[]` em vez de derrubar o feed inteiro se algum dado
+  vier mal formado.
+- `src/lib/runsSync.ts`: `shareRunWithCoaches`/`setRunFriendsVisibility`
+  ganham um terceiro parâmetro opcional `achievementLabels` — quem
+  chama (`run-detail.tsx`) já tinha esse cálculo pronto (`newRecords`),
+  só passou a repassar.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build`, `node
+  --check` na Function — todos limpos. Confirmado visualmente via
+  Playwright com rota/conquista/faixa sintéticas — os três elementos
+  renderizam juntos no card, e um item sem nenhum dos três (sem GPS
+  sintético, sem recorde, sem faixa) degrada bem, sem quebrar o layout.
+  **Ainda não verificado com dado real de ponta a ponta** — depende do
+  mesmo deploy pendente (tabela `runs` com as 2 colunas novas +
+  `client-actions` redeployada) já registrado na seção do feed acima.
+
 ## Perguntas em aberto (preencher quando puder)
 
 - [x] **2026-08-21: aprovada** — conta de desenvolvedor do Google Play

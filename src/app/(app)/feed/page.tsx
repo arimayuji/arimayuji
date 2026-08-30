@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { listFriendConnections } from "@/lib/friendships";
-import { listFriendsFeed, toggleRunKudos, type FriendFeedItem } from "@/lib/friendsFeed";
+import { listFriendsFeed, parseFeedRoutePoints, toggleRunKudos, type FriendFeedItem } from "@/lib/friendsFeed";
 import type { DistanceUnit } from "@/lib/preferences";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
+import { projectRoute } from "@/lib/tracking/routeProjection";
 import { formatAveragePace, formatDistance, unitLabel } from "@/lib/units";
 import { usePreferences } from "@/lib/usePreferences";
 import { useAuth } from "@/lib/useAuth";
@@ -50,14 +51,67 @@ function HeartIcon({ className, filled }: { className?: string; filled: boolean 
   );
 }
 
+/** Same silhouette as `PrBadge`'s trophy in run-detail.tsx — reused here so a "new record" reads the same way in both places. */
+function TrophyIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M7 4h10v3.5a5 5 0 0 1-10 0V4Z" />
+      <path d="M7 5H4.5a2 2 0 0 0 0 4H7M17 5h2.5a2 2 0 0 1 0 4H17" />
+      <path d="M12 12.5v3M9 19.5h6M9.5 19.5c0-2 .8-2.7 2.5-3.5 1.7.8 2.5 1.5 2.5 3.5" />
+    </svg>
+  );
+}
+
+function MusicIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <circle cx="6.5" cy="18" r="2.5" />
+      <circle cx="17" cy="16" r="2.5" />
+      <path d="M9 18V6.5L19.5 4v11.5" />
+    </svg>
+  );
+}
+
+/**
+ * The GPS trace as a flattened SVG, same `projectRoute` math /historico and
+ * `matched-runs-card.tsx`'s thumbnail already use — real geometry (breaks at
+ * tracking gaps, honest to what the route actually looked like), just
+ * rendered bigger and full-width as this card's focal visual instead of a
+ * 56px corner thumbnail. `points` comes straight from `runs.points` (a
+ * downsampled trace, see runsSync.ts), so a friend's card draws the same
+ * shape their own device would.
+ */
+function RouteBanner({ points }: { points: FriendFeedItem["points"] }) {
+  const parsed = parseFeedRoutePoints(points);
+  if (parsed.length < 2) return null;
+  const projected = projectRoute(parsed, { viewBoxSize: 100, paddingFraction: 0.1 });
+  if (!projected) return null;
+
+  return (
+    <svg
+      viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
+      preserveAspectRatio="xMidYMid meet"
+      className="h-36 w-full rounded-xl border border-border bg-background text-accent"
+      role="img"
+      aria-label="Traçado da corrida"
+    >
+      {projected.polylines.map((pts, i) => (
+        <polyline key={i} points={pts} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      ))}
+    </svg>
+  );
+}
+
 /**
  * One shared run in the friends feed — no link to a detail screen (see
  * `friendsFeed.ts`'s own comment: v1 only ever shows this aggregate
- * summary, never a friend's map/splits), just who, what, and the kudos
- * button. `Avatar` here takes `displayName`/`avatarUrl` straight off the
- * Function's already-resolved response, not another profile lookup.
+ * summary, never a friend's splits), but everything the sharer's own
+ * device already knew about the run: the route, new records it set, and
+ * whatever track was logged playing. `Avatar` here takes
+ * `displayName`/`avatarUrl` straight off the Function's already-resolved
+ * response, not another profile lookup.
  */
-function FeedItemRow({
+function FeedItemCard({
   item,
   unit,
   busy,
@@ -69,8 +123,10 @@ function FeedItemRow({
   onToggleKudos: () => void;
 }) {
   const pace = formatAveragePace(item.distanceMeters, item.movingSeconds, unit);
+  const track = item.tracks[0];
+
   return (
-    <li className="flex flex-col gap-2.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
+    <Card className="pr-enter flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <Avatar name={item.displayName} avatarUrl={item.avatarUrl} />
         <div className="min-w-0 flex-1">
@@ -81,7 +137,33 @@ function FeedItemRow({
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3">
+
+      <RouteBanner points={item.points} />
+
+      {item.achievements.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {item.achievements.map((label) => (
+            <span
+              key={label}
+              className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent"
+            >
+              <TrophyIcon className="h-3.5 w-3.5" />
+              Recorde: {label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {track && (
+        <div className="flex items-center gap-1.5 text-xs text-muted">
+          <MusicIcon className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            {track.name} — {track.artist}
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
         <span className="flex items-baseline gap-3 font-mono text-xs tabular-nums text-muted">
           <span className="text-sm font-semibold text-foreground">
             {formatDistance(item.distanceMeters, unit)} {unitLabel(unit)}
@@ -102,7 +184,7 @@ function FeedItemRow({
           {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
         </button>
       </div>
-    </li>
+    </Card>
   );
 }
 
@@ -115,6 +197,12 @@ function FeedItemRow({
  * screen links there via the header badge for that management surface,
  * same relationship Strava has between its feed and its "find friends"
  * screen.
+ *
+ * Each item is its own full-width `Card` (route banner, achievement/track
+ * badges, kudos) rather than rows packed into one shared list — asked for
+ * directly ("nao tem nem mostrando mapa, conquistas, playlist escutada
+ * etc, tem que ser bem dopamina"), same visual weight Strava gives each
+ * activity in its own feed.
  */
 export default function FeedPage() {
   const { status } = useAuth();
@@ -206,11 +294,13 @@ export default function FeedPage() {
           </Card>
         )}
 
-        {status === "signed-in" && (
-          <Card className="pr-enter" style={delay(40)}>
-            {feedItems === null ? (
-              <div className="h-12 animate-pulse rounded-lg bg-background" />
-            ) : feedItems.length === 0 ? (
+        {status === "signed-in" &&
+          (feedItems === null ? (
+            <Card className="pr-enter animate-pulse" style={delay(40)}>
+              <div className="h-36 rounded-xl bg-background" />
+            </Card>
+          ) : feedItems.length === 0 ? (
+            <Card className="pr-enter" style={delay(40)}>
               <div className="py-2 text-center">
                 <p className="text-xs leading-relaxed text-muted">
                   {friendCount === 0 ? (
@@ -226,21 +316,18 @@ export default function FeedPage() {
                   )}
                 </p>
               </div>
-            ) : (
-              <ul className="flex flex-col gap-3.5">
-                {feedItems.map((item) => (
-                  <FeedItemRow
-                    key={item.runRowId}
-                    item={item}
-                    unit={unit}
-                    busy={kudosBusyId === item.runRowId}
-                    onToggleKudos={() => handleToggleKudos(item.runRowId)}
-                  />
-                ))}
-              </ul>
-            )}
-          </Card>
-        )}
+            </Card>
+          ) : (
+            feedItems.map((item) => (
+              <FeedItemCard
+                key={item.runRowId}
+                item={item}
+                unit={unit}
+                busy={kudosBusyId === item.runRowId}
+                onToggleKudos={() => handleToggleKudos(item.runRowId)}
+              />
+            ))
+          ))}
       </Screen>
 
       {showAccountPrompt && <AccountPrompt onClose={() => setShowAccountPrompt(false)} returnTo={RETURN_TO} />}

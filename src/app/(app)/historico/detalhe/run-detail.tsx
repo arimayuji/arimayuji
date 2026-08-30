@@ -764,7 +764,7 @@ export function RunDetail({ id }: { id: string }) {
 
   const handleShareWithCoach = async (coachId: string) => {
     setSharingId(coachId);
-    const result = await shareRunWithCoaches(run, [coachId]);
+    const result = await shareRunWithCoaches(run, [coachId], newRecords.map((r) => r.label));
     setSharingId(null);
     if (result.ok) setSharedWith((current) => [...current, coachId]);
   };
@@ -772,7 +772,7 @@ export function RunDetail({ id }: { id: string }) {
   const handleToggleFriendsShare = async () => {
     setSharingFriends(true);
     const next = !friendsShared;
-    const result = await setRunFriendsVisibility(run, next);
+    const result = await setRunFriendsVisibility(run, next, newRecords.map((r) => r.label));
     setSharingFriends(false);
     if (result.ok) setFriendsShared(next);
   };

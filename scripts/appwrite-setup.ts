@@ -612,6 +612,21 @@ async function main() {
   await ensure("runs.shoeName", () =>
     tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "shoeName", size: 100, required: false }),
   );
+  // JSON string arrays — same "computed on-device, synced as a snapshot"
+  // shape as `points`/`shoeName` above. `achievements` is a list of
+  // record labels (e.g. "5 km") the athlete's own device already
+  // determined were new PRs on this run (see personalRecords.ts) at share
+  // time; nothing here re-derives that against anyone else's history.
+  // `tracks` mirrors CompletedRun.tracks (name/artist only, no artwork —
+  // keeps the column small). Both feed the friends-feed cards
+  // (list-friends-feed in client-actions), which is why they only ever
+  // get set through share-run, never written directly.
+  await ensure("runs.achievements", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "achievements", size: 1000, required: false }),
+  );
+  await ensure("runs.tracks", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "tracks", size: 2000, required: false }),
+  );
   // Defaults private conceptually — same Appwrite constraint as above, the
   // app must pass `visibility: "private"` explicitly rather than omitting it.
   await ensure("runs.visibility", () =>

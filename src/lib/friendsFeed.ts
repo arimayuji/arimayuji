@@ -16,6 +16,13 @@
  */
 import { ExecutionMethod } from "appwrite";
 import { CLIENT_ACTIONS_FUNCTION_ID, getAppwrite } from "./appwrite";
+import type { StoredPoint } from "./tracking/storage";
+
+/** Track info as share-run stores it — name/artist only, no artwork (keeps the column small; see main.js's own comment). */
+export interface FeedTrack {
+  name: string;
+  artist: string;
+}
 
 export interface FriendFeedItem {
   runRowId: string;
@@ -27,8 +34,24 @@ export interface FriendFeedItem {
   distanceMeters: number;
   movingSeconds: number;
   shoeName: string | null;
+  /** Raw JSON string of `StoredPoint[]` (same shape `points` always is on `runs`), or null when the sharer's device sent none — parse with `parseFeedRoutePoints` rather than `JSON.parse` directly, which degrades safely on malformed/missing data instead of throwing. */
+  points: string | null;
+  /** New-record labels (e.g. "5 km") the sharer's own device determined this run set — never re-derived here. */
+  achievements: string[];
+  tracks: FeedTrack[];
   kudosCount: number;
   kudosGivenByMe: boolean;
+}
+
+/** Safe `JSON.parse` for `FriendFeedItem.points` — a malformed or absent route just means "no map for this card," never a crash. */
+export function parseFeedRoutePoints(points: string | null): StoredPoint[] {
+  if (!points) return [];
+  try {
+    const parsed = JSON.parse(points);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function listFriendsFeed(): Promise<FriendFeedItem[]> {
