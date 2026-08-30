@@ -3546,6 +3546,43 @@ transcript. Branch `claude/strava-competitor-feedback-cyvop8`, commit
   review, pesquisador credenciado, amostra real), decisão consciente do
   dono do projeto de não tentar re-validar isso ele mesmo.
 
+## Estudos/citações removidos de dentro do app de vez (2026-08-30)
+
+Feedback direto do dono do projeto: o app "não é app de leitura" —
+mostrar exatamente quais estudos formaram a semana/rotina de alguém
+dentro do próprio app não faz sentido, `/estudos` (a base completa) tem
+que ser coisa de navegador, nunca de tela do app. Confirmado por
+`AskUserQuestion` que era pra tirar o card/chips inteiros, não só
+suavizar a especificidade. Branch `claude/strava-competitor-feedback-cyvop8`,
+commit `45e20c0`, **ainda não deployado em produção**.
+
+Removido de dentro do app (nenhuma menção a "estudos"/tópico específico
+sobrou em tela nenhuma):
+- `/plano`: o card inteiro "Por que essa semana tem essa cara" (versão
+  real com os chips de tópico + versão de demonstração), a menção
+  "grounded nos mesmos estudos citados acima" no card de sugestão de
+  IA e no aviso do modal antes de aplicar, e o link "Ver os estudos por
+  trás dele" no rodapé do assistente de meta.
+- `/aquecimento`: a fileira de chips de tópico + "Ver os estudos
+  completos" na tela de introdução de cada rotina.
+- `/perfil`: o link "Ver o estudo" do lembrete de gel de carboidrato.
+- `plan-dashboard.tsx`'s `IntensityRingCard` (o anel 80/20 implementado
+  nesta mesma sessão, horas antes): o link "ver o estudo" ao lado do
+  alvo de referência.
+
+**O que não mudou**: `/estudos` continua existindo exatamente como
+antes — só que agora não é linkado de lugar nenhum de dentro do app,
+só do footer da landing page (`xanthus.app.br`, já shippado antes nesta
+sessão). `WarmupStep.evidenceTopic` (em `warmupRoutines.ts`) e
+`GeneratedPlan.evidenceTopics` continuam existindo como metadado —
+descrevem de onde cada decisão vem, só pararam de virar UI.
+
+Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos;
+confirmado por busca de texto real via Playwright que "Por que essa
+semana", "Ver os estudos"/"Ver o estudo" e "citações reais" não
+aparecem mais em `/plano` nem `/aquecimento`. **Não testado em aparelho
+real** — mesma pendência de sempre.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
