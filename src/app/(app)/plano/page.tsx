@@ -48,7 +48,15 @@ import { usePreferences } from "@/lib/usePreferences";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 import { PillSlider } from "../pill-slider";
 import { ModalPortal } from "../modal-portal";
-import { PlanKpiStrip, TrendChartRow, WeekDayTable, RecentRecordsCard, TrainingLoadCard } from "./plan-dashboard";
+import {
+  PlanKpiStrip,
+  TrendChartRow,
+  WeekDayTable,
+  RecentRecordsCard,
+  TrainingLoadCard,
+  IntensityRingCard,
+  PlanCalendar,
+} from "./plan-dashboard";
 import { GoalWizard } from "./goal-wizard";
 import { DistanceTileGrid, MIN_WEEKLY_DAYS, MAX_WEEKLY_DAYS } from "./goal-fields";
 
@@ -1055,7 +1063,20 @@ export default function PlanoPage() {
             <div className="mt-6">
               <TrendChartRow buckets12={buckets12} targetKm={currentWeek.totalKm} />
             </div>
+            <div className="mt-6 border-b border-border pb-6">
+              <PlanCalendar weeks={plan.weeks} currentWeekNumber={currentWeek.weekNumber} />
+            </div>
           </div>
+
+          {completedRuns && (
+            <div className="hidden border-b border-border pb-6 lg:block">
+              <IntensityRingCard
+                runs={completedRuns}
+                recentRaceDistanceMeters={profile.recentRaceDistanceMeters}
+                recentRaceTimeSeconds={profile.recentRaceTimeSeconds}
+              />
+            </div>
+          )}
 
           {completedRuns && (
             <div className="hidden lg:block">
