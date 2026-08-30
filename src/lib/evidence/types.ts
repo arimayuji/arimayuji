@@ -28,7 +28,8 @@ export type DecisionTopic =
   | "cooldown"
   | "hydration"
   | "nutrition_timing"
-  | "injury_prevention";
+  | "injury_prevention"
+  | "injury_rehab";
 
 /**
  * How much weight a claim should carry when the plan engine cites it —

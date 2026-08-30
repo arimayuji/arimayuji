@@ -45,6 +45,44 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       "As equações em si (custo de O2 e %VO2max sustentável por duração) são de domínio público; as tabelas impressas do livro são conteúdo protegido — derive numericamente, não copie a tabela. \"VDOT\" é marca registrada, não usar como nome de feature.",
   },
   {
+    id: "fixed-intensity-anchors-unreliable-lactate-threshold",
+    topic: "pace_zones",
+    claim:
+      "Comparando seis formas de estimar o limiar de lactato a partir de porcentagens fixas (%FCmáx, %VO2max, %velocidade de pico, %reserva de FC, %reserva de VO2, PSE) em 165 corredores recreativos com teste incremental em esteira e lactato sanguíneo real, as âncoras baseadas em velocidade foram as mais precisas (erro médio de 0,6–0,8 km/h no primeiro limiar, 0,4–0,8 km/h no segundo), mas nenhuma porcentagem fixa colocou todos os corredores no mesmo domínio metabólico — sobretudo perto do limiar anaeróbico.",
+    bullets: [
+      "**165 corredores recreativos**, teste incremental em esteira com lactato sanguíneo real",
+      "Zonas por **velocidade**: erro de **0,6–0,8 km/h** — a âncora mais precisa das 6 testadas",
+      "**Nenhuma** porcentagem fixa (FCmáx, VO2max, PSE) manteve todo mundo no mesmo domínio metabólico",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Nuuttila et al. (2025) — European Journal of Applied Physiology",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC12354492/",
+      citable: true,
+    },
+    caveat:
+      "Estudo transversal com teste laboratorial e lactato sanguíneo, não corrida de rua livre. Usar velocidade/tempo de prova máxima estimados em vez de medidos piorou bastante a precisão (até 1,0 km/h e 8,4 bpm de erro) — relevante porque o app estima essas zonas a partir de uma prova recente (vdot-pace-zones), nunca mede diretamente.",
+  },
+  {
+    id: "vdot-underestimates-vo2max-caution",
+    topic: "pace_zones",
+    claim:
+      "Uma validação direta da calculadora VDOT de Jack Daniels contra teste laboratorial (VO2max medido, pace no VO2max e pace de limiar de lactato) em atletas universitários (n=11) e corredores recreativos (n=9) usando 5 km indoor como prova de entrada encontrou que o VDOT subestima o VO2max real nos dois grupos, de forma mais pronunciada nos recreativos — os autores recomendam cautela ao interpretar os paces de treino recomendados como medida exata de capacidade fisiológica.",
+    bullets: [
+      "**n=11** universitários + **n=9** recreativos, prova de 5km indoor vs teste de laboratório",
+      "VDOT **subestima** o VO2max real nos dois grupos",
+      "Subestimativa **mais pronunciada** em corredores recreativos que em atletas treinados",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Scudamore, Barry & Coons (2018) — Journal of Strength and Conditioning Research 32(4):1137–1143",
+      url: "https://pubmed.ncbi.nlm.nih.gov/28426511/",
+      citable: true,
+    },
+    caveat:
+      "Amostra pequena (n=11/n=9); magnitude exata em ml/kg/min não confirmada por trás de paywall — a direção do achado (VDOT subestima, mais em recreativos) veio confirmada por múltiplas fontes secundárias. Nuancia diretamente vdot-pace-zones (já classificado como 'modelo empírico, não medição direta').",
+  },
+  {
     id: "riegel-race-prediction",
     topic: "race_time_prediction",
     claim:
@@ -60,6 +98,26 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       url: "https://www.runpacelab.com/guides/riegel-formula-accuracy/",
       citable: true,
     },
+  },
+  {
+    id: "vickers-vertosick-riegel-marathon-underestimate",
+    topic: "race_time_prediction",
+    claim:
+      "Num estudo com 2.303 corredores recreativos (survey da Slate.com, validação cruzada 2:1), a fórmula de Riegel subestimou sistematicamente o tempo de maratona — pelo menos 10 minutos mais rápido que o real pra metade dos corredores — enquanto um modelo que usa o tempo de 1–2 provas anteriores mais o volume semanal de treino teve erro quadrático médio bem menor (228/208 contra 381 da fórmula de Riegel).",
+    bullets: [
+      "Riegel: tempo de maratona **≥10 min mais rápido** que o real, pra metade dos corredores",
+      "Erro quadrático médio: Riegel **381**, modelo c/ 1 prova anterior **228**, com 2 provas **208**",
+      "Volume semanal de treino é preditor consistente em todas as distâncias",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Vickers & Vertosick (2016) — An empirical study of race times in recreational endurance runners",
+      org: "BMC Sports Science, Medicine and Rehabilitation",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5000509/",
+      citable: true,
+    },
+    caveat:
+      "Dados autorrelatados via pesquisa on-line, não medição controlada em laboratório — mas amostra grande (2.303) com validação cruzada. Quantifica e reforça a advertência já registrada em riegel-race-prediction sobre o expoente de Riegel degradar acima da maratona.",
   },
 
   // ---------------------------------------------------------- volume progression
@@ -213,6 +271,65 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
       citable: false,
     },
   },
+  {
+    id: "block-periodization-small-edge-vo2max-wmax",
+    topic: "periodization",
+    claim:
+      "A primeira revisão sistemática com meta-análise sobre periodização em blocos (BP) versus periodização tradicional (TRAD) em atletas de endurance treinados a bem treinados encontrou efeito pequeno, porém favorável, da BP sobre VO2max e potência máxima (Wmax) — mas os próprios autores alertam que os estudos incluídos são em geral pequenos e de qualidade metodológica baixa.",
+    bullets: [
+      "Periodização em **blocos**: efeito **pequeno, mas favorável** sobre VO2max e Wmax vs tradicional",
+      "Primeira meta-análise sobre o tema em atletas de endurance",
+      "Qualidade metodológica dos estudos incluídos: geralmente **baixa**",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Mølmen, Øfsteng & Rønnestad (2019) — Block periodization of endurance training: a systematic review and meta-analysis",
+      org: "Open Access Journal of Sports Medicine",
+      url: "https://pubmed.ncbi.nlm.nih.gov/31802956/",
+      citable: true,
+    },
+    caveat: "Efeito pequeno e amostra de estudos de baixa qualidade — tratar como sinal preliminar, não como recomendação forte de trocar o modelo de periodização.",
+  },
+  {
+    id: "periodization-models-tradition-not-evidence",
+    topic: "periodization",
+    claim:
+      "Um artigo crítico de revisão argumenta que os modelos formais de periodização (linear, ondulatória, em blocos) compartilham pressupostos herdados de tradições de treinamento que não têm mais justificativa científica sólida, apesar de continuarem profundamente embutidos na prática — não há evidência forte o bastante pra declarar um modelo único superior aos outros de forma geral.",
+    bullets: [
+      "Modelos de periodização (linear, ondulatória, blocos) vêm de tradição, não de teste direto",
+      "Pressupostos antigos continuam embutidos mesmo sem justificativa científica atual",
+      "Não há evidência forte o bastante pra eleger um modelo único como superior",
+    ],
+    strength: "consenso",
+    source: {
+      name: "Kiely, J. (2012) — Periodization Paradigms in the 21st Century: Evidence-Led or Tradition-Driven?",
+      org: "International Journal of Sports Physiology and Performance",
+      url: "https://pubmed.ncbi.nlm.nih.gov/22356774/",
+      citable: true,
+    },
+    caveat:
+      "Artigo de opinião/revisão crítica, não estudo empírico novo — não afirma que periodizar não funciona, questiona a base de evidência dos pressupostos específicos dos modelos. Mesmo espírito de long-run-cap-convention: convenção de treinador, não achado experimental.",
+  },
+  {
+    id: "undulatory-load-pattern-beats-linear-recreational-runners",
+    topic: "periodization",
+    claim:
+      "Num ensaio controlado randomizado com 88 corredores recreativos (8 semanas, 2 mesociclos de 4 semanas com redução de carga tipo taper ao final de cada um), o padrão de carga ondulatório teve o maior ganho de VO2max (+22,15%, d=1,14) e melhor recuperação (razão testosterona livre/cortisol +26,9%) comparado ao padrão linear sem ondulação, que piorou a recuperação (creatina quinase +23,4%, LDH +35,2%, testosterona/cortisol −26,5%).",
+    bullets: [
+      "**88 corredores recreativos**, RCT, 8 semanas, taper a cada 4 semanas",
+      "Padrão **ondulatório**: VO2max **+22,15%** (maior ganho); testosterona/cortisol **+26,9%**",
+      "Padrão **linear** sem ondulação: pior recuperação — CK **+23,4%**, LDH **+35,2%**, testosterona/cortisol **−26,5%**",
+    ],
+    strength: "forte",
+    source: {
+      name: "Costa et al. (2019) — A Randomized Controlled Trial Investigating the Effects of Undulatory, Staggered, and Linear Load Manipulations",
+      org: "Sports Medicine - Open",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC6646634/",
+      citable: true,
+    },
+    caveat:
+      "Corredores recreativos, não elite; intensidade prescrita por %VO2max, que os próprios autores reconhecem variar 2–19% entre indivíduos na mesma intensidade relativa (ver fixed-intensity-anchors-unreliable-lactate-threshold). O taper aqui é de 1 semana ao final de cada mesociclo de 4 semanas, mais curto que os 2–3 semanas do taper pré-prova já documentado.",
+  },
 
   // ---------------------------------------------------------------------- taper
   {
@@ -250,6 +367,25 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     },
     caveat:
       "Observacional (dados de treino do Strava), não ensaio controlado — mostra associação; corredores que já tapeiam de forma disciplinada também podem treinar melhor no geral.",
+  },
+  {
+    id: "acute-fatigue-not-overreaching-before-taper",
+    topic: "taper",
+    claim:
+      "Em triatletas treinados submetidos a 3 semanas de sobrecarga seguidas de 4 semanas de taper, o subgrupo que ficou apenas agudamente fatigado (sem queda de desempenho) teve maior supercompensação de desempenho no pico do taper do que o subgrupo que cruzou para overreaching funcional (queda de desempenho com fadiga percebida alta) e do que o grupo controle sem sobrecarga — sugerindo que o objetivo antes do taper é chegar fatigado, não overtreinado.",
+    bullets: [
+      "**33 triatletas**: 3 semanas de sobrecarga + 4 semanas de taper",
+      "Fadiga aguda **sem** cruzar pra overreaching → **maior** supercompensação pós-taper",
+      "Cruzar pra overreaching funcional → ganho **menor**, nem melhor que treino normal",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Aubry, Hausswirth, Louis, Coutts & Le Meur (2014) — Medicine & Science in Sports & Exercise",
+      url: "https://pubmed.ncbi.nlm.nih.gov/25134000/",
+      citable: true,
+    },
+    caveat:
+      "Magnitude exata em % de cada grupo não confirmada por trás de paywall (só a direção qualitativa, corroborada por múltiplas fontes independentes) — evitado citar número não verificado. Amostra masculina, ciclismo como teste de performance, não corrida.",
   },
 
   // --------------------------------------------------------------- overtraining
@@ -296,6 +432,46 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     bullets: ["\"FC de repouso **+5bpm**, pule o treino\" — sem limiar clinicamente validado"],
     strength: "mito",
     source: { name: "Consenso ECSS/ACSM (ausência de limiar validado)", citable: true },
+  },
+  {
+    id: "foster-monotony-strain-illness",
+    topic: "overtraining",
+    claim:
+      "Em 25 atletas experientes monitorados com carga de treino (RPE de sessão × duração), monotonia (carga média/desvio-padrão) e strain (carga × monotonia), uma proporção alta de doenças/lesões leves foi explicada quando o atleta individual ultrapassava um limiar próprio de strain — treino monótono (pouca variação dia a dia), mesmo sem aumento de volume, se associou a mais adoecimento banal e sintomas de overreaching.",
+    bullets: [
+      "**25 atletas**: carga, monotonia (média/desvio-padrão) e strain (carga × monotonia) monitorados",
+      "Ultrapassar o limiar individual de **strain** explica boa parte das doenças/lesões leves",
+      "Treino **monótono** (sem variação), mesmo sem mais volume, aumenta o risco",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Foster, C. (1998) — Monitoring training in athletes with reference to overtraining syndrome",
+      org: "Medicine & Science in Sports & Exercise",
+      url: "https://pubmed.ncbi.nlm.nih.gov/9662690/",
+      citable: true,
+    },
+    caveat:
+      "Estudo observacional único (n=25), não meta-análise — mas é a origem do método monotonia/strain hoje usado amplamente em monitoramento de carga; complementa hrv-guided-training mostrando que variação de carga dia a dia, não só progressão semanal, importa.",
+  },
+  {
+    id: "nfor-vs-ots-recovery-duration-threshold",
+    topic: "overtraining",
+    claim:
+      "A distinção prática entre overreaching não-funcional (NFOR) e síndrome de overtraining (OTS) — o próximo nível depois do overreaching funcional — é o tempo de recuperação necessário: performance voltando ao normal em menos de 14–21 dias de descanso indica NFOR; levar mais que isso (semanas a meses) indica OTS. A prevalência de NFOR ao longo da vida é estimada em ~60% entre corredores de fundo de elite e ~33% entre corredoras não-elite.",
+    bullets: [
+      "**&lt;14–21 dias** de descanso pra recuperar performance = NFOR; mais que isso = OTS",
+      "Prevalência de NFOR na vida: **~60%** em corredores de elite, **~33%** em não-elite",
+      "Critérios de diagnóstico continuam arbitrários — a própria fonte reconhece isso",
+    ],
+    strength: "consenso",
+    source: {
+      name: "Kreher & Schwartz (2012) — Overtraining Syndrome: A Practical Guide",
+      org: "Sports Health",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3435910/",
+      citable: true,
+    },
+    caveat:
+      "O número de prevalência (60%/33%) vem de um único estudo antigo citado dentro dessa revisão prática (Morgan et al. 1987), não de meta-análise — mas o limiar de 14–21 dias é a distinção prática mais citada na literatura clínica e complementa ecss-acsm-overtraining-consensus, que descreve o espectro sem dar esse marcador de tempo.",
   },
 
   // -------------------------------------------------------------------- warmup
@@ -757,6 +933,25 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     caveat:
       "Raciocínio mecanístico e prática clínica de atendimento em prova, não ensaio: a fonte descreve o tratamento do EAC, não testa \"continuar caminhando após a linha de chegada\" como prevenção. Incidência de referência (meia-maratona de Gotemburgo): 1,19 a 2,21 por 1.000 participantes precisaram de atendimento além de líquido oral e caminhada assistida.",
   },
+  {
+    id: "foam-rolling-effect-is-mostly-perceived-soreness",
+    topic: "cooldown",
+    claim:
+      "Foam rolling (liberação miofascial) antes ou depois de correr tem efeito real, mas pequeno: numa meta-análise de 21 estudos (454 participantes), o uso antes do exercício rendeu ganhos triviais em sprint (+0,7%), quase nulos em salto, e pequenos em força (+1,8%) e flexibilidade (+4,0%); o uso depois do exercício teve seu maior efeito — e o maior de todo o estudo — na redução da dor muscular percebida (+6,0%), não no desempenho.",
+    bullets: [
+      "**21 estudos, 454 participantes**: efeitos de foam rolling são, no geral, pequenos e parcialmente desprezíveis",
+      "Antes de correr: sprint **+0,7%**, salto quase nulo, força **+1,8%**, flexibilidade **+4,0%**",
+      "Depois de correr: maior efeito é sobre **dor muscular percebida** (+6,0%) — não sobre desempenho",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Wiewelhove, Döweling, Schneider et al. (2019) — Frontiers in Physiology 10:376, meta-análise",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC6465761/",
+      citable: true,
+    },
+    caveat:
+      "Não é mito que atrapalha — não há efeito negativo — mas a crença popular de que foam rolling \"acelera a recuperação muscular de verdade\" tem base fraca: o único desfecho com efeito de tamanho relevante é a sensação de dor, não uma medida objetiva de performance/recuperação.",
+  },
 
   // ------------------------------------------------------------- injury general
   {
@@ -853,6 +1048,241 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     caveat:
       "A ausência de recomendação sobre aquecimento é leitura do documento (busca textual no PDF completo), não uma afirmação da diretriz — ela simplesmente não trata do tema. Não conclua que aquecimento é inútil pro Aquiles; conclua que não existe diretriz de fisioterapia que posicione trabalho preventivo de Aquiles dentro do aquecimento.",
   },
+  {
+    id: "gait-retraining-step-rate-biomechanics-not-performance",
+    topic: "injury_prevention",
+    claim:
+      "Aumentar a cadência (step rate) durante a corrida reduz a taxa de carga vertical de impacto de forma consistente, mas a evidência de que isso realmente previne lesão ainda é escassa: uma revisão sistemática com meta-análise de 19 ensaios (673 participantes) encontrou certeza moderada pra mudança biomecânica (cadência sobe, taxa de carga cai), nenhum efeito sobre desempenho de corrida, e evidência insuficiente pra tirar conclusão sobre dor — só 2 dos 19 ensaios mediram incidência de lesão em 1 ano, e os dois mostraram redução.",
+    bullets: [
+      "**19 ensaios, 673 participantes**: cadência sobe, taxa de carga de impacto cai — certeza **moderada**",
+      "Sem efeito sobre desempenho de corrida",
+      "Só **2 ensaios** mediram lesão em 1 ano de fato (ambos com redução) — evidência de lesão ainda insuficiente",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Doyle, Doyle, Bonacci & Fuller (2022) — Journal of Orthopaedic & Sports Physical Therapy 52(4), 192–206",
+      url: "https://pubmed.ncbi.nlm.nih.gov/35128941/",
+      citable: true,
+    },
+    caveat:
+      "A crença popular de \"aumentar a cadência em 5–10% previne lesão\" é mais forte do que os dados atuais sustentam: o efeito biomecânico é real e consistente, mas o elo com menos lesão de fato vem de só 2 ensaios (incluindo Chan et al. 2018, AJSM: 62% menos lesão em corredores novatos após reeducação de marcha supervisionada de 2 semanas com feedback visual) — promissor, não confirmado.",
+  },
+  {
+    id: "footstrike-pattern-not-consistent-injury-predictor",
+    topic: "injury_prevention",
+    claim:
+      "A crença de que um padrão de pisada (antepé vs. retropé) é \"mais seguro\" que o outro não tem direção clara na evidência: uma revisão sistemática de 12 estudos prospectivos (3.773 participantes) sobre função dinâmica do pé como fator de risco de lesão encontrou evidência apenas \"muito limitada\", de qualidade baixa a moderada, e nenhuma evidência de que a função do pé prediga síndrome do trato iliotibial ou fratura por estresse.",
+    bullets: [
+      "**12 estudos prospectivos, 3.773 participantes** sobre função do pé/pisada como risco de lesão",
+      "Qualidade **baixa a moderada** (só 1 dos 12 estudos atingiu qualidade moderada)",
+      "Evidência \"muito limitada\" — nenhuma evidência pra ITBS ou fratura por estresse",
+    ],
+    strength: "mito",
+    source: {
+      name: "Neal, Barton, Gallie, O'Halloran & Morrissey (2014) — BMC Musculoskeletal Disorders, revisão sistemática",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4296532/",
+      citable: true,
+    },
+    caveat:
+      "Trocar de padrão de pisada é, na prática, uma reeducação de marcha completa — redistribui a carga pra outro tecido (retropé concentra mais impacto no joelho; antepé transfere carga pro tornozelo/panturrilha, mais associado a Aquiles e fascite plantar em revisões biomecânicas). Não é uma correção neutra — é uma troca de risco, não uma eliminação dele.",
+  },
+  {
+    id: "hip-core-strength-rct-reduces-overuse-injury-novice-runners",
+    topic: "injury_prevention",
+    claim:
+      "Um ensaio controlado randomizado de três braços (Run RCT, 325 corredores novatos, mais de 70% mulheres) encontrou que um programa de quadril e core supervisionado por fisioterapeuta (agachamento, avanço, prancha, exercício de Copenhagen; 2 sessões supervisionadas + 1–2 em casa por semana, 24 semanas) reduziu lesões por overuse em corredores novatos comparado a um grupo controle de alongamento estático: HR 0,66 (IC 95% 0,45–0,97).",
+    bullets: [
+      "**325 corredores novatos**, 24 semanas: grupo quadril+core teve **34% menos risco** de lesão por overuse (HR 0,66, IC 0,45–0,97)",
+      "Programa: agachamento, avanço, prancha, exercício de Copenhagen — 2 sessões supervisionadas + 1–2 em casa/semana",
+      "Grupo tornozelo/pé (equilíbrio, elevação de calcanhar) não teve o mesmo benefício",
+    ],
+    strength: "forte",
+    source: {
+      name: "Leppänen et al. (2024) — Run RCT",
+      org: "British Journal of Sports Medicine",
+      url: "https://pubmed.ncbi.nlm.nih.gov/38724071/",
+      citable: true,
+    },
+    caveat:
+      "Contrasta com o achado agregado mais antigo já neste arquivo (runner-specific-prevention-null, Wu et al. 2024) de que prevenção específica pra corredor, no geral, não mostrava efeito real. Este RCT é maior, mais recente e supervisionado — reforça a hipótese de que supervisão/adesão, não o conteúdo do exercício, é o que faz a diferença. Sem benefício pra lesão aguda (HR 2,08, IC 0,64–6,75, não significativo) — só pra lesão por overuse.",
+  },
+  {
+    id: "nordic-hamstring-51-percent-reappraised-inconclusive",
+    topic: "injury_prevention",
+    claim:
+      "O exercício nórdico de isquiotibiais (Nordic hamstring curl) é popularmente citado como reduzindo lesão de isquiotibiais em ~51%, mas uma reanálise metodológica da mesma literatura mostrou que esse número vem de meta-análises com problemas de método (viés de publicação, alta heterogeneidade) — ao corrigir o método, o efeito preventivo passa a ser classificado como inconclusivo, com recomendação apenas condicional e majoritariamente restrita ao futebol.",
+    bullets: [
+      "Número popular: **~51%** menos lesão de isquiotibiais com o exercício nórdico",
+      "Reanálise com método corrigido: efeito **inconclusivo**, alto risco de viés nos RCTs originais",
+      "Evidência concentrada em futebol — pouca base fora desse esporte",
+    ],
+    strength: "mito",
+    source: {
+      name: "Impellizzeri, McCall et al. (2021) — Journal of Clinical Epidemiology, reanálise metodológica",
+      url: "https://pubmed.ncbi.nlm.nih.gov/34520846/",
+      citable: true,
+    },
+    caveat:
+      "Não significa que o exercício nórdico não funcione — significa que a certeza estatística por trás do número \"51%\" é mais frágil do que amplamente divulgado. Quase toda a evidência é de futebol/esportes coletivos, não de corrida de fundo, onde lesão de isquiotibial por estiramento é mais rara — aplicabilidade direta a corredores de rua é uma extrapolação, não um achado direto.",
+  },
+
+  // ------------------------------------------------------ injury rehab / return to run
+  {
+    id: "eccentric-not-superior-to-hsr-achilles",
+    topic: "injury_rehab",
+    claim:
+      "O protocolo excêntrico de Alfredson (heel-drop) tem eficácia real pra tendinopatia de Aquiles, mas não é superior a outros protocolos de carga: um ensaio controlado randomizado comparando excêntrico contra treino de resistência lenta e pesada (HSR) encontrou resultados igualmente bons e duradouros nos dois grupos em 12 semanas e em 1 ano, e uma revisão sistemática com meta-análise de 12 ensaios (543 participantes) não achou diferença significativa em dor e função entre diferentes protocolos de carga do tendão.",
+    bullets: [
+      "Excêntrico (Alfredson) vs. resistência lenta e pesada (HSR): resultado **igualmente bom** em 12 semanas e em 1 ano",
+      "Revisão de **12 ensaios, 543 participantes**: nenhum protocolo de carga se mostrou superior a outro",
+      "A diretriz clínica de 2024 já citada neste arquivo (achilles-cpg-prescribes-load-not-warmup) também não elege o excêntrico como método preferencial",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Maetz, Dubé, Tougas, Prudhomme, Dubois & Roy (2023) — Orthopaedic Journal of Sports Medicine, revisão sistemática e meta-análise de 12 RCTs",
+      url: "https://journals.sagepub.com/doi/10.1177/23259671231171178",
+      citable: true,
+    },
+    caveat:
+      "Evidência de qualidade consistentemente baixa (10 de 12 estudos com 'algumas preocupações' de viés) e só 2 RCTs compararam protocolos diretamente entre si. O RCT de Beyer et al. (2015, AJSM, n=58) que embasa a comparação excêntrico-vs-HSR é um estudo só. Não conclua que o excêntrico é inútil — conclua que não é o único caminho válido, contrariando a ideia popular de que 'Alfredson é o padrão-ouro'.",
+  },
+  {
+    id: "eccentric-worst-ranked-patellar-tendinopathy",
+    topic: "injury_rehab",
+    claim:
+      "Para tendinopatia patelar, o exercício excêntrico (o clássico agachamento no declive) é popularmente tratado como \"o\" protocolo de referência, mas uma revisão sistemática com meta-análise em rede (7 ensaios, 337 participantes) classificou o treino excêntrico isolado como a intervenção menos eficaz pra melhorar o escore VISA-P, com isométrico combinado a resistência lenta/moderada e resistência lenta e pesada (HSR) tendo desempenho melhor.",
+    bullets: [
+      "**7 ensaios, 337 participantes**: excêntrico, isométrico e resistência lenta/pesada comparados entre si",
+      "Excêntrico isolado: pior colocado pra melhora do escore VISA-P (probabilidade de ser o melhor: **1%**)",
+      "Isométrico + resistência lenta/moderada teve o melhor resultado geral; resistência lenta e pesada (HSR) foi melhor pra função no longo prazo",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Li, Sun, Fang et al. (2024) — Heliyon (Elsevier), revisão sistemática e meta-análise em rede",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC11570476/",
+      citable: true,
+    },
+    caveat:
+      "Meta-análise em rede de 7 estudos pequenos, publicada em periódico de fator de impacto menor (Heliyon, não JOSPT/BJSM) — o sinal é real mas a base é mais estreita que o resto deste arquivo. Contradiz diretamente a crença de que 'excêntrico é o padrão-ouro' pra tendinopatia patelar.",
+  },
+  {
+    id: "stress-fracture-return-to-run-pain-response-rule",
+    topic: "injury_rehab",
+    claim:
+      "A reintrodução da corrida depois de uma fratura por estresse tibial/metatarsal segue uma regra de dor, não um calendário fixo: o retorno só começa depois de 5 dias seguidos sem dor nas atividades do dia a dia, e cada etapa da progressão só avança se não houver sintoma durante, depois, ou no dia seguinte ao esforço — sintoma em qualquer um desses momentos indica carga excessiva sobre o osso ainda remodelando.",
+    bullets: [
+      "Início do retorno: **5 dias seguidos** sem dor nas atividades diárias",
+      "Regra de progressão: sem sintoma durante, depois, **ou no dia seguinte** — se doer, a carga foi excessiva",
+      "Protocolo clássico de referência citado na literatura: University of Delaware Return-to-Running Program (corrida graduada até 30 min contínuos sem dor)",
+    ],
+    strength: "consenso",
+    source: {
+      name: "Warden, Edwards & Willy (2021) — Optimal Load for Managing Low-Risk Tibial and Metatarsal Bone Stress Injuries in Runners",
+      org: "Journal of Orthopaedic & Sports Physical Therapy 51(6)",
+      url: "https://www.jospt.org/doi/10.2519/jospt.2021.9982",
+      citable: true,
+    },
+    caveat:
+      "É um comentário clínico de raciocínio, não um ensaio controlado testando essa regra contra outra — a lógica é fisiológica (dor como sinal de sobrecarga do osso), amplamente adotada na prática de fisioterapia esportiva, mas não é uma prescrição validada por RCT.",
+  },
+  {
+    id: "plantar-fascia-specific-stretch-beats-achilles-stretch",
+    topic: "injury_rehab",
+    claim:
+      "Pra fasciíte plantar, um alongamento específico da fáscia plantar (sentado, puxando os dedos em direção à canela até sentir tensão na fáscia, 10 repetições de 10s, 3x/dia, feito antes dos primeiros passos do dia) teve resultado melhor que alongamento do tendão de Aquiles no mesmo ensaio controlado: maior redução de dor, maior melhora de função e maior satisfação do paciente em 8 semanas, com 82 pacientes completando o estudo.",
+    bullets: [
+      "Alongamento específico da fáscia plantar (sentado, puxar os dedos) vs. alongamento do Aquiles",
+      "**82 pacientes**, 8 semanas: fáscia plantar teve **mais** redução de dor e melhora de função",
+      "Protocolo: **10 repetições de 10s, 3x/dia**, antes dos primeiros passos do dia",
+    ],
+    strength: "moderada",
+    source: {
+      name: "DiGiovanni, Nawoczenski, Lintal et al. (2003) — Journal of Bone and Joint Surgery",
+      url: "https://pubmed.ncbi.nlm.nih.gov/16882901/",
+      citable: true,
+    },
+    caveat:
+      "Um único RCT (com seguimento de 2 anos publicado depois) — mas a diretriz clínica APTA/JOSPT de fasciíte plantar (revisão 2023) incorporou esse achado como recomendação de alongamento específico de tecido. É um alongamento prescrito como tratamento de uma lesão já existente, feito de manhã ao acordar — não se encaixa em 'pré-corrida' nem 'pós-corrida' de rotina, por isso fica em reabilitação, não nos tópicos de alongamento de treino.",
+  },
+  {
+    id: "hamstring-cpg-progressive-agility-weak-evidence-grade",
+    topic: "injury_rehab",
+    claim:
+      "A diretriz clínica da APTA/JOSPT pra lesão de isquiotibiais (2022) recomenda progressão de agilidade e estabilização de tronco — somada a um programa de alongamento/fortalecimento e a uma progressão de corrida com aceleração e desaceleração, aumentando velocidade e distância gradualmente — pra reduzir a taxa de nova lesão, mas essa recomendação específica carrega o grau de evidência mais baixo da escala da própria diretriz, não o mais alto.",
+    bullets: [
+      "Progressão de agilidade + estabilização de tronco + corrida com aceleração/desaceleração gradual",
+      "Objetivo: reduzir a **taxa de nova lesão** (reincidência é o problema real dos isquiotibiais)",
+      "Grau de evidência: o mais baixo da escala da diretriz — recomendação, não achado experimental forte",
+    ],
+    strength: "consenso",
+    source: {
+      name: "Academy of Orthopaedic Physical Therapy / American Academy of Sports Physical Therapy, APTA (2022) — Hamstring Strain Injury in Athletes: CPG",
+      org: "Journal of Orthopaedic & Sports Physical Therapy 52(3)",
+      url: "https://www.jospt.org/doi/10.2519/jospt.2022.0301",
+      citable: true,
+    },
+    caveat:
+      "Mais da metade das lesões recorrentes de isquiotibiais acontecem no primeiro mês depois do retorno ao esporte — a própria literatura da área reconhece que não há consenso sobre quais critérios objetivos definem 'pronto pra voltar', a decisão ainda é largamente clínica/subjetiva, não um teste único e validado.",
+  },
+  {
+    id: "hip-abductor-strengthening-itbs-runners",
+    topic: "injury_rehab",
+    claim:
+      "Pra síndrome do trato iliotibial (ITBS) em corredores, fortalecimento de abdutores de quadril é a intervenção conservadora com mais respaldo: uma revisão sistemática de 13 estudos (201 participantes) achou redução de dor de 27% a 100% e melhora funcional de 10% a 57% em programas de 2 a 8 semanas, com resultado ainda melhor quando combinado com terapia manual ou ondas de choque (redução média de dor de 71%, vs. 61% isolado).",
+    bullets: [
+      "**13 estudos, 201 participantes**: fortalecimento de abdutor de quadril reduz dor **27–100%**",
+      "Melhora funcional de **10–57%** em programas de **2 a 8 semanas**",
+      "Combinado com terapia manual/ondas de choque: redução média de dor de **71%** (vs. 61% isolado)",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Revisão sistemática sobre tratamento conservador de ITBS em corredores (2024)",
+      org: "Frontiers in Sports and Active Living",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC11377285/",
+      citable: true,
+    },
+    caveat:
+      "Qualidade metodológica média 66% (NIH Quality Assessment Tool), heterogeneidade grande demais pra meta-análise formal (13 estudos, maioria estudos de caso, só 5 RCTs) — o sinal é consistente mas a base é qualitativamente fraca. Os próprios autores dizem que reeducação de marcha pra ITBS ainda carece de estudos de boa qualidade.",
+  },
+  {
+    id: "dry-needling-sports-helps-pain-not-performance",
+    topic: "injury_rehab",
+    claim:
+      "Agulhamento seco (dry needling) em atletas tem evidência consistente pra alívio de dor no curto prazo, mas não pra melhora de desempenho: uma revisão sistemática com mapa de lacunas de evidência (24 estudos, 580 atletas, 13 esportes) encontrou efeito mais positivo sobre dor do que sobre desempenho atlético, com qualidade metodológica inconsistente — só 18% dos estudos cegaram participante e terapeuta.",
+    bullets: [
+      "**24 estudos, 580 atletas**, 13 esportes: efeito mais positivo sobre **dor** do que sobre desempenho",
+      "Só **18%** dos estudos cegaram participante e terapeuta — risco de viés alto",
+      "Evidência não sustenta ganho de desempenho atlético, mesmo quando ajuda a dor",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Revisão sistemática com evidence gap map — Dry Needling in Sports and Sport Recovery (2024)",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC12011942/",
+      citable: true,
+    },
+    caveat:
+      "Boa parte dos estudos tem viés alto (cegamento raro) e faltam dados de dosagem/efeitos adversos. Não é mito — há sinal real de alívio de dor de curto prazo — mas está longe de consenso forte, e a crença de que dry needling melhora desempenho especificamente não se sustenta.",
+  },
+  {
+    id: "manual-therapy-alone-no-added-benefit-pfp",
+    topic: "injury_rehab",
+    claim:
+      "Pra dor patelofemoral (uma das causas mais comuns de dor de joelho em corredor), a diretriz clínica da APTA/JOSPT (2019) recomenda explicitamente contra usar mobilização/manipulação articular como tratamento isolado, e afirma que somar outras terapias — incluindo agulhamento seco e acupuntura — ao exercício não melhora o resultado além do exercício sozinho.",
+    bullets: [
+      "Mobilização/manipulação articular **isolada**: não recomendada",
+      "Somar agulhamento seco ou acupuntura ao exercício: **sem ganho** além do exercício sozinho",
+      "Fortalecimento de quadril/joelho continua sendo a intervenção com mais peso de evidência",
+    ],
+    strength: "forte",
+    source: {
+      name: "Academy of Orthopaedic Physical Therapy, APTA (2019) — Patellofemoral Pain: Clinical Practice Guidelines",
+      org: "Journal of Orthopaedic & Sports Physical Therapy 49(9)",
+      url: "https://www.jospt.org/doi/10.2519/jospt.2019.0302",
+      citable: true,
+    },
+    caveat:
+      "É uma recomendação negativa (contra um tratamento) — o tipo de achado mais honesto que uma diretriz pode dar. Mas dor patelofemoral não é a única causa de dor de joelho em corredor, e a diretriz é específica pra PFP, não generalizável a toda lesão de joelho.",
+  },
 
   // -------------------------------------------------------------- hydration
   {
@@ -890,6 +1320,44 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     },
     caveat:
       "Não contradiz a meta de reposição do ACSM acima — essa é sobre repor depois do treino; essa aqui é sobre quanto beber durante.",
+  },
+  {
+    id: "dehydration-2-percent-time-trial-null",
+    topic: "hydration",
+    claim:
+      "Numa meta-análise de 5 estudos de ciclismo contra o relógio (ritmo autorregulado, 13 estimativas, 39 sujeitos), perder em média 2,2% do peso corporal por desidratação durante o exercício não prejudicou o desempenho de forma estatisticamente significativa (efeito de +0,06% ± 2,72%, p=0,94) comparado a manter-se hidratado — e beber abaixo do que a sede pedia prejudicou mais o desempenho (−5,2%) do que beber acima dela.",
+    bullets: [
+      "**~2,2%** de perda de peso corporal: sem prejuízo estatístico numa prova contra o relógio",
+      "Efeito medido: **+0,06% ± 2,72%** (p=0,94) — nulo",
+      "Beber **abaixo** da sede prejudicou mais (**−5,2%**) que beber acima dela",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Goulet, E.D.B. (2011) — Effect of exercise-induced dehydration on time-trial exercise performance: a meta-analysis",
+      org: "British Journal of Sports Medicine",
+      url: "https://pubmed.ncbi.nlm.nih.gov/21454440/",
+      citable: true,
+    },
+    caveat:
+      "Amostra pequena (39 sujeitos, 5 estudos), só ciclismo em calor moderado, não corrida — e só cobre exercício autorregulado (prova contra o relógio), não protocolos de intensidade fixa até a exaustão, onde a desidratação tende a prejudicar mais. Nuancia acsm-fluid-replacement: o teto de 2% é uma meta prudente de reposição, não uma linha rígida que sempre reduz o desempenho numa prova real.",
+  },
+  {
+    id: "sweat-sodium-individual-variability-marathoners",
+    topic: "hydration",
+    claim:
+      "A concentração de sódio no suor varia enormemente entre corredores: em 157 maratonistas, variou de 7,0 a 95,5 mmol/L (média 42,9), com cerca de 20% classificados como \"suadores salgados\" (>60 mmol/L) — a concentração não se correlacionou com taxa de suor, idade, características corporais nem variáveis de treino, só fracamente com o ritmo de corrida e o sexo.",
+    bullets: [
+      "**157 maratonistas**: sódio no suor de **7,0 a 95,5 mmol/L** — variação enorme",
+      "**~20%** são \"suadores salgados\" (**>60 mmol/L**), precisam de reposição diferente",
+      "Não correlaciona com taxa de suor, idade, corpo ou treino — só fraco com ritmo/sexo",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Lara et al. (2016) — Interindividual variability in sweat electrolyte concentration in marathoners",
+      org: "Journal of the International Society of Sports Nutrition",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4966593/",
+      citable: true,
+    },
   },
 
   // ---------------------------------------------------------- nutrition timing
@@ -946,5 +1414,62 @@ export const EVIDENCE_FACTS: EvidenceFact[] = [
     },
     caveat:
       "Mesma fonte de acsm-and-nutrition-athletic-performance — aqui só o número específico de carboidrato durante o esforço, extraído da mesma posição conjunta.",
+  },
+  {
+    id: "carb-loading-1-day-protocol",
+    topic: "nutrition_timing",
+    claim:
+      "Oito corredores de endurance treinados que comeram 10g/kg/dia de carboidrato de alto índice glicêmico, permanecendo fisicamente inativos, atingiram supercompensação de glicogênio muscular já em 1 dia (95→180 mmol/kg de peso úmido) — mais 2 dias seguidos da mesma dieta não aumentaram o glicogênio além disso, contrariando a convenção de que são necessários 3 dias de carb-loading.",
+    bullets: [
+      "**10g/kg/dia** de carboidrato de alto índice glicêmico, atletas inativos",
+      "Glicogênio salta de **95 para 180 mmol/kg** já em **1 dia**",
+      "Mais **2 dias** extras de dieta rica em carbo não aumentam além disso",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Bussau, Fairchild, Rao, Steele & Fournier (2002) — Carbohydrate loading in human muscle: an improved 1 day protocol",
+      org: "European Journal of Applied Physiology",
+      url: "https://pubmed.ncbi.nlm.nih.gov/12111292/",
+      citable: true,
+    },
+    caveat: "n=8, todos homens treinados — amostra pequena, mas medição direta por biópsia muscular, não estimativa indireta.",
+  },
+  {
+    id: "issn-caffeine-dose-timing-endurance",
+    topic: "nutrition_timing",
+    claim:
+      "O position stand da ISSN sobre cafeína e desempenho recomenda 3–6 mg/kg de peso corporal (efeito ergogênico já possível a partir de ~2 mg/kg; doses acima de 9 mg/kg trazem mais efeito colateral sem benefício extra), tomados cerca de 60 minutos antes do exercício — nessa dose, cafeína melhora consistentemente o desempenho de endurance (corrida e ciclismo) em 2–4% em dezenas de estudos.",
+    bullets: [
+      "**3–6 mg/kg** de peso corporal — dose recomendada (efeito já a partir de **~2 mg/kg**)",
+      "Tomar **~60 min** antes do exercício",
+      "Melhora de desempenho de endurance: **2–4%**, em dezenas de estudos",
+    ],
+    strength: "forte",
+    source: {
+      name: "Guest et al. (2021) — International Society of Sports Nutrition position stand: caffeine and exercise performance",
+      org: "International Society of Sports Nutrition",
+      url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7777221/",
+      citable: true,
+    },
+    caveat: "Acima de 9mg/kg os efeitos colaterais (ansiedade, taquicardia, insônia) sobem sem ganho extra de desempenho — dose alta não é dose melhor.",
+  },
+  {
+    id: "post-exercise-carb-timing-window-washes-out",
+    topic: "nutrition_timing",
+    claim:
+      "Ingerir carboidrato imediatamente após o exercício acelera a taxa de ressíntese de glicogênio nas primeiras 2 horas (7,7 vs 2,5 µmol/g/h com 2h de atraso), mas atrasar a primeira refeição em até 2h não muda a quantidade de glicogênio muscular medida em 8h ou 24h pós-exercício, desde que carboidrato suficiente seja ingerido ao longo da janela de recuperação — o mesmo padrão já registrado pra proteína (anabolic-window-overstated), agora pro carboidrato.",
+    bullets: [
+      "Carboidrato imediato: **7,7 µmol/g/h** de ressíntese vs **2,5 µmol/g/h** com atraso de 2h — só nas primeiras 2h",
+      "Atrasar a 1ª refeição em até 2h **não muda** o glicogênio total às 8h/24h",
+      "Vale só se carboidrato suficiente for ingerido depois — não é licença pra comer pouco",
+    ],
+    strength: "moderada",
+    source: {
+      name: "Ivy, Katz, Cutler, Sherman & Coyle (1988) — Journal of Applied Physiology 64(4):1480–1485",
+      url: "https://journals.physiology.org/doi/abs/10.1152/jappl.1988.64.4.1480",
+      citable: true,
+    },
+    caveat:
+      "Dois ensaios cruzados pequenos com ciclistas (n=12 aqui; corroborado por Parkin et al. 1997, MSSE 29(2):220–224, n=6, que não achou diferença no glicogênio total às 8h/24h atrasando a 1ª refeição em 2h) — não corredores, e mede glicogênio direto por biópsia. Mesma lógica de anabolic-window-overstated, mas pro carboidrato em vez da proteína.",
   },
 ];

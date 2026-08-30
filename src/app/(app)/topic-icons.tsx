@@ -34,6 +34,14 @@ const PATHS: Record<DecisionTopic, React.ReactElement> = {
       <path d="M9 12l2 2 4-4.3" />
     </>
   ),
+  /** A bandage strip with its two adhesive dots — treatment/return-to-activity, distinct from the shield-and-checkmark "prevent it happening" glyph above. */
+  injury_rehab: (
+    <>
+      <rect x="3.5" y="8.8" width="17" height="6.4" rx="3.2" transform="rotate(-18 12 12)" />
+      <circle cx="8" cy="9.4" r="0.6" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="14.6" r="0.6" fill="currentColor" stroke="none" />
+    </>
+  ),
   pace_zones: (
     <>
       <path d="M4.5 16.5a7.5 7.5 0 0 1 15 0" />
