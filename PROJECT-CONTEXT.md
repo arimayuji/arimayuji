@@ -3226,6 +3226,87 @@ produção**.
   como-funciona` com o conteúdo completo preservado. **Não testado em
   aparelho real** — mesma pendência de sempre.
 
+## Links de Estudos/Privacidade na landing page (2026-08-30)
+
+Pedido do dono do projeto: os textos burocráticos (LGPD/privacidade,
+base de estudos) não precisam de tela dedicada dentro do app ("não é
+app de leitura") — devem ficar acessíveis pelo navegador, a partir da
+própria landing page. Achado ao investigar: **isso já era essencialmente
+verdade** — `/estudos` e `/privacidade` já são rotas do mesmo build
+estático servido em `xanthus.app.br`, e todo link de dentro do app pra
+elas já usa `<a href="https://xanthus.app.br/...">` absoluto com
+`target="_blank"` (nunca `next/link` relativo) — abre no navegador do
+sistema, nunca como tela dentro do WebView. A única exceção legítima é o
+banner de consentimento LGPD do onboarding (`privacy-consent.tsx`), que
+precisa ser in-app porque é o próprio consentimento, não documentação.
+O que faltava era só a landing page (`src/app/page.tsx`) — visitada
+direto por quem não tem o app — linkar as duas: footer ganhou "Estudos"
+e "Privacidade" ao lado do texto de marca já existente. Branch
+`claude/strava-competitor-feedback-cyvop8`, commit `95c6cfc`, **ainda
+não deployado em produção**.
+
+## Pesquisa: precisão de distância ao vivo (GPS), Android e iOS (2026-08-30)
+
+Pedido do dono do projeto: investigar como deixar a distância percorrida
+"ultra precisa", nas duas plataformas. Pesquisa feita via agente com
+WebSearch (fontes reais, citadas) contra o pipeline já existente
+(`src/lib/tracking/geoFilter.ts` — Kalman 2D em frame local metro E/N,
+gate adaptativo de Mahalanobis, fusão com velocidade Doppler do chip,
+EWMA de pace) e a configuração nativa (`native-plugins/
+capacitor-background-geolocation/`). **Nenhuma implementação ainda —
+só pesquisa, registrando os achados pra não perder.**
+
+- **Já está no teto do que dá pra configurar**: Android já em
+  `FusedLocationProviderClient`/`PRIORITY_HIGH_ACCURACY`/1Hz — chip GNSS
+  de consumo não passa de ~1Hz de qualquer forma (confirmado por
+  múltiplas fontes, inclusive um estudo achando que 5Hz teve *mais*
+  variação que 1Hz em movimento esportivo). iOS já com `desiredAccuracy`
+  esperto por bateria (`kCLLocationAccuracyBestForNavigation` só
+  carregando, `.Best` do contrário — sempre `.Best` na prática, já que
+  ninguém corre carregando o celular). GPS dual-frequência (L1+L5, já
+  presente em Pixel 5+/Galaxy S22+/etc.) já é aproveitado automaticamente
+  pelo SO em `FusedLocationProviderClient`/CoreLocation — não é algo que
+  o app configura.
+- **Melhor custo-benefício, cross-platform**: um passe de suavização
+  retroativa (RTS — Rauch-Tung-Striebel) rodando **uma vez, no fim da
+  corrida** — mesma família matemática do Kalman já implementado, só que
+  usando pontos *futuros* pra corrigir um trecho ruim (o filtro ao vivo,
+  por natureza, só vê o passado). Zero custo de bateria (roda pós-corrida,
+  fora do loop de tracking ao vivo), zero API nova.
+- **Android**: fallback por pedômetro (`Sensor.TYPE_STEP_DETECTOR`) só
+  durante os gaps de GPS que o código já detecta
+  (`GPS_GAP_THRESHOLD_SECONDS`, 60s) — hoje um gap vira uma corda reta
+  entre o ponto de antes e o de depois (corta caminho de verdade,
+  subestima distância); é a técnica padrão documentada de "pedestrian
+  dead reckoning" pra exatamente esse caso.
+- **iOS**: setar `activityType = .otherNavigation` (`CLActivityType`) em
+  vez do padrão implícito (`.other`) — achado real da pesquisa: a opção
+  "óbvia" (`.fitness`, usada por Strava/Wahoo/Runmeter segundo teste
+  técnico de terceiro) **não evita** o snap-to-road automático da Apple;
+  só `.otherNavigation` evita. Mas é faca de dois gumes: ajuda precisão
+  em rua, pode prejudicar em parque/trilha (o catálogo de `places.ts`
+  cobre os dois) — precisa testar em corrida real antes de decidir,
+  nunca um flip cego.
+- **Bônus barato, cross-platform**: barômetro dedicado
+  (`Sensor.TYPE_PRESSURE`/`CMAltimeter`, sensor de baixíssimo consumo,
+  hardware separado do rádio GPS) pra elevação **ao vivo** — hoje
+  `elevation.ts` só calcula elevação pós-corrida via chamada de rede à
+  MapTiler; ganho real em corrida com ladeira, ainda não explorado.
+- **Descartado, com motivo**: GNSS raw/RTK (precisão decimétrica real,
+  mas exige stream de correção — infra paga que o projeto não tem);
+  map-matching via OSRM/Valhalla (exigiria servidor próprio rodando —
+  o projeto já não tem infra pra isso — e cobertura de trilha/parque no
+  Brasil é inconsistente, um mau match pioraria a rota em vez de
+  melhorar); sample rate acima de 1Hz (não existe no hardware de
+  consumo); migração pra `CLLocationUpdate.liveUpdates` do iOS 17+ (sem
+  ganho de precisão documentado pra uso fitness, risco real dado o
+  histórico já difícil de execução em segundo plano deste projeto).
+- Nenhum item aqui tem custo de bateria real — os que envolvem sensor
+  (pedômetro, barômetro) são de baixíssimo consumo, e o RTS smoother roda
+  só uma vez pós-corrida.
+- **Nada implementado ainda** — aguardando o dono do projeto decidir o
+  que priorizar.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
