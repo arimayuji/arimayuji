@@ -273,6 +273,17 @@ export interface Location {
      * @example 1640995200000
      */
     time: number | null;
+    /**
+     * Android only, always null on iOS. Cumulative step count (from
+     * TYPE_STEP_DETECTOR) since this watch started, or null if the
+     * step-detector sensor/ACTIVITY_RECOGNITION permission wasn't available.
+     * Used to correct distance across a real GPS gap — see
+     * `iosSkipRoadSnapping`'s sibling on the JS side, `geoFilter.ts`'s
+     * `GPS_GAP_THRESHOLD_SECONDS`.
+     *
+     * @since Xanthus fork
+     */
+    stepCount?: number | null;
 }
 /**
  * Error object that may be passed to the location start callback.

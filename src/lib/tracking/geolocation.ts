@@ -35,6 +35,14 @@ export interface GeoFix {
     heading: number | null;
   };
   timestamp: number;
+  /**
+   * Android only, always null elsewhere. Cumulative step count since this
+   * watch started (native plugin's TYPE_STEP_DETECTOR, best-effort — null
+   * when the sensor/ACTIVITY_RECOGNITION permission wasn't available). Used
+   * by `useRunTracker.ts` to correct distance across a real GPS gap instead
+   * of trusting the straight-line cord between the fix before and after it.
+   */
+  stepCount: number | null;
 }
 
 export type GeoErrorKind = "permission-denied" | "timeout" | "unavailable";
@@ -89,6 +97,7 @@ function fixFromBackgroundLocation(location: Location): GeoFix {
       heading: location.bearing,
     },
     timestamp: location.time ?? Date.now(),
+    stepCount: location.stepCount ?? null,
   };
 }
 
@@ -178,7 +187,7 @@ export function beginGeoWatch(
       return;
     }
     if (!position) return;
-    onFix(position);
+    onFix({ ...position, stepCount: null });
   });
   watchStartPromise.catch(() => {
     // Failing to even start the watch is surfaced to the caller via onError

@@ -11,6 +11,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
 import android.net.Uri;
@@ -54,7 +58,12 @@ import org.json.JSONObject;
     permissions = {
         @Permission(strings = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION }, alias = "location"),
         @Permission(strings = { Manifest.permission.ACCESS_BACKGROUND_LOCATION }, alias = "backgroundLocation"),
-        @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = "notification")
+        @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = "notification"),
+        // Xanthus fork: gates TYPE_STEP_DETECTOR access on API 29+ (see
+        // startStepCounting()) — best-effort pedometer fallback used only to
+        // correct distance across a real GPS gap, never required for GPS
+        // recording itself to work.
+        @Permission(strings = { Manifest.permission.ACTIVITY_RECOGNITION }, alias = "activityRecognition")
     }
 )
 public class BackgroundGeolocation extends Plugin {
@@ -69,6 +78,15 @@ public class BackgroundGeolocation extends Plugin {
     private BroadcastReceiver geofenceEventReceiver;
     private BroadcastReceiver notificationActionReceiver;
     private MessageClient.OnMessageReceivedListener watchActionListener;
+
+    // Xanthus fork: best-effort pedestrian step counting — see
+    // startStepCounting()'s own comment for what this corrects and why it
+    // never blocks GPS recording from starting.
+    private SensorManager sensorManager;
+    private Sensor stepDetectorSensor;
+    private SensorEventListener stepDetectorListener;
+    private long stepCountSinceStart = 0;
+    private boolean stepCountingActive = false;
 
     // Xanthus fork: must match PATH_WATCH_UPDATE/PATH_WATCH_ACTION in
     // android/wear/.../PhoneConnector.kt exactly — no shared-constants
@@ -141,7 +159,95 @@ public class BackgroundGeolocation extends Plugin {
             requestPermissionForAlias("notification", call, "notificationPermissionsCallback");
             return;
         }
+        ensureActivityRecognitionPermissionThenStart(call);
+    }
+
+    /**
+     * Requests ACTIVITY_RECOGNITION (API 29+ only — below that, step-detector
+     * sensors need no runtime permission) if not yet granted, then proceeds
+     * either way — same "never blocks GPS recording" reasoning as
+     * notification above. Denied or unavailable just means the pedometer
+     * gap-fill correction in useRunTracker.ts never receives a stepCount and
+     * a real gap stays at today's straight-line estimate.
+     */
+    private void ensureActivityRecognitionPermissionThenStart(PluginCall call) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            getPermissionState("activityRecognition") != PermissionState.GRANTED &&
+            call.getBoolean("requestPermissions", true)
+        ) {
+            requestPermissionForAlias("activityRecognition", call, "activityRecognitionPermissionsCallback");
+            return;
+        }
+        startStepCounting();
         proceedWithStart(call);
+    }
+
+    @PermissionCallback
+    private void activityRecognitionPermissionsCallback(PluginCall call) {
+        startStepCounting();
+        proceedWithStart(call);
+    }
+
+    /**
+     * Best-effort pedestrian step counting, used only to correct distance
+     * credited across a real GPS gap (screen locked/app backgrounded for
+     * over GPS_GAP_THRESHOLD_SECONDS — see geoFilter.ts and
+     * PROJECT-CONTEXT.md's GPS-precision research) — today that gap gets
+     * bridged by a single straight line between the fix before and after it,
+     * cutting corners on a curved path. TYPE_STEP_DETECTOR fires once per
+     * detected step; the JS side turns the step delta across a gap into a
+     * distance correction using the runner's own already-known stride
+     * length. Silent no-op if the sensor is unavailable or permission was
+     * denied — formatLocation() already sends `stepCount: null` in that
+     * case, and the JS side already treats that as "no correction
+     * available."
+     */
+    private void startStepCounting() {
+        if (stepCountingActive) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && getPermissionState("activityRecognition") != PermissionState.GRANTED) {
+            return;
+        }
+        try {
+            if (sensorManager == null) {
+                sensorManager = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
+            }
+            if (sensorManager == null) {
+                return;
+            }
+            stepDetectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
+            if (stepDetectorSensor == null) {
+                return; // device has no step-detector hardware
+            }
+            stepCountSinceStart = 0;
+            stepDetectorListener = new SensorEventListener() {
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                    stepCountSinceStart += 1;
+                }
+
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+            };
+            stepCountingActive = sensorManager.registerListener(stepDetectorListener, stepDetectorSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        } catch (Exception exception) {
+            Logger.error("Could not start step counting", exception);
+            stepCountingActive = false;
+        }
+    }
+
+    private void stopStepCounting() {
+        if (sensorManager != null && stepDetectorListener != null) {
+            try {
+                sensorManager.unregisterListener(stepDetectorListener);
+            } catch (Exception exception) {
+                Logger.error("Could not stop step counting", exception);
+            }
+        }
+        stepDetectorListener = null;
+        stepCountingActive = false;
     }
 
     private void proceedWithStart(PluginCall call) {
@@ -227,7 +333,7 @@ public class BackgroundGeolocation extends Plugin {
         // the persistent tracking notification won't be visible; it
         // shouldn't stop GPS recording from starting.
         Logger.debug("notification permission callback");
-        proceedWithStart(call);
+        ensureActivityRecognitionPermissionThenStart(call);
     }
 
     @PluginMethod
@@ -362,6 +468,7 @@ public class BackgroundGeolocation extends Plugin {
     // independently.
     @PluginMethod
     public void stop(PluginCall call) {
+        stopStepCounting();
         if (serviceConnectionFuture == null) {
             call.resolve();
             return;
@@ -846,7 +953,13 @@ public class BackgroundGeolocation extends Plugin {
             }
             Location location = intent.getParcelableExtra("location");
             if (location != null) {
-                call.resolve(formatLocation(location));
+                JSObject obj = formatLocation(location);
+                // Xanthus fork: cumulative step count since start(), best-effort
+                // (see startStepCounting()) — null when the sensor/permission
+                // wasn't available, same optional-field convention as accuracy/
+                // altitude above.
+                obj.put("stepCount", stepCountingActive ? stepCountSinceStart : JSONObject.NULL);
+                call.resolve(obj);
             } else {
                 Logger.debug("No locations received");
             }

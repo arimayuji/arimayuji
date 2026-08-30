@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import {
   FILTER_CONFIG,
+  GPS_GAP_THRESHOLD_SECONDS,
   Kalman2D,
   accuracyToPositionVarianceM2,
   findGpsGaps,
@@ -16,6 +17,7 @@ import {
   isPlausibleStep,
   latLonToLocalMeters,
   localMetersToLatLon,
+  pedometerGapDistanceMeters,
   smoothRoutePoints,
   speedHeadingToVelocity,
   totalGapSeconds,
@@ -232,6 +234,16 @@ export function useRunTracker() {
    * second reason to give up on the fix.
    */
   const lastFixWallClockRef = useRef<number | null>(null);
+  /**
+   * Android-only step count (see `GeoFix.stepCount`'s own comment) as of the
+   * last processed fix — compared against the new fix's count whenever a
+   * real GPS gap (`dt >= GPS_GAP_THRESHOLD_SECONDS`) is detected, to correct
+   * distance with `pedometerGapDistanceMeters` instead of trusting the
+   * Kalman filter's straight-line cord across it. `null` on iOS or whenever
+   * the sensor/permission wasn't available — the gap-correction branch
+   * below already treats that as "fall back to today's behavior."
+   */
+  const lastStepCountRef = useRef<number | null>(null);
   const justResumedRef = useRef(false);
   /**
    * Set by `recover()`, read once by the warmup-completion branch below: a
@@ -430,6 +442,7 @@ export function useRunTracker() {
     (fix: GeoFix) => {
       const { latitude: lat, longitude: lon, accuracy, speed, heading } = fix.coords;
       const timestamp = fix.timestamp;
+      const stepCount = fix.stepCount;
 
       const quality: GpsQuality = accuracy <= 10 ? "good" : accuracy <= 25 ? "weak" : "searching";
       setState((s) => (s.gpsQuality === quality ? s : { ...s, gpsQuality: quality }));
@@ -451,6 +464,7 @@ export function useRunTracker() {
         lastFilteredRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
         lastFixWallClockRef.current = Date.now();
+        lastStepCountRef.current = stepCount;
         if (recoveringRef.current) {
           // Keep the original run's start time and already-accumulated
           // distance/points (set by `recover()`) — only the filter itself
@@ -493,6 +507,7 @@ export function useRunTracker() {
         lastFilteredRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
         lastFixWallClockRef.current = Date.now();
+        lastStepCountRef.current = stepCount;
         pendingDriftMetersRef.current = 0;
         // A pause is real dead time — carrying pre-pause samples into the
         // live-pace window would average the stopped stretch into the
@@ -512,6 +527,34 @@ export function useRunTracker() {
         if (dt <= 0) return; // genuinely nothing to work with
       }
 
+      if (dt >= GPS_GAP_THRESHOLD_SECONDS) {
+        const pedometerDistance = pedometerGapDistanceMeters(lastStepCountRef.current, stepCount, dt);
+        if (pedometerDistance !== null) {
+          // Real gap (screen locked/app backgrounded long enough that
+          // nothing was tracked in between) — correct it with the Android
+          // step count instead of letting the Kalman filter's own
+          // straight-line cord between the fix before and after the gap
+          // stand (see pedometerGapDistanceMeters' own comment for why that
+          // cuts corners on a curved path). Credits the distance directly
+          // and reseeds the filter fresh at the new position, same as a
+          // long gap already does via the gate-rejection path below — just
+          // without first crediting the wrong straight-line distance.
+          distanceRef.current += pedometerDistance;
+          pendingDriftMetersRef.current = 0;
+          pointsRef.current = [...pointsRef.current, { lat, lon, timestamp }];
+          originRef.current = { lat, lon };
+          kalmanRef.current = new Kalman2D({ e: 0, n: 0, ve: 0, vn: 0 });
+          consecutiveGateRejectionsRef.current = 0;
+          lastRawRef.current = { lat, lon };
+          lastFilteredRef.current = { lat, lon };
+          lastFixTimestampRef.current = timestamp;
+          lastFixWallClockRef.current = Date.now();
+          lastStepCountRef.current = stepCount;
+          paceWindowRef.current = [];
+          return;
+        }
+      }
+
       // Cheap hard ceiling, independent of the Kalman filter's own state —
       // see `maxPlausibleSpeedMps`'s own comment for why this stays even
       // with the adaptive gate below.
@@ -528,6 +571,7 @@ export function useRunTracker() {
         lastRawRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
         lastFixWallClockRef.current = Date.now();
+        lastStepCountRef.current = stepCount;
         return;
       }
 
@@ -558,6 +602,7 @@ export function useRunTracker() {
         lastRawRef.current = { lat, lon };
         lastFixTimestampRef.current = timestamp;
         lastFixWallClockRef.current = Date.now();
+        lastStepCountRef.current = stepCount;
         return;
       }
       consecutiveGateRejectionsRef.current = 0;
@@ -705,6 +750,7 @@ export function useRunTracker() {
       lastFilteredRef.current = filteredPoint;
       lastFixTimestampRef.current = timestamp;
       lastFixWallClockRef.current = Date.now();
+      lastStepCountRef.current = stepCount;
 
       // Same 5s-throttled refresh the ticking `setInterval` above does, but
       // triggered from a real GPS fix instead of a JS timer — see
@@ -936,6 +982,7 @@ export function useRunTracker() {
         lastFilteredRef.current = null;
         lastFixTimestampRef.current = null;
         lastFixWallClockRef.current = null;
+        lastStepCountRef.current = null;
         startedAtRef.current = null;
         pausedAccumMsRef.current = 0;
         pauseStartedAtRef.current = null;
@@ -1052,6 +1099,7 @@ export function useRunTracker() {
       lastFilteredRef.current = null;
       lastFixTimestampRef.current = null;
       lastFixWallClockRef.current = null;
+      lastStepCountRef.current = null;
       startedAtRef.current = snapshot.startedAt;
       pausedAccumMsRef.current = 0;
       pauseStartedAtRef.current = null;

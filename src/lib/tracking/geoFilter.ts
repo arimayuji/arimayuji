@@ -371,6 +371,43 @@ export function totalGapSeconds(gaps: GpsGap[]): number {
   return gaps.reduce((sum, g) => sum + (g.endedAt - g.startedAt) / 1000, 0);
 }
 
+/**
+ * Average running step length in metres — deliberately a single constant,
+ * not a stride-from-pace estimate. `TYPE_STEP_DETECTOR` (Android) only
+ * reports "a step happened", never stride length or cadence, so treating
+ * this as more precise than "roughly how far a step covers" would overstate
+ * what a pedometer alone can tell us. 0.75m sits at the low end of published
+ * recreational-runner step-length figures — a deliberately conservative
+ * choice, since under-crediting a gap is closer to today's straight-line
+ * baseline than a value that could over-correct it into an inflated one.
+ */
+export const AVERAGE_RUNNING_STEP_METERS = 0.75;
+
+/**
+ * Distance estimate for a real GPS gap (`dt >= GPS_GAP_THRESHOLD_SECONDS`)
+ * from step count instead of the straight-line cord between the fix before
+ * and after the gap — see this file's own `GPS_GAP_THRESHOLD_SECONDS`
+ * comment for why a gap is otherwise never bridged by position alone.
+ * `stepsBefore`/`stepsAfter` are the Android `stepCount` values (see
+ * `GeoFix.stepCount`) at those two fixes. Returns `null` — "no correction,
+ * fall back to the existing straight-line handling" — whenever step data
+ * isn't available for both endpoints (iOS, or Android without the
+ * sensor/permission), the step count didn't advance, or the implied speed
+ * still isn't plausible (a corrupted/wrapped counter reading).
+ */
+export function pedometerGapDistanceMeters(
+  stepsBefore: number | null,
+  stepsAfter: number | null,
+  dtSeconds: number,
+): number | null {
+  if (stepsBefore == null || stepsAfter == null) return null;
+  const steps = stepsAfter - stepsBefore;
+  if (steps <= 0) return null;
+  const distance = steps * AVERAGE_RUNNING_STEP_METERS;
+  if (!isPlausibleStep(distance, dtSeconds)) return null;
+  return distance;
+}
+
 export function formatPace(secPerKm: number | null): string {
   if (secPerKm === null || !Number.isFinite(secPerKm) || secPerKm <= 0) return "--:--";
   const m = Math.floor(secPerKm / 60);
