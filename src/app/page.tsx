@@ -1681,9 +1681,17 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-5 py-8 text-xs text-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-8 text-xs text-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <span>Xanthus — feito para quem corre.</span>
-          <span className="font-mono">gráfico da seção 01: dados simulados</span>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link href="/estudos" className="hover:text-accent hover:underline underline-offset-2">
+              Estudos
+            </Link>
+            <Link href="/privacidade" className="hover:text-accent hover:underline underline-offset-2">
+              Privacidade
+            </Link>
+            <span className="font-mono">gráfico da seção 01: dados simulados</span>
+          </div>
         </div>
       </footer>
 
