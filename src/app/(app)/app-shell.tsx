@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { GpsQuality } from "@/lib/tracking/useRunTracker";
-import { usePreferences } from "@/lib/usePreferences";
 import { HORSE_BUST_BODY_PATH, HORSE_BUST_LEGS_PATH, HORSE_BUST_LEGS_PIVOT } from "../horse-mark";
 import { NotificationBell } from "./notification-bell";
 import { PrivacyConsentGate } from "./privacy-consent";
@@ -82,7 +81,7 @@ interface TabDefinition {
   /** Extra path prefixes that should keep this tab lit (e.g. /compartilhar). */
   alsoMatches?: string[];
   icon: (props: { className: string }) => React.ReactElement;
-  /** Marks the one tab (Corrida, or Treinador in its place — see TREINADOR_TAB) rendered as the elevated circular button in the middle of the bar, not a plain flex-1 item like the other four. */
+  /** Marks the one tab (always Corrida — see BottomNav's own comment on why it's never swapped) rendered as the elevated circular button in the middle of the bar, not a plain flex-1 item like the other four. */
   primary?: boolean;
 }
 
@@ -177,18 +176,18 @@ const TABS: TabDefinition[] = [
 ];
 
 /**
- * Stands in for the "Corrida" tab when `appMode` is "treinador" (see
- * preferences.ts's `AppMode`) — same icon already used for the "Treinador"
- * discovery row on /perfil, so the two surfaces read as the same concept.
- * Not a 6th tab: swapping out whichever tab is `primary` (BottomNav finds
- * it by that flag, not a fixed index) keeps the bar's width/rhythm
- * identical either way, and the coach side of the product is thin enough
- * (two screens) that a whole parallel tab set would mostly sit empty.
+ * Used to stand in for the mobile bottom nav's "Corrida" tab when `appMode`
+ * was "treinador" (preferences.ts's `AppMode`) — removed once Corrida
+ * became the raised central FAB (see BottomNav's own comment: that button
+ * always means "start a run", so it can't double as a destination
+ * switcher anymore). Kept around only because DESKTOP_TABS' "Alunos &
+ * convites" entry still reuses its `icon`, the same one used for the
+ * "Treinador" discovery row on /perfil, so all three surfaces read as the
+ * same concept.
  */
 const TREINADOR_TAB: TabDefinition = {
   href: "/treinador",
   label: "Treinador",
-  primary: true,
   icon: ({ className }) => (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
       <path d="M3.5 10.3v3.9h2.5l7.3 3.9V6.4l-7.3 3.9H3.5Z" />
@@ -308,8 +307,6 @@ const SIDEBAR_OFFSET_CLASS = "lg:left-60";
 
 function BottomNav({ hidden }: { hidden: boolean }) {
   const pathname = usePathname() ?? "";
-  const [{ appMode }] = usePreferences();
-  const tabs = appMode === "treinador" ? TABS.map((tab) => (tab.primary ? TREINADOR_TAB : tab)) : TABS;
 
   return (
     <nav
@@ -338,13 +335,16 @@ function BottomNav({ hidden }: { hidden: boolean }) {
         <span className="font-mono text-base font-semibold tracking-wide text-white">Xanthus</span>
       </div>
 
-      {/* Mobile/native tab bar — Feed/Histórico/Corrida/Plano/Perfil (or the
-          treinador swap-in for whichever tab is `primary`), unchanged in
-          spirit from before this file had a `lg:` mode at all. Hidden
-          outright at `lg:`, where the sidebar list below takes over with
-          its own, different set of destinations. */}
+      {/* Mobile/native tab bar — always Feed/Histórico/Corrida/Plano/Perfil,
+          same set regardless of `appMode`: the raised FAB in the middle
+          reads as "start a run" (see the `primary` render branch below),
+          so it never stands in for Treinador the way tab 0 used to before
+          this became a FAB — a coach still reaches /treinador via Perfil,
+          same as before "modo treino" existed. Hidden outright at `lg:`,
+          where the sidebar list below takes over with its own, different
+          set of destinations. */}
       <ul className="relative mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)] lg:hidden">
-        {tabs.map((tab) => {
+        {TABS.map((tab) => {
           const active = isActive(pathname, tab);
           const onClick = () => {
             if (active) window.dispatchEvent(new CustomEvent(TAB_RECLICK_EVENT, { detail: tab.href }));
