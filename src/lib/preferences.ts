@@ -54,8 +54,7 @@ export interface Preferences {
   announceStyle: AnnounceStyle;
   voiceGender: VoiceGender;
   distanceUnit: DistanceUnit;
-  /** Extra live stat tiles on /run — the run-so-far average pace and the pace of the km currently in progress. Both on by default; each is one more tile competing for space on a screen a sweaty thumb glances at mid-stride, so /perfil lets either be turned off. */
-  showAveragePaceLive: boolean;
+  /** Whether "Pace do km atual" joins the live-run metric picker as its own category — on by default, but it's one more thing competing for the picker row on a screen a sweaty thumb glances at mid-stride, so /run lets it be turned off. */
   showCurrentKmPaceLive: boolean;
   /**
    * Native haptic tap when a "meta de ritmo" run falls too far behind
@@ -147,7 +146,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   announceStyle: "voz",
   voiceGender: "female",
   distanceUnit: "km",
-  showAveragePaceLive: true,
   showCurrentKmPaceLive: true,
   vibrateOnPaceDelay: false,
   healthDataConsent: false,
@@ -210,11 +208,6 @@ function sanitize(raw: unknown): Preferences {
       ? value.distanceUnit
       : DEFAULT_PREFERENCES.distanceUnit;
 
-  const showAveragePaceLive =
-    typeof value.showAveragePaceLive === "boolean"
-      ? value.showAveragePaceLive
-      : DEFAULT_PREFERENCES.showAveragePaceLive;
-
   const showCurrentKmPaceLive =
     typeof value.showCurrentKmPaceLive === "boolean"
       ? value.showCurrentKmPaceLive
@@ -270,7 +263,6 @@ function sanitize(raw: unknown): Preferences {
     announceStyle,
     voiceGender,
     distanceUnit,
-    showAveragePaceLive,
     showCurrentKmPaceLive,
     vibrateOnPaceDelay,
     healthDataConsent,

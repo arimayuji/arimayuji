@@ -831,13 +831,29 @@ function CustomValueSheet({
   );
 }
 
-type MetricId = "ritmo" | "distancia" | "tempo" | "medio" | "parcial";
+type MetricId =
+  | "ritmo"
+  | "tempo"
+  | "distancia"
+  | "medio"
+  | "parcial"
+  | "eta"
+  | "paceNecessario"
+  | "paceKmAtual"
+  | "fc";
 
-/** The five always-available readouts the athlete can pick between for the giant focus number (see `metricTemplate` state) — the goal-dependent extras (chegada prevista, pace necessário, pace do km atual) stay outside this set since they only exist for some runs, and always render as extra grid cells instead of being pickable as the featured number. */
+/**
+ * The five always-available readouts, ordered by priority to a runner
+ * mid-run (current pace and current time first — the two numbers glanced
+ * at most) — the athlete picks one to become the giant focus number (see
+ * `metricTemplate` state). Nothing else renders alongside it: no fixed
+ * grid of every other reading regardless of the pick, since only one
+ * category is ever the one on screen at a time.
+ */
 const METRICS: { id: MetricId; label: string; short: string; chip: string; unit: string }[] = [
   { id: "ritmo", label: "Ritmo atual", short: "Ritmo", chip: "Ritmo", unit: "min/km" },
-  { id: "distancia", label: "Distância", short: "Distância", chip: "Distância", unit: "km" },
   { id: "tempo", label: "Tempo", short: "Tempo", chip: "Tempo", unit: "" },
+  { id: "distancia", label: "Distância", short: "Distância", chip: "Distância", unit: "km" },
   { id: "medio", label: "Ritmo médio", short: "Ritmo médio", chip: "Médio", unit: "min/km" },
   { id: "parcial", label: "Ritmo parcial", short: "Ritmo parcial", chip: "Parcial", unit: "min/km" },
 ];
@@ -880,77 +896,47 @@ function MetricIcon({ id, className }: { id: MetricId; className: string }) {
           <path d="M6 4h11l-3 3.5L17 11H6" />
         </svg>
       );
+    case "eta":
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+          <circle cx="12" cy="12" r="9" strokeLinecap="butt" />
+          <path d="M12 7v5l3.5 2" strokeDasharray="1.5 2.5" />
+        </svg>
+      );
+    case "paceNecessario":
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.8}>
+          <circle cx="12" cy="12" r="8.5" />
+          <circle cx="12" cy="12" r="4.5" />
+          <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "paceKmAtual":
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.6}>
+          <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor" stroke="none" opacity={0.55} />
+          <circle cx="18.5" cy="5.5" r="3.5" />
+        </svg>
+      );
+    case "fc":
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 12h4l2-5 3 10 2-8 2 3h5" />
+        </svg>
+      );
   }
 }
 
-/** One tile in the tracking screen's metric grid — icon-labeled card, same shape whether the reading comes from `METRICS` or from a goal/preference-gated extra. */
-function MetricCard({
-  icon,
-  label,
-  value,
-  unit,
-}: {
-  icon: MetricId;
-  label: string;
-  value: string;
-  unit?: string;
-}) {
-  return (
-    <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-surface p-3.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">{label}</span>
-        <MetricIcon id={icon} className="h-4 w-4 text-accent" />
-      </div>
-      <p className="text-metal-run text-[26px] leading-none tabular-nums">
-        {value}
-        {unit && <span className="ml-1 text-[13px] font-sans font-medium text-muted">{unit}</span>}
-      </p>
-    </div>
-  );
-}
-
-const HEART_RATE_ICON = (
-  <svg viewBox="0 0 24 24" className="h-4 w-4 text-accent" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M3 12h4l2-5 3 10 2-8 2 3h5" />
-  </svg>
-);
-
 /**
- * Same visual shape as `MetricCard` above, but not keyed by `MetricId` — FC
- * isn't one of the selectable "big number" templates, just an extra tile
- * that only ever shows up once a monitor is actually paired
- * (`preferences.heartRateMonitorDeviceId`). Text instead of a number while
- * connecting/unavailable, same as every other live stat degrading instead
- * of showing a fake reading.
+ * FC isn't a number the run always has — it degrades to text instead of a
+ * fake reading while a monitor connects, or when it's unavailable, same as
+ * every other live stat.
  */
-function HeartRateMetricCard({ bpm, connection }: { bpm: number | null; connection: HeartRateConnectionState }) {
-  const isNumeric = connection === "connected" && bpm !== null;
-  const text = isNumeric
-    ? String(bpm)
-    : connection === "connecting"
-      ? "conectando"
-      : connection === "unavailable"
-        ? "indisponível"
-        : "--";
-
-  return (
-    <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-surface p-3.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">FC</span>
-        {HEART_RATE_ICON}
-      </div>
-      <p
-        className={
-          isNumeric
-            ? "text-metal-run text-[26px] leading-none tabular-nums"
-            : "font-sans text-sm leading-none font-medium text-muted"
-        }
-      >
-        {text}
-        {isNumeric && <span className="ml-1 text-[13px] font-sans font-medium text-muted">bpm</span>}
-      </p>
-    </div>
-  );
+function formatHeartRateValue(bpm: number | null, connection: HeartRateConnectionState): string {
+  if (connection === "connected" && bpm !== null) return String(bpm);
+  if (connection === "connecting") return "conectando";
+  if (connection === "unavailable") return "indisponível";
+  return "--";
 }
 
 interface EmblemProgressEntry {
@@ -2436,19 +2422,15 @@ export default function RunPage() {
                 </p>
               )}
 
-              {/* Moved here from /perfil — configuring what shows up on
-                  this same screen from a totally separate settings page
-                  read as the setting living in two places at once. */}
+              {/* "Ritmo médio"/"Ritmo parcial" are always categories in the
+                  picker now, no opt-in needed. "Pace do km atual" is the
+                  one still gated here — it's a goal-only reading that
+                  doesn't apply to every run, unlike the five base ones. */}
               <div className="mt-4 border-t border-border pt-4">
                 <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
                   Estatísticas na tela de corrida
                 </span>
                 <div className="flex gap-2">
-                  <ToggleChip
-                    label="Pace total"
-                    checked={preferences.showAveragePaceLive}
-                    onChange={(checked) => updatePreferences({ showAveragePaceLive: checked })}
-                  />
                   <ToggleChip
                     label="Pace do km atual"
                     checked={preferences.showCurrentKmPaceLive}
@@ -2827,7 +2809,6 @@ export default function RunPage() {
 
       {isLiveRun &&
         (() => {
-          const featured = METRICS.find((m) => m.id === metricTemplate) ?? METRICS[0];
           const avgPaceSecPerKm = state.distanceMeters > 10 ? (state.elapsedSeconds / state.distanceMeters) * 1000 : NaN;
           const lastLap = laps[laps.length - 1] ?? null;
           const splitPaceSecPerKm = lastLap ? lastLap.paceSecPerKm : avgPaceSecPerKm;
@@ -2837,14 +2818,30 @@ export default function RunPage() {
             tempo: formatElapsed(state.elapsedSeconds),
             medio: formatPace(avgPaceSecPerKm),
             parcial: formatPace(splitPaceSecPerKm),
+            eta: state.goal?.distanceMeters ? formatGoalEta(state.forecastSecondsRemaining) : "--",
+            paceNecessario: state.paceNeededSecPerKm !== null ? formatPace(state.paceNeededSecPerKm) : "--",
+            paceKmAtual: state.currentKmPaceSecPerKm !== null ? formatPace(state.currentKmPaceSecPerKm) : "--",
+            fc: formatHeartRateValue(state.heartRateBpm, state.heartRateConnection),
           };
-          // "medio" only fills a grid slot when the athlete opted into it on
-          // /perfil (same preference the old plain-text layout respected) —
-          // unless it's the featured pick, in which case showing it there
-          // already satisfies "I want to see this".
-          const gridMetrics = METRICS.filter(
-            (m) => m.id !== featured.id && (m.id !== "medio" || preferences.showAveragePaceLive),
-          );
+          // The situational readings (only some runs have a goal/paired
+          // sensor) join the same picker as full categories instead of
+          // sitting fixed on screen regardless of what's selected — one
+          // category is ever the one shown at a time, same as the five
+          // always-available ones.
+          const pickerMetrics: { id: MetricId; label: string; chip: string; unit: string }[] = [...METRICS];
+          if (state.goal?.distanceMeters) {
+            pickerMetrics.push({ id: "eta", label: "Chegada prevista", chip: "Chegada", unit: "" });
+          }
+          if (state.paceNeededSecPerKm !== null) {
+            pickerMetrics.push({ id: "paceNecessario", label: "Pace necessário", chip: "Necessário", unit: "min/km" });
+          }
+          if (preferences.showCurrentKmPaceLive && state.currentKmPaceSecPerKm !== null) {
+            pickerMetrics.push({ id: "paceKmAtual", label: "Pace do km atual", chip: "Pace do km", unit: "min/km" });
+          }
+          if (preferences.heartRateMonitorDeviceId) {
+            pickerMetrics.push({ id: "fc", label: "Frequência cardíaca", chip: "FC", unit: "bpm" });
+          }
+          const featured = pickerMetrics.find((m) => m.id === metricTemplate) ?? METRICS[0];
 
           return (
             <main className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-8">
@@ -2855,17 +2852,21 @@ export default function RunPage() {
               </div>
 
               {/*
-               * Template picker — pick which metric gets the giant number
-               * below. Purely a display choice: nothing about how the run is
-               * actually tracked changes with it.
+               * Template picker — pick which category gets the giant number
+               * below. A single horizontal scroll row, not a wrapped grid,
+               * so it costs the screen one compact line no matter how many
+               * categories are available (5 always, up to 4 more only when
+               * this run actually has that data) — everything else about
+               * the run stays reachable here instead of sitting fixed on
+               * screen regardless of the pick.
                */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {METRICS.map((m) => (
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5 no-scrollbar">
+                {pickerMetrics.map((m) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => setMetricTemplate(m.id)}
-                    className={`flex flex-1 basis-[30%] items-center justify-center gap-1.5 rounded-xl border px-2.5 py-2.5 text-[13px] font-bold whitespace-nowrap transition-colors ${
+                    className={`flex shrink-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-bold whitespace-nowrap transition-colors ${
                       m.id === featured.id
                         ? "border-accent bg-accent/15 text-accent"
                         : "border-border bg-surface text-foreground"
@@ -2877,7 +2878,13 @@ export default function RunPage() {
                 ))}
               </div>
 
-              <div className="flex flex-col items-center px-3 py-6">
+              {/*
+               * Only the selected category renders below — no fixed grid of
+               * every other reading regardless of the pick. The giant number
+               * takes all the vertical space this leaves, since a runner
+               * mid-stride needs to read it at a glance, not hunt for it.
+               */}
+              <div className="flex flex-1 flex-col items-center justify-center px-3">
                 <span
                   className={`text-metal-run text-metal-run-giant leading-none tabular-nums whitespace-nowrap ${
                     // "Tempo" past an hour ("1:23:45") or a marathon-length
@@ -2885,7 +2892,7 @@ export default function RunPage() {
                     // on a small phone at this weight — same size as before
                     // for those, bumped up for the common short values
                     // (pace, most distances/times) the request was about.
-                    metricValues[featured.id].length > 5 ? "text-[4.75rem]" : "text-[6rem]"
+                    metricValues[featured.id].length > 5 ? "text-[5.5rem]" : "text-[7.5rem]"
                   }`}
                 >
                   {metricValues[featured.id]}
@@ -2936,31 +2943,7 @@ export default function RunPage() {
                   );
                 })()}
 
-              <div className="grid grid-cols-2 gap-2.5">
-                {gridMetrics.map((m) => (
-                  <MetricCard
-                    key={m.id}
-                    icon={m.id}
-                    label={m.short}
-                    value={metricValues[m.id]}
-                    unit={m.unit === "min/km" ? "/km" : m.unit || undefined}
-                  />
-                ))}
-                {state.goal?.distanceMeters && (
-                  <MetricCard icon="tempo" label="Chegada prevista" value={formatGoalEta(state.forecastSecondsRemaining)} />
-                )}
-                {state.paceNeededSecPerKm !== null && (
-                  <MetricCard icon="ritmo" label="Pace necessário" value={formatPace(state.paceNeededSecPerKm)} unit="/km" />
-                )}
-                {preferences.showCurrentKmPaceLive && state.currentKmPaceSecPerKm !== null && (
-                  <MetricCard icon="ritmo" label="Pace do km atual" value={formatPace(state.currentKmPaceSecPerKm)} unit="/km" />
-                )}
-                {preferences.heartRateMonitorDeviceId && (
-                  <HeartRateMetricCard bpm={state.heartRateBpm} connection={state.heartRateConnection} />
-                )}
-              </div>
-
-              <div className="mt-4 flex flex-1 items-end gap-3">
+              <div className="mt-4 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={markLap}
