@@ -839,7 +839,6 @@ type MetricId =
   | "parcial"
   | "eta"
   | "paceNecessario"
-  | "paceKmAtual"
   | "fc";
 
 /**
@@ -909,13 +908,6 @@ function MetricIcon({ id, className }: { id: MetricId; className: string }) {
           <circle cx="12" cy="12" r="8.5" />
           <circle cx="12" cy="12" r="4.5" />
           <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
-        </svg>
-      );
-    case "paceKmAtual":
-      return (
-        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.6}>
-          <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor" stroke="none" opacity={0.55} />
-          <circle cx="18.5" cy="5.5" r="3.5" />
         </svg>
       );
     case "fc":
@@ -2820,23 +2812,23 @@ export default function RunPage() {
             parcial: formatPace(splitPaceSecPerKm),
             eta: state.goal?.distanceMeters ? formatGoalEta(state.forecastSecondsRemaining) : "--",
             paceNecessario: state.paceNeededSecPerKm !== null ? formatPace(state.paceNeededSecPerKm) : "--",
-            paceKmAtual: state.currentKmPaceSecPerKm !== null ? formatPace(state.currentKmPaceSecPerKm) : "--",
             fc: formatHeartRateValue(state.heartRateBpm, state.heartRateConnection),
           };
           // The situational readings (only some runs have a goal/paired
           // sensor) join the same picker as full categories instead of
           // sitting fixed on screen regardless of what's selected — one
           // category is ever the one shown at a time, same as the five
-          // always-available ones.
+          // always-available ones. "Pace do km atual" isn't one of them —
+          // it's still ritmo, just a different window on the same reading
+          // (since the last whole km instead of instant), so it rides
+          // along as a small line under Ritmo's number instead of
+          // splitting into its own category.
           const pickerMetrics: { id: MetricId; label: string; chip: string; unit: string }[] = [...METRICS];
           if (state.goal?.distanceMeters) {
             pickerMetrics.push({ id: "eta", label: "Chegada prevista", chip: "Chegada", unit: "" });
           }
           if (state.paceNeededSecPerKm !== null) {
             pickerMetrics.push({ id: "paceNecessario", label: "Pace necessário", chip: "Necessário", unit: "min/km" });
-          }
-          if (preferences.showCurrentKmPaceLive && state.currentKmPaceSecPerKm !== null) {
-            pickerMetrics.push({ id: "paceKmAtual", label: "Pace do km atual", chip: "Pace do km", unit: "min/km" });
           }
           if (preferences.heartRateMonitorDeviceId) {
             pickerMetrics.push({ id: "fc", label: "Frequência cardíaca", chip: "FC", unit: "bpm" });
@@ -2901,6 +2893,13 @@ export default function RunPage() {
                   {featured.label}
                   {featured.unit ? ` · ${featured.unit}` : ""}
                 </span>
+                {featured.id === "ritmo" &&
+                  preferences.showCurrentKmPaceLive &&
+                  state.currentKmPaceSecPerKm !== null && (
+                    <span className="mt-1 text-[13px] font-semibold text-muted">
+                      Pace do km atual: {formatPace(state.currentKmPaceSecPerKm)}/km
+                    </span>
+                  )}
                 {state.paceDeltaSecPerKm !== null ? (
                   <div className="mt-3">
                     <PaceDeltaPill deltaSecPerKm={state.paceDeltaSecPerKm} />
