@@ -658,8 +658,14 @@ function GoalCard({
     updateProfile({ recentRaceTimeSeconds: total > 0 ? total : undefined });
   };
 
+  // Desktop (`lg:`) drops the mobile Card's rounded/tinted chrome — plain
+  // content in the plain, centered desktop wrapper /plano's empty state
+  // and GoalCard's own desktop caller already provide — while keeping
+  // every field exactly as-is: DistanceTileGrid/PillSlider/GoalDatePicker
+  // are shared controls used across the mobile app too, out of scope for
+  // a per-surface pass like this one.
   return (
-    <Card className={`pr-enter ${className ?? ""}`} style={delay(80)}>
+    <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${className ?? ""}`} style={delay(80)}>
       <CardTitle>Meta de prova</CardTitle>
 
       <fieldset>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardTitle, delay } from "../ui";
 import { GoalDatePicker } from "../date-picker";
 import { PillSlider } from "../pill-slider";
 import { DistanceTileGrid, MIN_WEEKLY_DAYS, MAX_WEEKLY_DAYS } from "./goal-fields";
@@ -51,20 +50,20 @@ export function GoalWizard({
 
   if (stage === "intro") {
     return (
-      <Card className="pr-enter" style={delay(80)}>
-        <CardTitle>Vamos montar seu plano</CardTitle>
-        <p className="text-sm leading-relaxed text-muted text-pretty">
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">Vamos montar seu plano</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted text-pretty">
           Distância e data viram a rampa de volume e o taper; o tempo recente (opcional) vira suas
           zonas de pace. Leva menos de um minuto.
         </p>
         <button
           type="button"
           onClick={() => setStage(0)}
-          className="mt-5 rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground"
+          className="mt-5 rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground"
         >
           Começar
         </button>
-      </Card>
+      </div>
     );
   }
 
@@ -79,7 +78,7 @@ export function GoalWizard({
   const isLastStep = stage === 2;
 
   return (
-    <Card className="pr-enter" style={delay(80)}>
+    <div>
       <StepProgress current={stage} />
 
       {stage === 0 && (
@@ -201,12 +200,12 @@ export function GoalWizard({
               setStage((s) => ((s as number) + 1) as 1 | 2);
             }
           }}
-          className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-40"
+          className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-40"
         >
           {isLastStep ? "Elaborar meu plano" : "Avançar"}
         </button>
       </div>
-    </Card>
+    </div>
   );
 }
 
