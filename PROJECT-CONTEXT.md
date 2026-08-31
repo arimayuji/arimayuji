@@ -3902,6 +3902,263 @@ deles chega a virar uma versão real no Console. Depois de resolver, um
 push novo (ou "Re-run jobs" no run que já rodou) deve publicar
 normalmente.
 
+## Sessão de 2026-08-31: redesign de desktop, bottom nav com FAB, tela de corrida ao vivo, push notifications
+
+Leva grande de mudanças, branch `claude/strava-competitor-feedback-cyvop8`,
+**nenhuma deployada em produção ainda** — a última seção documentada
+acima ("Merge pra produção...") já tinha ido pra `main`, mas todo o
+resto abaixo aconteceu depois disso, direto na branch de novo, e ainda
+não foi remergeado. Registrando agora porque ficou parado só no histórico
+de commits por um bom tempo sem entrar aqui.
+
+### Modo claro definitivo + resto do redesign de desktop
+
+- **Toggle de tema removido de vez** — não só desligado, apagado (`.dark`
+  class, script de init de tema, card "Tema" em `/perfil`, tudo fora).
+  `useEffectiveColorScheme()` sempre resolve `"light"` agora (mantido como
+  export nomeado só pra quem chama basemap/mapa não precisar mudar
+  assinatura). Motivo: o toggle manual lia como quebrado em uso real, mais
+  barato remover que consertar.
+- **Sidebar do treinador (desktop)**: trilha cinza neutra virou azul
+  accent sólido (não o gradiente do mobile), com o brand mark/itens de
+  nav trocados pra variante branco-sobre-accent — mesmo tratamento que o
+  header gradiente do mobile já usa pro cavalo.
+- **Header flatten + clima em pill + feed com corrida própria + botões
+  destrutivos preenchidos**: header topo virou neutro/flat em qualquer
+  breakpoint (só a bottom nav mantém cor de marca agora); "Clima pra
+  corrida" virou pill igual "Aquecer antes de correr" (só vira Card de
+  verdade depois que a previsão carrega); `list-friends-feed` passou a
+  incluir as próprias corridas compartilhadas do usuário junto com as dos
+  amigos (mesma lógica do Strava — post próprio mostra "Você" e contagem
+  de kudos estática, sem botão de dar); botões destrutivos finais
+  (encerrar longão, desfazer amizade, remover treinador, apagar tênis/
+  ideia de conteúdo, remover override de plano, sair e apagar, descartar
+  corrida recuperada) que estavam ocos/tingidos viraram preenchidos
+  sólidos (`bg-bad`/`text-white`), consistente com o resto do app.
+- **Reorganização de config**: "Amigo por perto" saiu de `/perfil` e foi
+  pra `/amigos` (config de feature só-de-amigos pertence na tela de
+  amigos); "Estatísticas na tela de corrida" e "Vibração" saíram de
+  `/perfil` e foram pro card "Aviso de parcial a cada" dentro do próprio
+  `/run` (configurar o que aparece na tela de corrida a partir de uma tela
+  de config separada lia como a mesma config vivendo em dois lugares).
+  `ToggleChip` virou export compartilhado de `ui.tsx` (antes só local de
+  `/perfil`).
+- **Achado incidental**: `/perfil/ver` engolia em silêncio uma falha de
+  `listFriendConnections()` — agora loga, pra um "Adicionar amigo"
+  aparecendo pra quem já é amigo aceito deixar rastro na próxima vez
+  (reportado, mas não reproduzido só lendo código — mesma classe de bug
+  que só apareceu antes por reprodução real contra produção).
+- **Ícones da bottom nav**: 22px → 26px.
+- **`/plano` (empty state, GoalWizard/GoalCard, `/treinador`,
+  SelfPlanSuggestionCard)**: continuação do redesign de desktop já
+  documentado antes (estilo Stripe/Notion de estrutura, nunca estética
+  literal) — todo botão `rounded-full`/`rounded-xl` remanescente nessas
+  telas ganhou override `lg:rounded-md`/`lg:rounded-lg`, e GoalWizard/
+  GoalCard perderam o chrome de `Card` (`rounded`/borda/sombra/padding)
+  só em `lg:`. `PillTabs` foi deixado intocado — é primitivo
+  compartilhado do app inteiro, não chrome de card mobile. Mobile
+  intocado em tudo isso.
+
+Verificado em cada commit: `tsc --noEmit`, `npm run lint`, `npm run
+build`; a maioria confirmada visualmente via Playwright com mock de
+rede. Não testado em navegador/aparelho real pelo dono do projeto ainda.
+
+### Dashboard de desktop: card de recuperação (FC repouso/HRV/sono/VO2max)
+
+Sincroniza um snapshot semanal de recuperação (HealthKit/Health Connect)
+pro Appwrite, atrás de um opt-in próprio (`Profile.recoverySyncOptIn`)
+**aninhado em cima** de `runSyncOptIn`+`healthDataConsent` já existentes —
+dado sensível saindo do aparelho precisa do próprio interruptor, mesmo
+padrão de permissão concêntrica já usado em outro lugar do app. Tabela
+nova `recovery_snapshots` (uma linha por conta por semana), action
+`sync-recovery-snapshot` em `client-actions` espelhando o formato de
+`sync-run-summary`, e `RecoveryTrendCard` no dashboard desktop de
+`/plano` (FC de repouso plotada invertida — melhora lê como "pra cima" —,
+HRV normal, VO2max/sono mais recentes como stat) — retorna `null` sem
+dado (a maioria das contas não tem relógio pareado, isso é esperado, não
+um erro).
+
+**Achado de bug ao ligar isso**: `profiles.runSyncOptIn` nunca tinha sido
+criado de verdade em `appwrite-setup.ts`, apesar do feature de sync
+depender dele desde que foi lançado — `updateProfile` teria falhado contra
+uma implantação real na primeira vez que alguém ligasse esse toggle.
+Corrigido junto.
+
+### `/plano`: bug do "Montando seu plano" repetindo a cada visita
+
+`planRevealed` era `useState(false)` puro, resetado a cada remount do
+componente — sair de `/plano` e voltar tocava a animação de montagem
+inteira de novo, em vez do reveal único que era pra ser. Persistido em
+`localStorage` (permanente no aparelho, diferente do Splash que é por
+sessão) pra tocar só uma vez por aparelho.
+
+### Bottom nav: FAB central de Corrida, Histórico de volta
+
+Reordenado pra Feed / Histórico / Corrida / Plano / Perfil. Histórico
+ganhou rota própria de novo (`src/app/(app)/historico/page.tsx`),
+reaproveitando o mesmo `ActivityCard`/`ActivityFeed` já usado dentro da
+aba Progresso de `/perfil` (extraído pra `activity-feed.tsx` e exportado,
+nenhuma das duas superfícies bifurca a outra) — as fusões anteriores pra
+dentro de `/progresso` e depois `/perfil` continuam intactas.
+
+Corrida (ou Treinador, em `appMode` de treinador) deixou de ser uma aba
+`flex-1` plana — `TabDefinition` ganhou uma flag `primary`, e a
+`BottomNav` renderiza essa aba como um botão circular branco elevado
+saltando acima da barra (referência visual: Duolingo), achado pela flag
+em vez de índice fixo. **Correção pega logo depois de publicar**: o botão
+central elevado lê como "iniciar uma corrida" sempre, então não pode
+também trocar de destino conforme o modo — a troca `appMode === "treinador"`
+foi removida por completo (confirmado com o dono do projeto: sem troca
+nenhuma) — a barra é sempre Feed/Histórico/Corrida/Plano/Perfil; o
+treinador continua alcançável via Perfil. `TREINADOR_TAB` sobrevive só
+como fonte de ícone pro item "Alunos & convites" da sidebar desktop.
+
+Depois, duas rodadas de estilo por feedback direto: (1) fundo da barra
+trocado do gradiente accent pra branco, aba ativa (ícone/rótulo/underline)
+em azul accent em vez de branco, e o FAB de Corrida invertido pra círculo
+accent sólido com sombra colorida (a sidebar desktop, mesma classe
+`chrome-gradient-nav` com override `lg:`, continua sólida accent, sem
+mudança — é só a barra mobile); (2) preenchimento flat do FAB trocado por
+gradiente radial (destaque claro no canto superior esquerdo esmaecendo pra
+uma borda azul mais escura) — visual mais "brilhante"/3D.
+
+Verificado em cada commit: `tsc`, `lint`, `build`, a maioria confirmada
+visualmente via Playwright.
+
+### Tela de corrida ao vivo: só a categoria selecionada, número maior
+
+Reescrita direta por uma sequência de feedback ao vivo do dono do
+projeto olhando a tela de verdade. Estado final: o grid fixo de "6 cards"
+(distância/tempo/chegada prevista/pace do km/etc. sempre visíveis
+independente da categoria escolhida) foi **removido por completo** — só a
+categoria selecionada no picker renderiza, como o número gigante,
+ocupando o espaço vertical que sobra. O picker (Ritmo/Tempo/Distância/
+Médio/Parcial + Chegada Prevista/Pace Necessário/Pace do KM atual/FC como
+categorias completas, cada uma só aparecendo quando a corrida realmente
+tem esse dado) quebra em linhas (não é mais uma fileira com scroll
+horizontal escondendo opção — todas visíveis, um toque cada) e os chips
+preenchem a largura toda da linha (`flex-1 basis-30%`, mesmo tratamento de
+antes do redesign).
+
+"Pace do km atual" **não** virou categoria própria — voltou a ser uma
+linha secundária pequena embaixo do número de Ritmo (é a mesma leitura de
+pace, só numa janela diferente, não merecia botão ao lado de Ritmo). O
+número gigante foi ampliado duas vezes (6rem/4.75rem → 7.5rem/5.5rem →
+9.5rem/7rem) e ganhou `scale-y-125` (estica os traços verticalmente sem
+comer largura extra — lê maior de mais longe sem estourar a tela).
+
+Verificado em cada commit via `tsc`/`lint`/`build` + Playwright contra o
+dev server real (trocando de categoria, conferindo que só o conteúdo
+selecionado aparece).
+
+### Notificação nativa Android da corrida em andamento: números maiores
+
+Pedido direto do dono do projeto ("os números têm que ser fáceis de ver
+tirando o celular do bolso"). `notification_run.xml` (a `RemoteViews`
+customizada da notificação persistente) teve os valores de estatística
+aumentados de 15sp pra 21sp (rótulos 10sp→11sp), divisores e o chip de
+miniatura da rota escalados junto (44dp→56dp, bitmap fonte 140px→178px
+pra continuar nítido). Mesmo layout, mesmo dado, só maior. Verificado com
+um `:app:assembleDebug` real neste sandbox (tem SDK/Gradle) — `BUILD
+SUCCESSFUL`. Não visto numa tela de bloqueio real ainda.
+
+### `/compartilhar`: também dá pra excluir o traçado da rota
+
+`ShareCardLayoutOverrides.hidden` ganhou uma flag `route` (era só
+`stats`/`plate` antes) — decisão de produto anterior ("pega 'número' se
+não quiser a rota") revertida por pedido direto nesta sessão. O traçado
+agora tem o mesmo "×" de remover e chip "Mostrar rota" de restaurar que
+estatística/medalha-tênis já tinham, empilhando corretamente abaixo de
+quaisquer outros chips de restaurar já visíveis. Verificado via Playwright
+contra o dev server real com corrida seedada em IndexedDB — remover,
+restaurar, tudo conferido de ponta a ponta.
+
+### `/perfil`: skeleton no lugar de "Verificando…" no widget de Conta
+
+Trocado texto plano de loading por um placeholder `animate-pulse` na
+mesma forma exata que o estado logado resolve (círculo de avatar + duas
+linhas de texto + botão redondo) — sem pulo de layout quando a
+autenticação resolve. Mesma convenção `animate-pulse`/`bg-background` já
+usada em outras telas (feed, histórico, cartão de tênis). As outras duas
+partes do pedido original (progress de texto no export de vídeo/foto,
+skeleton no feed) já estavam cobertas por código existente — nada de novo
+precisou ser feito ali.
+
+### Push notification nativo: causa raiz achada e corrigida + 5 tipos novos
+
+Relato direto: "não recebo nenhuma [notificação nativa]", nas duas
+plataformas. Investigado direto contra a Appwrite de produção via CLI
+(providers, targets, subscribers, histórico de mensagens) — achado real:
+`registerForPushNotifications()` sempre criava um `push target` novo
+(`ID.unique()`) a cada cold start do app, em vez de reaproveitar o
+existente. Ao longo de dias, um único aparelho Android acumulou 2-3
+targets FCM diferentes (o token do FCM roda periodicamente), com os
+antigos ficando `expired` — e como um push endereçado a `users:[userId]`
+tenta **todos** os targets registrados daquele usuário, um target morto
+ao lado de um válido bastava pra Appwrite reportar a mensagem inteira
+como `"failed"` mesmo quando o aparelho de verdade recebia (confirmado no
+próprio histórico de mensagens: vários envios com `deliveredTotal: 1` mas
+`status: "failed"`).
+
+**Fix**: `targetId` agora é persistido em `localStorage`
+(`xanthus:push-target-id`) e reaproveitado via `account.updatePushTarget()`
+em registros seguintes, em vez de sempre `createPushTarget()` com um id
+novo — mantém exatamente um target por instalação daqui pra frente.
+Limpeza direta em produção via CLI (fora do commit): apagado o target FCM
+órfão/expirado da conta afetada, e um push de teste real enviado —
+Appwrite reportou `deliveredTotal: 1`, `status: "sent"`, sem erro — **o
+dono do projeto confirmou que a notificação chegou no celular**.
+
+**Cinco tipos de push novos**, pedidos em seguida ("todos os tipos que
+faltam" + "notificações de retenção"):
+- **Kudos**: dar kudos numa corrida de amigo notifica o dono ("Fulano
+  deu kudos na sua corrida") — só ao dar, nunca ao tirar, mesma convenção
+  do Strava.
+- **Coach cue**: `send-coach-cue` já escrevia `pendingCueId` pro poll em
+  tempo real (só funciona com a tela de corrida aberta); agora também
+  manda push com a mesma frase fixa já usada na voz
+  (`COACH_CUE_PUSH_BODY`, texto idêntico ao `COACH_CUE_CLIPS` de
+  `voiceBank.ts`), cobrindo tela bloqueada/app em segundo plano.
+- **Pedido/aceite de treinador**: `propose-coach-relationship` agora
+  notifica o outro lado ("Novo pedido de treinador"); action nova
+  `notify-coach-request-accepted` (chamada do cliente logo depois do
+  próprio `updateRow` de aceite em `coachRelationships.ts`, já que
+  `Messaging` é server-only) notifica quem propôs quando aceito.
+- **Corrida compartilhada**: `share-run` notifica só os treinadores
+  **recém**-adicionados (calculado comparando `coachIds` contra as
+  `$permissions` que a linha já tinha) — re-compartilhar/editar uma
+  corrida já compartilhada nunca notifica de novo. **Não** estendido pra
+  `shareWithFriends`: notificar todo amigo aceito a cada corrida postada
+  seria o tipo de spam de feed que produtos reais desse setor evitam (o
+  próprio Strava não notifica amigos numa atividade nova) — o feed
+  continua por descoberta, não empurrado.
+- **Retenção/reengajamento**: `checkRetentionPushes`, rodando no mesmo
+  cron semanal já existente pra sincronizar corridas de rua
+  (`Promise.allSettled`, uma falhando não derruba a outra) — lê toda
+  conta que já ligou o sync entre aparelhos (`runner_profile_sync`, a
+  única forma do servidor saber "há quanto tempo alguém não corre", já
+  que o app é local-first), reconfirma `profiles.runSyncOptIn` ainda
+  ligado, e manda um "sentimos sua falta" categorizado por dias desde a
+  última corrida sincronizada (3-6 / 7-13 / 14-29 dias) — 30+ dias é
+  tratado como churn e deixado em paz, de propósito, pra nunca virar
+  cobrança (tom já estabelecido em `SOCIAL-CONTEXT.md`). Coluna nova
+  `lastRetentionPushAt` em `runner_profile_sync` é o cooldown por conta.
+
+Refatorado também: os três blocos inline duplicados de "resolve o nome de
+exibição de um perfil, cai pra 'Alguém'" (`join-group-run`,
+`pair-run-session`, `send-friend-request`) viraram um helper só
+(`resolveDisplayName`), agora compartilhado pelos sete pontos que mandam
+push.
+
+Verificado: `node --check` na Function, `tsc`/`lint`/`build` do lado
+app. **Ainda pendente**: rodar `scripts/appwrite-setup.ts` (coluna
+`lastRetentionPushAt` nova) e redeployar `client-actions` em produção
+(o fix de dedupe de target e os 5 tipos de push novos vivem só no código
+até esse deploy — a limpeza feita direto via CLI já ajuda agora, mas é
+paliativa até o código novo ir pro ar); o cron semanal em si ainda está
+documentado como não ligado em produção (seção "Calendário de corridas de
+rua" acima).
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
