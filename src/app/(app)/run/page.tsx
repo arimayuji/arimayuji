@@ -12,7 +12,12 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { firePaceDelayVibration, useRunTracker, type HeartRateConnectionState } from "@/lib/tracking/useRunTracker";
+import {
+  firePaceDelayVibration,
+  useRunTracker,
+  type HeartRateConnectionState,
+  type RunTrackerState,
+} from "@/lib/tracking/useRunTracker";
 import { isNativePlatform } from "@/lib/platform";
 import { onNotificationAction, onWatchAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
@@ -72,6 +77,7 @@ import {
   updateRunTracks,
   type ActiveRunSnapshot,
   type CompletedRun,
+  type IntervalStep,
   type PainCheckIn,
   type RunGoal,
   type RunTrack,
@@ -220,8 +226,20 @@ const DISTANCE_PRESETS_KM = [1, 3, 5, 10, 21];
 const TIME_PRESETS_MIN = [20, 30, 45, 60, 90];
 const PACE_PRESETS_SEC = [270, 300, 330, 360, 390]; // 4:30–6:30 /km
 
+/** "Intervalado" tab presets — track-standard distances, common short work/rest durations, and typical repeat counts for a session. */
+const INTERVAL_WORK_DISTANCE_PRESETS_M = [200, 400, 800, 1000, 1600];
+const INTERVAL_WORK_TIME_PRESETS_SEC = [60, 120, 180, 300];
+const INTERVAL_REST_PRESETS_SEC = [30, 60, 90, 120, 180];
+const INTERVAL_REPEAT_PRESETS = [4, 6, 8, 10, 12];
+
 /** "Aviso de parcial a cada" mode switch — a `PillTabs` bar sitting above a `PillSlider` bound to `ANNOUNCE_MIN/MAX/STEP_METERS|SECONDS`, one widget instead of a mode toggle plus a grid of preset chips. */
 const ANNOUNCE_MODE_TABS = [
+  { id: "distance", label: "Distância" },
+  { id: "time", label: "Tempo" },
+] as const;
+
+/** "Tipo de repetição" switch inside the "Intervalado" tab — same two ids as ANNOUNCE_MODE_TABS above, but a separate constant since it drives `intervalMeasureBy`, an unrelated piece of state. */
+const INTERVAL_MEASURE_TABS = [
   { id: "distance", label: "Distância" },
   { id: "time", label: "Tempo" },
 ] as const;
@@ -323,6 +341,57 @@ function PaceDeltaPill({ deltaSecPerKm }: { deltaSecPerKm: number }) {
     >
       {formatDeltaDuration(deltaSecPerKm)}/km {ahead ? "mais rápido que a meta" : "mais lento que a meta"}
     </span>
+  );
+}
+
+/**
+ * "Intervalado" goal only — phase, step count, and a linear progress bar for
+ * the current rep, sitting above the number-category picker (never inside
+ * it: the interval phase is separate state from which stat the giant number
+ * shows). Derives progress from `state.intervalStepStart*` — the same
+ * bookkeeping useRunTracker.ts's own step-advance logic already keeps, not
+ * duplicated here — against whichever field the current step actually set.
+ */
+function IntervalBanner({ state }: { state: RunTrackerState }) {
+  const plan = state.goal?.intervalPlan;
+  if (!plan || state.intervalStepIndex === null || state.intervalPhase === null) return null;
+
+  const step = plan[state.intervalStepIndex];
+  const repCount = plan.filter((s) => s.phase === "work").length;
+  const repNumber = plan.slice(0, state.intervalStepIndex + 1).filter((s) => s.phase === "work").length;
+
+  let progress = 0;
+  let progressLabel = "";
+  if (step.distanceMeters != null && state.intervalStepStartDistanceMeters !== null) {
+    const done = state.distanceMeters - state.intervalStepStartDistanceMeters;
+    progress = Math.min(1, Math.max(0, done / step.distanceMeters));
+    progressLabel = `${Math.round(Math.max(0, done))} / ${step.distanceMeters} m`;
+  } else if (step.durationSeconds != null && state.intervalStepStartElapsedSeconds !== null) {
+    const done = state.elapsedSeconds - state.intervalStepStartElapsedSeconds;
+    progress = Math.min(1, Math.max(0, done / step.durationSeconds));
+    progressLabel = `${formatElapsed(Math.max(0, done))} / ${formatElapsed(step.durationSeconds)}`;
+  }
+
+  const isWork = step.phase === "work";
+  return (
+    <div
+      className={`mt-3 rounded-xl border p-3 ${isWork ? "border-accent/40 bg-accent/10" : "border-border bg-surface"}`}
+    >
+      <div className="flex items-center justify-between text-xs">
+        <span className={`font-bold tracking-[0.1em] uppercase ${isWork ? "text-accent" : "text-muted"}`}>
+          {isWork ? "Trabalho" : "Descanso"}
+        </span>
+        <span className="font-semibold text-muted">
+          Repetição {repNumber} de {repCount} · {progressLabel}
+        </span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+        <div
+          className={`h-full rounded-full ${isWork ? "bg-accent" : "bg-muted"}`}
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -445,14 +514,10 @@ function GpsDot({ quality }: { quality: string }) {
   );
 }
 
-/** The "Tipo de meta" tab icons (Xanthus Preparar Corrida.dc.html) — `distancia`/`tempo`/`ritmo`/`livre`. */
-function GoalTypeIcon({
-  id,
-  className,
-}: {
-  id: "distancia" | "tempo" | "ritmo" | "livre" | "prova";
-  className?: string;
-}) {
+type GoalType = "distancia" | "tempo" | "ritmo" | "livre" | "prova" | "intervalo";
+
+/** The "Tipo de meta" tab icons (Xanthus Preparar Corrida.dc.html) — `distancia`/`tempo`/`ritmo`/`livre`/`prova`/`intervalo`. */
+function GoalTypeIcon({ id, className }: { id: GoalType; className?: string }) {
   const common = { viewBox: "0 0 24 24", className, "aria-hidden": true } as const;
   if (id === "distancia") {
     return (
@@ -484,6 +549,13 @@ function GoalTypeIcon({
       </svg>
     );
   }
+  if (id === "intervalo") {
+    return (
+      <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 8h4l2-4 4 12 2-4h4" />
+      </svg>
+    );
+  }
   return (
     <svg {...common} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
       <path d="M7 12a3 3 0 1 0 5-2 3 3 0 1 0-5 2 3 3 0 1 0 5 2 3 3 0 1 0-5-2z" />
@@ -491,12 +563,13 @@ function GoalTypeIcon({
   );
 }
 
-const GOAL_TYPE_LABELS: Record<"distancia" | "tempo" | "ritmo" | "livre" | "prova", string> = {
+const GOAL_TYPE_LABELS: Record<GoalType, string> = {
   distancia: "Distância",
   tempo: "Tempo",
   ritmo: "Ritmo",
   livre: "Livre",
   prova: "Prova",
+  intervalo: "Intervalado",
 };
 
 /**
@@ -507,12 +580,39 @@ const GOAL_TYPE_LABELS: Record<"distancia" | "tempo" | "ritmo" | "livre" | "prov
  * run with no goal, return `null` — the caller falls back to reconstructing
  * distance from what actually happened instead.
  */
-function goalTypeFromRunGoal(goal: RunGoal): "distancia" | "tempo" | "ritmo" | "prova" | null {
+function goalTypeFromRunGoal(goal: RunGoal): Exclude<GoalType, "livre"> | null {
+  if (goal.intervalPlan?.length) return "intervalo";
   if (goal.distanceMeters && goal.durationSeconds) return "prova";
   if (goal.distanceMeters) return "distancia";
   if (goal.durationSeconds) return "tempo";
   if (goal.targetPaceSecPerKm) return "ritmo";
   return null;
+}
+
+/**
+ * Derives the "Intervalado" builder's 4 fields back from a saved
+ * `intervalPlan` — the interval counterpart to `goalTypeFromRunGoal` above,
+ * used by "Repetir corrida" to repopulate the tab. Only ever reads a plan
+ * this same builder produced (work/rest pairs, uniform work value, uniform
+ * rest value), so the first "work"/"rest" step stands in for all of them.
+ */
+function intervalBuilderFromPlan(plan: IntervalStep[]): {
+  measureBy: "distance" | "time";
+  workValue: number;
+  restSeconds: number;
+  repeats: number;
+} | null {
+  const firstWork = plan.find((s) => s.phase === "work");
+  const firstRest = plan.find((s) => s.phase === "rest");
+  if (!firstWork) return null;
+  const measureBy: "distance" | "time" = firstWork.distanceMeters != null ? "distance" : "time";
+  const workValue = measureBy === "distance" ? (firstWork.distanceMeters ?? 0) : (firstWork.durationSeconds ?? 0);
+  return {
+    measureBy,
+    workValue,
+    restSeconds: firstRest?.durationSeconds ?? 60,
+    repeats: plan.filter((s) => s.phase === "work").length,
+  };
 }
 
 /**
@@ -526,16 +626,10 @@ function goalTypeFromRunGoal(goal: RunGoal): "distancia" | "tempo" | "ritmo" | "
  * width-animated underline recipe as BottomNav's active-tab indicator
  * (app-shell.tsx), reused here instead of invented fresh.
  */
-function GoalTypeTabs({
-  value,
-  onChange,
-}: {
-  value: "distancia" | "tempo" | "ritmo" | "livre" | "prova";
-  onChange: (id: "distancia" | "tempo" | "ritmo" | "livre" | "prova") => void;
-}) {
-  const ids = ["distancia", "tempo", "ritmo", "prova", "livre"] as const;
+function GoalTypeTabs({ value, onChange }: { value: GoalType; onChange: (id: GoalType) => void }) {
+  const ids: GoalType[] = ["distancia", "tempo", "ritmo", "prova", "intervalo", "livre"];
   return (
-    <div className="flex items-stretch justify-between">
+    <div className="flex items-stretch justify-between gap-1 overflow-x-auto">
       {ids.map((id) => {
         const active = value === id;
         return (
@@ -549,7 +643,7 @@ function GoalTypeTabs({
             }`}
           >
             <GoalTypeIcon id={id} className="h-5 w-5" />
-            {GOAL_TYPE_LABELS[id]}
+            <span className="whitespace-nowrap">{GOAL_TYPE_LABELS[id]}</span>
             <span
               className="h-[3px] rounded-full bg-accent transition-[width] duration-200 ease-out"
               style={{ width: active ? "28px" : "0px" }}
@@ -1022,14 +1116,22 @@ export default function RunPage() {
    */
   const [recoverableRun, setRecoverableRun] = useState<ActiveRunSnapshot | null>(null);
   /** Which of `goalKm`/`goalMinutes`/`goalPaceSec` actually becomes the run's goal on start — mutually exclusive in the UI (Xanthus Preparar Corrida.dc.html's "Tipo de meta" tabs) even though `RunGoal` itself supports distância+tempo together, since showing every value permanently read as "set them all" when only one was ever meant to gate the run. */
-  const [goalType, setGoalType] = useState<"distancia" | "tempo" | "ritmo" | "livre" | "prova">("distancia");
+  const [goalType, setGoalType] = useState<GoalType>("distancia");
   /** Overwritten by the `?repeatRunId=` effect below when the screen was opened via a past run's "Repetir corrida" button (run-detail.tsx). */
   const [goalKm, setGoalKm] = useState(5);
   const [goalMinutes, setGoalMinutes] = useState(30);
   /** Target pace to hold, seconds/km — 330 = 5:30/km, a typical easy-run pace. */
   const [goalPaceSec, setGoalPaceSec] = useState(330);
-  /** Which "Custom" chip's sheet is currently open — at most one at a time, across all four pickers on this screen. */
-  const [customSheet, setCustomSheet] = useState<"distancia" | "tempo" | "ritmo" | null>(null);
+  /** "Intervalado" builder state — whether a rep's "work" step is measured by distance or by time; rest is always time (see storage.ts's `IntervalStep`). */
+  const [intervalMeasureBy, setIntervalMeasureBy] = useState<"distance" | "time">("distance");
+  /** Meters when `intervalMeasureBy === "distance"`, seconds when `"time"`. */
+  const [intervalWorkValue, setIntervalWorkValue] = useState(400);
+  const [intervalRestSeconds, setIntervalRestSeconds] = useState(120);
+  const [intervalRepeats, setIntervalRepeats] = useState(6);
+  /** Which "Custom" chip's sheet is currently open — at most one at a time, across all pickers on this screen. */
+  const [customSheet, setCustomSheet] = useState<
+    "distancia" | "tempo" | "ritmo" | "intervalo-trabalho" | "intervalo-descanso" | "intervalo-repeticoes" | null
+  >(null);
   const [shoeName, setShoeName] = useState("");
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
@@ -1144,6 +1246,15 @@ export default function RunPage() {
         if (run.goal.distanceMeters) setGoalKm(Math.round((run.goal.distanceMeters / 1000) * 10) / 10);
         if (run.goal.durationSeconds) setGoalMinutes(Math.round(run.goal.durationSeconds / 60));
         if (run.goal.targetPaceSecPerKm) setGoalPaceSec(run.goal.targetPaceSecPerKm);
+        if (type === "intervalo" && run.goal.intervalPlan) {
+          const builder = intervalBuilderFromPlan(run.goal.intervalPlan);
+          if (builder) {
+            setIntervalMeasureBy(builder.measureBy);
+            setIntervalWorkValue(builder.workValue);
+            setIntervalRestSeconds(builder.restSeconds);
+            setIntervalRepeats(builder.repeats);
+          }
+        }
       } else {
         setGoalType("distancia");
         setGoalKm(Math.round((run.distanceMeters / 1000) * 10) / 10);
@@ -1918,6 +2029,21 @@ export default function RunPage() {
         : goalType === "prova" && distanceMeters && durationSeconds
           ? durationSeconds / (distanceMeters / 1000)
           : undefined;
+    // Work,rest,work,rest,...,work — never a trailing rest after the last
+    // rep (see storage.ts's IntervalStep). `distanceMeters`/`durationSeconds`
+    // above stay undefined for "intervalo": this goal only ever sets
+    // `intervalPlan`, never combined with the three whole-run fields.
+    const intervalPlan: IntervalStep[] | undefined =
+      goalType === "intervalo" && intervalWorkValue > 0 && intervalRepeats > 0
+        ? Array.from({ length: intervalRepeats }, (_, i): IntervalStep[] => [
+            intervalMeasureBy === "distance"
+              ? { phase: "work", distanceMeters: intervalWorkValue }
+              : { phase: "work", durationSeconds: intervalWorkValue },
+            ...(i < intervalRepeats - 1
+              ? [{ phase: "rest" as const, durationSeconds: intervalRestSeconds }]
+              : []),
+          ]).flat()
+        : undefined;
     setActiveGhost(selectedGhost);
     start({
       announceIntervalMeters: announceMeters,
@@ -1928,7 +2054,9 @@ export default function RunPage() {
       goal:
         distanceMeters || durationSeconds || targetPaceSecPerKm
           ? { distanceMeters, durationSeconds, targetPaceSecPerKm }
-          : undefined,
+          : intervalPlan
+            ? { intervalPlan }
+            : undefined,
       ghostRun: selectedGhost ?? undefined,
       vibrateOnPaceDelay: preferences.vibrateOnPaceDelay,
       carbReminderEnabled: preferences.carbReminderEnabled,
@@ -2257,6 +2385,15 @@ export default function RunPage() {
                       if (lastRealRun.goal.distanceMeters) setGoalKm(Math.round((lastRealRun.goal.distanceMeters / 1000) * 10) / 10);
                       if (lastRealRun.goal.durationSeconds) setGoalMinutes(Math.round(lastRealRun.goal.durationSeconds / 60));
                       if (lastRealRun.goal.targetPaceSecPerKm) setGoalPaceSec(lastRealRun.goal.targetPaceSecPerKm);
+                      if (type === "intervalo" && lastRealRun.goal.intervalPlan) {
+                        const builder = intervalBuilderFromPlan(lastRealRun.goal.intervalPlan);
+                        if (builder) {
+                          setIntervalMeasureBy(builder.measureBy);
+                          setIntervalWorkValue(builder.workValue);
+                          setIntervalRestSeconds(builder.restSeconds);
+                          setIntervalRepeats(builder.repeats);
+                        }
+                      }
                     } else {
                       setGoalType("distancia");
                       setGoalKm(Math.round((lastRealRun.distanceMeters / 1000) * 10) / 10);
@@ -2350,6 +2487,92 @@ export default function RunPage() {
                   )}
                 </div>
               )}
+              {goalType === "intervalo" && (
+                <div className="space-y-4">
+                  <div>
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Tipo de repetição
+                    </span>
+                    <PillTabs
+                      tabs={INTERVAL_MEASURE_TABS}
+                      active={intervalMeasureBy}
+                      onChange={(measureBy) => {
+                        // The same number means meters in one mode and
+                        // seconds in the other — carrying it over verbatim
+                        // produced nonsense (400 m -> "400" reread as 400s
+                        // = "06:40"). Reset to that mode's first preset
+                        // instead of preserving a value with no meaning
+                        // once the unit changes.
+                        setIntervalMeasureBy(measureBy);
+                        setIntervalWorkValue(
+                          measureBy === "distance"
+                            ? INTERVAL_WORK_DISTANCE_PRESETS_M[0]
+                            : INTERVAL_WORK_TIME_PRESETS_SEC[0],
+                        );
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Repetição
+                    </span>
+                    {intervalMeasureBy === "distance" ? (
+                      <PresetChipRow
+                        presets={INTERVAL_WORK_DISTANCE_PRESETS_M.map((m) => ({ value: m, label: `${m} m` }))}
+                        value={intervalWorkValue}
+                        onSelect={setIntervalWorkValue}
+                        onOpenCustom={() => setCustomSheet("intervalo-trabalho")}
+                        customLabel={
+                          INTERVAL_WORK_DISTANCE_PRESETS_M.includes(intervalWorkValue) ? null : `${intervalWorkValue} m`
+                        }
+                      />
+                    ) : (
+                      <PresetChipRow
+                        presets={INTERVAL_WORK_TIME_PRESETS_SEC.map((s) => ({ value: s, label: formatElapsed(s) }))}
+                        value={intervalWorkValue}
+                        onSelect={setIntervalWorkValue}
+                        onOpenCustom={() => setCustomSheet("intervalo-trabalho")}
+                        customLabel={
+                          INTERVAL_WORK_TIME_PRESETS_SEC.includes(intervalWorkValue)
+                            ? null
+                            : formatElapsed(intervalWorkValue)
+                        }
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Descanso
+                    </span>
+                    <PresetChipRow
+                      presets={INTERVAL_REST_PRESETS_SEC.map((s) => ({ value: s, label: formatElapsed(s) }))}
+                      value={intervalRestSeconds}
+                      onSelect={setIntervalRestSeconds}
+                      onOpenCustom={() => setCustomSheet("intervalo-descanso")}
+                      customLabel={
+                        INTERVAL_REST_PRESETS_SEC.includes(intervalRestSeconds) ? null : formatElapsed(intervalRestSeconds)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Repetições
+                    </span>
+                    <PresetChipRow
+                      presets={INTERVAL_REPEAT_PRESETS.map((n) => ({ value: n, label: `${n}×` }))}
+                      value={intervalRepeats}
+                      onSelect={setIntervalRepeats}
+                      onOpenCustom={() => setCustomSheet("intervalo-repeticoes")}
+                      customLabel={INTERVAL_REPEAT_PRESETS.includes(intervalRepeats) ? null : `${intervalRepeats}×`}
+                    />
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted">
+                    {intervalRepeats}× {intervalMeasureBy === "distance" ? `${intervalWorkValue} m` : formatElapsed(intervalWorkValue)}
+                    {" · descanso "}
+                    {formatElapsed(intervalRestSeconds)}
+                  </p>
+                </div>
+              )}
               {goalType === "livre" && (
                 <p className="mt-1 text-xs leading-relaxed text-muted">
                   Sem meta — só cronômetro, mapa e pace ao vivo.
@@ -2358,35 +2581,40 @@ export default function RunPage() {
             </Card>
 
             <Card>
-              <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-                Aviso de parcial a cada
-              </span>
-              <PillTabs
-                tabs={ANNOUNCE_MODE_TABS}
-                active={announceMode}
-                onChange={(mode) => updatePreferences({ announceMode: mode })}
-              />
-              <div className="mt-3">
-                {announceMode === "distance" ? (
-                  <PillSlider
-                    min={ANNOUNCE_MIN_METERS}
-                    max={ANNOUNCE_MAX_METERS}
-                    step={ANNOUNCE_STEP_METERS}
-                    value={announceMeters}
-                    onChange={(meters) => updatePreferences({ announceIntervalMeters: meters })}
-                    formatValue={announceLabel}
+              {/* Suppressed for "Intervalado": the interval cues ("Vai!"/"Descanso") already tell the athlete when something changed, and would talk over a periodic split announcement — see useRunTracker.ts's own guard on the split-announcer call sites. */}
+              {goalType !== "intervalo" && (
+                <>
+                  <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                    Aviso de parcial a cada
+                  </span>
+                  <PillTabs
+                    tabs={ANNOUNCE_MODE_TABS}
+                    active={announceMode}
+                    onChange={(mode) => updatePreferences({ announceMode: mode })}
                   />
-                ) : (
-                  <PillSlider
-                    min={ANNOUNCE_MIN_SECONDS}
-                    max={ANNOUNCE_MAX_SECONDS}
-                    step={ANNOUNCE_STEP_SECONDS}
-                    value={announceSeconds}
-                    onChange={(seconds) => updatePreferences({ announceIntervalSeconds: seconds })}
-                    formatValue={announceSecondsLabel}
-                  />
-                )}
-              </div>
+                  <div className="mt-3">
+                    {announceMode === "distance" ? (
+                      <PillSlider
+                        min={ANNOUNCE_MIN_METERS}
+                        max={ANNOUNCE_MAX_METERS}
+                        step={ANNOUNCE_STEP_METERS}
+                        value={announceMeters}
+                        onChange={(meters) => updatePreferences({ announceIntervalMeters: meters })}
+                        formatValue={announceLabel}
+                      />
+                    ) : (
+                      <PillSlider
+                        min={ANNOUNCE_MIN_SECONDS}
+                        max={ANNOUNCE_MAX_SECONDS}
+                        step={ANNOUNCE_STEP_SECONDS}
+                        value={announceSeconds}
+                        onChange={(seconds) => updatePreferences({ announceIntervalSeconds: seconds })}
+                        formatValue={announceSecondsLabel}
+                      />
+                    )}
+                  </div>
+                </>
+              )}
               <div className="mt-4 border-t border-border pt-4">
                 <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
                   Como avisar
@@ -2509,6 +2737,66 @@ export default function RunPage() {
                 formatValue={(sec) => `${formatPace(sec)}/km`}
                 onConfirm={(sec) => {
                   setGoalPaceSec(sec);
+                  setCustomSheet(null);
+                }}
+                onClose={() => setCustomSheet(null)}
+              />
+            )}
+            {customSheet === "intervalo-trabalho" &&
+              (intervalMeasureBy === "distance" ? (
+                <CustomValueSheet
+                  title="Distância da repetição"
+                  value={intervalWorkValue}
+                  min={50}
+                  max={5000}
+                  step={50}
+                  formatValue={(m) => `${m} m`}
+                  onConfirm={(m) => {
+                    setIntervalWorkValue(m);
+                    setCustomSheet(null);
+                  }}
+                  onClose={() => setCustomSheet(null)}
+                />
+              ) : (
+                <CustomValueSheet
+                  title="Duração da repetição"
+                  value={intervalWorkValue}
+                  min={15}
+                  max={900}
+                  step={15}
+                  formatValue={formatElapsed}
+                  onConfirm={(s) => {
+                    setIntervalWorkValue(s);
+                    setCustomSheet(null);
+                  }}
+                  onClose={() => setCustomSheet(null)}
+                />
+              ))}
+            {customSheet === "intervalo-descanso" && (
+              <CustomValueSheet
+                title="Descanso personalizado"
+                value={intervalRestSeconds}
+                min={15}
+                max={600}
+                step={15}
+                formatValue={formatElapsed}
+                onConfirm={(s) => {
+                  setIntervalRestSeconds(s);
+                  setCustomSheet(null);
+                }}
+                onClose={() => setCustomSheet(null)}
+              />
+            )}
+            {customSheet === "intervalo-repeticoes" && (
+              <CustomValueSheet
+                title="Número de repetições"
+                value={intervalRepeats}
+                min={1}
+                max={30}
+                step={1}
+                formatValue={(n) => `${n}×`}
+                onConfirm={(n) => {
+                  setIntervalRepeats(n);
                   setCustomSheet(null);
                 }}
                 onClose={() => setCustomSheet(null)}
@@ -2842,6 +3130,8 @@ export default function RunPage() {
                   {laps.length} {laps.length === 1 ? "volta" : "voltas"}
                 </span>
               </div>
+
+              <IntervalBanner state={state} />
 
               {/*
                * Template picker — pick which category gets the giant number

@@ -39,7 +39,7 @@ import {
 import { isNativePlatform } from "../platform";
 import { projectRoute } from "./routeProjection";
 import { unlockSpeech } from "./speech";
-import { announceCarbGelReminder, announceDistancePace, unlockVoiceBank } from "./voiceBank";
+import { announceCarbGelReminder, announceDistancePace, announceIntervalPhase, unlockVoiceBank } from "./voiceBank";
 import { WakeLockController } from "./wakeLock";
 import {
   connectHeartRateMonitor,
@@ -136,6 +136,14 @@ export interface RunTrackerState {
   heartRateBpm: number | null;
   /** "disconnected" whenever nothing is paired — never "connecting"/"unavailable" without a `heartRateMonitorDeviceId` actually set on `start()`. */
   heartRateConnection: HeartRateConnectionState;
+  /** Index into `goal.intervalPlan`, or null outside an interval goal (or once the plan has run its course). */
+  intervalStepIndex: number | null;
+  /** Mirrors `goal.intervalPlan[intervalStepIndex].phase` — kept as its own field so the UI doesn't have to index the plan itself. */
+  intervalPhase: "work" | "rest" | null;
+  /** `distanceMeters` at the moment the current interval step began — lets a caller compute "how much of this step is done" (`distanceMeters - this`) without duplicating the hook's own step-advance bookkeeping. Null outside an interval goal. */
+  intervalStepStartDistanceMeters: number | null;
+  /** Same idea as the field above, for `elapsedSeconds`. */
+  intervalStepStartElapsedSeconds: number | null;
 }
 
 const PERSIST_INTERVAL_MS = 10_000;
@@ -205,6 +213,10 @@ export function useRunTracker() {
     carbReminderFiredAt: null,
     heartRateBpm: null,
     heartRateConnection: "disconnected",
+    intervalStepIndex: null,
+    intervalPhase: null,
+    intervalStepStartDistanceMeters: null,
+    intervalStepStartElapsedSeconds: null,
   });
 
   const wakeLockRef = useRef(new WakeLockController());
@@ -229,6 +241,18 @@ export function useRunTracker() {
   const paceDelayAlertedRef = useRef(false);
   /** Consecutive fixes the adaptive plausibility gate has rejected — see its use in `handleFix` for why this resets the filter instead of rejecting forever. */
   const consecutiveGateRejectionsRef = useRef(0);
+
+  /**
+   * Interval-goal bookkeeping — null/unset outside a `goal.intervalPlan`.
+   * `intervalStepIndexRef` mirrors `state.intervalStepIndex`; the two "start"
+   * refs snapshot `distanceRef.current`/`computeElapsedSeconds()` the instant
+   * the current step began, so `evaluateIntervalStep` (below) can measure
+   * "how much of this step is done" the same way the pace-delay vibration
+   * measures progress against a whole-run pace goal.
+   */
+  const intervalStepIndexRef = useRef<number | null>(null);
+  const intervalStepStartDistanceRef = useRef(0);
+  const intervalStepStartElapsedRef = useRef(0);
 
   const warmupCountRef = useRef(0);
   const lastRawRef = useRef<LatLon | null>(null);
@@ -384,6 +408,59 @@ export function useRunTracker() {
     return Math.max(0, Math.floor((Date.now() - startedAtRef.current - pausedMs) / 1000));
   }, []);
 
+  /**
+   * Checks whether the current interval step has hit its target — distance
+   * for a distance-based "work" step, elapsed time for a "rest" step or a
+   * time-based "work" step — and, if so, advances the interval refs and
+   * fires the phase-change voice cue. Called from both the 1s tick (covers
+   * time-based steps) and `handleFix` (covers distance-based steps, since
+   * `distanceRef` only ever changes there) — same split
+   * `vibrateOnPaceDelayRef`'s whole-run pace check already uses. Returns the
+   * `RunTrackerState` patch the caller's own `setState` updater should merge
+   * in; `{}` with no interval goal, or once the plan has already run its
+   * course (`intervalStepIndexRef.current === null`).
+   */
+  const advanceIntervalStepIfDue = useCallback((): Partial<RunTrackerState> => {
+    const plan = goalRef.current?.intervalPlan;
+    if (!plan || intervalStepIndexRef.current === null) return {};
+
+    const step = plan[intervalStepIndexRef.current];
+    const stepElapsedSeconds = computeElapsedSeconds() - intervalStepStartElapsedRef.current;
+    const stepDistanceMeters = distanceRef.current - intervalStepStartDistanceRef.current;
+    const done =
+      step.distanceMeters != null
+        ? stepDistanceMeters >= step.distanceMeters
+        : step.durationSeconds != null
+          ? stepElapsedSeconds >= step.durationSeconds
+          : false;
+    if (!done) return {};
+
+    const nextIndex = intervalStepIndexRef.current + 1;
+    intervalStepStartDistanceRef.current = distanceRef.current;
+    intervalStepStartElapsedRef.current = computeElapsedSeconds();
+
+    if (nextIndex >= plan.length) {
+      intervalStepIndexRef.current = null;
+      announceIntervalPhase("done", voiceGenderRef.current);
+      return {
+        intervalStepIndex: null,
+        intervalPhase: null,
+        intervalStepStartDistanceMeters: null,
+        intervalStepStartElapsedSeconds: null,
+      };
+    }
+
+    intervalStepIndexRef.current = nextIndex;
+    const nextStep = plan[nextIndex];
+    announceIntervalPhase(nextStep.phase, voiceGenderRef.current);
+    return {
+      intervalStepIndex: nextIndex,
+      intervalPhase: nextStep.phase,
+      intervalStepStartDistanceMeters: intervalStepStartDistanceRef.current,
+      intervalStepStartElapsedSeconds: intervalStepStartElapsedRef.current,
+    };
+  }, [computeElapsedSeconds]);
+
   const startTicking = useCallback(() => {
     stopTicking();
     tickTimerRef.current = setInterval(() => {
@@ -396,6 +473,7 @@ export function useRunTracker() {
         // otherwise a stretch with sparse fixes would delay an announcement
         // that's only supposed to depend on time elapsed.
         if (
+          !goalRef.current?.intervalPlan &&
           announceModeRef.current === "time" &&
           lastAnnounceTimeRef.current !== null &&
           Date.now() - lastAnnounceTimeRef.current >= announceIntervalSecondsRef.current * 1000
@@ -453,10 +531,11 @@ export function useRunTracker() {
           updateLiveActivityContent({ distanceLabel, paceLabel, timeLabel, routePoints: route?.projected });
           sendWatchUpdate({ status: "tracking", distanceLabel, paceLabel, timeLabel });
         }
-        return { ...s, elapsedSeconds, forecastSecondsRemaining, carbReminderFiredAt };
+        const intervalPatch = advanceIntervalStepIfDue();
+        return { ...s, elapsedSeconds, forecastSecondsRemaining, carbReminderFiredAt, ...intervalPatch };
       });
     }, TICK_INTERVAL_MS);
-  }, [computeElapsedSeconds, stopTicking]);
+  }, [computeElapsedSeconds, stopTicking, advanceIntervalStepIfDue]);
 
   const persistIfDue = useCallback((force = false) => {
     const now = Date.now();
@@ -517,7 +596,33 @@ export function useRunTracker() {
         kmMarkTimeRef.current = timestamp;
         pendingDriftMetersRef.current = 0;
         startTicking();
-        return { ...s, status: "tracking" };
+
+        // First interval step announces the instant the run clock actually
+        // starts, not in start() (which fires before the GPS lock) — same
+        // reasoning as startedAtRef itself only being set here.
+        const plan = goalRef.current?.intervalPlan;
+        let intervalPatch: Partial<RunTrackerState> = {
+          intervalStepIndex: null,
+          intervalPhase: null,
+          intervalStepStartDistanceMeters: null,
+          intervalStepStartElapsedSeconds: null,
+        };
+        if (plan && plan.length > 0) {
+          intervalStepIndexRef.current = 0;
+          intervalStepStartDistanceRef.current = distanceRef.current;
+          intervalStepStartElapsedRef.current = computeElapsedSeconds();
+          announceIntervalPhase(plan[0].phase, voiceGenderRef.current);
+          intervalPatch = {
+            intervalStepIndex: 0,
+            intervalPhase: plan[0].phase,
+            intervalStepStartDistanceMeters: intervalStepStartDistanceRef.current,
+            intervalStepStartElapsedSeconds: intervalStepStartElapsedRef.current,
+          };
+        } else {
+          intervalStepIndexRef.current = null;
+        }
+
+        return { ...s, status: "tracking", ...intervalPatch };
       });
 
       if (
@@ -803,6 +908,7 @@ export function useRunTracker() {
 
       let announced = false;
       if (
+        !goalRef.current?.intervalPlan &&
         announceModeRef.current === "distance" &&
         lastAnnounceTimeRef.current !== null &&
         distanceRef.current - lastAnnounceDistanceRef.current >= announceIntervalRef.current
@@ -825,6 +931,7 @@ export function useRunTracker() {
         // that timer stops firing. Both paths share `lastAnnounceTimeRef`,
         // so whichever runs first for a given threshold wins and the other
         // just sees it already advanced — no double announcement.
+        !goalRef.current?.intervalPlan &&
         announceModeRef.current === "time" &&
         lastAnnounceTimeRef.current !== null &&
         timestamp - lastAnnounceTimeRef.current >= announceIntervalSecondsRef.current * 1000
@@ -843,6 +950,8 @@ export function useRunTracker() {
       }
 
       persistIfDue(announced);
+
+      const intervalPatch = advanceIntervalStepIfDue();
 
       if (vibrateOnPaceDelayRef.current && targetPaceSecPerKmRef.current) {
         const expectedSeconds = (distanceRef.current / 1000) * targetPaceSecPerKmRef.current;
@@ -907,10 +1016,11 @@ export function useRunTracker() {
           paceDeltaSecPerKm,
           points: pointsRef.current,
           carbReminderFiredAt,
+          ...intervalPatch,
         };
       });
     },
-    [computeElapsedSeconds, persistIfDue, startTicking],
+    [computeElapsedSeconds, persistIfDue, startTicking, advanceIntervalStepIfDue],
   );
 
   const handleError = useCallback((err: GeoError) => {
@@ -1032,6 +1142,10 @@ export function useRunTracker() {
         targetPaceSecPerKmRef.current = options?.goal?.targetPaceSecPerKm;
         vibrateOnPaceDelayRef.current = options?.vibrateOnPaceDelay ?? false;
         goalRef.current = options?.goal ?? null;
+        // Actual seeding (index 0 + first announcement) happens once the
+        // run clock really starts, in the warmup-completion branch above —
+        // this just guards against a previous run's leftover index.
+        intervalStepIndexRef.current = null;
         paceDelayAlertedRef.current = false;
         carbReminderEnabledRef.current = options?.carbReminderEnabled ?? false;
         carbReminderIntervalSecondsRef.current = options?.carbReminderIntervalSeconds ?? 45 * 60;
@@ -1102,6 +1216,13 @@ export function useRunTracker() {
           pauseEvents: [],
           heartRateBpm: null,
           heartRateConnection: heartRateDeviceIdRef.current ? "connecting" : "disconnected",
+          // Real seeding (index 0 + first announcement) happens once the
+          // run clock actually starts, in handleFix's warmup-completion
+          // branch — this just clears any previous run's leftovers.
+          intervalStepIndex: null,
+          intervalPhase: null,
+          intervalStepStartDistanceMeters: null,
+          intervalStepStartElapsedSeconds: null,
         }));
       } catch (err) {
         console.error("[run] start() threw", err);
@@ -1161,6 +1282,9 @@ export function useRunTracker() {
       ghostSeriesRef.current = null;
       recoveringRef.current = true;
       heartRateDeviceIdRef.current = heartRateMonitorDeviceId ?? null;
+      // `goal` isn't restored across a crash-recovery today (see below) —
+      // an in-progress interval plan is no exception.
+      intervalStepIndexRef.current = null;
 
       void wakeLockRef.current.acquire();
       beginWatch();
@@ -1187,6 +1311,10 @@ export function useRunTracker() {
         pauseEvents: [],
         heartRateBpm: null,
         heartRateConnection: heartRateDeviceIdRef.current ? "connecting" : "disconnected",
+        intervalStepIndex: null,
+        intervalPhase: null,
+        intervalStepStartDistanceMeters: null,
+        intervalStepStartElapsedSeconds: null,
       });
     },
     [beginWatch, connectHeartRate],
@@ -1393,7 +1521,12 @@ export function useRunTracker() {
       pauseEvents: [],
       heartRateBpm: null,
       heartRateConnection: "disconnected",
+      intervalStepIndex: null,
+      intervalPhase: null,
+      intervalStepStartDistanceMeters: null,
+      intervalStepStartElapsedSeconds: null,
     });
+    intervalStepIndexRef.current = null;
   }, [clearWatch, stopTicking, computeElapsedSeconds]);
 
   useEffect(() => {

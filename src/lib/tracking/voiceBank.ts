@@ -301,3 +301,38 @@ export function announceCoachCue(cueId: string, gender: VoiceGender = "female"):
       if (token === currentToken) speak(clip.fallbackText);
     });
 }
+
+/** Slug + spoken fallback for each interval-training phase cue — a fixed, small vocabulary ("Vai!"/"Descanso."/done), same reasoning as COACH_CUE_CLIPS above: these never vary by workout, unlike aquecimento/page.tsx's per-exercise-name announcements, so pre-recording them is worth it. */
+const INTERVAL_PHASE_CLIPS: Record<string, { slug: string; fallbackText: string }> = {
+  work: { slug: "interval-work", fallbackText: "Vai!" },
+  rest: { slug: "interval-rest", fallbackText: "Descanso." },
+  done: { slug: "interval-done", fallbackText: "Treino de intervalos completo." },
+};
+
+/** Speaks an interval-training phase change — same single-whole-clip shape as `announceCoachCue` above. `phase` is `"work"`/`"rest"` for a step transition, or `"done"` once the plan has run its course. */
+export function announceIntervalPhase(phase: "work" | "rest" | "done", gender: VoiceGender = "female"): void {
+  const clip = INTERVAL_PHASE_CLIPS[phase];
+  if (!clip) return;
+
+  stopCurrent();
+  const token = currentToken;
+
+  const ctx = getAudioContext();
+  if (!ctx) {
+    speak(clip.fallbackText);
+    return;
+  }
+
+  loadBuffer(clip.slug, gender, ctx)
+    .then((buffer) => {
+      if (token !== currentToken) return;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      currentSource = source;
+      source.start();
+    })
+    .catch(() => {
+      if (token === currentToken) speak(clip.fallbackText);
+    });
+}

@@ -268,6 +268,20 @@ function buildVoiceBank(): VoiceBankEntry[] {
     nextText: null,
   });
 
+  // Interval-training phase cues — same standalone-sentence shape as the
+  // carb-gel reminder/coach cues above (voiceBank.ts's `announceIntervalPhase`
+  // plays one of these three directly, never spliced). Fixed vocabulary,
+  // never per-workout free text, unlike aquecimento/page.tsx's exercise-name
+  // announcements.
+  entries.push({ slug: "interval-work", text: "Vai!", previousText: null, nextText: null });
+  entries.push({ slug: "interval-rest", text: "Descanso.", previousText: null, nextText: null });
+  entries.push({
+    slug: "interval-done",
+    text: "Treino de intervalos completo.",
+    previousText: null,
+    nextText: null,
+  });
+
   return entries;
 }
 

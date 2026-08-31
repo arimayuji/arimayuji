@@ -43,11 +43,26 @@ export interface PauseEvent {
  * Defined here (not in `useRunTracker.ts`, which imports it back) so
  * `CompletedRun` can reference it without an import cycle.
  */
+export interface IntervalStep {
+  phase: "work" | "rest";
+  /** Meters — only on a "work" step, when the athlete chose distance-based reps. */
+  distanceMeters?: number;
+  /** Seconds — on every "rest" step, and on a "work" step when the athlete chose time-based reps. */
+  durationSeconds?: number;
+}
+
 export interface RunGoal {
   distanceMeters?: number;
   durationSeconds?: number;
   /** A pace to hold, not a finish line — independent of the other two fields (a distance/duration goal is "get there by X"; this is "stay around this pace the whole time"). */
   targetPaceSecPerKm?: number;
+  /**
+   * A flattened, already-expanded work/rest sequence (work, rest, work,
+   * rest, ..., work — never a trailing rest after the last rep) — built by
+   * /run's "Intervalado" tab. Never combined with the three fields above:
+   * an interval goal only ever sets this one.
+   */
+  intervalPlan?: IntervalStep[];
 }
 
 export interface CompletedRun {
