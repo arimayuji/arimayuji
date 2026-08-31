@@ -2858,7 +2858,7 @@ export default function RunPage() {
                     key={m.id}
                     type="button"
                     onClick={() => setMetricTemplate(m.id)}
-                    className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-bold whitespace-nowrap transition-colors ${
+                    className={`flex flex-1 basis-[30%] items-center justify-center gap-1.5 rounded-xl border px-2.5 py-2 text-[13px] font-bold whitespace-nowrap transition-colors ${
                       m.id === featured.id
                         ? "border-accent bg-accent/15 text-accent"
                         : "border-border bg-surface text-foreground"
@@ -2878,12 +2878,14 @@ export default function RunPage() {
                */}
               <div className="flex flex-1 flex-col items-center justify-center px-3">
                 <span
-                  className={`text-metal-run text-metal-run-giant leading-none tabular-nums whitespace-nowrap ${
+                  className={`text-metal-run text-metal-run-giant inline-block scale-y-125 leading-none tabular-nums whitespace-nowrap ${
                     // "Tempo" past an hour ("1:23:45") or a marathon-length
                     // "distância" ("42.195") is too wide for the bigger size
                     // on a small phone at this weight — same size as before
                     // for those, bumped up for the common short values
                     // (pace, most distances/times) the request was about.
+                    // scale-y-125 stretches the glyphs taller without eating
+                    // more horizontal width — a runner reads height, not area.
                     metricValues[featured.id].length > 5 ? "text-[7rem]" : "text-[9.5rem]"
                   }`}
                 >
