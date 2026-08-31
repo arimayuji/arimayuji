@@ -165,7 +165,7 @@ export default function TreinadorPage() {
             <button
               type="button"
               onClick={() => setShowAccountPrompt(true)}
-              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent"
+              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent lg:rounded-md"
             >
               Entrar
             </button>
@@ -190,7 +190,7 @@ export default function TreinadorPage() {
             {connections !== null && connections.some((c) => c.myRole === "coach" && c.relationship.status === "accepted") && (
               <Link
                 href="/treinador/sala"
-                className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4"
+                className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4 lg:rounded-lg"
                 style={delay(20)}
               >
                 <span>
@@ -209,7 +209,7 @@ export default function TreinadorPage() {
                 <button
                   type="button"
                   onClick={() => setInviteRole("student")}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold ${
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold lg:rounded-md ${
                     inviteRole === "student" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
                   }`}
                 >
@@ -218,7 +218,7 @@ export default function TreinadorPage() {
                 <button
                   type="button"
                   onClick={() => setInviteRole("coach")}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold ${
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold lg:rounded-md ${
                     inviteRole === "coach" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
                   }`}
                 >
@@ -226,7 +226,7 @@ export default function TreinadorPage() {
                 </button>
               </div>
               <form onSubmit={handleSend}>
-                <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3.5 py-3">
+                <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3.5 py-3 lg:rounded-md">
                   <span className="font-semibold text-muted">@</span>
                   <input
                     type="text"
@@ -243,7 +243,7 @@ export default function TreinadorPage() {
                 <button
                   type="submit"
                   disabled={sending || normalizeHandle(handle).length === 0}
-                  className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+                  className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60 lg:rounded-md"
                 >
                   {sending ? "Enviando…" : "Enviar convite"}
                 </button>
@@ -263,7 +263,7 @@ export default function TreinadorPage() {
                 <button
                   type="button"
                   onClick={reload}
-                  className="mt-3 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-accent"
+                  className="mt-3 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-accent lg:rounded-md"
                 >
                   Tentar de novo
                 </button>
@@ -307,7 +307,7 @@ export default function TreinadorPage() {
                                         "accept",
                                       )
                                     }
-                                    className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+                                    className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60 lg:rounded-md"
                                   >
                                     {busyId === connection.relationship.$id && busyAction === "accept"
                                       ? "Aceitando…"
@@ -323,7 +323,7 @@ export default function TreinadorPage() {
                                         "decline",
                                       )
                                     }
-                                    className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
+                                    className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60 lg:rounded-md"
                                   >
                                     {busyId === connection.relationship.$id && busyAction === "decline"
                                       ? "Recusando…"
@@ -433,7 +433,7 @@ export default function TreinadorPage() {
                               {connection.profile ? `@${connection.profile.handle}` : "conta sem @ ainda"}
                             </p>
                           </div>
-                          <span className="shrink-0 rounded-full bg-accent px-3.5 py-2 text-xs font-semibold text-accent-foreground">
+                          <span className="shrink-0 rounded-full bg-accent px-3.5 py-2 text-xs font-semibold text-accent-foreground lg:rounded-md">
                             Ver corridas
                           </span>
                         </Link>
@@ -474,14 +474,14 @@ function OutgoingRequestRow({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60 lg:rounded-md"
           >
             {busy ? "Cancelando…" : "Confirmar"}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground"
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground lg:rounded-md"
           >
             Voltar
           </button>
@@ -490,7 +490,7 @@ function OutgoingRequestRow({
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad"
+          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad lg:rounded-md"
         >
           Cancelar
         </button>
@@ -519,14 +519,14 @@ function RelationshipRow({
             type="button"
             disabled={busy}
             onClick={onRemove}
-            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60 lg:rounded-md"
           >
             {busy ? "Desfazendo…" : "Confirmar"}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground"
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground lg:rounded-md"
           >
             Voltar
           </button>
@@ -535,7 +535,7 @@ function RelationshipRow({
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad"
+          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad lg:rounded-md"
         >
           Desfazer
         </button>
