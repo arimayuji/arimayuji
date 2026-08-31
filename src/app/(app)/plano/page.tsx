@@ -1209,7 +1209,53 @@ export default function PlanoPage() {
       />
 
       <Screen panel>
-        <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(60)}>
+        {/* Desktop: plain, centered, black-on-white — not the mobile card
+            (rounded/tinted/pill-button) stretched wide. A browser tab isn't
+            a phone screen, so this state shouldn't read like one. */}
+        <div className="hidden lg:flex lg:flex-col lg:items-center lg:py-10 lg:text-center">
+          <div className="w-full max-w-xl">
+            <h2 className="text-xl font-semibold text-foreground">O que falta pro seu plano de verdade</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              O motor que monta o treino já existe — falta só o que ele precisa de você:
+            </p>
+            <ul className="mt-5 flex flex-col items-center gap-2 text-sm text-foreground">
+              <li className="flex items-center gap-2">
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${hasGoal ? "bg-good" : "bg-warn"}`}
+                  aria-hidden="true"
+                />
+                {hasGoal ? "Meta de prova definida" : "Definir distância e data da prova abaixo"}
+              </li>
+              <li className="flex items-center gap-2">
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${hasHistory ? "bg-good" : "bg-warn"}`}
+                  aria-hidden="true"
+                />
+                {hasHistory
+                  ? "Histórico recente disponível"
+                  : "Gravar algumas corridas pra calibrar seu volume real"}
+              </li>
+            </ul>
+            {!hasHistory && (
+              <Link
+                href="/run"
+                className="mt-5 inline-block rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground"
+              >
+                Gravar uma corrida
+              </Link>
+            )}
+          </div>
+
+          <div className="mt-10 w-full max-w-xl text-left">
+            {hasGoal ? (
+              <GoalCard profile={profile} updateProfile={updateProfile} />
+            ) : (
+              <GoalWizard profile={profile} updateProfile={updateProfile} hasGoal={hasGoal} />
+            )}
+          </div>
+        </div>
+
+        <Card className="pr-enter border-warn/30 bg-warn/5 lg:hidden" style={delay(60)}>
           <CardTitle>O que falta pro seu plano de verdade</CardTitle>
           <p className="text-sm leading-relaxed text-muted text-pretty">
             O motor que monta o treino já existe — falta só o que ele precisa de você:
@@ -1242,13 +1288,6 @@ export default function PlanoPage() {
           )}
         </Card>
 
-        <div className="hidden lg:block">
-          {hasGoal ? (
-            <GoalCard profile={profile} updateProfile={updateProfile} />
-          ) : (
-            <GoalWizard profile={profile} updateProfile={updateProfile} hasGoal={hasGoal} />
-          )}
-        </div>
         <GoalCard profile={profile} updateProfile={updateProfile} className="lg:hidden" />
 
         {showExample ? (
