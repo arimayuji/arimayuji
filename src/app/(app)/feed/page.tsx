@@ -133,11 +133,13 @@ function FeedItemCard({
   item,
   unit,
   busy,
+  isOwn,
   onToggleKudos,
 }: {
   item: FriendFeedItem;
   unit: DistanceUnit;
   busy: boolean;
+  isOwn: boolean;
   onToggleKudos: () => void;
 }) {
   const pace = formatAveragePace(item.distanceMeters, item.movingSeconds, unit);
@@ -148,7 +150,7 @@ function FeedItemCard({
       <div className="flex items-center gap-3">
         <Avatar name={item.displayName} avatarUrl={item.avatarUrl} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{item.displayName}</p>
+          <p className="truncate text-sm font-semibold">{isOwn ? "Você" : item.displayName}</p>
           <p className="truncate text-xs text-muted">
             {new Date(item.startedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
             {item.shoeName ? ` · ${item.shoeName}` : ""}
@@ -208,18 +210,28 @@ function FeedItemCard({
           <span>{formatElapsed(item.movingSeconds)}</span>
           <span>{pace}</span>
         </span>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onToggleKudos}
-          aria-pressed={item.kudosGivenByMe}
-          className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold disabled:opacity-60 ${
-            item.kudosGivenByMe ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
-          }`}
-        >
-          <HeartIcon className="h-3.5 w-3.5" filled={item.kudosGivenByMe} />
-          {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
-        </button>
+        {isOwn ? (
+          // Own post: kudos is something friends give you, not something
+          // you toggle on yourself — a static count instead of a button
+          // (the server rejects self-kudos anyway, see toggle-run-kudos).
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted">
+            <HeartIcon className="h-3.5 w-3.5" filled={item.kudosCount > 0} />
+            {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
+          </span>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onToggleKudos}
+            aria-pressed={item.kudosGivenByMe}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold disabled:opacity-60 ${
+              item.kudosGivenByMe ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
+            }`}
+          >
+            <HeartIcon className="h-3.5 w-3.5" filled={item.kudosGivenByMe} />
+            {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
+          </button>
+        )}
       </div>
     </Card>
   );
@@ -242,7 +254,7 @@ function FeedItemCard({
  * activity in its own feed.
  */
 export default function FeedPage() {
-  const { status } = useAuth();
+  const { status, account } = useAuth();
   const [{ distanceUnit: unit }] = usePreferences();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [feedItems, setFeedItems] = useState<FriendFeedItem[] | null>(null);
@@ -361,6 +373,7 @@ export default function FeedPage() {
                 item={item}
                 unit={unit}
                 busy={kudosBusyId === item.runRowId}
+                isOwn={item.userId === account?.id}
                 onToggleKudos={() => handleToggleKudos(item.runRowId)}
               />
             ))

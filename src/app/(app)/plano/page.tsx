@@ -416,7 +416,7 @@ function SelfPlanSuggestionCard({
           type="button"
           onClick={handleRemove}
           disabled={removing}
-          className="rounded-full border border-bad/30 px-4 py-2 text-xs font-semibold text-bad disabled:opacity-40"
+          className="rounded-full bg-bad px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
         >
           {removing ? "Removendo…" : "Remover sugestão"}
         </button>

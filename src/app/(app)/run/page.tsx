@@ -2201,7 +2201,7 @@ export default function RunPage() {
               <button
                 type="button"
                 onClick={handleRecoverDiscard}
-                className="w-full rounded-full border border-border px-6 py-3 text-sm font-semibold text-bad"
+                className="w-full rounded-full bg-bad px-6 py-3 text-sm font-semibold text-white"
               >
                 Descartar
               </button>

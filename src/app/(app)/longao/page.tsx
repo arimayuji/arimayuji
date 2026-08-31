@@ -345,7 +345,7 @@ function LongaoContent() {
                     type="button"
                     disabled={closing || activeSession.status === "closed"}
                     onClick={handleClose}
-                    className="flex-1 rounded-full border border-bad/40 py-2.5 text-xs font-semibold text-bad disabled:opacity-60"
+                    className="flex-1 rounded-full bg-bad py-2.5 text-xs font-semibold text-white disabled:opacity-60"
                   >
                     {closing ? "Encerrando…" : "Encerrar pra todo mundo"}
                   </button>

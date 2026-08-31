@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "src/app/globals.css"
+        ],
+        "createdAt": "2026-08-31T01:03:35.518Z",
+        "reason": "pre-existing brushed-metal (.text-metal-run) and flame-calorie (.text-flame) background-clip:text effects, documented design system since redesign tasks #63-70, not new/generated code"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/app/(app)/perfil/shoes-card.tsx"
+        ],
+        "createdAt": "2026-08-31T01:22:53.509Z",
+        "reason": "SHOE_GLYPH_SRC is a real static asset (/shoe/shoe-glyph-3d.png), pre-existing code — detector can't statically verify a non-literal src isn't empty"
+      }
+    ]
+  }
+}

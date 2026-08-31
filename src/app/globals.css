@@ -65,18 +65,18 @@
 }
 
 /*
- * Header and bottom-nav backgrounds: the same 3-stop accent gradient,
- * mirrored in angle (155°/20°) so the light edge of one faces the light
- * edge of the other — a "frame" around the scrollable content between them
- * — rather than two bars that happen to share a palette.
+ * The top header is flat/neutral at every breakpoint — it used to share the
+ * bottom nav's accent gradient (a "frame" of blue top and bottom around the
+ * scrollable content between them), but that read as too much blue and was
+ * dropped in favor of a plain bar that blends with the page. The bottom nav
+ * keeps its own identity: the accent gradient on mobile/native (a phone-app
+ * bar you hold in your hand, colored like the homescreen icon), flattened to
+ * solid accent at `lg:` for the desktop coach sidebar (see the media query
+ * below) — still Xanthus blue there, just not a gradient.
  */
 .chrome-gradient-header {
-  background: linear-gradient(
-    155deg,
-    var(--header-gradient-light),
-    var(--accent) 55%,
-    var(--header-gradient-dark)
-  );
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 .chrome-gradient-nav {
   background: linear-gradient(
@@ -88,26 +88,15 @@
 }
 
 /*
- * The gradient "chrome" above is a phone-app identity — a bar you hold in
- * your hand, colored like the icon that sits on a homescreen. Stretched
- * across a desktop browser window it reads as a mobile screen blown up
- * rather than a native web layout, so at the same `lg:` breakpoint
- * app-shell.tsx switches this sidebar/header pair to, the two get their own
- * flat treatment instead of gradient-and-shadow — same rules a desktop
- * dashboard's own nav rail and top bar would use. The top bar goes neutral
- * (bordered, blends with the page); the nav rail stays the app's own accent
- * — flat instead of gradient, but still Xanthus blue rather than a generic
- * grey sidebar — with app-shell.tsx's own brand mark/nav-item classes
+ * At `lg:`, app-shell.tsx turns the bottom nav into a persistent left
+ * sidebar (a desktop dashboard's own nav rail) — flat accent instead of the
+ * mobile gradient, with app-shell.tsx's own brand mark/nav-item classes
  * switching to their white-on-accent variants to match. A plain class
  * selector at equal specificity to the rule above, so being declared later
  * here is what makes it win at that width — no `!important`, no fight with
  * Tailwind's own utility order.
  */
 @media (min-width: 1024px) {
-  .chrome-gradient-header {
-    background: var(--background);
-    border-bottom: 1px solid var(--border);
-  }
   .chrome-gradient-nav {
     background: var(--accent);
     border-right: 1px solid rgba(255, 255, 255, 0.14);

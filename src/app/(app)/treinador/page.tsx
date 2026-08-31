@@ -474,7 +474,7 @@ function OutgoingRequestRow({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
+            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
           >
             {busy ? "Cancelando…" : "Confirmar"}
           </button>
@@ -519,7 +519,7 @@ function RelationshipRow({
             type="button"
             disabled={busy}
             onClick={onRemove}
-            className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
+            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
           >
             {busy ? "Desfazendo…" : "Confirmar"}
           </button>

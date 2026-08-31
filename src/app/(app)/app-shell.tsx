@@ -416,7 +416,7 @@ function GpsStatusBadge({ quality }: { quality: GpsQuality }) {
       role="status"
       aria-label={label}
       title={label}
-      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16 lg:bg-surface"
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-surface"
     >
       <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${ready ? "bg-good" : "bg-warn animate-pulse"}`} />
     </span>
@@ -426,12 +426,13 @@ function GpsStatusBadge({ quality }: { quality: GpsQuality }) {
 /**
  * The one header every non-immersive screen shares — brand mark + wordmark
  * on the left, notification bell (+ a "close" button on flow/detail screens
- * only, see `useHeaderClose`) on the right, on the app's own accent
- * gradient instead of a flat/transparent bar. Scrolls away with the rest of
- * the screen on scroll-down and returns on scroll-up (`hidden` prop, driven
- * by `useScrollChromeVisibility` in the shell below) — never `position:
- * sticky`, which used to read as "stuck on top of my content" instead of a
- * header.
+ * only, see `useHeaderClose`) on the right, on a flat/neutral bar (see
+ * `.chrome-gradient-header` in globals.css — it used to carry the app's own
+ * accent gradient, dropped in favor of the bottom nav being the only blue
+ * chrome). Scrolls away with the rest of the screen on scroll-down and
+ * returns on scroll-up (`hidden` prop, driven by `useScrollChromeVisibility`
+ * in the shell below) — never `position: sticky`, which used to read as
+ * "stuck on top of my content" instead of a header.
  */
 function AppHeader({
   hidden,
@@ -449,42 +450,29 @@ function AppHeader({
       // `lg:left-60` clears the sidebar BottomNav becomes at that same
       // breakpoint (SIDEBAR_OFFSET_CLASS below it) — without this the two
       // would overlap in the top-left corner, since both sit at z-40.
-      // Shadow lives in the class list (not inline style, which would always
-      // beat `lg:shadow-none` below regardless of breakpoint) — a tinted
-      // "floating pill" shadow on mobile/native, none at all on the flat
-      // desktop bar, where that blue tint would show up as a stray smudge
-      // under the new neutral background.
-      className={`chrome-gradient-header absolute inset-x-0 top-0 z-40 overflow-hidden rounded-b-[36px] transition-transform duration-200 ease-out lg:rounded-none lg:shadow-none ${
-        hidden ? "shadow-none" : "shadow-[0_12px_28px_-8px_rgba(74,120,224,0.4),inset_0_1px_0_rgba(255,255,255,0.12)]"
-      } ${SIDEBAR_OFFSET_CLASS}`}
+      className={`chrome-gradient-header absolute inset-x-0 top-0 z-40 overflow-hidden rounded-b-[36px] shadow-none transition-transform duration-200 ease-out lg:rounded-none ${SIDEBAR_OFFSET_CLASS}`}
       style={{
         transform: hidden ? "translateY(-100%)" : "translateY(0)",
         paddingTop: "env(safe-area-inset-top)",
       }}
     >
-      {/* Purely decorative — partially clipped by the header's own rounded/opaque bounds via overflow-hidden above. A highlight tuned for the blue gradient, so it's hidden at `lg:`, where the header is flat and this would just read as a stray light smudge. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/8 lg:hidden"
-      />
-
       {/* Brand mark: this header's own copy on mobile/native, hidden at `lg:` where the sidebar (BottomNav) carries it instead — one identity mark per screen, not two. `lg:justify-end`: with the left block gone, `justify-between` on a single remaining flex item collapses to flex-start (left) instead of staying pinned right. */}
       <div className="relative flex h-16 items-center justify-between px-4 lg:justify-end lg:px-6">
         <div className="flex items-center gap-2.5 lg:hidden">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16">
-            <svg viewBox="0 0 100 100" className="h-5 w-5" aria-hidden="true">
-              <path d={HORSE_BUST_BODY_PATH} fill="none" stroke="#fff" strokeWidth="4.5" strokeLinejoin="round" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10">
+            <svg viewBox="0 0 100 100" className="h-5 w-5 text-accent" aria-hidden="true">
+              <path d={HORSE_BUST_BODY_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
               <g
                 style={{
                   transformOrigin: `${HORSE_BUST_LEGS_PIVOT.x}px ${HORSE_BUST_LEGS_PIVOT.y}px`,
                   animation: "pr-horse-paw 2.4s ease-in-out infinite",
                 }}
               >
-                <path d={HORSE_BUST_LEGS_PATH} fill="none" stroke="#fff" strokeWidth="4.5" strokeLinejoin="round" />
+                <path d={HORSE_BUST_LEGS_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
               </g>
             </svg>
           </span>
-          <span className="font-mono text-lg font-semibold tracking-wide text-white">Xanthus</span>
+          <span className="font-mono text-lg font-semibold tracking-wide text-foreground">Xanthus</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -495,7 +483,7 @@ function AppHeader({
               type="button"
               onClick={() => router.push(closeHref)}
               aria-label="Fechar"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/16 text-white lg:bg-surface lg:text-muted lg:hover:text-foreground"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-muted hover:text-foreground"
             >
               <CloseIcon className="h-4.5 w-4.5" />
             </button>

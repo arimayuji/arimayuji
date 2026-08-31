@@ -89,7 +89,7 @@ export function SignOutConfirm({ onClose, onSignedOut }: { onClose: () => void; 
                 type="button"
                 onClick={() => void handleSignOut(true)}
                 disabled={busy}
-                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-bad/40 bg-bad/10 py-3.5 text-sm font-semibold text-bad disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-bad py-3.5 text-sm font-semibold text-white disabled:opacity-60"
               >
                 Sair e apagar tudo daqui
               </button>

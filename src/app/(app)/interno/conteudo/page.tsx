@@ -222,7 +222,7 @@ function IdeaCard({
             <button
               type="button"
               onClick={() => onDelete(idea)}
-              className="rounded-full border border-bad px-3 py-1 text-xs font-semibold text-bad"
+              className="rounded-full bg-bad px-3 py-1 text-xs font-semibold text-white"
             >
               Confirmar
             </button>

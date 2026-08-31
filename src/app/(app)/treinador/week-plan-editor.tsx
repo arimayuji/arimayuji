@@ -299,7 +299,7 @@ export function WeekPlanEditor({
             type="button"
             onClick={handleRemoveOverride}
             disabled={removingOverride}
-            className="rounded-lg border border-bad/30 px-3 py-2.5 text-sm font-medium text-bad disabled:opacity-40"
+            className="rounded-lg bg-bad px-3 py-2.5 text-sm font-medium text-white disabled:opacity-40"
           >
             {removingOverride ? "Removendo…" : "Remover"}
           </button>

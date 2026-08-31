@@ -45,11 +45,11 @@ export function NotificationBell() {
     <Link
       href="/notificacoes"
       aria-label={unreadCount > 0 ? `Notificações (${unreadCount} novas)` : "Notificações"}
-      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/16 text-white lg:bg-surface lg:text-muted lg:hover:text-foreground"
+      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-surface text-muted hover:text-foreground"
     >
       <BellIcon className="h-4.5 w-4.5" />
       {unreadCount > 0 && (
-        <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full border border-white/30 bg-bad px-1 font-mono text-[10px] font-semibold text-white">
+        <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full border border-background bg-bad px-1 font-mono text-[10px] font-semibold text-white">
           {unreadCount > 9 ? "9+" : unreadCount}
         </span>
       )}

@@ -65,13 +65,39 @@ const FACE_ICON: Record<Score, typeof HappyFaceIcon> = {
   ruim: SadFaceIcon,
 };
 
+/** Sun-behind-cloud glyph for the collapsed "Ver previsão do tempo" chip — same line-art convention as `WarmupIcon` in run/page.tsx (not duplicated here since that file doesn't export it). */
+function WeatherIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M13 6.2a3.3 3.3 0 0 1 0 6.6" />
+      <circle cx="7.5" cy="6" r="2.6" />
+      <path d="M7.5 2v1M4 3.5l.7.7M2.5 6h1M11 3.5l-.7.7" />
+      <path d="M6 12.8h6.5a2.9 2.9 0 0 0 .5-5.76" />
+    </svg>
+  );
+}
+
 /**
- * "Clima pra corrida" — collapsed by default (just a button), never fetches
- * anything on mount. Tapping "Ver previsão" IS the consent: it triggers the
- * one-shot low-accuracy location read (same call `friend-presence-ping.tsx`
- * already uses for "amigo por perto") and, on success, the Open-Meteo
- * lookup. Purely informational — never blocks or is required for "Iniciar
- * corrida" below it.
+ * "Clima pra corrida" — collapsed by default as a pill button (same shape
+ * as "Aquecer antes de correr" just above it, not a rectangular card, per
+ * direct request: a card read as too heavy for something that's still just
+ * a shortcut to tap), never fetches anything on mount. Tapping the chip IS
+ * the consent: it triggers the one-shot low-accuracy location read (same
+ * call `friend-presence-ping.tsx` already uses for "amigo por perto") and,
+ * on success, the Open-Meteo lookup. Only expands into a real `Card` once
+ * there's an actual forecast to show — every other state stays a chip, so
+ * the idle screen's rhythm (a stack of pill shortcuts) doesn't wobble while
+ * waiting on a fetch that may not even complete. Purely informational —
+ * never blocks or is required for "Iniciar corrida" below it.
  */
 export function RunWeatherCard() {
   const [status, setStatus] = useState<WeatherStatus>("idle");
@@ -95,25 +121,12 @@ export function RunWeatherCard() {
     }
   }
 
-  return (
-    <Card>
-      <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-        Clima pra corrida
-      </span>
-
-      {status === "idle" && (
-        <button
-          type="button"
-          onClick={handleCheckWeather}
-          className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent/10 px-3.5 py-2 text-xs font-semibold text-accent"
-        >
-          Ver previsão
-        </button>
-      )}
-
-      {status === "loading" && <p className="text-xs text-muted">Buscando previsão…</p>}
-
-      {status === "ready" && forecast && (
+  if (status === "ready" && forecast) {
+    return (
+      <Card>
+        <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+          Clima pra corrida
+        </span>
         <div className="space-y-3">
           <div className="flex justify-between">
             {forecast.hours.map((hour) => {
@@ -132,24 +145,28 @@ export function RunWeatherCard() {
             Estimativa simples do app (temperatura, chuva, vento) — não é uma recomendação médica.
           </p>
         </div>
-      )}
+      </Card>
+    );
+  }
 
-      {(status === "denied" || status === "failed") && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted">
-            {status === "denied"
-              ? "Não conseguimos acessar sua localização pra buscar a previsão."
-              : "Não deu pra buscar a previsão agora."}
-          </p>
-          <button
-            type="button"
-            onClick={handleCheckWeather}
-            className="rounded-full border border-border px-3.5 py-2 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-foreground"
-          >
-            Tentar de novo
-          </button>
-        </div>
-      )}
-    </Card>
+  const chipLabel =
+    status === "loading"
+      ? "Buscando previsão…"
+      : status === "denied"
+        ? "Não deu pra acessar sua localização — toque pra tentar de novo"
+        : status === "failed"
+          ? "Não deu pra buscar a previsão — toque pra tentar de novo"
+          : "Ver previsão do tempo";
+
+  return (
+    <button
+      type="button"
+      onClick={handleCheckWeather}
+      disabled={status === "loading"}
+      className="flex items-center gap-2 self-start rounded-full border border-border bg-surface px-3.5 py-2 text-xs font-semibold text-muted disabled:opacity-70 hover:border-accent hover:text-foreground"
+    >
+      <WeatherIcon className="h-3.5 w-3.5" />
+      {chipLabel}
+    </button>
   );
 }

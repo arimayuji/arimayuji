@@ -799,7 +799,14 @@ async function listFriendsFeed({ userId, client, res, error }) {
     error(`list-friends-feed: falha resolvendo amigos de ${userId}: ${err.message}`);
     return res.json({ error: "failed" }, 500);
   }
-  if (friendIds.length === 0) return res.json({ ok: true, items: [] });
+
+  // Includes the caller's own id — a Strava-style feed shows your own
+  // shared runs interleaved with friends', not just friends'. Still gated
+  // by `visibility: "friends"` below: your own run only shows here once
+  // you've actually toggled "Compartilhar com amigos" on it, same as any
+  // friend's — this is "everyone the friends audience can see, including
+  // me", not a bypass of that toggle for your own posts.
+  const audienceIds = [userId, ...friendIds];
 
   let runs;
   try {
@@ -807,7 +814,7 @@ async function listFriendsFeed({ userId, client, res, error }) {
       databaseId: DATABASE_ID,
       tableId: "runs",
       queries: [
-        Query.equal("userId", friendIds),
+        Query.equal("userId", audienceIds),
         Query.equal("visibility", "friends"),
         Query.orderDesc("startedAt"),
         Query.limit(30),

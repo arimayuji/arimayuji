@@ -427,7 +427,7 @@ function ShoeRow({
               type="button"
               disabled={deleting}
               onClick={onDelete}
-              className="rounded-full border border-bad px-3 py-1.5 text-xs font-semibold text-bad disabled:opacity-60"
+              className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
             >
               {deleting ? "Excluindo…" : "Confirmar exclusão"}
             </button>

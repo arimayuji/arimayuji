@@ -295,7 +295,7 @@ function VerPerfilContent() {
               onClick={() => void (isFriend ? handleRemoveFriend() : handleAddFriend())}
               disabled={sending || removing}
               className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-60 ${
-                isFriend ? "border border-border text-bad" : "bg-accent text-accent-foreground"
+                isFriend ? "bg-bad text-white" : "bg-accent text-accent-foreground"
               }`}
             >
               {isFriend
