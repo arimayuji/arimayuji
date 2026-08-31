@@ -93,11 +93,15 @@
  * across a desktop browser window it reads as a mobile screen blown up
  * rather than a native web layout, so at the same `lg:` breakpoint
  * app-shell.tsx switches this sidebar/header pair to, the two get their own
- * flat, neutral treatment instead — same rules a desktop dashboard's own
- * nav rail and top bar would use, bordered rather than gradient-and-shadow.
- * A plain class selector at equal specificity to the rule above, so being
- * declared later here is what makes it win at that width — no `!important`,
- * no fight with Tailwind's own utility order.
+ * flat treatment instead of gradient-and-shadow — same rules a desktop
+ * dashboard's own nav rail and top bar would use. The top bar goes neutral
+ * (bordered, blends with the page); the nav rail stays the app's own accent
+ * — flat instead of gradient, but still Xanthus blue rather than a generic
+ * grey sidebar — with app-shell.tsx's own brand mark/nav-item classes
+ * switching to their white-on-accent variants to match. A plain class
+ * selector at equal specificity to the rule above, so being declared later
+ * here is what makes it win at that width — no `!important`, no fight with
+ * Tailwind's own utility order.
  */
 @media (min-width: 1024px) {
   .chrome-gradient-header {
@@ -105,8 +109,8 @@
     border-bottom: 1px solid var(--border);
   }
   .chrome-gradient-nav {
-    background: var(--surface);
-    border-right: 1px solid var(--border);
+    background: var(--accent);
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
   }
 }
 

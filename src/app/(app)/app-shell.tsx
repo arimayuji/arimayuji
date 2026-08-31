@@ -304,13 +304,16 @@ function BottomNav({ hidden }: { hidden: boolean }) {
       {/* Brand mark, sidebar-only — the flat desktop rail carries its own
           identity instead of doubling it with the header's, so the header
           (below) hides its copy at this breakpoint via SIDEBAR_OFFSET_CLASS's
-          sibling `lg:hidden`. */}
-      <div className="hidden items-center gap-2.5 border-b border-border px-5 py-5 lg:flex">
-        <svg viewBox="0 0 100 100" className="h-6 w-6 text-accent" aria-hidden="true">
+          sibling `lg:hidden`. White-on-accent, matching the mobile header's
+          own brand mark treatment just below (same paths, same white),
+          since the rail itself is solid accent blue rather than a neutral
+          background. */}
+      <div className="hidden items-center gap-2.5 border-b border-white/15 px-5 py-5 lg:flex">
+        <svg viewBox="0 0 100 100" className="h-6 w-6 text-white" aria-hidden="true">
           <path d={HORSE_BUST_BODY_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
           <path d={HORSE_BUST_LEGS_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
         </svg>
-        <span className="font-mono text-base font-semibold tracking-wide text-foreground">Xanthus</span>
+        <span className="font-mono text-base font-semibold tracking-wide text-white">Xanthus</span>
       </div>
 
       {/* Mobile/native tab bar — the athlete's 5 tabs (or the treinador swap-in
@@ -351,7 +354,10 @@ function BottomNav({ hidden }: { hidden: boolean }) {
           own comment for why this is a genuinely different destination set,
           not the athlete tabs reskinned. Own background-highlight active
           state instead of the mobile underline, which reads oddly on a
-          horizontal row of icon+label rather than a stacked icon-over-label. */}
+          horizontal row of icon+label rather than a stacked icon-over-label.
+          White-on-accent variants (not `bg-accent/10 text-accent`, which
+          reads as invisible on the rail's own accent-blue background) since
+          the rail is solid accent now, not a neutral surface. */}
       <ul className="hidden lg:flex lg:flex-col lg:items-stretch lg:gap-1 lg:px-3 lg:py-4">
         {DESKTOP_TABS.map((tab, index) => {
           const active = index === desktopActiveIndex(pathname);
@@ -361,7 +367,7 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={`flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
-                  active ? "bg-accent/10 font-semibold text-accent" : "text-muted hover:bg-background/60 hover:text-foreground"
+                  active ? "bg-white/15 font-semibold text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <tab.icon className="h-[22px] w-[22px]" />
