@@ -15,6 +15,7 @@
  * other best-effort call in this file, so the app runs the same either way.
  */
 import { ExecutionMethod, ID } from "appwrite";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { CLIENT_ACTIONS_FUNCTION_ID, getAppwrite } from "./appwrite";
 import { isAndroidPlatform, isIOSPlatform, isNativePlatform } from "./platform";
@@ -139,14 +140,64 @@ export async function registerForPushNotifications(): Promise<void> {
  * listener — a push can arrive and be tapped at any point, not just while
  * some particular screen happens to be mounted.
  */
+function navigateToRoute(data: Record<string, unknown> | undefined): void {
+  const route = data?.route;
+  // Full navigation, not router.push() — this fires from outside React's
+  // render tree (a tap on a system notification, possibly a cold app
+  // launch), same reasoning every other native-event listener here
+  // already documents for window.location.assign.
+  if (typeof route === "string") window.location.assign(route);
+}
+
 export function listenForPushNotificationTaps(): void {
   if (!isNativePlatform()) return;
   PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-    const route: unknown = action.notification.data?.route;
-    // Full navigation, not router.push() — this fires from outside React's
-    // render tree (a tap on a system notification, possibly a cold app
-    // launch), same reasoning every other native-event listener here
-    // already documents for window.location.assign.
-    if (typeof route === "string") window.location.assign(route);
+    navigateToRoute(action.notification.data);
+  });
+}
+
+/**
+ * Surfaces a push as a visible system notification while the app is open —
+ * without this, a push that arrives with the app in the foreground is
+ * silently dropped. `pushNotificationReceived` is the well-documented FCM/
+ * APNs foreground gap: the OS shows the banner itself automatically when
+ * the app is backgrounded or closed, but hands the message to the app's own
+ * JS instead when it's already on screen, on the assumption the app will
+ * decide what to do with it. This is exactly what happened chasing the
+ * "friend request never showed up as a notification" report (2026-08-31):
+ * Appwrite/FCM reported clean delivery (`status: sent`, no errors) for that
+ * exact push, but nothing displayed it, because nothing here ever did.
+ *
+ * `pushNotificationReceived` itself only fires in that foreground case (the
+ * backgrounded path never reaches the app's JS at all until the user taps
+ * it, which is `pushNotificationActionPerformed` above) — so there's no
+ * risk of this duplicating the OS's own banner.
+ */
+export function listenForForegroundPushNotifications(): void {
+  if (!isNativePlatform()) return;
+  // Best-effort, same as every other native-permission request in this
+  // file — a denial just means this specific fallback doesn't fire; the
+  // push itself, and the backgrounded-delivery case, are unaffected.
+  void LocalNotifications.requestPermissions().catch(() => {});
+
+  PushNotifications.addListener("pushNotificationReceived", (notification) => {
+    const { title, body, data } = notification;
+    if (!title && !body) return;
+    void LocalNotifications.schedule({
+      notifications: [
+        {
+          // Local notification IDs are a 32-bit int, unlike Appwrite's
+          // string message IDs — truncate rather than reuse one.
+          id: Date.now() % 2147483647,
+          title: title ?? "Xanthus",
+          body: body ?? "",
+          extra: data,
+        },
+      ],
+    }).catch(() => {});
+  });
+
+  LocalNotifications.addListener("localNotificationActionPerformed", (action) => {
+    navigateToRoute(action.notification.extra as Record<string, unknown> | undefined);
   });
 }
