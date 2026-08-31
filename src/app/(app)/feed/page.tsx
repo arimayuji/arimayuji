@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { listFriendConnections } from "@/lib/friendships";
 import { listFriendsFeed, parseFeedRoutePoints, toggleRunKudos, type FriendFeedItem } from "@/lib/friendsFeed";
@@ -81,35 +81,28 @@ function PinIcon({ className }: { className?: string }) {
   );
 }
 
-function ElevationIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
-      <path d="M3 17.5 9 8l4 5.5 2.5-3L21 17.5" />
-      <path d="M15.5 6.5h4v4" />
-    </svg>
-  );
-}
-
 /**
  * The GPS trace as a flattened SVG, same `projectRoute` math /historico and
  * `matched-runs-card.tsx`'s thumbnail already use — real geometry (breaks at
- * tracking gaps, honest to what the route actually looked like), just
- * rendered bigger and full-width as this card's focal visual instead of a
- * 56px corner thumbnail. `points` comes straight from `runs.points` (a
- * downsampled trace, see runsSync.ts), so a friend's card draws the same
- * shape their own device would.
+ * tracking gaps, honest to what the route actually looked like). Rendered
+ * edge-to-edge (negative margins matching the Card's own `p-5`, same trick
+ * historico/page.tsx's empty-state illustration uses) so it reads as this
+ * card's hero visual — the same role a photo plays on Strava's card,
+ * without pretending to be a photo the app never took. `points` comes
+ * straight from `runs.points` (a downsampled trace, see runsSync.ts), so a
+ * friend's card draws the same shape their own device would.
  */
 function RouteBanner({ points }: { points: FriendFeedItem["points"] }) {
   const parsed = parseFeedRoutePoints(points);
   if (parsed.length < 2) return null;
-  const projected = projectRoute(parsed, { viewBoxSize: 100, paddingFraction: 0.1 });
+  const projected = projectRoute(parsed, { viewBoxSize: 100, paddingFraction: 0.12 });
   if (!projected) return null;
 
   return (
     <svg
       viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
       preserveAspectRatio="xMidYMid meet"
-      className="h-36 w-full rounded-xl border border-border bg-background text-accent"
+      className="-mx-5 h-52 w-[calc(100%+2.5rem)] bg-background text-accent"
       role="img"
       aria-label="Traçado da corrida"
     >
@@ -118,6 +111,27 @@ function RouteBanner({ points }: { points: FriendFeedItem["points"] }) {
       ))}
     </svg>
   );
+}
+
+/** One Strava-style "label above, big value below" stat — used in a row so the numbers that matter (distância/ritmo/tempo) read at a glance instead of hiding in a small inline cluster. */
+function StatBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-[11px] font-semibold tracking-wide text-muted uppercase">{label}</p>
+      <p className="truncate font-mono text-lg font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+/** "Hoje às 08:30" / "Ontem às 08:30" / "24 ago às 08:30" — Strava shows both day and time-of-day on its feed cards; the previous version here only showed the date. */
+function formatFeedTimestamp(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const time = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const dayDiff = Math.round((now.setHours(0, 0, 0, 0) - new Date(date).setHours(0, 0, 0, 0)) / 86_400_000);
+  if (dayDiff === 0) return `Hoje às ${time}`;
+  if (dayDiff === 1) return `Ontem às ${time}`;
+  return `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} às ${time}`;
 }
 
 /**
@@ -146,50 +160,44 @@ function FeedItemCard({
   const track = item.tracks[0];
 
   return (
-    <Card className="pr-enter flex flex-col gap-3">
-      <div className="flex items-center gap-3">
+    <Card className="pr-enter flex flex-col gap-4">
+      <div className="flex items-start gap-3">
         <Avatar name={item.displayName} avatarUrl={item.avatarUrl} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{isOwn ? "Você" : item.displayName}</p>
           <p className="truncate text-xs text-muted">
-            {new Date(item.startedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+            {formatFeedTimestamp(item.startedAt)}
             {item.shoeName ? ` · ${item.shoeName}` : ""}
           </p>
+          {item.placeName && (
+            <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted">
+              <PinIcon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{item.placeName}</span>
+            </p>
+          )}
         </div>
       </div>
 
-      {item.caption && <p className="text-sm text-foreground text-pretty">&quot;{item.caption}&quot;</p>}
+      {/* The closest thing this app has to Strava's activity title — the athlete's own free-text line, never generated (see FriendFeedItem.caption's own comment) — styled as a real headline instead of a small quoted aside, so the card has the same anchor a named activity gives Strava's. */}
+      {item.caption && <p className="-mt-1 text-lg font-semibold text-balance">{item.caption}</p>}
 
-      {(item.placeName || (item.elevationGainMeters ?? 0) > 0) && (
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-          {item.placeName && (
-            <span className="flex items-center gap-1">
-              <PinIcon className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{item.placeName}</span>
-            </span>
-          )}
-          {(item.elevationGainMeters ?? 0) > 0 && (
-            <span className="flex items-center gap-1">
-              <ElevationIcon className="h-3.5 w-3.5 shrink-0" />
-              {Math.round(item.elevationGainMeters ?? 0)} m
-            </span>
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+        <StatBlock label="Distância" value={`${formatDistance(item.distanceMeters, unit)} ${unitLabel(unit)}`} />
+        <StatBlock label="Ritmo" value={pace} />
+        <StatBlock label="Tempo" value={formatElapsed(item.movingSeconds)} />
+        {(item.elevationGainMeters ?? 0) > 0 && (
+          <StatBlock label="Ganho de elevação" value={`${Math.round(item.elevationGainMeters ?? 0)} m`} />
+        )}
+      </div>
 
       <RouteBanner points={item.points} />
 
       {item.achievements.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {item.achievements.map((label) => (
-            <span
-              key={label}
-              className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent"
-            >
-              <TrophyIcon className="h-3.5 w-3.5" />
-              Recorde: {label}
-            </span>
-          ))}
+        <div className="flex items-center gap-2 rounded-xl bg-accent/10 px-3.5 py-3 text-accent">
+          <TrophyIcon className="h-5 w-5 shrink-0" />
+          <p className="text-sm font-semibold text-pretty">
+            Novo recorde{item.achievements.length > 1 ? "s" : ""}: {item.achievements.join(", ")}
+          </p>
         </div>
       )}
 
@@ -202,14 +210,7 @@ function FeedItemCard({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
-        <span className="flex items-baseline gap-3 font-mono text-xs tabular-nums text-muted">
-          <span className="text-sm font-semibold text-foreground">
-            {formatDistance(item.distanceMeters, unit)} {unitLabel(unit)}
-          </span>
-          <span>{formatElapsed(item.movingSeconds)}</span>
-          <span>{pace}</span>
-        </span>
+      <div className="flex items-center justify-end border-t border-border pt-3">
         {isOwn ? (
           // Own post: kudos is something friends give you, not something
           // you toggle on yourself — a static count instead of a button
@@ -259,6 +260,16 @@ export default function FeedPage() {
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [feedItems, setFeedItems] = useState<FriendFeedItem[] | null>(null);
   const [kudosBusyId, setKudosBusyId] = useState<string | null>(null);
+  /**
+   * Synchronous guard against a run being toggled twice in the same tap —
+   * `kudosBusyId`'s `disabled` only takes effect on the *next* render, which
+   * is too late for a near-simultaneous second call (a ghost/duplicate
+   * click event from the WebView, or an eager double-tap). Without this, the
+   * exact symptom reported (2026-08-31): the heart flashes filled, then
+   * reverts a moment later — the toggle fired twice (give, then take back)
+   * before the button had actually become `disabled`.
+   */
+  const kudosInFlightRef = useRef<Set<string>>(new Set());
   /** Only used to tell "no friends yet" apart from "friends, but nobody's shared a run" in the empty state below. */
   const [friendCount, setFriendCount] = useState<number | null>(null);
 
@@ -277,8 +288,11 @@ export default function FeedPage() {
   }, [status]);
 
   const handleToggleKudos = async (runRowId: string) => {
+    if (kudosInFlightRef.current.has(runRowId)) return;
+    kudosInFlightRef.current.add(runRowId);
     setKudosBusyId(runRowId);
     const result = await toggleRunKudos(runRowId);
+    kudosInFlightRef.current.delete(runRowId);
     setKudosBusyId(null);
     if (result.ok) {
       setFeedItems((current) =>
