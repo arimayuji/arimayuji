@@ -82,12 +82,7 @@ export function PrBadge({
           {opened && (
             <span
               className="pr-tier-label font-mono text-[10px] font-semibold uppercase tracking-[0.16em]"
-              style={
-                {
-                  "--pr-tier-on-light": paint.glowOnLight,
-                  "--pr-tier-on-dark": paint.glow,
-                } as CSSProperties
-              }
+              style={{ "--pr-tier-on-light": paint.glowOnLight } as CSSProperties}
             >
               {TIER_LABEL[achievement.tier]}
             </span>

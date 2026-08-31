@@ -12,7 +12,6 @@ import {
   CARB_REMINDER_MIN_MINUTES,
   CARB_REMINDER_STEP_MINUTES,
   type DistanceUnit,
-  type ThemeMode,
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import {
@@ -51,12 +50,6 @@ import { ProgressoContent } from "../progresso/progresso-content";
 const UNITS: { value: DistanceUnit; label: string; hint: string }[] = [
   { value: "km", label: "Quilômetros", hint: "km · min/km" },
   { value: "mi", label: "Milhas", hint: "mi · min/mi" },
-];
-
-const THEMES: { id: ThemeMode; label: string }[] = [
-  { id: "light", label: "Claro" },
-  { id: "dark", label: "Escuro" },
-  { id: "system", label: "Sistema" },
 ];
 
 /** Same register as the bottom-nav icons in app-shell.tsx: stroke-only, 1.7 weight, round joins. */
@@ -585,54 +578,19 @@ export default function PerfilPage() {
         </div>
 
         {/*
-          Everything below Conta/Aparência either reads local device state
-          (IndexedDB run history, HealthKit/Health Connect) or configures a
-          native-only screen (`/run`'s voice/vibration/live-stats settings) —
-          none of it produces anything real in a desktop browser tab, where
-          there's no device-local run history and no native APIs to read
-          from. `lg:hidden` on each of those instead of trying to make them
-          "work" there: the coach's desktop surface (see app-shell.tsx's
+          Everything below Conta either reads local device state (IndexedDB
+          run history, HealthKit/Health Connect) or configures a native-only
+          screen (`/run`'s voice/vibration/live-stats settings) — none of it
+          produces anything real in a desktop browser tab, where there's no
+          device-local run history and no native APIs to read from.
+          `lg:hidden` on each of those instead of trying to make them "work"
+          there: the coach's desktop surface (see app-shell.tsx's
           DESKTOP_TABS) is meant to be its own product, not the native app's
-          screens stretched wider — see PROJECT-CONTEXT.md. Conta and
-          Aparência survive because they're plain account/device
-          preferences that mean the same thing on any surface.
+          screens stretched wider — see PROJECT-CONTEXT.md. Conta survives
+          because it's a plain account preference that means the same thing
+          on any surface. (Aparência/Tema was removed outright — Xanthus is
+          light-mode only now, see PROJECT-CONTEXT.md.)
         */}
-        <SectionLabel delayMs={20}>Aparência</SectionLabel>
-        <Card className="pr-enter lg:rounded-lg lg:p-4" style={delay(30)}>
-          <CardTitle>Tema</CardTitle>
-          <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-            &quot;Sistema&quot; segue o tema do aparelho e muda sozinho se você trocar por lá.
-          </p>
-          {/* Mobile keeps the touch-sized pill track every other screen uses
-              (PillTabs, shared) — at `lg:` this swaps for a tighter row of
-              square-cornered buttons instead, same reasoning as AccountCard's
-              own `lg:` overrides just above: a settings control, not a
-              touch target. Not done by restyling `PillTabs` itself, since
-              that component is reused by several mobile-only screens
-              (/treinador, /amigos, /longao…) that should keep their current
-              look untouched. */}
-          <div className="lg:hidden">
-            <PillTabs tabs={THEMES} active={prefs.theme} onChange={(theme) => update({ theme })} />
-          </div>
-          <div className="hidden gap-1.5 lg:flex">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                aria-pressed={prefs.theme === t.id}
-                onClick={() => update({ theme: t.id })}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  prefs.theme === t.id
-                    ? "bg-accent text-accent-foreground"
-                    : "border border-border text-muted hover:border-accent hover:text-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </Card>
-
         <div className="lg:hidden">
           <PillTabs tabs={PERFIL_TABS} active={activeTab} onChange={setActiveTab} />
         </div>

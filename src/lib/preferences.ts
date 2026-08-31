@@ -16,9 +16,6 @@
 
 export type DistanceUnit = "km" | "mi";
 
-/** "system" follows the OS/browser scheme live; "light"/"dark" pin it regardless of what the OS is set to. */
-export type ThemeMode = "light" | "dark" | "system";
-
 /**
  * Which "home" the app opens into for someone who is both an athlete and a
  * coach of other people — a real minority (most accounts only ever run),
@@ -60,7 +57,6 @@ export interface Preferences {
   /** Extra live stat tiles on /run — the run-so-far average pace and the pace of the km currently in progress. Both on by default; each is one more tile competing for space on a screen a sweaty thumb glances at mid-stride, so /perfil lets either be turned off. */
   showAveragePaceLive: boolean;
   showCurrentKmPaceLive: boolean;
-  theme: ThemeMode;
   /**
    * Native haptic tap when a "meta de ritmo" run falls too far behind
    * schedule — see `PACE_DELAY_VIBRATION_THRESHOLD_SECONDS` in
@@ -153,7 +149,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   distanceUnit: "km",
   showAveragePaceLive: true,
   showCurrentKmPaceLive: true,
-  theme: "system",
   vibrateOnPaceDelay: false,
   healthDataConsent: false,
   appMode: "atleta",
@@ -225,11 +220,6 @@ function sanitize(raw: unknown): Preferences {
       ? value.showCurrentKmPaceLive
       : DEFAULT_PREFERENCES.showCurrentKmPaceLive;
 
-  const theme: ThemeMode =
-    value.theme === "light" || value.theme === "dark" || value.theme === "system"
-      ? value.theme
-      : DEFAULT_PREFERENCES.theme;
-
   const vibrateOnPaceDelay =
     typeof value.vibrateOnPaceDelay === "boolean"
       ? value.vibrateOnPaceDelay
@@ -282,7 +272,6 @@ function sanitize(raw: unknown): Preferences {
     distanceUnit,
     showAveragePaceLive,
     showCurrentKmPaceLive,
-    theme,
     vibrateOnPaceDelay,
     healthDataConsent,
     appMode,
