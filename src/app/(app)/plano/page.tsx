@@ -760,6 +760,9 @@ function GoalCard({
   );
 }
 
+/** See `planRevealed`'s own comment — once this device has seen the "montando seu plano" build animation, it never plays again. */
+const PLAN_BUILD_SEQUENCE_SEEN_KEY = "xanthus:plan-build-sequence-seen";
+
 export default function PlanoPage() {
   const { account, profile: authProfile } = useAuth();
   const [profile, setRunnerProfile] = useRunnerProfile();
@@ -782,10 +785,24 @@ export default function PlanoPage() {
   const [coachOverrides, setCoachOverrides] = useState<Map<string, ParsedPlanOverride>>(new Map());
   const [recoverySnapshots, setRecoverySnapshots] = useState<RecoverySnapshot[]>([]);
   const [selfOverride, setSelfOverrideState] = useState<SelfPlanOverride | null>(null);
-  const [planRevealed, setPlanRevealed] = useState(false);
+  /**
+   * Persisted, not just component state — this used to reset to `false`
+   * on every mount, so navigating away from /plano and back replayed the
+   * whole "montando seu plano" build animation every single time instead
+   * of the one-time reveal it's meant to be. `localStorage` (not
+   * `sessionStorage`, unlike Splash) because the intent here is "this
+   * device has seen its plan built before", permanent, not "once per app
+   * launch".
+   */
+  const [planRevealed, setPlanRevealed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem(PLAN_BUILD_SEQUENCE_SEEN_KEY) === "1",
+  );
   const [showExample, setShowExample] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  const handleBuildSequenceDone = useCallback(() => setPlanRevealed(true), []);
+  const handleBuildSequenceDone = useCallback(() => {
+    if (typeof window !== "undefined") localStorage.setItem(PLAN_BUILD_SEQUENCE_SEEN_KEY, "1");
+    setPlanRevealed(true);
+  }, []);
 
   useEffect(() => {
     listCompletedRuns().then(setCompletedRuns);
