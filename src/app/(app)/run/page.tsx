@@ -569,7 +569,14 @@ const GOAL_TYPE_LABELS: Record<GoalType, string> = {
   ritmo: "Ritmo",
   livre: "Livre",
   prova: "Prova",
-  intervalo: "Intervalado",
+  // Abbreviated ("Interv.", not "Intervalado") only in this record — used
+  // exclusively by the tab bar below (grep-checked), never in a summary or
+  // history context where the full word would read better. 6 tabs across
+  // a phone width already felt cramped with the full word (reported
+  // 2026-08-31 looking at the real tab row), and shortening the widest
+  // label is what the row's own layout note flagged as the fallback,
+  // rather than redesigning GoalTypeTabs itself.
+  intervalo: "Interv.",
 };
 
 /**
