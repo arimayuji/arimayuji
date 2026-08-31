@@ -336,7 +336,7 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                   active ? "font-bold text-white" : "font-medium text-white/85"
                 }`}
               >
-                <tab.icon className="h-[22px] w-[22px]" />
+                <tab.icon className="h-[26px] w-[26px]" />
                 {tab.label}
                 {/* Selection indicator: a thin underline, not a pill behind the icon — tested, a background pill there read as visually busy. Width transitions in/out instead of a hard cut. */}
                 <span
