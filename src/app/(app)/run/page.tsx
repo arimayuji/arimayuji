@@ -2853,20 +2853,20 @@ export default function RunPage() {
 
               {/*
                * Template picker — pick which category gets the giant number
-               * below. A single horizontal scroll row, not a wrapped grid,
-               * so it costs the screen one compact line no matter how many
-               * categories are available (5 always, up to 4 more only when
-               * this run actually has that data) — everything else about
-               * the run stays reachable here instead of sitting fixed on
-               * screen regardless of the pick.
+               * below. All categories visible at once (wrapping, never a
+               * scroll row that hides some off-screen) so every one is a
+               * single tap away, not a tap-then-scroll-to-find — 5 always
+               * available, up to 4 more only when this run actually has
+               * that data. Everything else about the run stays reachable
+               * here instead of sitting fixed on screen regardless of pick.
                */}
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5 no-scrollbar">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {pickerMetrics.map((m) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => setMetricTemplate(m.id)}
-                    className={`flex shrink-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-bold whitespace-nowrap transition-colors ${
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-bold whitespace-nowrap transition-colors ${
                       m.id === featured.id
                         ? "border-accent bg-accent/15 text-accent"
                         : "border-border bg-surface text-foreground"
