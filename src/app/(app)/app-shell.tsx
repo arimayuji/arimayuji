@@ -357,18 +357,17 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                     edge (`-mt-6`) instead of sitting flush like the other
                     four — the one primary action of the app (or, in
                     treinador mode, its equivalent) gets more visual weight
-                    than a same-size tab icon would. Solid accent-on-white
-                    (inverted from the other tabs' white-on-accent-text) so
-                    it reads as the one filled, "call to action" element
-                    against the bar's own white background, with a
-                    colored (not plain black) shadow to lift it further.  */}
+                    than a same-size tab icon would. Glossy accent orb
+                    (chrome-gradient-fab, globals.css) rather than a flat
+                    opaque fill, with a colored (not plain black) shadow to
+                    lift it further off the bar's white background. */}
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
                   onClick={onClick}
                   className="-mt-6 flex flex-col items-center gap-1 text-[11px] font-bold text-accent"
                 >
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_20px_-6px_rgba(47,111,237,0.6)]">
+                  <span className="chrome-gradient-fab flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_10px_20px_-6px_rgba(47,111,237,0.6)]">
                     <tab.icon className="h-7 w-7" />
                   </span>
                   {tab.label}

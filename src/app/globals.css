@@ -79,6 +79,18 @@
 }
 
 /*
+ * The bottom nav's central "Corrida" FAB — a glossy orb instead of a flat
+ * opaque disc, per feedback. Radial, not linear: the highlight sits
+ * off-center toward the upper-left so it reads as a lit sphere rather
+ * than a flat gradient band across a circle. Same accent hue as
+ * --accent, lightened toward white for the highlight and darkened
+ * toward black for the rim.
+ */
+.chrome-gradient-fab {
+  background: radial-gradient(circle at 32% 26%, #a9c4fb 0%, var(--accent) 55%, #1f4a9c 100%);
+}
+
+/*
  * At `lg:`, app-shell.tsx turns the bottom nav into a persistent left
  * sidebar (a desktop dashboard's own nav rail) — flat accent instead of
  * the mobile bar's white, with app-shell.tsx's own brand mark/nav-item
