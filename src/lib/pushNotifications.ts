@@ -22,6 +22,23 @@ import { isAndroidPlatform, isIOSPlatform, isNativePlatform } from "./platform";
 /** Must match the provider IDs created in Appwrite Console → Messaging → Providers — see this file's own comment. */
 const PROVIDER_ID = { android: "fcm", ios: "apns" } as const;
 
+/**
+ * Persisted (not just in-memory) so re-registering after a cold start
+ * updates the *same* Appwrite push target instead of minting a new one
+ * with a fresh `ID.unique()` every time — FCM tokens rotate periodically,
+ * so without this, every device accumulates one stale/expired target per
+ * rotation, none of which Appwrite ever removes on its own. A push aimed
+ * at `users: [userId]` tries every target on file, so a single expired one
+ * sitting alongside the current, valid one is enough to flip the whole
+ * message's status to "failed" in the Console even when the live device
+ * actually received it — this is real production behavior found by
+ * inspecting Appwrite's own message/target history (2026-08-31), not a
+ * guess: one account had 2-3 different fcm targets over 5 days, and every
+ * push sent to it after the first rotation reported "failed" alongside a
+ * `deliveredTotal` that proved at least one target *did* get it.
+ */
+const TARGET_ID_STORAGE_KEY = "xanthus:push-target-id";
+
 let registered = false;
 
 /**
@@ -63,8 +80,25 @@ export async function registerForPushNotifications(): Promise<void> {
     await PushNotifications.register();
     const token = await tokenPromise;
 
-    const targetId = ID.unique();
-    await appwrite.account.createPushTarget({ targetId, identifier: token, providerId });
+    // Reuse the target from a previous registration on this device instead
+    // of always minting a new one (see TARGET_ID_STORAGE_KEY's comment) —
+    // falls back to creating fresh if there's no stored id yet, or if the
+    // stored one was deleted server-side (account switch, admin cleanup,
+    // Appwrite itself pruning a long-expired target).
+    const storedTargetId = localStorage.getItem(TARGET_ID_STORAGE_KEY);
+    let targetId = storedTargetId;
+    if (storedTargetId) {
+      try {
+        await appwrite.account.updatePushTarget({ targetId: storedTargetId, identifier: token });
+      } catch {
+        targetId = null;
+      }
+    }
+    if (!targetId) {
+      targetId = ID.unique();
+      await appwrite.account.createPushTarget({ targetId, identifier: token, providerId });
+      localStorage.setItem(TARGET_ID_STORAGE_KEY, targetId);
+    }
 
     // Best-effort on top of a best-effort call: subscribes this same target
     // to the "nova versão" broadcast for its platform (see client-actions'
