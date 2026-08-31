@@ -648,6 +648,14 @@ async function main() {
   await ensure("runner_profile_sync.updatedAtMs", () =>
     tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "updatedAtMs", required: true, min: 0 }),
   );
+  // Written by client-actions' checkRetentionPushes (the weekly schedule
+  // trigger) right after it sends a "you've been gone a while" push to
+  // this account — a cooldown so a lapsed runner gets nudged at most once
+  // per run of the job, not re-notified every time the cron fires before
+  // they come back.
+  await ensure("runner_profile_sync.lastRetentionPushAt", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "lastRetentionPushAt", required: false, min: 0 }),
+  );
 
   // ------------------------------------------------------------- run_summaries
   console.log("\nrun_summaries");

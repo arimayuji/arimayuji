@@ -105,6 +105,20 @@ export async function respondToCoachRequest(relationshipId: string, accept: bool
       rowId: relationshipId,
       data: { status: "accepted", respondedAt: new Date().toISOString() },
     });
+    // Fire-and-forget, same convention as milestoneNotifications.ts — the
+    // row update above already succeeded and is what matters; a missed
+    // push just means the proposer finds out next time they open /perfil
+    // instead of right away. Needs client-actions (see its own
+    // notify-coach-request-accepted) since Messaging is server-only —
+    // this update itself doesn't, the accepter already holds `update` on
+    // the row from when it was created.
+    void appwrite.functions
+      .createExecution({
+        functionId: CLIENT_ACTIONS_FUNCTION_ID,
+        method: ExecutionMethod.POST,
+        body: JSON.stringify({ action: "notify-coach-request-accepted", relationshipId }),
+      })
+      .catch(() => {});
     return true;
   } catch {
     return false;

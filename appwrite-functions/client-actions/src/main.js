@@ -348,6 +348,14 @@ async function listAcceptedFriendIds(tablesDB, userId) {
   return ids;
 }
 
+/** Same fallback-to-"Alguém" pattern every push-copy call site here needs when naming who did something — a profile row missing (handle never finished) or a lookup failure both degrade to that instead of failing the push entirely. */
+async function resolveDisplayName(tablesDB, userId) {
+  return tablesDB
+    .getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: userId })
+    .then((row) => row.displayName || `@${row.handle}`)
+    .catch(() => "Alguém");
+}
+
 async function resolveLiveViewers(tablesDB, athleteId, viewerIds, sessionCode) {
   const requested = [...new Set(viewerIds.filter((id) => typeof id === "string" && id && id !== athleteId))];
   if (requested.length === 0) return [];
@@ -565,6 +573,13 @@ async function refreshPresence({ userId, body, client, res, error }) {
 
 const VALID_COACH_CUES = new Set(["reduce-pace", "increase-pace", "stop"]);
 
+/** Push copy for each cue — the exact same fixed phrase voiceBank.ts's COACH_CUE_CLIPS already announces by voice, so a push landing on a locked screen says the same thing the athlete would have heard live. */
+const COACH_CUE_PUSH_BODY = {
+  "reduce-pace": "Seu treinador está pedindo pra você reduzir o ritmo.",
+  "increase-pace": "Seu treinador quer que você acelere.",
+  stop: "Seu treinador está pedindo pra você parar.",
+};
+
 /**
  * action: "send-coach-cue" — the pre-recorded voice-message half of "coach
  * ao vivo". A coach only ever holds `read` on a student's live_runs row
@@ -609,6 +624,23 @@ async function sendCoachCue({ userId: coachId, body, client, res, error }) {
       rowId: liveRow.$id,
       data: { pendingCueId: cueId, pendingCueAtMs: Date.now() },
     });
+
+    // Best-effort, alongside the realtime `pendingCueId` above (which only
+    // reaches the student while the running screen is actually open and
+    // polling) — a push covers the screen-locked/backgrounded case the
+    // realtime path can't, so the cue still lands even if it isn't heard.
+    try {
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "Aviso do treinador",
+        body: COACH_CUE_PUSH_BODY[cueId],
+        users: [studentId],
+      });
+    } catch (err) {
+      error(`send-coach-cue: push best-effort falhou pra ${studentId}: ${err.message}`);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     error(`send-coach-cue: falha (${coachId} -> ${studentId}): ${err.message}`);
@@ -739,26 +771,54 @@ async function shareRun({ userId, body, client, res, error }) {
   ];
   const coachPermissions = coachIds.map((coachId) => Permission.read(Role.user(coachId)));
 
+  // Only coaches newly granted `read` on this row get pushed below — a
+  // coach already reading it (re-sharing/editing caption, etc.) already
+  // knows, and every field here is real Appwrite $permissions syntax
+  // (`read("user:<id>")`), not a guess at the format.
+  const existingCoachReadIds = new Set(
+    (existingRow?.$permissions ?? [])
+      .map((p) => /^read\("user:([^"]+)"\)$/.exec(p)?.[1])
+      .filter((id) => typeof id === "string"),
+  );
+  const newCoachIds = coachIds.filter((id) => !existingCoachReadIds.has(id));
+
   try {
+    let row;
     if (existingRow) {
       const permissions = [...new Set([...existingRow.$permissions, ...ownerPermissions, ...coachPermissions])];
-      const row = await tablesDB.updateRow({
+      row = await tablesDB.updateRow({
         databaseId: DATABASE_ID,
         tableId: "runs",
         rowId: existingRow.$id,
         data,
         permissions,
       });
-      return res.json({ ok: true, row });
+    } else {
+      row = await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: "runs",
+        rowId: ID.unique(),
+        data,
+        permissions: [...ownerPermissions, ...coachPermissions],
+      });
     }
 
-    const row = await tablesDB.createRow({
-      databaseId: DATABASE_ID,
-      tableId: "runs",
-      rowId: ID.unique(),
-      data,
-      permissions: [...ownerPermissions, ...coachPermissions],
-    });
+    if (newCoachIds.length > 0) {
+      try {
+        const athleteName = await resolveDisplayName(tablesDB, userId);
+        const km = (distanceMeters / 1000).toFixed(1).replace(".", ",");
+        const messaging = new Messaging(client);
+        await messaging.createPush({
+          messageId: ID.unique(),
+          title: "Nova corrida compartilhada",
+          body: `${athleteName} compartilhou uma corrida de ${km} km com você.`,
+          users: newCoachIds,
+        });
+      } catch (err) {
+        error(`share-run: push best-effort falhou pra ${newCoachIds.join(",")}: ${err.message}`);
+      }
+    }
+
     return res.json({ ok: true, row });
   } catch (err) {
     error(`share-run: falha compartilhando corrida de ${userId}: ${err.message}`);
@@ -956,6 +1016,23 @@ async function toggleRunKudos({ userId, body, client, res, error }) {
       error(`toggle-run-kudos: falha criando kudos ${kudosRowId}: ${createErr.message}`);
       return res.json({ error: "failed" }, 500);
     }
+
+    // Best-effort, giving-kudos direction only — removing one stays quiet,
+    // same as Strava's own kudos never notifying an un-kudos. `run.userId`
+    // already holds `read` on this exact kudos row (granted above), so this
+    // can't be used to push anyone the row itself doesn't already concern.
+    try {
+      const giverName = await resolveDisplayName(tablesDB, userId);
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "Kudos!",
+        body: `${giverName} deu kudos na sua corrida.`,
+        users: [run.userId],
+      });
+    } catch (err) {
+      error(`toggle-run-kudos: push best-effort falhou pra ${run.userId}: ${err.message}`);
+    }
   }
 
   try {
@@ -1055,10 +1132,7 @@ async function joinGroupRun({ userId, body, client, res, error }) {
   // for a redundant re-join (409 above).
   if (joined && groupRun.hostId !== userId) {
     try {
-      const joinerName = await tablesDB
-        .getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: userId })
-        .then((row) => row.displayName || `@${row.handle}`)
-        .catch(() => "Alguém");
+      const joinerName = await resolveDisplayName(tablesDB, userId);
       const messaging = new Messaging(client);
       await messaging.createPush({
         messageId: ID.unique(),
@@ -1183,10 +1257,7 @@ async function pairRunSession({ userId, body, client, res, error }) {
   // guard needed here.
   if (joined) {
     try {
-      const joinerName = await tablesDB
-        .getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: userId })
-        .then((row) => row.displayName || `@${row.handle}`)
-        .catch(() => "Alguém");
+      const joinerName = await resolveDisplayName(tablesDB, userId);
       const messaging = new Messaging(client);
       await messaging.createPush({
         messageId: ID.unique(),
@@ -1628,10 +1699,7 @@ async function sendFriendRequest({ userId: requesterId, body, client, res, error
     // never the requester, so this can't be used to push anyone but the
     // person the friendship row itself already grants read to.
     try {
-      const requesterName = await tablesDB
-        .getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: requesterId })
-        .then((row) => row.displayName || `@${row.handle}`)
-        .catch(() => "Alguém");
+      const requesterName = await resolveDisplayName(tablesDB, requesterId);
       const messaging = new Messaging(client);
       await messaging.createPush({
         messageId: ID.unique(),
@@ -1705,12 +1773,86 @@ async function proposeCoachRelationship({ userId: myId, body, client, res, error
         Permission.delete(Role.user(studentId)),
       ],
     });
+
+    // Best-effort, same reasoning as send-friend-request's own push —
+    // `users: [otherId]`, never the proposer, so this can't be used to
+    // push anyone but the person the relationship row itself already
+    // grants read to. Phrasing depends on which side is asking: asRole
+    // "coach" means myId proposed themselves as the coach (otherId is
+    // being asked to be the student), "student" is the reverse.
+    try {
+      const proposerName = await resolveDisplayName(tablesDB, myId);
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "Novo pedido de treinador",
+        body:
+          asRole === "student"
+            ? `${proposerName} quer que você seja treinador dele(a) no Xanthus.`
+            : `${proposerName} quer ser seu treinador no Xanthus.`,
+        users: [otherId],
+      });
+    } catch (err) {
+      error(`propose-coach-relationship: push best-effort falhou pra ${otherId}: ${err.message}`);
+    }
+
     return res.json({ ok: true, row: relationship });
   } catch (err) {
     if (err.code === 409) return res.json({ error: "duplicate" }, 409);
     error(`propose-coach-relationship: falha criando vínculo ${coachId}/${studentId}: ${err.message}`);
     return res.json({ error: "failed" }, 500);
   }
+}
+
+/**
+ * action: "notify-coach-request-accepted" — best-effort push telling the
+ * original proposer that the other side just accepted. Fired by the
+ * client (coachRelationships.ts's respondToCoachRequest) right after its
+ * own direct `updateRow` succeeds — that update itself doesn't need this
+ * Function (the accepter already holds `update` on the row from creation
+ * time), but sending a push does, since Messaging is a server-only
+ * service. Re-reads the row itself rather than trusting whatever the
+ * client claims, and only pushes if it's genuinely accepted and the
+ * caller is genuinely the side that isn't `proposedBy` — otherwise a
+ * client could fire this at will to spam the other side's push, or to
+ * notify someone before they actually accepted.
+ */
+async function notifyCoachRequestAccepted({ userId, body, client, res, error }) {
+  const relationshipId = String(body.relationshipId ?? "").trim();
+  if (!relationshipId) return res.json({ error: "missing-relationship-id" }, 400);
+
+  const tablesDB = new TablesDB(client);
+  let relationship;
+  try {
+    relationship = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "coach_relationships", rowId: relationshipId });
+  } catch (err) {
+    if (err.code === 404) return res.json({ error: "not-found" }, 404);
+    error(`notify-coach-request-accepted: falha lendo ${relationshipId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  if (relationship.status !== "accepted") return res.json({ error: "not-accepted" }, 400);
+  if (relationship.proposedBy === userId || (userId !== relationship.coachId && userId !== relationship.studentId)) {
+    return res.json({ error: "not-accepter" }, 403);
+  }
+
+  try {
+    const accepterName = await resolveDisplayName(tablesDB, userId);
+    const messaging = new Messaging(client);
+    await messaging.createPush({
+      messageId: ID.unique(),
+      title: "Pedido de treinador aceito",
+      body:
+        userId === relationship.studentId
+          ? `${accepterName} aceitou ser seu aluno(a) no Xanthus.`
+          : `${accepterName} aceitou ser seu treinador(a) no Xanthus.`,
+      users: [relationship.proposedBy],
+    });
+  } catch (err) {
+    error(`notify-coach-request-accepted: push best-effort falhou pra ${relationship.proposedBy}: ${err.message}`);
+  }
+
+  return res.json({ ok: true });
 }
 
 /** action: "set-plan-override" — a coach's explicit override of one week of a student's plan. Originally appwrite-functions/set-plan-override. */
@@ -2538,6 +2680,124 @@ async function syncCityRaces({ client, log, error }) {
   return { ok: true, count: races.length };
 }
 
+/** Push copy for a lapsed runner, bucketed by how long it's been since their last synced run — see checkRetentionPushes below. Deliberately never guilt-trips ("you're falling behind") — same brand voice already established for MILESTONE_MESSAGES above: honest, warm, never fake positivity, never a nag. Multiple variants each, same reasoning as MILESTONE_MESSAGES's own comment on why (reads as noticing, not a bot). */
+const RETENTION_MESSAGES = {
+  "poucos-dias": [
+    { title: "Sentimos sua falta", body: "Já faz uns dias desde sua última corrida. Bora dar uma volta hoje?" },
+    { title: "Suas pernas estão descansando bem", body: "Alguns dias parado — topa uma corrida leve?" },
+  ],
+  "uma-semana": [
+    { title: "Faz uma semana", body: "Sua última corrida foi há uma semana. Sem pressão — o Xanthus tá aqui quando você quiser voltar." },
+    { title: "Uma semana sem correr", body: "Não é sobre manter o ritmo o tempo todo. É sobre voltar quando der." },
+  ],
+  "duas-semanas": [
+    { title: "Faz um tempo", body: "Já faz duas semanas desde sua última corrida registrada. Uma corrida curta hoje já ajuda a retomar." },
+    { title: "Duas semanas parado", body: "Se ainda estiver naquilo, a gente tá aqui quando quiser voltar." },
+  ],
+};
+
+/** Which RETENTION_MESSAGES bucket a gap falls in, or null outside the window this job pushes for at all — under 3 days is just a normal rest day, 30+ is treated as probably churned (see checkRetentionPushes's own comment on why that's a hard stop, not a bigger nudge). */
+function retentionBucket(daysSinceLastRun) {
+  if (daysSinceLastRun >= 3 && daysSinceLastRun < 7) return "poucos-dias";
+  if (daysSinceLastRun >= 7 && daysSinceLastRun < 14) return "uma-semana";
+  if (daysSinceLastRun >= 14 && daysSinceLastRun < 30) return "duas-semanas";
+  return null;
+}
+
+/**
+ * Runs on the same weekly schedule trigger as syncCityRaces above (see
+ * clientActions' own `x-appwrite-trigger === "schedule"` branch) — checks
+ * every account that has ever opted into cross-device sync
+ * (runner_profile_sync only has a row for those, see runnerProfileSync.ts)
+ * for how long it's been since their most recent synced run, and sends a
+ * best-effort "come back" push if they've gone quiet for 3-29 days. 30+
+ * days is treated as probably churned — nagging someone who's been gone a
+ * month straight is the guilt-trip this app's own brand voice explicitly
+ * rejects (see RETENTION_MESSAGES), not a re-engagement nudge, so this
+ * stops rather than escalating.
+ *
+ * Only reaches accounts that opted into sync in the first place — this
+ * app's local-first design means a run's data never leaves the device
+ * unless the athlete turned that on, so a retention push here is
+ * structurally impossible for anyone who hasn't. Re-checks
+ * profiles.runSyncOptIn (not just "a runner_profile_sync row exists") so
+ * someone who later turned sync back off stops being reachable this way,
+ * even though their old row is still sitting there. Capped at one page
+ * (100 accounts) — same ceiling every other list in this Function uses,
+ * more than this project's real account count today; revisit if that
+ * ever changes.
+ */
+async function checkRetentionPushes({ client, log, error }) {
+  const tablesDB = new TablesDB(client);
+  const nowMs = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  // A cron that somehow fires more than once inside this window shouldn't
+  // re-push the same lapsed runner twice in a row.
+  const COOLDOWN_MS = 6 * DAY_MS;
+
+  let rows;
+  try {
+    rows = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "runner_profile_sync",
+      queries: [Query.limit(100)],
+    });
+  } catch (err) {
+    error(`check-retention-pushes: falha listando runner_profile_sync: ${err.message}`);
+    return { ok: false };
+  }
+
+  const messaging = new Messaging(client);
+  let sent = 0;
+  for (const row of rows.rows) {
+    const userId = row.userId;
+    if (row.lastRetentionPushAt && nowMs - row.lastRetentionPushAt < COOLDOWN_MS) continue;
+
+    try {
+      const profile = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: userId });
+      if (!profile.runSyncOptIn) continue;
+    } catch {
+      continue; // no profile row (deleted account) — nothing to push
+    }
+
+    let lastRun;
+    try {
+      const recent = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: "run_summaries",
+        queries: [Query.equal("userId", userId), Query.orderDesc("startedAtMs"), Query.limit(1)],
+      });
+      lastRun = recent.rows[0];
+    } catch (err) {
+      error(`check-retention-pushes: falha lendo run_summaries de ${userId}: ${err.message}`);
+      continue;
+    }
+    if (!lastRun) continue; // never synced a run at all — not a lapse, just no data yet
+
+    const bucket = retentionBucket((nowMs - lastRun.startedAtMs) / DAY_MS);
+    if (!bucket) continue;
+
+    const variants = RETENTION_MESSAGES[bucket];
+    const variant = variants[Math.floor(Math.random() * variants.length)];
+
+    try {
+      await messaging.createPush({ messageId: ID.unique(), title: variant.title, body: variant.body, users: [userId] });
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: "runner_profile_sync",
+        rowId: row.$id,
+        data: { lastRetentionPushAt: nowMs },
+      });
+      sent++;
+    } catch (err) {
+      error(`check-retention-pushes: push best-effort falhou pra ${userId}: ${err.message}`);
+    }
+  }
+
+  log?.(`check-retention-pushes: done — ${sent} push(es) enviado(s).`);
+  return { ok: true, sent };
+}
+
 const ACTIONS = {
   "delete-account": deleteAccount,
   "send-welcome-email": sendWelcomeEmail,
@@ -2557,6 +2817,7 @@ const ACTIONS = {
   "sync-recovery-snapshot": syncRecoverySnapshot,
   "send-friend-request": sendFriendRequest,
   "propose-coach-relationship": proposeCoachRelationship,
+  "notify-coach-request-accepted": notifyCoachRequestAccepted,
   "set-plan-override": setPlanOverride,
   "suggest-plan-override": suggestPlanOverride,
   "suggest-plan-for-self": suggestPlanForSelf,
@@ -2607,8 +2868,16 @@ async function clientActions({ req, res, log, error }) {
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
       .setKey(req.headers["x-appwrite-key"] ?? "");
-    const result = await syncCityRaces({ client, log, error });
-    return res.json(result);
+    // Two unrelated jobs riding the same weekly cron (see checkRetentionPushes'
+    // own comment on why) — one failing shouldn't skip the other.
+    const [racesResult, retentionResult] = await Promise.allSettled([
+      syncCityRaces({ client, log, error }),
+      checkRetentionPushes({ client, log, error }),
+    ]);
+    return res.json({
+      races: racesResult.status === "fulfilled" ? racesResult.value : { ok: false },
+      retention: retentionResult.status === "fulfilled" ? retentionResult.value : { ok: false },
+    });
   }
 
   let body;
