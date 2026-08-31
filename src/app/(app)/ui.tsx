@@ -86,7 +86,7 @@ export function ToggleChip({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`flex-1 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+      className={`flex-1 rounded-full border px-3 py-2 text-xs font-semibold transition-colors active:scale-95 ${
         checked ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
       }`}
     >
@@ -110,7 +110,7 @@ export function SegmentedButton({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`min-h-12 min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${
+      className={`min-h-12 min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm font-medium transition-colors active:scale-95 ${
         selected
           ? "border-accent bg-accent text-accent-foreground"
           : "border-border bg-background text-foreground hover:border-accent"
@@ -147,7 +147,7 @@ export function PillTabs<T extends string>({
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`h-9 flex-1 rounded-full text-xs font-bold transition-colors ${
+          className={`h-9 flex-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
             active === tab.id ? "bg-accent text-accent-foreground" : "text-muted"
           }`}
         >

@@ -645,7 +645,7 @@ function GoalTypeTabs({ value, onChange }: { value: GoalType; onChange: (id: Goa
             type="button"
             onClick={() => onChange(id)}
             aria-pressed={active}
-            className={`flex flex-1 flex-col items-center gap-1.5 pb-2 text-[13px] transition-colors ${
+            className={`flex flex-1 flex-col items-center gap-1.5 pb-2 text-[13px] transition-colors active:scale-95 ${
               active ? "font-semibold text-accent" : "font-medium text-muted hover:text-foreground"
             }`}
           >
@@ -831,7 +831,7 @@ function PresetChipRow({
           type="button"
           onClick={() => onSelect(preset.value)}
           aria-pressed={value === preset.value}
-          className={`min-h-11 rounded-xl border-2 px-2 py-2.5 text-sm font-semibold transition-colors ${
+          className={`min-h-11 rounded-xl border-2 px-2 py-2.5 text-sm font-semibold transition-colors active:scale-95 ${
             value === preset.value
               ? "border-white/80 bg-accent text-accent-foreground"
               : "border-border bg-background text-foreground hover:border-accent"
@@ -845,7 +845,7 @@ function PresetChipRow({
         onClick={onOpenCustom}
         aria-pressed={customLabel !== null}
         aria-label={customLabel ?? "Valor personalizado"}
-        className={`flex min-h-11 items-center justify-center rounded-xl border-2 px-2 py-2.5 text-sm font-semibold transition-colors ${
+        className={`flex min-h-11 items-center justify-center rounded-xl border-2 px-2 py-2.5 text-sm font-semibold transition-colors active:scale-95 ${
           customLabel !== null
             ? "border-white/80 bg-accent text-accent-foreground"
             : "border-dashed border-border bg-background text-muted hover:border-accent"
@@ -903,7 +903,7 @@ function CustomValueSheet({
               type="button"
               onClick={() => setDraft((d) => Math.max(min, d - step))}
               aria-label="Diminuir"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xl font-bold hover:border-accent"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xl font-bold transition-colors active:scale-90 active:border-accent active:bg-accent/10"
             >
               –
             </button>
@@ -914,7 +914,7 @@ function CustomValueSheet({
               type="button"
               onClick={() => setDraft((d) => Math.min(max, d + step))}
               aria-label="Aumentar"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xl font-bold hover:border-accent"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xl font-bold transition-colors active:scale-90 active:border-accent active:bg-accent/10"
             >
               +
             </button>
@@ -922,7 +922,7 @@ function CustomValueSheet({
           <button
             type="button"
             onClick={() => onConfirm(draft)}
-            className="min-h-12 w-full rounded-full bg-accent px-4 py-3 text-sm font-bold text-accent-foreground"
+            className="min-h-12 w-full rounded-full bg-accent px-4 py-3 text-sm font-bold text-accent-foreground active:scale-[0.98]"
           >
             Confirmar
           </button>
@@ -3226,7 +3226,7 @@ export default function RunPage() {
                             key={reason.label}
                             type="button"
                             onClick={() => setPauseReason(reason.label)}
-                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors active:scale-95 ${
                               currentPause?.reason === reason.label
                                 ? "border-accent bg-accent text-accent-foreground"
                                 : "border-border bg-background text-foreground hover:border-accent"
@@ -3247,7 +3247,7 @@ export default function RunPage() {
                   onClick={markLap}
                   disabled={state.status !== "tracking"}
                   aria-label="Marcar volta"
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border bg-surface disabled:opacity-40"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border bg-surface transition-transform active:scale-90 disabled:opacity-40 disabled:active:scale-100"
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 3v18M5 5h13l-3 4 3 4H5" />
@@ -3257,7 +3257,7 @@ export default function RunPage() {
                   <button
                     type="button"
                     onClick={pause}
-                    className="flex-1 rounded-full border border-border bg-surface py-4 text-base font-semibold hover:border-accent"
+                    className="flex-1 rounded-full border border-border bg-surface py-4 text-base font-semibold transition-transform hover:border-accent active:scale-[0.97]"
                   >
                     Pausar
                   </button>
@@ -3271,7 +3271,7 @@ export default function RunPage() {
                         ? "Aguardando o sinal de GPS melhorar antes de retomar"
                         : undefined
                     }
-                    className="flex-1 rounded-full border border-accent bg-surface py-4 text-base font-semibold text-accent disabled:cursor-not-allowed disabled:border-border disabled:text-muted"
+                    className="flex-1 rounded-full border border-accent bg-surface py-4 text-base font-semibold text-accent transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:border-border disabled:text-muted disabled:active:scale-100"
                   >
                     {state.gpsQuality !== "good" ? "Aguardando sinal…" : "Retomar"}
                   </button>
