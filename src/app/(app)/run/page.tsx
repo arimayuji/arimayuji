@@ -2884,7 +2884,7 @@ export default function RunPage() {
                     // on a small phone at this weight — same size as before
                     // for those, bumped up for the common short values
                     // (pace, most distances/times) the request was about.
-                    metricValues[featured.id].length > 5 ? "text-[5.5rem]" : "text-[7.5rem]"
+                    metricValues[featured.id].length > 5 ? "text-[7rem]" : "text-[9.5rem]"
                   }`}
                 >
                   {metricValues[featured.id]}
