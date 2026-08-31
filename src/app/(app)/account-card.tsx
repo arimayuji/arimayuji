@@ -63,11 +63,12 @@ export function AccountCard() {
   }
 
   return (
-    // `Card`/`NoticeBadge` already switch to a denser, square-ish register
-    // at `lg:` by default now (see their own comments in ui.tsx) — this
-    // used to spell that out explicitly here, back when this was the only
-    // screen rendering on the coach's desktop surface at all.
-    <Card className="pr-enter">
+    // On desktop this is the ONLY thing /perfil renders (everything else on
+    // that screen is `lg:hidden` — see perfil/page.tsx) — `lg:rounded-lg` on
+    // `Card` alone still reads as a stretched mobile widget (rounded card,
+    // pill buttons) sitting alone on an otherwise plain desktop panel. Same
+    // "drop the card chrome" treatment already applied to GoalCard/GoalWizard.
+    <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
       <CardTitle aside={<NoticeBadge>{status === "signed-in" ? "conectado" : "opcional"}</NoticeBadge>}>
         Conta
       </CardTitle>

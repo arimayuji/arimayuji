@@ -390,27 +390,24 @@ jobs:
           path: publish/
           retention-days: 1
 
-  # Split out of `release` so the two slowest, most website-irrelevant
-  # things it used to do — the Wear OS bundle and the actual Google Play
-  # upload — no longer sit on `web-deploy`'s critical path. Before this
-  # split, `web-deploy` (needs: release) couldn't start until ALL of
-  # `release` finished, Play Store upload included; now it only waits on
-  # the phone APK/AAB being built+signed, and this job's own slower work
-  # runs in parallel with the site deploy instead of in front of it.
-  #
-  # Depends on `release` itself (needs its signed .aab, uploaded as the
-  # `xanthus-release-aab` artifact — build outputs don't otherwise survive
-  # across jobs/runners) so it's not truly concurrent with `release`, just
-  # with `web-deploy`, which is the half of the old single job that
-  # actually benefits from not waiting.
-  release-publish:
-    needs: [changes, build-web, release]
+  # Wear OS companion app's own release bundle — best-effort
+  # (continue-on-error everywhere below), NOT wired into the Google Play
+  # publish step in `release-publish`: that needs a first manual upload to
+  # a "Wear" release track under the already-approved listing first (same
+  # one-time trap the phone's "alpha" track had), which hasn't happened
+  # yet. Split into its own job (previously ran serially inside
+  # `release-publish`, after waiting on `release` to fully finish first)
+  # so it builds in parallel with `release` instead of adding its own
+  # Gradle+jarsign wall-clock on top of it — nothing here depends on
+  # `release`'s signed phone artifact, only the same keystore + web export
+  # `release` also starts from.
+  wear-release:
+    needs: [changes, build-web]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: |
       always() &&
-      needs.release.result == 'success' &&
-      needs.release.outputs.signed == 'true'
+      (needs.changes.result == 'skipped' || needs.changes.outputs.native == 'true')
     steps:
       - uses: actions/checkout@v4
 
@@ -437,16 +434,18 @@ jobs:
       - name: Sync Capacitor Android project
         run: npx cap sync android
 
-      # Same keystore `release` already used to sign the phone APK/AAB —
-      # redecoded here because nothing set via $GITHUB_ENV in that job
-      # carries over to this one (every job is its own fresh runner). Only
-      # needed to sign the Wear OS AAB below; the phone .aab downloaded
-      # further down is already signed.
+      # Same keystore `release` uses for the phone APK/AAB — decoded again
+      # here since nothing set via $GITHUB_ENV in that job carries over to
+      # this one (every job is its own fresh runner).
       - name: Decode release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
           ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
         run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$ANDROID_RELEASE_KEY_PASSWORD" ]; then
+            echo "::warning::ANDROID_RELEASE_KEYSTORE_BASE64/ANDROID_RELEASE_KEYSTORE_PASSWORD não configurados — pulando o build do Wear OS."
+            exit 0
+          fi
           echo "$KEYSTORE_BASE64" | base64 -d > /tmp/xanthus-release.keystore
           {
             echo "ANDROID_RELEASE_KEYSTORE_PATH=/tmp/xanthus-release.keystore"
@@ -454,11 +453,6 @@ jobs:
             echo "ANDROID_RELEASE_KEY_PASSWORD=$ANDROID_RELEASE_KEY_PASSWORD"
           } >> "$GITHUB_ENV"
 
-      # Wear OS companion app's own release bundle — best-effort
-      # (continue-on-error), NOT wired into the Google Play publish step
-      # below: that needs a first manual upload to a "Wear" release track
-      # under the already-approved listing first (same one-time trap the
-      # phone's "alpha" track had), which hasn't happened yet.
       - name: Build Wear OS signed release AAB
         working-directory: android
         continue-on-error: true
@@ -467,6 +461,9 @@ jobs:
       - name: Jar-sign the Wear OS AAB (same bundleRelease quirk as the phone AAB)
         continue-on-error: true
         run: |
+          if [ -z "$ANDROID_RELEASE_KEYSTORE_PATH" ]; then
+            exit 0
+          fi
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
             -keystore "$ANDROID_RELEASE_KEYSTORE_PATH" \
             -storepass "$ANDROID_RELEASE_KEY_PASSWORD" \
@@ -481,6 +478,32 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
+  # Split out of `release` so the slowest, most website-irrelevant thing it
+  # used to do — the actual Google Play upload — no longer sits on
+  # `web-deploy`'s critical path. Before this split, `web-deploy`
+  # (needs: release) couldn't start until ALL of `release` finished, Play
+  # Store upload included; now it only waits on the phone APK/AAB being
+  # built+signed, and this job's own slower work runs in parallel with the
+  # site deploy instead of in front of it.
+  #
+  # Depends on `release` itself (needs its signed .aab, uploaded as the
+  # `xanthus-release-aab` artifact — build outputs don't otherwise survive
+  # across jobs/runners) so it's not truly concurrent with `release`, just
+  # with `web-deploy`, which is the half of the old single job that
+  # actually benefits from not waiting. Doesn't need `wear-release` at
+  # all — the Wear artifact isn't part of this publish step (see that
+  # job's own comment) — nor npm/Java/Gradle anymore, now that the only
+  # thing left to build here (the Wear bundle) moved out: this job is just
+  # "download the phone .aab, upload it to Play."
+  release-publish:
+    needs: [changes, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      always() &&
+      needs.release.result == 'success' &&
+      needs.release.outputs.signed == 'true'
+    steps:
       - name: Download the signed phone AAB from `release`
         uses: actions/download-artifact@v4
         with:

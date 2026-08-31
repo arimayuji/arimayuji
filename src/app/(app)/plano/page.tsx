@@ -1282,17 +1282,13 @@ export default function PlanoPage() {
                 />
                 {hasHistory
                   ? "Histórico recente disponível"
-                  : "Gravar algumas corridas pra calibrar seu volume real"}
+                  : "Grave algumas corridas no app do celular pra calibrar seu volume real"}
               </li>
             </ul>
-            {!hasHistory && (
-              <Link
-                href="/run"
-                className="mt-5 inline-block rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground"
-              >
-                Gravar uma corrida
-              </Link>
-            )}
+            {/* No "Gravar uma corrida" CTA here on purpose — the browser is
+                analysis-only (coach dashboard), tracking a run only happens
+                in the native app. Linking to /run here would open a form
+                for a GPS flow the desktop build can't actually run. */}
           </div>
 
           <div className="mt-10 w-full max-w-xl text-left">
