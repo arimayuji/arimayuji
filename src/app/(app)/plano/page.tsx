@@ -416,7 +416,7 @@ function SelfPlanSuggestionCard({
           type="button"
           onClick={handleRemove}
           disabled={removing}
-          className="rounded-full bg-bad px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+          className="rounded-full bg-bad px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 lg:rounded-md"
         >
           {removing ? "Removendo…" : "Remover sugestão"}
         </button>
@@ -442,7 +442,7 @@ function SelfPlanSuggestionCard({
         type="button"
         onClick={handleSuggest}
         disabled={suggesting}
-        className="w-full rounded-xl border border-accent px-4 py-3 text-sm font-semibold text-accent disabled:opacity-40"
+        className="w-full rounded-xl border border-accent px-4 py-3 text-sm font-semibold text-accent disabled:opacity-40 lg:rounded-md"
       >
         {suggesting ? "Pensando…" : "Sugerir com IA"}
       </button>
@@ -458,7 +458,7 @@ function SelfPlanSuggestionCard({
               role="dialog"
               aria-label="Sugestão de IA — aviso"
               onClick={(event) => event.stopPropagation()}
-              className="w-full max-w-sm rounded-t-3xl bg-background p-5 pb-8 text-foreground sm:rounded-3xl"
+              className="w-full max-w-sm rounded-t-3xl bg-background p-5 pb-8 text-foreground sm:rounded-3xl lg:rounded-lg"
             >
               <div className="mx-auto mb-5 h-1 w-9 rounded-full bg-border" />
               <p className="mb-3 text-base font-bold">Antes de aplicar</p>
@@ -486,14 +486,14 @@ function SelfPlanSuggestionCard({
                 <button
                   type="button"
                   onClick={() => setPendingSuggestion(null)}
-                  className="flex-1 rounded-full border border-border px-4 py-3 text-sm font-semibold"
+                  className="flex-1 rounded-full border border-border px-4 py-3 text-sm font-semibold lg:rounded-md"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleAccept}
-                  className="flex-1 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground"
+                  className="flex-1 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground lg:rounded-md"
                 >
                   Estou ciente, aplicar essa semana
                 </button>
