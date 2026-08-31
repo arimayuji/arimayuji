@@ -209,6 +209,7 @@ export function ScreenHeader({
   wide = false,
   panel = false,
   compactOnWide = false,
+  hideTitle = false,
 }: {
   title: string;
   subtitle?: ReactNode;
@@ -217,14 +218,24 @@ export function ScreenHeader({
   /** Matches `Screen`'s own `panel` — for a subpage reached by drilling into a desktop screen (e.g. /perfil/dados, /privacidade from Conta) rather than a sidebar tab in its own right, so `compactOnWide` doesn't apply (there's no redundant sidebar label to collapse against) but the header should still line up flush-left with the panel-width content below it instead of sitting centered above a left-anchored column. Mutually exclusive with `wide`, same as `Screen`. */
   panel?: boolean;
   /**
-   * Collapses this whole header at `lg:` — for a page whose `title` is
-   * already the exact label the desktop sidebar shows for it (app-shell.tsx's
-   * DESKTOP_TABS — "Perfil" the tab, "Perfil" the h1 right below it), where
-   * repeating it as a giant heading is redundant chrome, not information.
-   * Never affects the native app/narrow browser, which has no sidebar this
-   * would double up with in the first place.
+   * Collapses this whole header (including `badge`/`subtitle`) at `lg:` —
+   * for a page whose desktop surface already replaces the mobile header
+   * entirely with its own layout (e.g. /plano's dashboard already shows
+   * "Semana X de Y" its own way), so there's nothing left worth keeping.
+   * Never affects the native app/narrow browser.
    */
   compactOnWide?: boolean;
+  /**
+   * Drops just the `<h1>`, at every breakpoint — for a page whose `title`
+   * is already the exact label persistent nav chrome shows for it: the
+   * bottom tab bar's own label on mobile, same as the desktop sidebar's
+   * (app-shell.tsx's DESKTOP_TABS). Repeating it as a giant heading right
+   * below is redundant chrome, not information — found 2026-08-31 on
+   * Histórico/Feed/Plano/Perfil, all of which duplicate their own bottom-nav
+   * label this way. Keeps `badge`/`subtitle`, which carry real information
+   * the nav label doesn't (Plano's phase/week subtitle, Feed's Amigos link).
+   */
+  hideTitle?: boolean;
 }) {
   return (
     <header
@@ -238,8 +249,8 @@ export function ScreenHeader({
       style={delay(0, { paddingTop: "1.25rem" })}
     >
       <div className={`mx-auto w-full ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH}`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">{title}</h1>
+        <div className={`flex flex-wrap items-center gap-3 ${hideTitle ? "justify-end" : "justify-between"}`}>
+          {!hideTitle && <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">{title}</h1>}
           {badge}
         </div>
         {subtitle && (

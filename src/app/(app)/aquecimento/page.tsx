@@ -61,7 +61,7 @@ function CountdownRing({ secondsLeft, totalSeconds }: { secondsLeft: number; tot
 function IntroScreen({ routine, onStart }: { routine: WarmupRoutine; onStart: () => void }) {
   return (
     <Card>
-      <h1 className="mb-1 font-mono text-xl font-semibold tracking-wide text-balance">{routine.title}</h1>
+      {/* No repeated <h1> here — ScreenHeader above already shows routine.title (found duplicated on screen, 2026-08-31). */}
       <p className="mb-4 text-xs leading-relaxed text-muted">{routine.rationale}</p>
       <p className="mb-3 text-[11px] font-semibold tracking-wide text-muted uppercase">
         {routine.steps.length} passos · {formatMinSec(totalDurationSeconds(routine.steps))} no total

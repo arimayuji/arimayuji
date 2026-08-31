@@ -942,7 +942,7 @@ export default function PlanoPage() {
   if (loading) {
     return (
       <>
-        <ScreenHeader panel compactOnWide title="Plano" />
+        <ScreenHeader panel compactOnWide hideTitle title="Plano" />
         <Screen panel>
           <Card className="animate-pulse">
             <div className="h-4 w-32 rounded bg-border" />
@@ -960,6 +960,7 @@ export default function PlanoPage() {
           <ScreenHeader
             panel
             compactOnWide
+            hideTitle
             title="Plano"
             badge={<NoticeBadge>seu plano</NoticeBadge>}
           />
@@ -1001,6 +1002,7 @@ export default function PlanoPage() {
         <ScreenHeader
           wide
           compactOnWide
+          hideTitle
           title="Plano"
           badge={<NoticeBadge>seu plano</NoticeBadge>}
           subtitle={`Semana ${currentWeek.weekNumber} de ${plan.weeks.length} — fase de ${PHASE_LABEL[currentWeek.phase]}`}
@@ -1253,6 +1255,7 @@ export default function PlanoPage() {
       <ScreenHeader
         panel
         compactOnWide
+        hideTitle
         title="Plano"
         badge={showExample ? <ExampleBadge /> : undefined}
       />

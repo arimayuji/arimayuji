@@ -45,7 +45,8 @@ export default function HistoricoPage() {
 
   return (
     <>
-      <ScreenHeader title="Histórico" />
+      {/* hideTitle: the bottom nav tab right below already reads "Histórico" — repeating it as a heading is redundant (2026-08-31). */}
+      <ScreenHeader title="Histórico" hideTitle />
       <Screen>
         {load.status === "loading" && (
           <Card className="animate-pulse">

@@ -293,8 +293,10 @@ export default function FeedPage() {
 
   return (
     <>
+      {/* hideTitle: the bottom nav tab right below already reads "Feed" — repeating it as a heading is redundant (2026-08-31). The Amigos badge stays, it's a real link, not a label. */}
       <ScreenHeader
         title="Feed"
+        hideTitle
         badge={
           <Link
             href="/amigos"

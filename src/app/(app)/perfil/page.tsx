@@ -475,7 +475,8 @@ export default function PerfilPage() {
 
   return (
     <>
-      <ScreenHeader compactOnWide title="Perfil" />
+      {/* hideTitle: the bottom nav tab right below already reads "Perfil" — repeating it as a heading is redundant (2026-08-31); compactOnWide still drops the whole (now title-less) header at lg, kept for the desktop sidebar's own reason. */}
+      <ScreenHeader compactOnWide hideTitle title="Perfil" />
 
       <Screen panel>
         {/* `lg:pt-8`: makes up for `compactOnWide` collapsing ScreenHeader's
