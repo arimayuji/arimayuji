@@ -36,8 +36,8 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingTop="2dp"
-    android:paddingBottom="2dp">
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
     <LinearLayout
         android:layout_width="0dp"
@@ -49,7 +49,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="DISTÂNCIA"
-            android:textSize="10sp"
+            android:textSize="11sp"
             android:letterSpacing="0.05"
             android:textColor="#8B949C" />
 
@@ -57,7 +57,7 @@
             android:id="@+id/xanthus_stat_distance"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="15sp"
+            android:textSize="21sp"
             android:textStyle="bold"
             android:textColor="#EEF1F3" />
     </LinearLayout>
@@ -72,7 +72,7 @@
          renders identically as a solid divider line. -->
     <FrameLayout
         android:layout_width="1dp"
-        android:layout_height="26dp"
+        android:layout_height="34dp"
         android:layout_marginHorizontal="10dp"
         android:background="#262C33" />
 
@@ -86,7 +86,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="RITMO"
-            android:textSize="10sp"
+            android:textSize="11sp"
             android:letterSpacing="0.05"
             android:textColor="#8B949C" />
 
@@ -94,14 +94,14 @@
             android:id="@+id/xanthus_stat_pace"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="15sp"
+            android:textSize="21sp"
             android:textStyle="bold"
             android:textColor="#EEF1F3" />
     </LinearLayout>
 
     <FrameLayout
         android:layout_width="1dp"
-        android:layout_height="26dp"
+        android:layout_height="34dp"
         android:layout_marginHorizontal="10dp"
         android:background="#262C33" />
 
@@ -115,7 +115,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="TEMPO"
-            android:textSize="10sp"
+            android:textSize="11sp"
             android:letterSpacing="0.05"
             android:textColor="#8B949C" />
 
@@ -123,17 +123,17 @@
             android:id="@+id/xanthus_stat_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="15sp"
+            android:textSize="21sp"
             android:textStyle="bold"
             android:textColor="#EEF1F3" />
     </LinearLayout>
 
     <ImageView
         android:id="@+id/xanthus_route_thumb"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
         android:layout_marginStart="10dp"
-        android:padding="5dp"
+        android:padding="6dp"
         android:background="@drawable/bg_route_thumb_chip"
         android:contentDescription="@null"
         android:visibility="gone" />

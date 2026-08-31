@@ -46,10 +46,10 @@ public class BackgroundGeolocationService extends Service {
     private static final int NOTIFICATION_ID = 28351;
 
     // Xanthus fork: pixel size of the route-thumbnail bitmap drawn by RouteThumbnail for
-    // the rich notification layout — sized well above the 44dp chip ImageView it renders
+    // the rich notification layout — sized well above the 56dp chip ImageView it renders
     // into (notification_run.xml, minus its own padding) so it stays sharp on
     // high-density screens without the system having to upscale it.
-    private static final int ROUTE_THUMB_SIZE_PX = 140;
+    private static final int ROUTE_THUMB_SIZE_PX = 178;
 
     private String callbackId;
 
