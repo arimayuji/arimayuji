@@ -382,8 +382,8 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 onClick={onClick}
-                /* 64px+ tall target: this gets tapped mid-exercise. */
-                className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors ${
+                /* 56px+ tall target: still generous for a mid-exercise tap, just less padding than before — the bar itself was reading too tall. */
+                className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 pt-2 pb-1 text-[11px] transition-colors ${
                   active ? "font-bold text-accent" : "font-medium text-muted"
                 }`}
               >
