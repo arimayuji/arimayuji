@@ -179,19 +179,30 @@ function VerPerfilContent() {
       return;
     }
     let cancelled = false;
-    void listFriendConnections("accepted").then((connections) => {
-      if (cancelled) return;
-      const match = connections.find((c) => c.otherId === profile.$id);
-      setFriendshipId(match?.friendship.$id ?? null);
-      if (match) {
-        void getProfileStats(profile.$id).then((result) => {
-          if (!cancelled) setStats(result);
-        });
-        void listCompletedRuns().then((runs) => {
-          if (!cancelled) setMyStats(buildStatsSnapshot(runs));
-        });
-      }
-    });
+    void listFriendConnections("accepted")
+      .then((connections) => {
+        if (cancelled) return;
+        const match = connections.find((c) => c.otherId === profile.$id);
+        setFriendshipId(match?.friendship.$id ?? null);
+        if (match) {
+          void getProfileStats(profile.$id).then((result) => {
+            if (!cancelled) setStats(result);
+          });
+          void listCompletedRuns().then((runs) => {
+            if (!cancelled) setMyStats(buildStatsSnapshot(runs));
+          });
+        }
+      })
+      .catch((error) => {
+        // Was silent before — a rejected listFriendConnections() (network
+        // blip, expired session) left friendshipId at its initial `null`
+        // forever, showing "Adicionar amigo" for an already-accepted
+        // friend with no trace of why. Logging this doesn't fix the
+        // underlying cause by itself, but it's the same first step that
+        // found every other silent-failure bug in this file's neighbors
+        // (friendships.ts, liveRuns.ts) — see PROJECT-CONTEXT.md.
+        if (!cancelled) console.error("[perfil/ver] listFriendConnections failed", error);
+      });
     return () => {
       cancelled = true;
     };

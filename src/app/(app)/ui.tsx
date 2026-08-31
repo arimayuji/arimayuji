@@ -65,6 +65,36 @@ export function PreferenceToggle({
   );
 }
 
+/**
+ * A pill toggle for a cluster of independent booleans that would otherwise
+ * stack into a tall list of full-width `PreferenceToggle` rows (each with
+ * its own label + hint line) — same active/inactive pill language `PillTabs`
+ * already uses, just multi-select instead of one-at-a-time.
+ */
+export function ToggleChip({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`flex-1 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+        checked ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 /** One button in a row of mutually-exclusive options — goal distance, run days, distance unit, wherever a screen needs a small fixed choice set instead of a native `<select>`. */
 export function SegmentedButton({
   selected,

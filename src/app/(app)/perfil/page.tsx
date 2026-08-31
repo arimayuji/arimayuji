@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { firePaceDelayVibration } from "@/lib/tracking/useRunTracker";
 import {
   ANNOUNCE_MAX_METERS,
   ANNOUNCE_MIN_METERS,
@@ -33,7 +32,6 @@ import { useAuth } from "@/lib/useAuth";
 import { listCoachConnections } from "@/lib/coachRelationships";
 import { matchPlaceForRoute } from "@/lib/placeMatch";
 import { recordRunAtPlace } from "@/lib/placeLeaderboard";
-import { clearMyPresence } from "@/lib/friendPresence";
 import { isIOSPlatform } from "@/lib/platform";
 import type { RunningPlace } from "@/lib/places";
 import { ProgressoContent } from "../progresso/progresso-content";
@@ -178,37 +176,6 @@ function SectionLabel({ children, delayMs }: { children: React.ReactNode; delayM
     >
       {children}
     </p>
-  );
-}
-
-/**
- * A compact horizontal alternative to `PreferenceToggle` for a cluster of
- * independent booleans that would otherwise stack into a tall list of
- * full-width rows (each with its own label + hint line) — same active/
- * inactive pill language the search filters (`/progresso`'s activity feed,
- * `PillTabs`) already use, just multi-select instead of one-at-a-time.
- */
-function ToggleChip({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`flex-1 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
-        checked ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 
@@ -400,63 +367,6 @@ function PlaceLeaderboardCard() {
 }
 
 /**
- * "Correr por amigo por perto" opt-in — same shape/reasoning as
- * `PlaceLeaderboardCard` above (`try/finally` around the toggle, same
- * stuck-switch bug class it already fixed once), but much shorter: there's
- * no scan/confirm step here, just a switch. Turning it off calls
- * `clearMyPresence()` so the last known location stops being visible to
- * friends immediately, not just "stops updating."
- */
-function NearbyFriendsCard() {
-  const { status, account, profile, refresh } = useAuth();
-  const [savingToggle, setSavingToggle] = useState(false);
-  const [toggleError, setToggleError] = useState(false);
-  const optedIn = profile?.nearbyOptIn ?? false;
-
-  async function handleToggle(next: boolean) {
-    if (!account || savingToggle) return;
-    setSavingToggle(true);
-    setToggleError(false);
-    try {
-      await updateProfile(account.id, { nearbyOptIn: next });
-      if (!next) await clearMyPresence();
-      await refresh();
-    } catch {
-      setToggleError(true);
-    } finally {
-      setSavingToggle(false);
-    }
-  }
-
-  return (
-    <Card className="pr-enter" style={delay(87)}>
-      <CardTitle aside={<NoticeBadge>desligado por padrão</NoticeBadge>}>Amigo por perto</CardTitle>
-      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-        Leitura pontual da localização ao abrir o app — nunca rastreamento contínuo. Só amigos
-        aceitos veem isso.
-      </p>
-      {status !== "signed-in" ? (
-        <p className="text-xs text-muted">Precisa de conta pra participar (Google ou Apple, em Conta acima).</p>
-      ) : (
-        <>
-          <PreferenceToggle
-            label="Avisar quando um amigo estiver por perto"
-            hint="desligar apaga sua última leitura na hora"
-            checked={optedIn}
-            onChange={handleToggle}
-          />
-          {toggleError && (
-            <p className="mt-2 text-xs leading-relaxed text-bad">
-              Não deu pra salvar agora — tenta de novo em instantes.
-            </p>
-          )}
-        </>
-      )}
-    </Card>
-  );
-}
-
-/**
  * Link-out card for the cross-device sync opt-in — kept thin on purpose
  * (unlike `PlaceLeaderboardCard`/`NearbyFriendsCard`, the toggle itself
  * lives on its own screen, `/perfil/sincronizacao`, because turning it on
@@ -541,8 +451,6 @@ const PERFIL_TABS: { id: PerfilTab; label: string }[] = [
 export default function PerfilPage() {
   /** Writes immediately — no save button to forget on the way out the door. */
   const [prefs, update] = usePreferences();
-  /** Drives the "Testar vibração" button's own label swap — see that button's comment for why it exists. */
-  const [vibrateTested, setVibrateTested] = useState(false);
   /**
    * /progresso used to be its own bottom-nav tab; folded in here as a
    * second tab instead (bottom nav down to 3: Corrida, Plano, Perfil — see
@@ -651,9 +559,6 @@ export default function PerfilPage() {
           <PlaceLeaderboardCard />
         </div>
         <div className="lg:hidden">
-          <NearbyFriendsCard />
-        </div>
-        <div className="lg:hidden">
           <RunSyncCard />
         </div>
 
@@ -693,56 +598,10 @@ export default function PerfilPage() {
               </div>
             </fieldset>
 
-            <fieldset className="mt-5 border-t border-border pt-4">
-              <legend className="text-sm font-medium">Estatísticas na tela de corrida</legend>
-              <div className="mt-3 flex gap-2">
-                <ToggleChip
-                  label="Pace total"
-                  checked={prefs.showAveragePaceLive}
-                  onChange={(checked) => update({ showAveragePaceLive: checked })}
-                />
-                <ToggleChip
-                  label="Pace do km atual"
-                  checked={prefs.showCurrentKmPaceLive}
-                  onChange={(checked) => update({ showCurrentKmPaceLive: checked })}
-                />
-              </div>
-            </fieldset>
-
-            <fieldset className="mt-5 border-t border-border pt-4">
-              <legend className="text-sm font-medium">Vibração</legend>
-              {/*
-                Isolates "o toggle não vibra durante a corrida" into two
-                separate questions someone can answer without waiting 20s
-                atrasado no meio de uma corrida de verdade: aperta aqui —
-                se não vibrar, o problema é o aparelho/plugin (modo
-                silencioso bloqueando o motor, permissão negada, etc.), não
-                a lógica de atraso de ritmo em si; se vibrar aqui mas nunca
-                durante uma corrida, o problema é a condição de disparo
-                (meta não é "Ritmo", ou nunca ficou 20s atrasado de verdade).
-              */}
-              <div className="mt-3 flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <PreferenceToggle
-                    label="Vibrar quando atrasar do ritmo"
-                    hint="só com meta de ritmo, ao passar 20s do alvo"
-                    checked={prefs.vibrateOnPaceDelay}
-                    onChange={(checked) => update({ vibrateOnPaceDelay: checked })}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVibrateTested(true);
-                    firePaceDelayVibration();
-                    window.setTimeout(() => setVibrateTested(false), 2000);
-                  }}
-                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition-colors active:text-foreground"
-                >
-                  {vibrateTested ? "Vibrou?" : "Testar"}
-                </button>
-              </div>
-            </fieldset>
+            {/* "Estatísticas na tela de corrida" and "Vibração" moved to
+                /run's own "Aviso de parcial a cada" card — configuring a
+                run-screen behavior from a totally separate Perfil section
+                read as the same setting living in two places at once. */}
 
             <fieldset className="mt-5 border-t border-border pt-4">
               <legend className="text-sm font-medium">Lembrete de gel de carboidrato</legend>

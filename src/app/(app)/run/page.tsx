@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { useRunTracker, type HeartRateConnectionState } from "@/lib/tracking/useRunTracker";
+import { firePaceDelayVibration, useRunTracker, type HeartRateConnectionState } from "@/lib/tracking/useRunTracker";
 import { isNativePlatform } from "@/lib/platform";
 import { onNotificationAction, onWatchAction } from "@/lib/tracking/geolocation";
 import { useEffectiveColorScheme } from "@/lib/theme";
@@ -124,7 +124,7 @@ import {
 } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useHeaderGpsStatus, useImmersiveMode, useTabReclick } from "../app-shell";
-import { Card, NoticeBadge, PillTabs } from "../ui";
+import { Card, NoticeBadge, PillTabs, PreferenceToggle, ToggleChip } from "../ui";
 import { PillSlider } from "../pill-slider";
 
 const RECENT_GHOST_CANDIDATES = 6;
@@ -1552,6 +1552,8 @@ export default function RunPage() {
   const announceMode = preferences.announceMode;
   const announceStyle = preferences.announceStyle;
   const voiceGender = preferences.voiceGender;
+  /** Drives the "Testar" vibration button's own label swap, moved here from /perfil — see that button's own comment below for why it exists. */
+  const [vibrateTested, setVibrateTested] = useState(false);
   /** Tabs for the "Compartilhar corrida" widget below — Convite (QR/longão) always available, Treinador/Amigos only once there's someone to share with; a single available tab skips the tab bar entirely rather than showing a bar with nothing to switch to. */
   const shareTabs: { id: "convite" | "treinador" | "amigos"; label: string }[] = [
     { id: "convite", label: "Convite" },
@@ -2433,6 +2435,64 @@ export default function RunPage() {
                   Vibra a cada marca, sem voz.
                 </p>
               )}
+
+              {/* Moved here from /perfil — configuring what shows up on
+                  this same screen from a totally separate settings page
+                  read as the setting living in two places at once. */}
+              <div className="mt-4 border-t border-border pt-4">
+                <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                  Estatísticas na tela de corrida
+                </span>
+                <div className="flex gap-2">
+                  <ToggleChip
+                    label="Pace total"
+                    checked={preferences.showAveragePaceLive}
+                    onChange={(checked) => updatePreferences({ showAveragePaceLive: checked })}
+                  />
+                  <ToggleChip
+                    label="Pace do km atual"
+                    checked={preferences.showCurrentKmPaceLive}
+                    onChange={(checked) => updatePreferences({ showCurrentKmPaceLive: checked })}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-border pt-4">
+                <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                  Vibração
+                </span>
+                {/*
+                  Isolates "o toggle não vibra durante a corrida" into two
+                  separate questions someone can answer without waiting 20s
+                  atrasado no meio de uma corrida de verdade: aperta aqui —
+                  se não vibrar, o problema é o aparelho/plugin (modo
+                  silencioso bloqueando o motor, permissão negada, etc.), não
+                  a lógica de atraso de ritmo em si; se vibrar aqui mas nunca
+                  durante uma corrida, o problema é a condição de disparo
+                  (meta não é "Ritmo", ou nunca ficou 20s atrasado de verdade).
+                */}
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <PreferenceToggle
+                      label="Vibrar quando atrasar do ritmo"
+                      hint="só com meta de ritmo, ao passar 20s do alvo"
+                      checked={preferences.vibrateOnPaceDelay}
+                      onChange={(checked) => updatePreferences({ vibrateOnPaceDelay: checked })}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVibrateTested(true);
+                      firePaceDelayVibration();
+                      window.setTimeout(() => setVibrateTested(false), 2000);
+                    }}
+                    className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition-colors active:text-foreground"
+                  >
+                    {vibrateTested ? "Vibrou?" : "Testar"}
+                  </button>
+                </div>
+              </div>
             </Card>
 
             {customSheet === "distancia" && (

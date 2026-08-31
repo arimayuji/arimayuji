@@ -11,13 +11,14 @@ import {
   type FriendConnection,
 } from "@/lib/friendships";
 import { getActiveLiveSession, type LiveRun } from "@/lib/liveRuns";
-import { listFriendsPresence } from "@/lib/friendPresence";
+import { clearMyPresence, listFriendsPresence } from "@/lib/friendPresence";
 import { haversineMeters } from "@/lib/tracking/geoFilter";
+import { updateProfile } from "@/lib/auth";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
 import { Avatar } from "../avatar";
-import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, PillTabs, PreferenceToggle, Screen, ScreenHeader } from "../ui";
 
 const RETURN_TO = "/amigos";
 
@@ -92,6 +93,60 @@ const FRIEND_TABS = [
   { id: "amigos", label: "Amigos" },
   { id: "convites", label: "Convites" },
 ] as const;
+
+/**
+ * "Correr por amigo por perto" opt-in — moved here from /perfil per direct
+ * request: the config for a friends-only feature belongs on the friends
+ * screen, not buried in account settings. Same shape/reasoning as before
+ * (`try/finally` around the toggle), but much shorter than a leaderboard
+ * opt-in: there's no scan/confirm step here, just a switch. Turning it off
+ * calls `clearMyPresence()` so the last known location stops being visible
+ * to friends immediately, not just "stops updating."
+ */
+function NearbyFriendsCard() {
+  const { status, account, profile, refresh } = useAuth();
+  const [savingToggle, setSavingToggle] = useState(false);
+  const [toggleError, setToggleError] = useState(false);
+  const optedIn = profile?.nearbyOptIn ?? false;
+
+  async function handleToggle(next: boolean) {
+    if (!account || savingToggle) return;
+    setSavingToggle(true);
+    setToggleError(false);
+    try {
+      await updateProfile(account.id, { nearbyOptIn: next });
+      if (!next) await clearMyPresence();
+      await refresh();
+    } catch {
+      setToggleError(true);
+    } finally {
+      setSavingToggle(false);
+    }
+  }
+
+  if (status !== "signed-in") return null;
+
+  return (
+    <Card className="pr-enter" style={delay(50)}>
+      <CardTitle aside={<NoticeBadge>desligado por padrão</NoticeBadge>}>Amigo por perto</CardTitle>
+      <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+        Leitura pontual da localização ao abrir o app — nunca rastreamento contínuo. Só amigos
+        aceitos veem isso.
+      </p>
+      <PreferenceToggle
+        label="Avisar quando um amigo estiver por perto"
+        hint="desligar apaga sua última leitura na hora"
+        checked={optedIn}
+        onChange={handleToggle}
+      />
+      {toggleError && (
+        <p className="mt-2 text-xs leading-relaxed text-bad">
+          Não deu pra salvar agora — tenta de novo em instantes.
+        </p>
+      )}
+    </Card>
+  );
+}
 
 export default function AmigosPage() {
   useHeaderClose("/feed");
@@ -329,6 +384,8 @@ export default function AmigosPage() {
                 </p>
               )}
             </Card>
+
+            <NearbyFriendsCard />
 
             {loadFailed && (
               <Card className="pr-enter border-bad/30 bg-bad/5" style={delay(60)}>
