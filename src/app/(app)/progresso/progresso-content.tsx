@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   listCompletedRuns,
   listPainCheckIns,
-  runMovingSeconds,
   type CompletedRun,
   type PainCheckIn,
 } from "@/lib/tracking/storage";
@@ -16,7 +15,6 @@ import {
   weeklyBuckets,
   type WeekBucket,
 } from "@/lib/tracking/stats";
-import { formatElapsed } from "@/lib/tracking/geoFilter";
 import {
   computeConstancyWeeks,
   tallyConstancy,
@@ -32,7 +30,7 @@ import { Card, CardTitle, delay, PillTabs, Stat } from "../ui";
 import { PillSlider } from "../pill-slider";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 import { MatchedRunsCard } from "../matched-runs-card";
-import { ActivityFeed, PersonalRecords } from "./activity-feed";
+import { ActivityCard, PersonalRecords } from "./activity-feed";
 
 /**
  * Total volume by week, pace evolution, this-week-vs-last-week, this
@@ -611,39 +609,6 @@ function DailyVolumeChart({ runs, unit }: { runs: CompletedRun[]; unit: Distance
         />
       )}
     </Section>
-  );
-}
-
-/**
- * Feed of individual runs, folded in here from the old /historico tab (see
- * this screen's own request history) — a compact all-time total up top
- * (the one number none of the other cards on this page show, since they're
- * all per-week/per-month/per-day), then the plain scrolling list itself.
- */
-function ActivityCard({
-  runs,
-  unit,
-  onRunDeleted,
-  delayMs,
-}: {
-  runs: CompletedRun[];
-  unit: DistanceUnit;
-  onRunDeleted: (id: string) => void;
-  delayMs: number;
-}) {
-  const totalMeters = runs.reduce((sum, run) => sum + run.distanceMeters, 0);
-  const totalSeconds = runs.reduce((sum, run) => sum + runMovingSeconds(run), 0);
-
-  return (
-    <Card className="pr-enter" style={delay(delayMs)}>
-      <CardTitle>Corridas</CardTitle>
-      <div className="mb-4 grid grid-cols-3 gap-3 border-b border-border pb-4">
-        <Stat label="Total" value={formatDistance(totalMeters, unit)} unit={unitLabel(unit)} />
-        <Stat label="Corridas" value={String(runs.length)} />
-        <Stat label="Tempo total" value={formatElapsed(totalSeconds)} />
-      </div>
-      <ActivityFeed runs={runs} unit={unit} onRunDeleted={onRunDeleted} />
-    </Card>
   );
 }
 

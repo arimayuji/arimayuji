@@ -82,6 +82,8 @@ interface TabDefinition {
   /** Extra path prefixes that should keep this tab lit (e.g. /compartilhar). */
   alsoMatches?: string[];
   icon: (props: { className: string }) => React.ReactElement;
+  /** Marks the one tab (Corrida, or Treinador in its place — see TREINADOR_TAB) rendered as the elevated circular button in the middle of the bar, not a plain flex-1 item like the other four. */
+  primary?: boolean;
 }
 
 const STROKE = {
@@ -93,16 +95,6 @@ const STROKE = {
 } as const;
 
 const TABS: TabDefinition[] = [
-  {
-    href: "/run",
-    label: "Corrida",
-    icon: ({ className }) => (
-      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
-        <circle cx="12" cy="13.5" r="7.5" />
-        <path d="M12 10v3.5l2.4 1.6M9.5 2.5h5M12 2.5V6M18.6 6.4l1.5-1.5" />
-      </svg>
-    ),
-  },
   {
     href: "/feed",
     label: "Feed",
@@ -124,6 +116,38 @@ const TABS: TabDefinition[] = [
     ),
   },
   {
+    href: "/historico",
+    label: "Histórico",
+    // Its own tab again — was folded into /progresso (see activity-feed.tsx),
+    // then /progresso itself folded into /perfil's own tab bar. Reopened as
+    // a direct destination on request, without undoing either merge:
+    // ActivityCard/ActivityFeed now mount both here and inside /perfil's
+    // Progresso tab, same component, never a fork of it. `/historico/detalhe`
+    // and `/historico/video` already share this prefix, so they light this
+    // tab up for free without needing their own `alsoMatches` entry.
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
+        <circle cx="12" cy="12.5" r="8.5" />
+        <path d="M12 7.5v5l3.5 2" />
+      </svg>
+    ),
+  },
+  {
+    href: "/run",
+    label: "Corrida",
+    // The one primary action of the app — elevated into its own circular
+    // button in the middle of the bar (see BottomNav's render) instead of
+    // a plain tab like the other four, same idea as a fitness app's
+    // "start" FAB (screenshot reference: Duolingo's center "+" button).
+    primary: true,
+    icon: ({ className }) => (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
+        <circle cx="12" cy="13.5" r="7.5" />
+        <path d="M12 10v3.5l2.4 1.6M9.5 2.5h5M12 2.5V6M18.6 6.4l1.5-1.5" />
+      </svg>
+    ),
+  },
+  {
     href: "/plano",
     label: "Plano",
     icon: ({ className }) => (
@@ -141,12 +165,8 @@ const TABS: TabDefinition[] = [
     // /progresso used to be its own tab; its content (charts + the
     // personal activity feed, see progresso-content.tsx — not the social
     // feed above, a different thing despite the shared name) folded into
-    // a tab inside /perfil. /historico was already folded into /progresso
-    // before that (its list screen became the activity feed) but its
-    // detail/video sub-routes kept their original paths — this keeps
-    // Perfil lit while looking at a run reached from that feed, same as
-    // /progresso itself used to.
-    alsoMatches: ["/compartilhar", "/longao", "/progresso", "/historico"],
+    // a tab inside /perfil.
+    alsoMatches: ["/compartilhar", "/longao", "/progresso"],
     icon: ({ className }) => (
       <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
         <circle cx="12" cy="8.25" r="3.75" />
@@ -160,13 +180,15 @@ const TABS: TabDefinition[] = [
  * Stands in for the "Corrida" tab when `appMode` is "treinador" (see
  * preferences.ts's `AppMode`) — same icon already used for the "Treinador"
  * discovery row on /perfil, so the two surfaces read as the same concept.
- * Not a 6th tab: swapping tab 0 keeps the bar's width/rhythm identical
- * either way, and the coach side of the product is thin enough (two
- * screens) that a whole parallel tab set would mostly sit empty.
+ * Not a 6th tab: swapping out whichever tab is `primary` (BottomNav finds
+ * it by that flag, not a fixed index) keeps the bar's width/rhythm
+ * identical either way, and the coach side of the product is thin enough
+ * (two screens) that a whole parallel tab set would mostly sit empty.
  */
 const TREINADOR_TAB: TabDefinition = {
   href: "/treinador",
   label: "Treinador",
+  primary: true,
   icon: ({ className }) => (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
       <path d="M3.5 10.3v3.9h2.5l7.3 3.9V6.4l-7.3 3.9H3.5Z" />
@@ -287,7 +309,7 @@ const SIDEBAR_OFFSET_CLASS = "lg:left-60";
 function BottomNav({ hidden }: { hidden: boolean }) {
   const pathname = usePathname() ?? "";
   const [{ appMode }] = usePreferences();
-  const tabs = appMode === "treinador" ? [TREINADOR_TAB, ...TABS.slice(1)] : TABS;
+  const tabs = appMode === "treinador" ? TABS.map((tab) => (tab.primary ? TREINADOR_TAB : tab)) : TABS;
 
   return (
     <nav
@@ -316,21 +338,48 @@ function BottomNav({ hidden }: { hidden: boolean }) {
         <span className="font-mono text-base font-semibold tracking-wide text-white">Xanthus</span>
       </div>
 
-      {/* Mobile/native tab bar — the athlete's 5 tabs (or the treinador swap-in
-          for tab 0), unchanged from before this file had a `lg:` mode at all.
-          Hidden outright at `lg:`, where the sidebar list below takes over
-          with its own, different set of destinations. */}
-      <ul className="mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)] lg:hidden">
+      {/* Mobile/native tab bar — Feed/Histórico/Corrida/Plano/Perfil (or the
+          treinador swap-in for whichever tab is `primary`), unchanged in
+          spirit from before this file had a `lg:` mode at all. Hidden
+          outright at `lg:`, where the sidebar list below takes over with
+          its own, different set of destinations. */}
+      <ul className="relative mx-auto flex max-w-md pb-[env(safe-area-inset-bottom)] lg:hidden">
         {tabs.map((tab) => {
           const active = isActive(pathname, tab);
+          const onClick = () => {
+            if (active) window.dispatchEvent(new CustomEvent(TAB_RECLICK_EVENT, { detail: tab.href }));
+          };
+
+          if (tab.primary) {
+            return (
+              <li key={tab.href} className="flex flex-1 items-start justify-center">
+                {/* Elevated circular button, popping above the bar's own top
+                    edge (`-mt-6`) instead of sitting flush like the other
+                    four — the one primary action of the app (or, in
+                    treinador mode, its equivalent) gets more visual weight
+                    than a same-size tab icon would. White-on-accent so it
+                    reads against the bar's own accent-blue gradient. */}
+                <Link
+                  href={tab.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={onClick}
+                  className="-mt-6 flex flex-col items-center gap-1 text-[11px] font-bold text-white"
+                >
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-accent shadow-[0_6px_16px_-4px_rgba(0,0,0,0.45)]">
+                    <tab.icon className="h-7 w-7" />
+                  </span>
+                  {tab.label}
+                </Link>
+              </li>
+            );
+          }
+
           return (
             <li key={tab.href} className="flex-1">
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                onClick={() => {
-                  if (active) window.dispatchEvent(new CustomEvent(TAB_RECLICK_EVENT, { detail: tab.href }));
-                }}
+                onClick={onClick}
                 /* 64px+ tall target: this gets tapped mid-exercise. */
                 className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors ${
                   active ? "font-bold text-white" : "font-medium text-white/85"

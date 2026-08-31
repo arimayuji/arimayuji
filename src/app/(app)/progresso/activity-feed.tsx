@@ -16,7 +16,7 @@ import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { allTimeBests } from "@/lib/tracking/personalRecords";
 import type { DistanceUnit } from "@/lib/preferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
-import { Card, CardTitle, delay } from "../ui";
+import { Card, CardTitle, delay, Stat } from "../ui";
 import { ModalPortal } from "../modal-portal";
 
 /**
@@ -858,5 +858,39 @@ export function ActivityFeed({
         />
       )}
     </>
+  );
+}
+
+/**
+ * `ActivityFeed` wrapped in a compact all-time total up top (the one number
+ * none of /perfil's other Progresso cards show, since they're all per-week/
+ * per-month/per-day) — shared by /perfil's Progresso tab and the standalone
+ * /historico route (bottom-nav tab of its own again), so the two never
+ * drift into two slightly different feeds.
+ */
+export function ActivityCard({
+  runs,
+  unit,
+  onRunDeleted,
+  delayMs,
+}: {
+  runs: CompletedRun[];
+  unit: DistanceUnit;
+  onRunDeleted: (id: string) => void;
+  delayMs: number;
+}) {
+  const totalMeters = runs.reduce((sum, run) => sum + run.distanceMeters, 0);
+  const totalSeconds = runs.reduce((sum, run) => sum + runMovingSeconds(run), 0);
+
+  return (
+    <Card className="pr-enter" style={delay(delayMs)}>
+      <CardTitle>Corridas</CardTitle>
+      <div className="mb-4 grid grid-cols-3 gap-3 border-b border-border pb-4">
+        <Stat label="Total" value={formatDistance(totalMeters, unit)} unit={unitLabel(unit)} />
+        <Stat label="Corridas" value={String(runs.length)} />
+        <Stat label="Tempo total" value={formatElapsed(totalSeconds)} />
+      </div>
+      <ActivityFeed runs={runs} unit={unit} onRunDeleted={onRunDeleted} />
+    </Card>
   );
 }
