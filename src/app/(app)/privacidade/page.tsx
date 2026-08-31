@@ -76,8 +76,15 @@ export default function PrivacidadePage() {
             repouso, variabilidade de frequência cardíaca (HRV), VO2 máx estimado e sono do
             repositório de saúde do próprio celular — nunca fala com o relógio direto — e mostra
             esses números junto com a corrida correspondente no seu Histórico. É dado sensível
-            (LGPD Art. 11): fica só nesse fluxo, nunca é enviado a servidor nenhum, e a leitura
-            para completamente assim que você desliga essa chave.
+            (LGPD Art. 11): por padrão fica só nesse fluxo, nunca enviado a servidor nenhum, e a
+            leitura para completamente assim que você desliga essa chave.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            Se você também ligar &quot;Sincronizar recuperação&quot; (desligado por padrão, em
+            Perfil → Sincronização — só aparece depois de já ter ligado a sincronização entre
+            aparelhos), uma leitura por semana de frequência cardíaca de repouso, HRV, sono e
+            VO2 máx passa a ser enviada pra nuvem também, pra poder aparecer no seu painel no
+            navegador. Nunca o dado bruto minuto a minuto — só esse resumo semanal.
           </p>
         </Card>
 

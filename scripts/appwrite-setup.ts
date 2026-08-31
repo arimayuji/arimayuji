@@ -219,6 +219,25 @@ async function main() {
   await ensure("profiles.nearbyOptIn", () =>
     tablesDB.createBooleanColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "nearbyOptIn", required: false }),
   );
+  // Gap found while wiring recoverySyncOptIn below: this column was never
+  // actually created here even though runnerProfileSync.ts/
+  // perfil/sincronizacao's toggle have depended on it since that feature
+  // shipped — `updateProfile(..., { runSyncOptIn })` would have failed
+  // against a real deployment with "unknown attribute" the first time
+  // anyone flipped the toggle. Off/absent by default, same as the two
+  // opt-ins above.
+  await ensure("profiles.runSyncOptIn", () =>
+    tablesDB.createBooleanColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "runSyncOptIn", required: false }),
+  );
+  // Nested one level deeper than runSyncOptIn: syncing goal/run summaries
+  // is one thing, syncing health-derived recovery signals (resting heart
+  // rate, HRV, sleep, VO2 max) off the device is sensitive data under LGPD
+  // Art. 11 and needs its own explicit switch — same "concentric
+  // permission" pattern as shareHeartRateWithCoach nested inside the
+  // general health consent. See recoverySync.ts.
+  await ensure("profiles.recoverySyncOptIn", () =>
+    tablesDB.createBooleanColumn({ databaseId: DATABASE_ID, tableId: "profiles", key: "recoverySyncOptIn", required: false }),
+  );
   // Only meaningful once opted in above. The *public* leaderboard view
   // shows this (falling back to `handle`) instead of `displayName`, so a
   // stranger never sees a real name just from participating — the friends
@@ -667,6 +686,55 @@ async function main() {
       key: "user_started_at",
       type: TablesDBIndexType.Key,
       columns: ["userId", "startedAtMs"],
+    }),
+  );
+
+  // -------------------------------------------------------- recovery_snapshots
+  console.log("\nrecovery_snapshots");
+  await ensure("table recovery_snapshots", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "recovery_snapshots",
+      name: "recovery_snapshots",
+      // Same owner-only shape as run_summaries above — one row per
+      // account per week (rowId = `${userId}_${weekStartIso}`), never
+      // shared with a coach/friend. *Create* goes through
+      // sync-recovery-snapshot in client-actions, same reason
+      // run_summaries doesn't use claim-owned-row: many rows per account,
+      // not the one-row-per-account shape that assumes.
+      permissions: [],
+      rowSecurity: true,
+    }),
+  );
+  await ensure("recovery_snapshots.userId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "recovery_snapshots", key: "userId", size: 36, required: true }),
+  );
+  await ensure("recovery_snapshots.weekStartIso", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "recovery_snapshots", key: "weekStartIso", size: 10, required: true }),
+  );
+  // All four optional and independently nullable — a real reading from
+  // HealthKit/Health Connect can come back with only some of the four
+  // fields present (see RecoveryContext in health.ts), never a zero
+  // standing in for "no data".
+  await ensure("recovery_snapshots.restingHeartRateBpm", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "recovery_snapshots", key: "restingHeartRateBpm", required: false, min: 0 }),
+  );
+  await ensure("recovery_snapshots.hrvMs", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "recovery_snapshots", key: "hrvMs", required: false, min: 0 }),
+  );
+  await ensure("recovery_snapshots.vo2Max", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "recovery_snapshots", key: "vo2Max", required: false, min: 0 }),
+  );
+  await ensure("recovery_snapshots.sleepHours", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "recovery_snapshots", key: "sleepHours", required: false, min: 0 }),
+  );
+  await ensure("recovery_snapshots index: userId + weekStartIso", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "recovery_snapshots",
+      key: "user_week_start",
+      type: TablesDBIndexType.Key,
+      columns: ["userId", "weekStartIso"],
     }),
   );
 

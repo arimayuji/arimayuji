@@ -17,7 +17,8 @@ import {
   type TrainingPhase,
 } from "@/lib/plan";
 import { PillTabs } from "../ui";
-import { WeeklyBarChart, WeeklyPaceChart } from "./trend-charts";
+import { WeeklyBarChart, WeeklyLineChart, WeeklyPaceChart } from "./trend-charts";
+import type { RecoverySnapshot } from "@/lib/recoverySync";
 import type { DisplaySession, SessionKind } from "./page";
 import { KIND_STYLE, OUTCOME_STYLE } from "./page";
 
@@ -484,6 +485,100 @@ export function TrainingLoadCard({ runs, buckets }: { runs: CompletedRun[]; buck
           uma corrida.
         </p>
       )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* Recovery trend (resting heart rate / HRV / sleep / VO2 max)            */
+/* ---------------------------------------------------------------------- */
+
+const RECOVERY_WEEKS_SHOWN = 12;
+
+/** Most recent non-null reading for one field, scanning back from the newest snapshot — a stale field from 8 weeks ago is still a more honest "latest known" than the most recent week if that week's read happened to come back empty. */
+function latestRecoveryValue(snapshots: RecoverySnapshot[], key: "vo2Max" | "sleepHours"): number | null {
+  for (let i = snapshots.length - 1; i >= 0; i--) {
+    const value = snapshots[i][key];
+    if (typeof value === "number") return value;
+  }
+  return null;
+}
+
+/**
+ * Desktop-only trend of resting heart rate, HRV, latest sleep and VO2 max —
+ * synced from HealthKit/Health Connect via recoverySync.ts, a separate
+ * opt-in from the run-history sync (see /perfil/sincronizacao's nested
+ * toggle), so most accounts simply have zero rows here. Returns null
+ * rather than an honest-empty-state message in that case: unlike
+ * IntensityRingCard/RecentRecordsCard (data any runner could eventually
+ * have just by running more), this structurally requires a paired watch
+ * plus two nested opt-ins — an aggressive "you're missing this" nudge here
+ * would nag the vast majority of accounts that will never have a watch.
+ */
+export function RecoveryTrendCard({ snapshots }: { snapshots: RecoverySnapshot[] }) {
+  if (snapshots.length === 0) return null;
+
+  const recent = snapshots.slice(-RECOVERY_WEEKS_SHOWN);
+  const restingHr = recent.map((s) => ({
+    weekStart: new Date(s.weekStartIso).getTime(),
+    value: s.restingHeartRateBpm ?? null,
+  }));
+  const hrv = recent.map((s) => ({ weekStart: new Date(s.weekStartIso).getTime(), value: s.hrvMs ?? null }));
+  const latestVo2Max = latestRecoveryValue(recent, "vo2Max");
+  const latestSleep = latestRecoveryValue(recent, "sleepHours");
+  const weeksAgoLabel = (weeksAgo: number) => (weeksAgo === 0 ? "essa semana" : `${weeksAgo} semanas atrás`);
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <h2 className="font-mono text-sm font-semibold tracking-wide">Recuperação</h2>
+        <span className="font-mono text-[10px] uppercase tracking-wide text-muted">relógio · últimas {recent.length} semanas</span>
+      </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:divide-x xl:divide-border">
+        <div className="xl:pr-6">
+          <p className="mb-1 text-[11px] font-semibold text-muted">FC de repouso</p>
+          {restingHr.some((p) => p.value !== null) ? (
+            <WeeklyLineChart
+              points={restingHr}
+              invert
+              formatTooltip={(value, _weekStart, weeksAgo) => `${value} bpm — ${weeksAgoLabel(weeksAgo)}`}
+            />
+          ) : (
+            <p className="py-3 text-xs leading-relaxed text-muted">Sem leitura ainda essas semanas.</p>
+          )}
+        </div>
+        <div className="xl:pl-6">
+          <p className="mb-1 text-[11px] font-semibold text-muted">HRV</p>
+          {hrv.some((p) => p.value !== null) ? (
+            <WeeklyLineChart
+              points={hrv}
+              formatTooltip={(value, _weekStart, weeksAgo) => `${value} ms — ${weeksAgoLabel(weeksAgo)}`}
+            />
+          ) : (
+            <p className="py-3 text-xs leading-relaxed text-muted">Sem leitura ainda essas semanas.</p>
+          )}
+        </div>
+      </div>
+      <div className="mt-4 flex gap-6 border-t border-border pt-3">
+        <div>
+          <span className="text-[10px] uppercase tracking-wide text-muted">VO2 máx</span>
+          <p className="font-mono text-sm tabular-nums">
+            {latestVo2Max !== null ? `${latestVo2Max}` : "—"}
+            <span className="ml-1 text-[10px] font-sans text-muted">mL/min/kg</span>
+          </p>
+        </div>
+        <div>
+          <span className="text-[10px] uppercase tracking-wide text-muted">Sono (última noite lida)</span>
+          <p className="font-mono text-sm tabular-nums">
+            {latestSleep !== null ? `${latestSleep}` : "—"}
+            <span className="ml-1 text-[10px] font-sans text-muted">h</span>
+          </p>
+        </div>
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-muted">
+        FC de repouso mais baixa e HRV mais alto ao longo do tempo costumam indicar recuperação
+        melhorando — o inverso pode ser um sinal de acúmulo de fadiga, não um diagnóstico.
+      </p>
     </div>
   );
 }

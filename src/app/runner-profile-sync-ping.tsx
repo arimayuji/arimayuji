@@ -4,6 +4,9 @@ import { useEffect, useRef } from "react";
 import { App } from "@capacitor/app";
 import { getCurrentAccount, getProfile } from "@/lib/auth";
 import { syncRunnerProfile } from "@/lib/runnerProfileSync";
+import { syncRecoverySnapshot } from "@/lib/recoverySync";
+import { fetchRecoveryContext } from "@/lib/health";
+import { currentMondayIsoDate } from "@/lib/runnerProfile";
 import { isNativePlatform } from "@/lib/platform";
 
 /** Same throttle reasoning as `FriendPresencePing` — a quick app-switch and back shouldn't fire a fresh sync round-trip every time. */
@@ -21,6 +24,14 @@ const SYNC_THROTTLE_MS = 5 * 60_000;
  * a cached value — same reasoning `FriendPresencePing` documents for
  * `nearbyOptIn`: this component's effect only runs once, but the toggle can
  * flip at any time from `/perfil/sincronizacao`.
+ *
+ * Same tick also covers `recoverySyncOptIn` — a weekly recovery snapshot
+ * (resting heart rate/HRV/sleep/VO2 max) is far less time-sensitive than
+ * the goal sync above, so reusing this same throttled foreground tick
+ * (rather than a separate ping component) is enough; `fetchRecoveryContext`
+ * is itself gated on `isNativePlatform()` internally (see health.ts), so
+ * this never does anything on a web session even if the flag were
+ * somehow on there.
  */
 export function RunnerProfileSyncPing() {
   const lastSyncAtRef = useRef(0);
@@ -37,6 +48,11 @@ export function RunnerProfileSyncPing() {
 
       lastSyncAtRef.current = now;
       await syncRunnerProfile();
+
+      if (profile.recoverySyncOptIn && isNativePlatform()) {
+        const context = await fetchRecoveryContext(now);
+        if (context) await syncRecoverySnapshot(currentMondayIsoDate(), context);
+      }
     }
 
     void tick();

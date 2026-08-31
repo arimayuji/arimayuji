@@ -7,8 +7,13 @@ import { Card, CardTitle, delay, NoticeBadge, PreferenceToggle, Screen, ScreenHe
 import { useAuth } from "@/lib/useAuth";
 import { updateProfile } from "@/lib/auth";
 import { syncRunnerProfile } from "@/lib/runnerProfileSync";
+import { syncRecoverySnapshot } from "@/lib/recoverySync";
 import { backfillRunSummaries } from "@/lib/runSummariesSync";
 import { listCompletedRuns } from "@/lib/tracking/storage";
+import { fetchRecoveryContext } from "@/lib/health";
+import { currentMondayIsoDate } from "@/lib/runnerProfile";
+import { usePreferences } from "@/lib/usePreferences";
+import { isNativePlatform } from "@/lib/platform";
 
 /**
  * Consent screen for cross-device sync of the goal/plan (`RunnerProfile`)
@@ -26,11 +31,21 @@ import { listCompletedRuns } from "@/lib/tracking/storage";
 export default function SincronizacaoPage() {
   useHeaderClose("/perfil");
   const { status, account, profile, refresh } = useAuth();
+  const [preferences] = usePreferences();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [recoverySaving, setRecoverySaving] = useState(false);
+  const [recoveryError, setRecoveryError] = useState(false);
+  const [recoverySyncing, setRecoverySyncing] = useState(false);
 
   const optedIn = profile?.runSyncOptIn ?? false;
+  const recoveryOptedIn = profile?.recoverySyncOptIn ?? false;
+  // Nested on top of two other prerequisites: reading health data at all
+  // (healthDataConsent, device-local) and syncing anything off-device
+  // (runSyncOptIn, just above) — same concentric-permission shape as
+  // shareHeartRateWithCoach nested inside the general health consent.
+  const recoveryPrereqsMet = optedIn && preferences.healthDataConsent && isNativePlatform();
 
   async function handleToggle(next: boolean) {
     if (!account || saving) return;
@@ -50,6 +65,26 @@ export default function SincronizacaoPage() {
       setError(true);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleRecoveryToggle(next: boolean) {
+    if (!account || recoverySaving) return;
+    setRecoverySaving(true);
+    setRecoveryError(false);
+    try {
+      await updateProfile(account.id, { recoverySyncOptIn: next });
+      await refresh();
+      if (next) {
+        setRecoverySyncing(true);
+        const context = await fetchRecoveryContext(Date.now());
+        if (context) await syncRecoverySnapshot(currentMondayIsoDate(), context);
+        setRecoverySyncing(false);
+      }
+    } catch {
+      setRecoveryError(true);
+    } finally {
+      setRecoverySaving(false);
     }
   }
 
@@ -95,6 +130,44 @@ export default function SincronizacaoPage() {
             </>
           )}
         </Card>
+
+        {status === "signed-in" && optedIn && (
+          <Card className="pr-enter" style={delay(30)}>
+            <CardTitle aside={<NoticeBadge>{recoveryOptedIn ? "ativado" : "desligado"}</NoticeBadge>}>
+              Também sincronizar recuperação
+            </CardTitle>
+            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
+              Frequência cardíaca de repouso, HRV, sono e VO2 máx — os mesmos dados que
+              &quot;Recuperação&quot; já mostra na tela de uma corrida — passam a existir também na
+              nuvem, uma leitura por semana. Dado de saúde, categoria sensível: precisa desse
+              interruptor à parte, mesmo já tendo ligado a sincronização acima.
+            </p>
+            {!recoveryPrereqsMet ? (
+              <p className="text-xs leading-relaxed text-muted text-pretty">
+                {!isNativePlatform()
+                  ? "Só disponível no app do celular — é de lá que o dado do relógio vem."
+                  : "Precisa primeiro ligar \"Ler dados de saúde\" em Perfil → Dados → Saúde do relógio."}
+              </p>
+            ) : (
+              <>
+                <PreferenceToggle
+                  label="Sincronizar recuperação"
+                  hint="desligado por padrão — só com relógio pareado e sincronizando"
+                  checked={recoveryOptedIn}
+                  onChange={handleRecoveryToggle}
+                />
+                {recoverySyncing && (
+                  <p className="mt-2 text-xs leading-relaxed text-muted">Lendo o relógio…</p>
+                )}
+                {recoveryError && (
+                  <p className="mt-2 text-xs leading-relaxed text-bad">
+                    Não deu pra salvar agora — tenta de novo em instantes.
+                  </p>
+                )}
+              </>
+            )}
+          </Card>
+        )}
 
         <Card className="pr-enter" style={delay(40)}>
           <CardTitle>Como o conflito é resolvido</CardTitle>

@@ -83,6 +83,7 @@ export const TABLES = {
   friendPresence: "friend_presence",
   runnerProfileSync: "runner_profile_sync",
   runSummaries: "run_summaries",
+  recoverySnapshots: "recovery_snapshots",
 } as const;
 
 /**

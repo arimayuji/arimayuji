@@ -93,6 +93,95 @@ export function WeeklyBarChart({
   );
 }
 
+export interface WeeklyLinePoint {
+  weekStart: number;
+  value: number | null;
+}
+
+/**
+ * Generic weekly line chart — one point per week, gaps break the line
+ * instead of connecting across them, same honesty rule as the pace chart
+ * below (which this predates conceptually but doesn't share code with, to
+ * avoid re-verifying an already-shipped chart just to extract a generic).
+ * `invert` plots a *smaller* value higher on the chart — for a metric
+ * where "down and to the right" reads as improvement (resting heart rate),
+ * not the default "up is more" reading (HRV). Returns null with fewer than
+ * 2 known points.
+ */
+export function WeeklyLineChart({
+  points,
+  invert = false,
+  formatTooltip,
+}: {
+  points: WeeklyLinePoint[];
+  invert?: boolean;
+  formatTooltip: (value: number, weekStart: number, weeksAgo: number) => string;
+}) {
+  const known = points.map((p) => p.value).filter((v): v is number => v !== null);
+  if (known.length < 2) return null;
+
+  const min = Math.min(...known);
+  const max = Math.max(...known);
+  const span = max - min;
+  const n = points.length;
+  const slot = CHART_WIDTH / n;
+
+  const plotted = points.map((p, i) => {
+    if (p.value === null) return null;
+    const x = i * slot + slot / 2;
+    const ratio = span > 0 ? (p.value - min) / span : 0.5;
+    const y = invert
+      ? TOP_PAD + ratio * (CHART_HEIGHT - TOP_PAD)
+      : CHART_HEIGHT - TOP_PAD - ratio * (CHART_HEIGHT - TOP_PAD);
+    return { x, y, value: p.value };
+  });
+
+  const segments: { x: number; y: number }[][] = [];
+  let current: { x: number; y: number }[] = [];
+  for (const p of plotted) {
+    if (p === null) {
+      if (current.length) segments.push(current);
+      current = [];
+    } else {
+      current.push(p);
+    }
+  }
+  if (current.length) segments.push(current);
+
+  const firstKnownIndex = plotted.findIndex((p) => p !== null);
+  const lastKnownIndex = plotted.map((p) => p !== null).lastIndexOf(true);
+
+  return (
+    <svg
+      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT + 6}`}
+      preserveAspectRatio="none"
+      className="h-24 w-full text-accent"
+      aria-hidden="true"
+    >
+      <line x1="0" y1={CHART_HEIGHT} x2={CHART_WIDTH} y2={CHART_HEIGHT} className="text-border" stroke="currentColor" strokeWidth="0.3" />
+      {segments.map((segment, si) => (
+        <path
+          key={si}
+          d={segment.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+      {plotted.map((p, i) =>
+        p ? (
+          <circle key={i} cx={p.x} cy={p.y} r={i === firstKnownIndex || i === lastKnownIndex ? 1.6 : 1} fill="currentColor">
+            <title>{formatTooltip(p.value, points[i].weekStart, n - 1 - i)}</title>
+          </circle>
+        ) : null,
+      )}
+    </svg>
+  );
+}
+
 /**
  * Weekly average pace over the same window, plotted so *higher on the chart
  * reads as faster* (the opposite of a raw seconds axis) — the direct label

@@ -34,6 +34,7 @@ import { useAuth } from "@/lib/useAuth";
 import { currentMondayIsoDate, type RunnerProfile } from "@/lib/runnerProfile";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { syncRunnerProfile } from "@/lib/runnerProfileSync";
+import { listRecoverySnapshots, type RecoverySnapshot } from "@/lib/recoverySync";
 import {
   estimateWeeklyKm,
   listCompletedRuns,
@@ -56,6 +57,7 @@ import {
   TrainingLoadCard,
   IntensityRingCard,
   PlanCalendar,
+  RecoveryTrendCard,
 } from "./plan-dashboard";
 import { GoalWizard } from "./goal-wizard";
 import { DistanceTileGrid, MIN_WEEKLY_DAYS, MAX_WEEKLY_DAYS } from "./goal-fields";
@@ -778,6 +780,7 @@ export default function PlanoPage() {
   const [completedRuns, setCompletedRuns] = useState<CompletedRun[] | null>(null);
   const [painCheckIns, setPainCheckIns] = useState<PainCheckIn[]>([]);
   const [coachOverrides, setCoachOverrides] = useState<Map<string, ParsedPlanOverride>>(new Map());
+  const [recoverySnapshots, setRecoverySnapshots] = useState<RecoverySnapshot[]>([]);
   const [selfOverride, setSelfOverrideState] = useState<SelfPlanOverride | null>(null);
   const [planRevealed, setPlanRevealed] = useState(false);
   const [showExample, setShowExample] = useState(false);
@@ -795,6 +798,18 @@ export default function PlanoPage() {
   useEffect(() => {
     if (!account) return;
     listPlanOverridesForStudent(account.id).then(setCoachOverrides);
+  }, [account]);
+
+  // Reads happily from any device (a plain owner-only listRows, legal for
+  // a direct client call) even though only a native device with a watch
+  // ever *writes* a row — this is what lets the desktop dashboard below
+  // show a trend synced from the phone. Empty for the vast majority of
+  // accounts (two nested opt-ins + a paired watch), same as every other
+  // desktop-only card here degrading to "nothing to show" rather than an
+  // error.
+  useEffect(() => {
+    if (!account) return;
+    listRecoverySnapshots(account.id).then(setRecoverySnapshots);
   }, [account]);
 
   const hasGoal = Boolean(profile.goalDistanceMeters && profile.goalDate);
@@ -1076,6 +1091,17 @@ export default function PlanoPage() {
                 recentRaceDistanceMeters={profile.recentRaceDistanceMeters}
                 recentRaceTimeSeconds={profile.recentRaceTimeSeconds}
               />
+            </div>
+          )}
+
+          {/* RecoveryTrendCard returns null for the vast majority of
+              accounts — this needs a paired watch plus two nested opt-ins
+              (see /perfil/sincronizacao) — so the wrapper (border includes)
+              only renders at all once there's something to show, instead
+              of leaving a stray empty divider line behind. */}
+          {recoverySnapshots.length > 0 && (
+            <div className="hidden border-b border-border pb-6 lg:block">
+              <RecoveryTrendCard snapshots={recoverySnapshots} />
             </div>
           )}
 

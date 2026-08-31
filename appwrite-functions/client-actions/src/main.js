@@ -1499,6 +1499,69 @@ async function backfillRunSummaries({ userId, body, client, res, error }) {
   return res.json({ ok: true, created, skipped });
 }
 
+const WEEK_START_ISO_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Validates+extracts one recovery-snapshot payload — every metric is independently optional (a real HealthKit/Health Connect read can come back with only some of the four filled), but at least one has to be present or there's nothing worth a row for. */
+function parseRecoverySnapshotItem(body) {
+  const weekStartIso = String(body?.weekStartIso ?? "");
+  if (!WEEK_START_ISO_PATTERN.test(weekStartIso)) return null;
+
+  const out = { weekStartIso };
+  let hasAny = false;
+  if (typeof body.restingHeartRateBpm === "number" && body.restingHeartRateBpm >= 0) {
+    out.restingHeartRateBpm = body.restingHeartRateBpm;
+    hasAny = true;
+  }
+  if (typeof body.hrvMs === "number" && body.hrvMs >= 0) {
+    out.hrvMs = body.hrvMs;
+    hasAny = true;
+  }
+  if (typeof body.vo2Max === "number" && body.vo2Max >= 0) {
+    out.vo2Max = body.vo2Max;
+    hasAny = true;
+  }
+  if (typeof body.sleepHours === "number" && body.sleepHours >= 0) {
+    out.sleepHours = body.sleepHours;
+    hasAny = true;
+  }
+  return hasAny ? out : null;
+}
+
+/**
+ * action: "sync-recovery-snapshot" — same create-or-update-on-409 shape as
+ * `sync-run-summary` above, one row per account per week
+ * (rowId = `${userId}_${weekStartIso}`). Caller (recoverySync.ts) already
+ * checked `Profile.recoverySyncOptIn` before invoking this — never
+ * re-checked here, same convention as runSyncOptIn/healthDataConsent
+ * elsewhere in this file.
+ */
+async function syncRecoverySnapshot({ userId, body, client, res, error }) {
+  const parsed = parseRecoverySnapshotItem(body);
+  if (!parsed) return res.json({ error: "missing-fields" }, 400);
+
+  const tablesDB = new TablesDB(client);
+  const rowId = `${userId}_${parsed.weekStartIso}`;
+  const data = { userId, ...parsed };
+  const permissions = [Permission.read(Role.user(userId)), Permission.update(Role.user(userId)), Permission.delete(Role.user(userId))];
+
+  try {
+    const row = await tablesDB.createRow({ databaseId: DATABASE_ID, tableId: "recovery_snapshots", rowId, data, permissions });
+    return res.json({ ok: true, row });
+  } catch (err) {
+    if (err.code === 409) {
+      try {
+        const row = await tablesDB.updateRow({ databaseId: DATABASE_ID, tableId: "recovery_snapshots", rowId, data });
+        return res.json({ ok: true, row });
+      } catch (updateErr) {
+        error(`sync-recovery-snapshot: update fallback failed for ${rowId}: ${updateErr.message}`);
+        return res.json({ error: "failed" }, 500);
+      }
+    }
+    error(`sync-recovery-snapshot failed for ${rowId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+}
+
 /**
  * action: "send-friend-request" — must run privileged, unlike every other
  * table write in this file that a plain client session could do on its own.
@@ -2491,6 +2554,7 @@ const ACTIONS = {
   "claim-owned-row": claimOwnedRow,
   "sync-run-summary": syncRunSummary,
   "backfill-run-summaries": backfillRunSummaries,
+  "sync-recovery-snapshot": syncRecoverySnapshot,
   "send-friend-request": sendFriendRequest,
   "propose-coach-relationship": proposeCoachRelationship,
   "set-plan-override": setPlanOverride,
