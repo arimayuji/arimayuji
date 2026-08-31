@@ -6,13 +6,45 @@ import { listFriendConnections } from "@/lib/friendships";
 import { listFriendsFeed, parseFeedRoutePoints, toggleRunKudos, type FriendFeedItem } from "@/lib/friendsFeed";
 import type { DistanceUnit } from "@/lib/preferences";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
-import { projectRoute } from "@/lib/tracking/routeProjection";
 import { formatAveragePace, formatDistance, unitLabel } from "@/lib/units";
 import { usePreferences } from "@/lib/usePreferences";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { Avatar } from "../avatar";
+import { RouteMap } from "../route-map";
 import { Card, CardTitle, delay, Screen, ScreenHeader } from "../ui";
+
+/**
+ * Mounts `children` only once this element scrolls near the viewport, and
+ * never un-mounts it again — a real basemap (`RouteMap`, MapLibre/WebGL) per
+ * card is too expensive to give every item in a feed of up to 30 posts for
+ * free, but a feed only ever has a couple of cards near the viewport at
+ * once, so lazily mounting as the athlete scrolls keeps concurrent WebGL
+ * contexts bounded to what's actually on screen instead of every basemap
+ * loading (and fighting over network) the instant the feed opens.
+ */
+function useInView<T extends Element>(rootMargin = "300px"): { ref: (node: T | null) => void; inView: boolean } {
+  const [inView, setInView] = useState(false);
+  const nodeRef = useRef<T | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  const ref = (node: T | null) => {
+    nodeRef.current = node;
+    observerRef.current?.disconnect();
+    if (!node || inView) return;
+    observerRef.current = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setInView(true);
+      },
+      { rootMargin },
+    );
+    observerRef.current.observe(node);
+  };
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
+
+  return { ref, inView };
+}
 
 const RETURN_TO = "/feed";
 
@@ -82,10 +114,17 @@ function PinIcon({ className }: { className?: string }) {
 }
 
 /**
- * The GPS trace as a flattened SVG, same `projectRoute` math /historico and
- * `matched-runs-card.tsx`'s thumbnail already use — real geometry (breaks at
- * tracking gaps, honest to what the route actually looked like). Rendered
- * edge-to-edge (negative margins matching the Card's own `p-5`, same trick
+ * The GPS trace on the app's real basemap (`RouteMap`, MapLibre + Protomaps —
+ * same component /historico's detail screen and live tracking already use),
+ * not a bare flattened line on blank background. A first pass here drew just
+ * the line via `projectRoute` (same math as `matched-runs-card.tsx`'s 56px
+ * corner thumbnail) — fine at icon size, but blown up to a full-width hero
+ * with nothing around it, a route with no geography reads as a random
+ * scribble, not a place ("esse risco aí na tela nada a ver, tudo perdido",
+ * reported 2026-08-31 looking at exactly this card). Lazily mounted via
+ * `useInView` — a live WebGL map per feed card is real cost a flat SVG
+ * never was, so only cards actually near the viewport get one.
+ * Edge-to-edge (negative margins matching the Card's own `p-5`, same trick
  * historico/page.tsx's empty-state illustration uses) so it reads as this
  * card's hero visual — the same role a photo plays on Strava's card,
  * without pretending to be a photo the app never took. `points` comes
@@ -94,22 +133,13 @@ function PinIcon({ className }: { className?: string }) {
  */
 function RouteBanner({ points }: { points: FriendFeedItem["points"] }) {
   const parsed = parseFeedRoutePoints(points);
+  const { ref, inView } = useInView<HTMLDivElement>();
   if (parsed.length < 2) return null;
-  const projected = projectRoute(parsed, { viewBoxSize: 100, paddingFraction: 0.12 });
-  if (!projected) return null;
 
   return (
-    <svg
-      viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
-      preserveAspectRatio="xMidYMid meet"
-      className="-mx-5 h-52 w-[calc(100%+2.5rem)] bg-background text-accent"
-      role="img"
-      aria-label="Traçado da corrida"
-    >
-      {projected.polylines.map((pts, i) => (
-        <polyline key={i} points={pts} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      ))}
-    </svg>
+    <div ref={ref} className="-mx-5 h-52 w-[calc(100%+2.5rem)] overflow-hidden bg-background">
+      {inView && <RouteMap points={parsed} square={false} rounded={false} className="h-52 w-full" />}
+    </div>
   );
 }
 
