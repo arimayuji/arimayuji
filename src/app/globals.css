@@ -20,17 +20,6 @@
   --bad: #dc2626;
 
   /*
-   * Header/bottom-nav gradient stops — same hue as --accent, just lightened
-   * (~22% toward white) and darkened (~34% toward black) by the same ratio
-   * the reference design's own light/dark stops sit at relative to its
-   * primary, so the bars stay the app's actual accent rather than
-   * introducing a second, slightly different blue. --accent itself is the
-   * middle stop.
-   */
-  --header-gradient-light: #5d8ff1;
-  --header-gradient-dark: #1f499c;
-
-  /*
    * Sequential ramp (low → high volume) for the history heat calendar. Each
    * step is picked per theme rather than derived from the light one, so the
    * dark set runs light-on-dark instead of fading into the near-black ground.
@@ -78,27 +67,30 @@
   background: var(--background);
   border-bottom: 1px solid var(--border);
 }
+/*
+ * White, not the old accent gradient — the active tab (and the Corrida
+ * FAB) carry the accent color instead, same "color on white" balance the
+ * rest of the app already uses for its surfaces. See app-shell.tsx's
+ * BottomNav for the text/icon color classes that pair with this.
+ */
 .chrome-gradient-nav {
-  background: linear-gradient(
-    20deg,
-    var(--header-gradient-light),
-    var(--accent) 55%,
-    var(--header-gradient-dark)
-  );
+  background: #ffffff;
+  border-top: 1px solid var(--border);
 }
 
 /*
  * At `lg:`, app-shell.tsx turns the bottom nav into a persistent left
- * sidebar (a desktop dashboard's own nav rail) — flat accent instead of the
- * mobile gradient, with app-shell.tsx's own brand mark/nav-item classes
- * switching to their white-on-accent variants to match. A plain class
- * selector at equal specificity to the rule above, so being declared later
- * here is what makes it win at that width — no `!important`, no fight with
- * Tailwind's own utility order.
+ * sidebar (a desktop dashboard's own nav rail) — flat accent instead of
+ * the mobile bar's white, with app-shell.tsx's own brand mark/nav-item
+ * classes switching to their white-on-accent variants to match. A plain
+ * class selector at equal specificity to the rule above, so being
+ * declared later here is what makes it win at that width — no
+ * `!important`, no fight with Tailwind's own utility order.
  */
 @media (min-width: 1024px) {
   .chrome-gradient-nav {
     background: var(--accent);
+    border-top: none;
     border-right: 1px solid rgba(255, 255, 255, 0.14);
   }
 }

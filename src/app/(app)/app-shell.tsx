@@ -357,15 +357,18 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                     edge (`-mt-6`) instead of sitting flush like the other
                     four — the one primary action of the app (or, in
                     treinador mode, its equivalent) gets more visual weight
-                    than a same-size tab icon would. White-on-accent so it
-                    reads against the bar's own accent-blue gradient. */}
+                    than a same-size tab icon would. Solid accent-on-white
+                    (inverted from the other tabs' white-on-accent-text) so
+                    it reads as the one filled, "call to action" element
+                    against the bar's own white background, with a
+                    colored (not plain black) shadow to lift it further.  */}
                 <Link
                   href={tab.href}
                   aria-current={active ? "page" : undefined}
                   onClick={onClick}
-                  className="-mt-6 flex flex-col items-center gap-1 text-[11px] font-bold text-white"
+                  className="-mt-6 flex flex-col items-center gap-1 text-[11px] font-bold text-accent"
                 >
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-accent shadow-[0_6px_16px_-4px_rgba(0,0,0,0.45)]">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_20px_-6px_rgba(47,111,237,0.6)]">
                     <tab.icon className="h-7 w-7" />
                   </span>
                   {tab.label}
@@ -382,14 +385,14 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                 onClick={onClick}
                 /* 64px+ tall target: this gets tapped mid-exercise. */
                 className={`flex min-h-16 flex-col items-center justify-center gap-1.5 px-1 pt-2.5 pb-1.5 text-[11px] transition-colors ${
-                  active ? "font-bold text-white" : "font-medium text-white/85"
+                  active ? "font-bold text-accent" : "font-medium text-muted"
                 }`}
               >
                 <tab.icon className="h-[26px] w-[26px]" />
                 {tab.label}
                 {/* Selection indicator: a thin underline, not a pill behind the icon — tested, a background pill there read as visually busy. Width transitions in/out instead of a hard cut. */}
                 <span
-                  className="h-[3px] rounded-full bg-white transition-[width] duration-200 ease-out"
+                  className="h-[3px] rounded-full bg-accent transition-[width] duration-200 ease-out"
                   style={{ width: active ? "16px" : "0px" }}
                   aria-hidden="true"
                 />
