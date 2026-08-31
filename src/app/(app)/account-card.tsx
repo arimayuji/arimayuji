@@ -72,7 +72,21 @@ export function AccountCard() {
         Conta
       </CardTitle>
 
-      {status === "loading" && <p className="text-sm text-muted">Verificando…</p>}
+      {status === "loading" && (
+        // Same row shape "signed-in" resolves into (avatar + two lines +
+        // a round action button) so there's no layout jump once the real
+        // state lands — a plain "Verificando…" line used to sit here.
+        <div className="flex animate-pulse items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-background" />
+            <div className="space-y-1.5">
+              <div className="h-3.5 w-28 rounded bg-background" />
+              <div className="h-3 w-16 rounded bg-background" />
+            </div>
+          </div>
+          <div className="h-8 w-8 shrink-0 rounded-full bg-background" />
+        </div>
+      )}
 
       {status === "signed-out" && (
         <div className="flex items-center justify-between gap-3">
