@@ -474,14 +474,12 @@ export interface ShareCardLayoutOverrides {
   /**
    * True removes that element from the render entirely — every element on
    * this card is optional, not just draggable. Kept separate from
-   * `stats`/`plate` above (a position offset) rather than folded into
-   * them, since hiding needs to survive independently of whatever offset
-   * was already dragged in — un-hiding later should put it back exactly
-   * where it was, not reset to the default position too. The route has no
-   * hide flag — dropping the trace entirely defeats the point of the
-   * "trajeto" template (pick "número" instead if the route shouldn't show).
+   * `stats`/`plate`/`route` above (a position offset) rather than folded
+   * into them, since hiding needs to survive independently of whatever
+   * offset was already dragged in — un-hiding later should put it back
+   * exactly where it was, not reset to the default position too.
    */
-  hidden?: { stats?: boolean; plate?: boolean };
+  hidden?: { stats?: boolean; plate?: boolean; route?: boolean };
 }
 
 /**
@@ -1696,7 +1694,7 @@ export function drawShareCardFrame(
 
   if (scene.layout === "numero") {
     drawNumberHero(ctx, scene, t);
-  } else {
+  } else if (!scene.layoutOverrides.hidden?.route) {
     const routeOffset = scene.layoutOverrides.route;
     if (routeOffset) ctx.translate(routeOffset.dx, routeOffset.dy);
     drawRoute(ctx, scene, t);

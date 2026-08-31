@@ -44,7 +44,7 @@ function DragArea({
   offset: { dx: number; dy: number };
   label: string;
   onChange: (offset: { dx: number; dy: number }) => void;
-  /** Omitted for an element with no remove affordance — the route trace, dropping it entirely defeats the point of this template. */
+  /** Every draggable element on the card can be removed now — omit this prop only for an area that genuinely has no hide affordance. */
   onRemove?: () => void;
 }) {
   const dragRef = useRef<{ pointerId: number; startOffset: { dx: number; dy: number }; startX: number; startY: number; unitsPerPxX: number; unitsPerPxY: number } | null>(null);
@@ -234,7 +234,15 @@ export function ShareCardPreview({
   const hasPlateAccessory = !!scene.record || !!scene.shoe;
   const statsHidden = !!layoutOverrides?.hidden?.stats;
   const plateHidden = !!layoutOverrides?.hidden?.plate;
-  const hasOverride = !!(layoutOverrides?.stats || layoutOverrides?.plate || layoutOverrides?.route || statsHidden || plateHidden);
+  const routeHidden = !!layoutOverrides?.hidden?.route;
+  const hasOverride = !!(
+    layoutOverrides?.stats ||
+    layoutOverrides?.plate ||
+    layoutOverrides?.route ||
+    statsHidden ||
+    plateHidden ||
+    routeHidden
+  );
 
   return (
     <div className={`relative overflow-hidden rounded-3xl border border-border ${className}`}>
@@ -246,13 +254,30 @@ export function ShareCardPreview({
         role="img"
         aria-label={`Card da corrida de ${scene.distance} ${scene.distanceUnit} em ${scene.duration}, ritmo ${scene.pace} por ${scene.distanceUnit}`}
       />
-      {draggable && boxes.route && (
+      {draggable && boxes.route && !routeHidden && (
         <DragArea
           canvasRef={canvasRef}
           box={boxes.route}
           offset={layoutOverrides?.route ?? { dx: 0, dy: 0 }}
           label="rota"
           onChange={(route) => onLayoutOverridesChange({ ...layoutOverrides, route })}
+          onRemove={() => onLayoutOverridesChange({ ...layoutOverrides, hidden: { ...layoutOverrides?.hidden, route: true } })}
+        />
+      )}
+      {draggable && boxes.route && routeHidden && (
+        <RestoreChip
+          label="Mostrar rota"
+          className={
+            // Stacks below whichever of stats/plate restore chips (each
+            // its own 32px-tall slot) are already showing, same left
+            // column — never overlapping an already-visible chip.
+            (statsHidden ? 1 : 0) + (hasPlateAccessory && plateHidden ? 1 : 0) === 2
+              ? "top-19 left-3"
+              : (statsHidden ? 1 : 0) + (hasPlateAccessory && plateHidden ? 1 : 0) === 1
+                ? "top-11 left-3"
+                : "top-3 left-3"
+          }
+          onClick={() => onLayoutOverridesChange({ ...layoutOverrides, hidden: { ...layoutOverrides?.hidden, route: false } })}
         />
       )}
       {draggable && !statsHidden && (
