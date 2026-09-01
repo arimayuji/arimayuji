@@ -145,7 +145,7 @@ export function GoalWizard({
                     Number(recentSeconds) || 0,
                   )
                 }
-                className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none ${
+                className={`w-16 rounded-sm border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                   recentMinutes ? "border-accent" : "border-border"
                 }`}
               />
@@ -165,7 +165,7 @@ export function GoalWizard({
                     Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0,
                   )
                 }
-                className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none ${
+                className={`w-16 rounded-sm border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                   recentSeconds ? "border-accent" : "border-border"
                 }`}
               />

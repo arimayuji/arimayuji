@@ -18,6 +18,11 @@ const eslintConfig = defineConfig([
     // Vendored third-party plugin source (forked to patch a native method) —
     // its compiled dist/ isn't code this project authors or maintains style on.
     "native-plugins/**",
+    // Installed Claude Code skills (design references, generator scripts) —
+    // same rationale as native-plugins/ above: third-party tooling this
+    // project doesn't author, so its own conventions (plain require() in
+    // .cjs scripts, etc.) shouldn't be graded against this project's rules.
+    ".claude/skills/**",
   ]),
 ]);
 

@@ -49,13 +49,19 @@ export function WeeklyBarChart({
   const slot = CHART_WIDTH / n;
   const barWidth = slot * 0.6;
   const usableHeight = CHART_HEIGHT - TOP_PAD;
+  // The bar-by-bar <title> tooltips only reach a mouse — a screen reader
+  // gets nothing from an `aria-hidden` SVG. Reusing the same `formatTooltip`
+  // every bar already renders gives a screen reader the exact same data a
+  // sighted, mouse-using person gets from hovering each bar in turn.
+  const ariaLabel = weeks.map((week, i) => formatTooltip(week.value, week.weekStart, n - 1 - i)).join(", ");
 
   return (
     <svg
       viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT + 6}`}
       preserveAspectRatio="none"
       className="h-36 w-full text-accent"
-      aria-hidden="true"
+      role="img"
+      aria-label={ariaLabel}
     >
       <line x1="0" y1={CHART_HEIGHT} x2={CHART_WIDTH} y2={CHART_HEIGHT} className="text-border" stroke="currentColor" strokeWidth="0.3" />
       {targetValue !== undefined && targetValue > 0 && (
@@ -150,13 +156,18 @@ export function WeeklyLineChart({
 
   const firstKnownIndex = plotted.findIndex((p) => p !== null);
   const lastKnownIndex = plotted.map((p) => p !== null).lastIndexOf(true);
+  const ariaLabel = points
+    .map((p, i) => (p.value !== null ? formatTooltip(p.value, p.weekStart, n - 1 - i) : null))
+    .filter((label): label is string => label !== null)
+    .join(", ");
 
   return (
     <svg
       viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT + 6}`}
       preserveAspectRatio="none"
       className="h-24 w-full text-accent"
-      aria-hidden="true"
+      role="img"
+      aria-label={ariaLabel}
     >
       <line x1="0" y1={CHART_HEIGHT} x2={CHART_WIDTH} y2={CHART_HEIGHT} className="text-border" stroke="currentColor" strokeWidth="0.3" />
       {segments.map((segment, si) => (
@@ -226,13 +237,18 @@ export function WeeklyPaceChart({ buckets }: { buckets: WeekBucket[] }) {
 
   const firstKnownIndex = points.findIndex((p) => p !== null);
   const lastKnownIndex = points.map((p) => p !== null).lastIndexOf(true);
+  const ariaLabel = paces
+    .map((pace, i) => (pace !== null ? `${weekLabel(buckets[i].weekStart, n - 1 - i)}: ${formatPace(pace)} por km` : null))
+    .filter((label): label is string => label !== null)
+    .join(", ");
 
   return (
     <svg
       viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT + 6}`}
       preserveAspectRatio="none"
       className="h-36 w-full text-accent"
-      aria-hidden="true"
+      role="img"
+      aria-label={ariaLabel}
     >
       <line x1="0" y1={CHART_HEIGHT} x2={CHART_WIDTH} y2={CHART_HEIGHT} className="text-border" stroke="currentColor" strokeWidth="0.3" />
       {segments.map((segment, si) => (
