@@ -688,9 +688,16 @@ Mecanismo: dois **tópicos** do Appwrite Messaging, `android-updates` e
 só agrupa alvos). `registerForPushNotifications()` inscreve o Push Target
 recém-criado no tópico do seu SO chamando a ação `subscribe-update-topic`
 em `client-actions`. O CI (`.github/workflows/android-build.yml`, job
-`web-deploy`, step "Notify Android accounts...") dispara o aviso pro tópico
-`android-updates` assim que o link público do APK é confirmado — direto
-via `curl` na REST API do Appwrite Messaging (`POST
+`notify-android-update`, step "Notify Android accounts...") dispara o aviso
+pro tópico `android-updates` depois que o link público do APK já foi
+confirmado **e** o job `release-publish` (upload pro Google Play) já
+terminou — não antes: até 2026-09-01 esse step vivia dentro do próprio
+`web-deploy`, que roda em paralelo com `release-publish` e normalmente
+termina primeiro, então o aviso podia chegar pro usuário antes da Play
+Store sequer processar aquele mesmo build. Só espera o job de Play
+*terminar* (sucesso ou falha — aquele step já é `continue-on-error` de
+propósito), não que ele tenha necessariamente publicado com sucesso.
+Dispara direto via `curl` na REST API do Appwrite Messaging (`POST
 /messaging/messages/push`), não pelo SDK, pra não precisar instalar
 `node-appwrite` só nesse step do CI. Precisa de um secret novo no GitHub:
 

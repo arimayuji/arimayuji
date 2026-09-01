@@ -503,6 +503,16 @@ jobs:
       always() &&
       needs.release.result == 'success' &&
       needs.release.outputs.signed == 'true'
+    # `play_publish_outcome` isn't used to gate anything today — the publish
+    # step below is `continue-on-error: true` on purpose (a Play failure must
+    # never block this job) — but it's what makes this job's own completion
+    # (not its "success", which continue-on-error would report regardless of
+    # what actually happened) a real signal `notify-android-update` below can
+    # wait on: that job doesn't start until every job it `needs` reaches a
+    # terminal state, so depending on this job is what defers the push until
+    # the Play upload attempt has actually finished, one way or another.
+    outputs:
+      play_publish_outcome: ${{ steps.play_publish.outcome }}
     steps:
       - name: Download the signed phone AAB from `release`
         uses: actions/download-artifact@v4
@@ -561,6 +571,7 @@ jobs:
       # novas de uma faixa que já existe. Este step só funciona depois
       # desse primeiro upload manual (já feito pra "alpha" em 2026-08-25).
       - name: Publish AAB to Google Play (Teste fechado — Alpha)
+        id: play_publish
         uses: r0adkll/upload-google-play@v1
         if: steps.play_secret_check.outputs.configured == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         # Best-effort — a failure here (wrong API scope, API not enabled
@@ -600,6 +611,10 @@ jobs:
       needs.release.result != 'failure' && needs.release.result != 'cancelled'
     env:
       ANDROID_VERSION_CODE: ${{ github.run_number }}
+    outputs:
+      # Read by `notify-android-update` below — a job can't see another
+      # job's step outputs directly, only what that job explicitly exposes.
+      published: ${{ steps.deploy.outputs.published }}
     steps:
       - uses: actions/checkout@v4
 
@@ -708,23 +723,47 @@ jobs:
           echo "::error::Link público serve $ACTUAL_SIZE bytes, esperado $EXPECTED_SIZE após 5 tentativas — deploy pode ter quebrado o download."
           exit 1
 
+  # Split out from `web-deploy` (2026-09-01) specifically to fix a real
+  # timing bug: the push used to fire the instant the site/APK finished
+  # deploying, which runs in parallel with — and usually finishes well
+  # before — `release-publish`'s own upload to Google Play. A tester on
+  # the Play track could get "nova versão disponível" and check the Play
+  # Store before Play had actually finished processing that same build.
+  # A separate job `needs: [..., release-publish]` is the only way to
+  # delay just the notification without also delaying the site/APK
+  # deploy itself (which should stay as fast as possible) — GitHub
+  # Actions can't gate a single step on another job, only a whole job.
+  # `needs.release-publish.result` doesn't tell us whether the Play
+  # upload actually succeeded (its step is `continue-on-error: true` by
+  # design, so the job "succeeds" either way) — this only waits for that
+  # attempt to finish, success or not, same as the push already did
+  # before this split with respect to Play. Suppressing the push on a
+  # genuine Play failure is a different, not-yet-requested behavior.
+  notify-android-update:
+    needs: [changes, release, release-publish, web-deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      always() &&
+      needs.release.result == 'success' &&
+      needs.web-deploy.result == 'success' &&
+      needs.web-deploy.outputs.published == 'true' &&
+      needs.release-publish.result != 'cancelled'
+    env:
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+    steps:
       - name: Notify Android accounts that a new version shipped
-        # Only when `release` actually shipped a genuinely new build this
-        # push — a web-only redeploy that just re-embeds the already-live
-        # APK unchanged has nothing new to announce. Best-effort: a missing
-        # secret or a failed push must never block the deploy that just
-        # succeeded above. Only reaches accounts that are signed in and
-        # have push registered (see src/lib/pushNotifications.ts) — a
-        # nice-to-have nudge, not the update mechanism itself. `data.route`
-        # (read by listenForPushNotificationTaps in pushNotifications.ts)
-        # sends a tap straight to /download's step-by-step instead of just
+        # Only reaches accounts that are signed in and have push
+        # registered (see src/lib/pushNotifications.ts) — a nice-to-have
+        # nudge, not the update mechanism itself. `data.route` (read by
+        # listenForPushNotificationTaps in pushNotifications.ts) sends a
+        # tap straight to /download's step-by-step instead of just
         # opening the app to wherever it happened to launch — sideloaded
         # APK installs on Android have no auto-update, so "toque pra
-        # atualizar" needs to actually land somewhere that walks through it.
-        # `messageId` is deterministic per version code specifically so a
-        # workflow re-run for the same build can't double-notify — Appwrite
-        # rejects the second create as a conflict instead.
-        if: needs.release.result == 'success' && steps.deploy.outputs.published == 'true'
+        # atualizar" needs to actually land somewhere that walks through
+        # it. `messageId` is deterministic per version code specifically
+        # so a workflow re-run for the same build can't double-notify —
+        # Appwrite rejects the second create as a conflict instead.
         continue-on-error: true
         env:
           NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
