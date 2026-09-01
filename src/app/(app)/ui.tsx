@@ -140,15 +140,31 @@ export function PillTabs<T extends string>({
   active: T;
   onChange: (id: T) => void;
 }) {
+  const activeIndex = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.id === active),
+  );
+  // The gap between slots (Tailwind's `gap-1` = 0.25rem) has to be baked into
+  // both the indicator's width and its translate, or a row of 3+ tabs drifts
+  // out of alignment with its slot the further right the active tab is.
+  const gapRem = 0.25;
   return (
-    <div className="flex gap-1 rounded-full bg-background p-1">
+    <div className="relative flex gap-1 rounded-full bg-background p-1">
+      <div
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 rounded-full bg-accent transition-transform duration-200 ease-out"
+        style={{
+          width: `calc((100% - ${(tabs.length - 1) * gapRem}rem) / ${tabs.length})`,
+          transform: `translateX(calc(${activeIndex} * 100% + ${activeIndex * gapRem}rem))`,
+        }}
+      />
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`h-9 flex-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-            active === tab.id ? "bg-accent text-accent-foreground" : "text-muted"
+          className={`relative z-10 h-9 flex-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+            active === tab.id ? "text-accent-foreground" : "text-muted"
           }`}
         >
           {tab.label}

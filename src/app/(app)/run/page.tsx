@@ -387,8 +387,8 @@ function IntervalBanner({ state }: { state: RunTrackerState }) {
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
         <div
-          className={`h-full rounded-full ${isWork ? "bg-accent" : "bg-muted"}`}
-          style={{ width: `${progress * 100}%` }}
+          className={`h-full w-full origin-left rounded-full transition-transform duration-200 ease-out ${isWork ? "bg-accent" : "bg-muted"}`}
+          style={{ transform: `scaleX(${progress})` }}
         />
       </div>
     </div>
@@ -635,8 +635,22 @@ function intervalBuilderFromPlan(plan: IntervalStep[]): {
  */
 function GoalTypeTabs({ value, onChange }: { value: GoalType; onChange: (id: GoalType) => void }) {
   const ids: GoalType[] = ["distancia", "tempo", "ritmo", "prova", "intervalo", "livre"];
+  const activeIndex = Math.max(0, ids.indexOf(value));
+  // Same slot math as PillTabs: one shared indicator sliding between tabs
+  // reads as a single physical object moving, instead of each tab growing
+  // its own underline independently (which has no spatial continuity from
+  // one tab to the next).
+  const gapRem = 0.25;
   return (
-    <div className="flex items-stretch justify-between gap-1 overflow-x-auto">
+    <div className="relative flex items-stretch justify-between gap-1 overflow-x-auto">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-2 h-[3px] rounded-full bg-accent transition-transform duration-200 ease-out"
+        style={{
+          width: `calc((100% - ${(ids.length - 1) * gapRem}rem) / ${ids.length})`,
+          transform: `translateX(calc(${activeIndex} * 100% + ${activeIndex * gapRem}rem))`,
+        }}
+      />
       {ids.map((id) => {
         const active = value === id;
         return (
@@ -651,11 +665,7 @@ function GoalTypeTabs({ value, onChange }: { value: GoalType; onChange: (id: Goa
           >
             <GoalTypeIcon id={id} className="h-5 w-5" />
             <span className="whitespace-nowrap">{GOAL_TYPE_LABELS[id]}</span>
-            <span
-              className="h-[3px] rounded-full bg-accent transition-[width] duration-200 ease-out"
-              style={{ width: active ? "28px" : "0px" }}
-              aria-hidden="true"
-            />
+            <span className="h-[3px] w-7" aria-hidden="true" />
           </button>
         );
       })}
@@ -887,14 +897,14 @@ function CustomValueSheet({
   return (
     <ModalPortal>
       <div
-        className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 transition-opacity duration-200 ease-out starting:opacity-0 sm:items-center"
         onClick={onClose}
       >
         <div
           role="dialog"
           aria-label={title}
           onClick={(event) => event.stopPropagation()}
-          className="w-full max-w-sm rounded-t-3xl bg-background p-5 pb-8 text-foreground sm:rounded-3xl"
+          className="w-full max-w-sm translate-y-0 rounded-t-3xl bg-background p-5 pb-8 text-foreground transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] starting:translate-y-full sm:rounded-3xl"
         >
           <div className="mx-auto mb-5 h-1 w-9 rounded-full bg-border" />
           <p className="mb-6 text-center text-base font-bold">{title}</p>
@@ -3036,7 +3046,7 @@ export default function RunPage() {
                 aria-hidden="true"
                 viewBox="0 0 24 24"
                 fill="none"
-                className={`pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-all ease-out ${
+                className={`pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-[left,height,width] ease-out ${
                   starting
                     ? "!left-[calc(100%-3.25rem)] !h-8 !w-8 !translate-x-0 duration-[420ms]"
                     : "duration-300"
