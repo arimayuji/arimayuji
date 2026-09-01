@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { GpsQuality } from "@/lib/tracking/useRunTracker";
 import { HORSE_BUST_BODY_PATH, HORSE_BUST_LEGS_PATH, HORSE_BUST_LEGS_PIVOT } from "../horse-mark";
+import { AccountMenuButton } from "./account-menu";
 import { NotificationBell } from "./notification-bell";
 import { PrivacyConsentGate } from "./privacy-consent";
 import { useScrollChromeVisibility } from "./use-scroll-chrome";
@@ -240,16 +241,9 @@ const DESKTOP_TABS: TabDefinition[] = [
       </svg>
     ),
   },
-  {
-    href: "/perfil",
-    label: "Perfil",
-    icon: ({ className }) => (
-      <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...STROKE}>
-        <circle cx="12" cy="8.25" r="3.75" />
-        <path d="M4.5 20.25a7.5 7.5 0 0 1 15 0" />
-      </svg>
-    ),
-  },
+  // "Perfil" used to be a 4th tab here — removed once AccountMenuButton
+  // (rendered in AppHeader, next to the notification bell) took over
+  // account access on desktop. See that component's own comment.
 ];
 
 function isActive(pathname: string, tab: TabDefinition): boolean {
@@ -495,6 +489,7 @@ function AppHeader({
   gpsQuality: GpsQuality | null;
 }) {
   const router = useRouter();
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   return (
     <header
@@ -529,6 +524,7 @@ function AppHeader({
         <div className="flex items-center gap-2">
           {gpsQuality && <GpsStatusBadge quality={gpsQuality} />}
           <NotificationBell />
+          <AccountMenuButton open={accountMenuOpen} onOpenChange={setAccountMenuOpen} />
           {closeHref && (
             <button
               type="button"

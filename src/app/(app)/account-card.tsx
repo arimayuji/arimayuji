@@ -63,11 +63,12 @@ export function AccountCard() {
   }
 
   return (
-    // On desktop this is the ONLY thing /perfil renders (everything else on
-    // that screen is `lg:hidden` — see perfil/page.tsx) — `lg:rounded-lg` on
-    // `Card` alone still reads as a stretched mobile widget (rounded card,
-    // pill buttons) sitting alone on an otherwise plain desktop panel. Same
-    // "drop the card chrome" treatment already applied to GoalCard/GoalWizard.
+    // On mobile this is the native "Conta" card at the top of /perfil. On
+    // desktop it's reused as the *content* of AccountMenuButton's modal
+    // (app-shell.tsx/account-menu.tsx) — the modal itself supplies the
+    // surface (border/shadow), so this still strips its own Card chrome at
+    // `lg:` (no double border, no nested rounded corners) rather than
+    // rendering as a card-inside-a-card.
     <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
       <CardTitle aside={<NoticeBadge>{status === "signed-in" ? "conectado" : "opcional"}</NoticeBadge>}>
         Conta

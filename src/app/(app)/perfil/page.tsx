@@ -528,20 +528,20 @@ export default function PerfilPage() {
       {/* hideTitle: the bottom nav tab right below already reads "Perfil" — repeating it as a heading is redundant (2026-08-31); compactOnWide still drops the whole (now title-less) header at lg, kept for the desktop sidebar's own reason. */}
       <ScreenHeader compactOnWide hideTitle title="Perfil" />
 
-      <Screen wide>
-        {/* Desktop layout comparison (2026-09-01, not yet decided): variant
-            B — `Screen wide` + a two-column grid, Conta beside "Descubra e
-            conecte" (plain navigation, so — unlike the rest of this page —
-            it means the same thing in a desktop browser tab), instead of
-            `Screen panel`'s single left-anchored column. `lg:pt-8` makes up
-            for `compactOnWide` collapsing ScreenHeader's own breathing
-            room above. */}
-        <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-8 lg:pt-8">
+      <Screen panel>
+        {/*
+          Conta itself no longer renders here on desktop at all — it moved
+          to AccountMenuButton (AppHeader, next to the notification bell),
+          a small header trigger that opens a modal, instead of being a
+          sidebar-adjacent destination. A dedicated full-width page for
+          "your account" is a mobile-tab-bar pattern; real desktop products
+          put it behind the header instead (see that component's comment).
+          `/perfil` on desktop is reachable only by typing the URL now (the
+          sidebar's own "Perfil" tab was removed too — app-shell.tsx),
+          which is fine: everything below is native-app-only anyway.
+        */}
+        <div className="lg:hidden">
           <AccountCard />
-          <div className="hidden lg:block">
-            <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
-            <DiscoveryCard />
-          </div>
         </div>
 
         {/*
