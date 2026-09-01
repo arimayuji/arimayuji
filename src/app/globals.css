@@ -72,9 +72,23 @@
  * FAB) carry the accent color instead, same "color on white" balance the
  * rest of the app already uses for its surfaces. See app-shell.tsx's
  * BottomNav for the text/icon color classes that pair with this.
+ *
+ * The first background layer is a flat accent patch centered right where
+ * the raised Corrida FAB sits (50% horizontally — it's the middle of 5
+ * tabs — 4px down from the bar's own top edge, matching the FAB circle's
+ * actual center once its `-mt-6` overlap is accounted for). Without it,
+ * the glossy FAB just floats in front of the bar's flat white corner —
+ * requested explicitly: it should read as set *into* the bar, not
+ * overlapping a white halo. The patch is a little larger than the FAB's
+ * own 28px radius so a thin rim of it peeks past the glossy circle's
+ * edge, instead of white showing through a gap. The @media override
+ * below replaces `background` wholesale for the `lg:` sidebar (no FAB
+ * there), so the patch never needs its own separate disable rule.
  */
 .chrome-gradient-nav {
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 50% 4px, var(--accent) 0 32px, transparent 34px),
+    #ffffff;
   border-top: 1px solid var(--border);
 }
 
