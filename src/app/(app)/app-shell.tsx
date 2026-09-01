@@ -324,8 +324,16 @@ function BottomNav({ hidden }: { hidden: boolean }) {
       // on `lg:` instead — a coach's dashboard has no reason to hide its own
       // nav on scroll, and `lg:translate-x-0 lg:translate-y-0` overrides
       // whatever the mobile scroll-hide state was, unconditionally.
+      //
+      // `translate-y-[calc(100%+2rem)]`, not the plain `translate-y-full`
+      // this used to be: percentage translateY is relative to the element's
+      // own border-box height, which doesn't include the FAB's `-mt-6`
+      // overflow above that box — so a plain 100% left the FAB's top ~24px
+      // still poking up past the (fully hidden) bar underneath it, floating
+      // alone with nothing around it. The extra `2rem` clears that overflow
+      // (and the FAB's own glow) with a little to spare.
       className={`chrome-gradient-nav group absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-[transform,width] duration-200 ease-out ${
-        hidden ? "translate-y-full" : "translate-y-0"
+        hidden ? "translate-y-[calc(100%+2rem)]" : "translate-y-0"
       } lg:inset-y-0 lg:right-auto lg:top-0 ${SIDEBAR_COLLAPSED_WIDTH_CLASS} lg:translate-x-0 lg:translate-y-0 lg:rounded-none lg:shadow-none lg:hover:w-60 lg:hover:shadow-2xl`}
     >
       {/* Brand mark, sidebar-only — the flat desktop rail carries its own

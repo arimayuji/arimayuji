@@ -25,18 +25,49 @@ async function loadAuthState(): Promise<AuthState> {
   return { status: profile ? "signed-in" : "needs-handle", account, profile };
 }
 
-export function useAuth(): AuthState & { refresh: () => Promise<void> } {
-  const [state, setState] = useState<AuthState>({ status: "loading", account: null, profile: null });
+/**
+ * Module-level cache, shared by every mounted `useAuth()` — not per-component
+ * state. Before this, each screen's own call started at `"loading"` and
+ * re-ran `getCurrentAccount()`/`getProfile()` on its own mount, so switching
+ * tabs (Feed, Perfil, the account modal...) re-verified the same account
+ * over and over, visibly flashing back to "loading" every time even though
+ * nothing had changed. Now the first `useAuth()` anywhere in the app does
+ * the real check; every later mount (including a second one racing the
+ * first — `inFlight` dedupes that) reads the cached result straight away.
+ * `notify()` is also what `refresh()` calls, so signing out in one screen
+ * (account-card.tsx) or finishing onboarding (HandlePicker) updates every
+ * other mounted `useAuth()` immediately, not just the caller's own state.
+ */
+let cachedState: AuthState | null = null;
+let inFlight: Promise<AuthState> | null = null;
+const listeners = new Set<(state: AuthState) => void>();
 
-  const refresh = useCallback(() => loadAuthState().then(setState), []);
+function notify(state: AuthState) {
+  cachedState = state;
+  listeners.forEach((listener) => listener(state));
+}
+
+function ensureLoaded(): void {
+  if (cachedState || inFlight) return;
+  inFlight = loadAuthState().then((state) => {
+    inFlight = null;
+    notify(state);
+    return state;
+  });
+}
+
+export function useAuth(): AuthState & { refresh: () => Promise<void> } {
+  const [state, setState] = useState<AuthState>(
+    () => cachedState ?? { status: "loading", account: null, profile: null },
+  );
+
+  const refresh = useCallback(() => loadAuthState().then(notify), []);
 
   useEffect(() => {
-    let cancelled = false;
-    loadAuthState().then((next) => {
-      if (!cancelled) setState(next);
-    });
+    listeners.add(setState);
+    ensureLoaded();
     return () => {
-      cancelled = true;
+      listeners.delete(setState);
     };
   }, []);
 
