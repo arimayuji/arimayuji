@@ -10,7 +10,6 @@ import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { addRunComment, listRunComments, type RunComment } from "@/lib/runComments";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { buildReplayTimeline, replayCursorAt } from "@/lib/tracking/replay";
-import { projectRoute } from "@/lib/tracking/routeProjection";
 import type { StoredPoint } from "@/lib/tracking/storage";
 import { formatAveragePace, formatDistance, unitLabel } from "@/lib/units";
 import { usePreferences } from "@/lib/usePreferences";
@@ -142,41 +141,11 @@ function WhistleIcon({ className }: { className?: string }) {
   );
 }
 
-/**
- * The same flattened-route SVG `matched-runs-card.tsx`'s corner thumbnail
- * draws (real geometry, bigger here) — sits next to the stat numbers so
- * the shape of the run reads at a glance without waiting for the full
- * basemap banner below to scroll into view and mount its WebGL context.
- * Asked for directly ("do lado dos numeros seria legal um desenho flat da
- * rota", 2026-09-01) as a complement to the map, not a replacement. A soft
- * accent tint stands in for the plain `border border-border` box this used
- * to sit in ("essa borda está estranha", 2026-09-01) — an empty outlined
- * frame around a thin line read as an unstyled placeholder rather than a
- * drawn element; a tinted disc echoing the card's new header wash reads as
- * a deliberate mark instead.
- */
-function RouteThumb({ points }: { points: StoredPoint[] }) {
-  const projected = projectRoute(points, { viewBoxSize: 64, paddingFraction: 0.12 });
-  if (!projected) return null;
-
+/** A peak line — the same "ganho de elevação" idea `run-detail.tsx` gives a commissioned badge, drawn as a plain stroked icon here because this is a 11px meta line, not a stat tile. */
+function ElevationIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
-      className="h-20 w-20 shrink-0 rounded-xl bg-accent/8 p-1.5 text-accent"
-      role="img"
-      aria-label="Traçado do trajeto"
-    >
-      {projected.polylines.map((pts, i) => (
-        <polyline
-          key={i}
-          points={pts}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ))}
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M3 19h18L14.5 7 11 13l-2-3-6 9Z" />
     </svg>
   );
 }
@@ -240,12 +209,23 @@ function RouteBanner({ points }: { points: StoredPoint[] }) {
   );
 }
 
-/** One Strava-style "label above, big value below" stat — used in a row so the numbers that matter (distância/ritmo/tempo) read at a glance instead of hiding in a small inline cluster. */
-function StatBlock({ label, value }: { label: string; value: string }) {
+/**
+ * One "label above, big value below" stat. The numeral is the card's
+ * headline, not a caption-sized aside — in a running app the distance *is*
+ * the news, and at the old 18px it was lighter on the page than the
+ * athlete's own free-text line right above it (an inverted hierarchy, flagged
+ * 2026-09-01). The unit rides along as a small suffix rather than part of the
+ * numeral, both because that's how a number wants to be set and because it
+ * keeps "10.05 km" inside a third of a phone-width card without truncating.
+ */
+function StatBlock({ label, value, suffix }: { label: string; value: string; suffix?: string }) {
   return (
     <div className="min-w-0">
-      <p className="truncate text-[11px] font-semibold tracking-wide text-muted uppercase">{label}</p>
-      <p className="truncate font-mono text-lg font-semibold tabular-nums">{value}</p>
+      <p className="truncate text-[10px] font-semibold tracking-wide text-muted uppercase">{label}</p>
+      <p className="truncate font-mono text-3xl leading-none font-semibold tabular-nums">
+        {value}
+        {suffix && <span className="ml-0.5 align-baseline text-sm font-semibold text-muted">{suffix}</span>}
+      </p>
     </div>
   );
 }
@@ -461,18 +441,7 @@ function FeedItemCard({
 
   return (
     <Card className="pr-enter flex flex-col gap-3 shadow-sm" style={delay(enterDelayMs)}>
-      {/* A tinted header band, not just another row on the same flat white
-          surface as everything below it — the whole card read as "meio
-          homogêneo" (2026-09-01) once every section (avatar row, badges,
-          stats, map, footer) sat on the identical `bg-surface`, with only
-          hairline borders telling them apart. Bleeding to the card's own
-          edges (negative margin matching `Card`'s padding, same trick
-          `RouteBanner` already uses below) and rounding just the top
-          corners lets it read as the card's own header, not a stray box —
-          the accent wash also ties directly to `RouteThumb`'s tint and the
-          badge pills further down, instead of introducing a color nothing
-          else on the card uses. */}
-      <div className="-mx-5 -mt-5 flex items-start gap-3 rounded-t-2xl border-b border-border bg-gradient-to-br from-accent/22 via-accent/10 to-accent/0 px-5 py-4 lg:-mx-4 lg:-mt-4 lg:rounded-t-lg lg:px-4 lg:py-3">
+      <div className="flex items-start gap-3">
         <Avatar name={item.displayName} avatarUrl={item.avatarUrl} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{isOwn ? "Você" : item.displayName}</p>
@@ -483,37 +452,36 @@ function FeedItemCard({
         </div>
       </div>
 
-      {/* Place, coach-supervision, new records and the track played all
-          collapsed into one wrapping row of small badges at the top of
-          the card ("a música e conquista poderia virar badge no topo",
-          2026-09-01) — previously each was its own full-width block
-          scattered from the header down through after the map, which is
-          exactly what made the card read as "muito extenso"/"muito
-          grotesco". Wrapping keeps every badge legible instead of forcing
-          them onto one unbreakable line. */}
-      {(item.placeName || item.coachSupervised || item.achievements.length > 0 || track) && (
-        <div className="-mt-1 flex flex-wrap items-center gap-1.5">
+      {/* One quiet context line, not a row of competing chips. These four
+          facts (onde, quanto subiu, treinador vendo, o que tocava) are
+          secondary by definition — the previous version gave each its own
+          pill in two visual styles, so the song title carried the same
+          weight as a personal record. Only the record gets an accent
+          treatment now (its own strip below the numbers); everything here
+          stays muted so there is exactly one thing shouting per card. */}
+      {(item.placeName || (item.elevationGainMeters ?? 0) > 0 || item.coachSupervised || track) && (
+        <div className="-mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
           {item.placeName && (
-            <span className="flex min-w-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">
-              <PinIcon className="h-3 w-3 shrink-0" />
+            <span className="flex min-w-0 items-center gap-1">
+              <PinIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{item.placeName}</span>
             </span>
           )}
+          {(item.elevationGainMeters ?? 0) > 0 && (
+            <span className="flex shrink-0 items-center gap-1">
+              <ElevationIcon className="h-3.5 w-3.5 shrink-0" />
+              {Math.round(item.elevationGainMeters ?? 0)} m
+            </span>
+          )}
           {item.coachSupervised && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
-              <WhistleIcon className="h-3 w-3 shrink-0" />
+            <span className="flex shrink-0 items-center gap-1">
+              <WhistleIcon className="h-3.5 w-3.5 shrink-0" />
               Treinador
             </span>
           )}
-          {item.achievements.length > 0 && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
-              <TrophyIcon className="h-3 w-3 shrink-0" />
-              Novo recorde{item.achievements.length > 1 ? "s" : ""}: {item.achievements.join(", ")}
-            </span>
-          )}
           {track && (
-            <span className="flex min-w-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">
-              <MusicIcon className="h-3 w-3 shrink-0" />
+            <span className="flex min-w-0 items-center gap-1">
+              <MusicIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
                 {track.name} — {track.artist}
               </span>
@@ -554,24 +522,36 @@ function FeedItemCard({
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
-          <StatBlock label="Distância" value={`${formatDistance(item.distanceMeters, unit)} ${unitLabel(unit)}`} />
-          <StatBlock label="Ritmo" value={pace} />
-          <StatBlock label="Tempo" value={formatElapsed(item.movingSeconds)} />
-          {(item.elevationGainMeters ?? 0) > 0 && (
-            <StatBlock label="Ganho de elevação" value={`${Math.round(item.elevationGainMeters ?? 0)} m`} />
-          )}
-        </div>
-        <RouteThumb points={routePoints} />
+      {/* Three columns, full width, never four — elevation moved up to the
+          meta line because a fourth stat orphaned onto a second row and
+          broke the rhythm, and because the flattened-route thumbnail that
+          used to sit here drew the exact same trace the map below already
+          draws, 100px apart. One route per card; the map is the real one. */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatBlock label="Distância" value={formatDistance(item.distanceMeters, unit)} suffix={unitLabel(unit)} />
+        <StatBlock label="Ritmo" value={pace} suffix={`/${unitLabel(unit)}`} />
+        <StatBlock label="Tempo" value={formatElapsed(item.movingSeconds)} />
       </div>
+
+      {/* The one emotional fact on the card gets to look like it. As an
+          11px pill in the badge row it competed with the name of whatever
+          song happened to be playing; here it is the single accent moment
+          between the numbers it belongs to and the map. */}
+      {item.achievements.length > 0 && (
+        <div className="flex w-fit max-w-full items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-accent">
+          <TrophyIcon className="h-4 w-4 shrink-0" />
+          <p className="min-w-0 truncate text-xs font-semibold">
+            Novo recorde{item.achievements.length > 1 ? "s" : ""}: {item.achievements.join(", ")}
+          </p>
+        </div>
+      )}
 
       <RouteBanner points={routePoints} />
 
-      {/* Only the kudos/comments engagement footer lives below the map now
+      {/* Only the kudos/comments engagement footer lives below the map
           ("deixar somente abaixo do mapa percorrido a seção de
-          comentários", 2026-09-01) — achievements and the track played
-          moved up into the badge row above. */}
+          comentários", 2026-09-01) — every fact about the run itself is
+          above it. */}
       <div className="flex items-center justify-end border-t border-border pt-3">
         {isOwn ? (
           // Own post: kudos is something friends give you, not something
@@ -619,10 +599,10 @@ function FeedItemSkeleton({ enterDelayMs }: { enterDelayMs: number }) {
           <div className="h-3 w-36 rounded bg-background" />
         </div>
       </div>
-      <div className="flex items-end gap-6">
-        <div className="h-9 w-14 rounded bg-background" />
-        <div className="h-9 w-14 rounded bg-background" />
-        <div className="h-9 w-14 rounded bg-background" />
+      <div className="grid grid-cols-3 gap-3">
+        <div className="h-11 rounded bg-background" />
+        <div className="h-11 rounded bg-background" />
+        <div className="h-11 rounded bg-background" />
       </div>
       <div className="-mx-5 h-40 w-[calc(100%+2.5rem)] bg-background" />
     </Card>
