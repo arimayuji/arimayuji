@@ -69,6 +69,7 @@ async function callShareRun(
     caption?: string;
     placeName?: string;
     elevationGainMeters?: number;
+    photoUrl?: string;
   },
 ): Promise<ShareRunResult> {
   const appwrite = getAppwrite();
@@ -94,6 +95,7 @@ async function callShareRun(
         caption: extra.caption,
         placeName: extra.placeName,
         elevationGainMeters: extra.elevationGainMeters,
+        photoUrl: extra.photoUrl,
         coachIds: extra.coachIds,
         shareWithFriends: extra.shareWithFriends,
       }),
@@ -136,12 +138,16 @@ export async function shareRunWithCoaches(
  * "pace paquera" kind of joke — never a preset the app suggests);
  * `placeName`/`elevationGainMeters` are whatever run-detail.tsx already
  * resolved for its own display, just carried along as a snapshot.
+ * `extras.photoUrl` is a real photo of the post itself (2026-09-01, "a
+ * foto não só no comentário mas também do autor do post") — already
+ * uploaded via `uploadSharedPhoto` (src/lib/avatar.ts) by the time this is
+ * called, distinct from a photo attached to a *comment* on the run.
  */
 export async function setRunFriendsVisibility(
   run: CompletedRun,
   shareWithFriends: boolean,
   achievementLabels: string[] = [],
-  extras: { caption?: string; placeName?: string; elevationGainMeters?: number } = {},
+  extras: { caption?: string; placeName?: string; elevationGainMeters?: number; photoUrl?: string } = {},
 ): Promise<ShareRunResult> {
   return callShareRun(run, { shareWithFriends, achievementLabels, ...extras });
 }

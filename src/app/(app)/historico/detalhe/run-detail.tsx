@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent, type ReactElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { uploadSharedPhoto } from "@/lib/avatar";
 import { estimateCalories } from "@/lib/calories";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { listFriendConnections } from "@/lib/friendships";
@@ -584,6 +585,17 @@ export function RunDetail({ id }: { id: string }) {
   const [captionPlaceholder] = useState(
     () => `Ex: ${CAPTION_EXAMPLES[Math.floor(Math.random() * CAPTION_EXAMPLES.length)]}`,
   );
+  /**
+   * A real photo of the post itself, not just of a comment on it ("a foto
+   * não só no comentário mas também do autor do post", 2026-09-01) —
+   * picked here (any time after the run finishes, this screen's whole
+   * reason to exist) and uploaded only when the athlete actually shares,
+   * same lazy-upload timing the Feed's own comment composer uses.
+   */
+  const [postPhoto, setPostPhoto] = useState<File | null>(null);
+  const [postPhotoPreviewUrl, setPostPhotoPreviewUrl] = useState<string | null>(null);
+  const postPhotoInputId = useId();
+  const postPhotoInputRef = useRef<HTMLInputElement>(null);
   /** Mirrors `run.placeName` as a controlled input value — only ever shown/editable when the route doesn't already match the catalog (see the render below). */
   const [placeNameInput, setPlaceNameInput] = useState("");
   /**
@@ -798,13 +810,37 @@ export function RunDetail({ id }: { id: string }) {
   const handleToggleFriendsShare = async () => {
     setSharingFriends(true);
     const next = !friendsShared;
+    // Only ever uploaded on the way to actually posting — unsharing needs
+    // no photo, and re-picking the same file across toggles would just
+    // waste an upload nobody asked for.
+    const photoUrl = next && postPhoto ? ((await uploadSharedPhoto(postPhoto)) ?? undefined) : undefined;
     const result = await setRunFriendsVisibility(run, next, newRecords.map((r) => r.label), {
       caption: caption.trim() || undefined,
       placeName: resolvePlaceLabel(run) ?? undefined,
       elevationGainMeters: elevationGain ?? undefined,
+      photoUrl,
     });
     setSharingFriends(false);
     if (result.ok) setFriendsShared(next);
+  };
+
+  const handlePickPostPhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+    setPostPhoto(file);
+    setPostPhotoPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const handleRemovePostPhoto = () => {
+    setPostPhoto(null);
+    setPostPhotoPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    if (postPhotoInputRef.current) postPhotoInputRef.current.value = "";
   };
 
   return (
@@ -1155,6 +1191,43 @@ export function RunDetail({ id }: { id: string }) {
               maxLength={140}
               className="mb-3 w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm outline-none focus:border-accent"
             />
+            <div className="mb-3 flex items-center gap-2.5">
+              <input
+                id={postPhotoInputId}
+                ref={postPhotoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePickPostPhoto}
+                className="hidden"
+              />
+              {postPhotoPreviewUrl ? (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, not an Appwrite/next/image asset. */}
+                  <img src={postPhotoPreviewUrl} alt="" className="h-14 w-14 rounded-xl object-cover" />
+                  <button
+                    type="button"
+                    onClick={handleRemovePostPhoto}
+                    aria-label="Remover foto"
+                    className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bad text-white"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 6l12 12M18 6 6 18" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <label
+                  htmlFor={postPhotoInputId}
+                  className="flex items-center gap-2 rounded-xl border border-border px-3.5 py-2.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
+                    <circle cx="12" cy="12.5" r="3.2" />
+                  </svg>
+                  Anexar foto
+                </label>
+              )}
+            </div>
             <button
               type="button"
               disabled={sharingFriends}

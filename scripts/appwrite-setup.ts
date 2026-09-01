@@ -815,6 +815,13 @@ async function main() {
   await ensure("runs.elevationGainMeters", () =>
     tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "elevationGainMeters", required: false, min: 0 }),
   );
+  // A real photo attached to the post itself (2026-09-01) — distinct from
+  // `run_comments.photoUrl`: this one belongs to the run/post, not to a
+  // reply on it. Same convention: a resolved Storage view URL in the same
+  // shared `avatars` bucket, never a bare file id.
+  await ensure("runs.photoUrl", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "runs", key: "photoUrl", size: 2000, required: false }),
+  );
   // Defaults private conceptually — same Appwrite constraint as above, the
   // app must pass `visibility: "private"` explicitly rather than omitting it.
   await ensure("runs.visibility", () =>

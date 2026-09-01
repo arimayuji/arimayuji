@@ -38,19 +38,21 @@ export async function uploadAvatar(file: File): Promise<string | null> {
 }
 
 /**
- * Uploads `file` as an attachment for a Feed/coach comment (see
+ * Uploads `file` as a photo attached to a Feed post or a comment on one
+ * (see src/lib/runsSync.ts's setRunFriendsVisibility and
  * src/lib/runComments.ts's addRunComment) and returns the resulting public
- * URL — the comment row itself only ever stores this URL, never a file id.
- * Reuses the same `avatars` Storage bucket a profile photo goes into,
- * rather than provisioning a bucket of its own: Appwrite Cloud's Free plan
- * caps a project at one bucket total (scripts/appwrite-setup.ts's own
- * comment on that limit), and the bucket's permissions (`Role.any()` read,
- * `Role.users()` create) already fit a comment photo exactly as well as an
- * avatar. `fileId` is a fresh unique id (unlike `uploadAvatar`'s
- * account-id-keyed file, a comment can attach more than one photo over
- * time, so there's no single slot to overwrite).
+ * URL — neither the run row nor the comment row ever stores a bare file
+ * id, only this URL. Reuses the same `avatars` Storage bucket a profile
+ * photo goes into, rather than provisioning a bucket of its own: Appwrite
+ * Cloud's Free plan caps a project at one bucket total
+ * (scripts/appwrite-setup.ts's own comment on that limit), and the
+ * bucket's permissions (`Role.any()` read, `Role.users()` create) already
+ * fit either use case exactly as well as an avatar. `fileId` is a fresh
+ * unique id (unlike `uploadAvatar`'s account-id-keyed file, a post or
+ * comment can attach more than one photo over its lifetime, so there's no
+ * single slot to overwrite).
  */
-export async function uploadCommentPhoto(file: File): Promise<string | null> {
+export async function uploadSharedPhoto(file: File): Promise<string | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return null;
   const account = await appwrite.account.get();

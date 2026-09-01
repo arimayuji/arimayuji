@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
-import { uploadCommentPhoto } from "@/lib/avatar";
+import { uploadSharedPhoto } from "@/lib/avatar";
 import { listFriendConnections } from "@/lib/friendships";
 import { listFriendsFeed, parseFeedRoutePoints, toggleRunKudos, type FriendFeedItem } from "@/lib/friendsFeed";
 import type { DistanceUnit } from "@/lib/preferences";
@@ -128,6 +128,16 @@ function PinIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
       <path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z" />
       <circle cx="12" cy="9.5" r="2.4" />
+    </svg>
+  );
+}
+
+/** A whistle — the same "coach" association `treinador/page.tsx` already uses elsewhere in the app, so a "supervisionada" badge reads as coach-related at a glance, not a generic checkmark. */
+function WhistleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M3 12.5a3 3 0 0 1 3-3h5.5l6-4v9l-6-2.5H6a3 3 0 0 1-3 3Z" />
+      <circle cx="16.5" cy="16.5" r="3" />
     </svg>
   );
 }
@@ -270,7 +280,7 @@ function SendIcon({ className }: { className?: string }) {
  * circle — same audience as the kudos row above it, not a separate,
  * stricter one. A comment can be text, a photo, or both; the photo uploads
  * to the shared `avatars` Storage bucket before the comment row is created
- * (see uploadCommentPhoto in src/lib/avatar.ts) — the object-URL preview
+ * (see uploadSharedPhoto in src/lib/avatar.ts) — the object-URL preview
  * below is only ever local until that upload actually succeeds.
  */
 function CommentsSection({
@@ -454,11 +464,38 @@ function FeedItemCard({
               <span className="truncate">{item.placeName}</span>
             </p>
           )}
+          {/* New info the Feed didn't surface before ("se a corrida for
+              compartilhada... com supervisao de treinador seria legal
+              mostrar isso no card", 2026-09-01) — every card here already
+              implies friends-sharing by construction (list-friends-feed
+              only ever returns visibility:"friends" runs), so that half
+              needs no badge of its own; coach access is the genuinely new
+              fact worth calling out. */}
+          {item.coachSupervised && (
+            <p className="mt-1 flex w-fit items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+              <WhistleIcon className="h-3 w-3 shrink-0" />
+              Supervisionada por treinador
+            </p>
+          )}
         </div>
       </div>
 
       {/* The closest thing this app has to Strava's activity title — the athlete's own free-text line, never generated (see FriendFeedItem.caption's own comment) — styled as a real headline instead of a small quoted aside, so the card has the same anchor a named activity gives Strava's. */}
       {item.caption && <p className="-mt-1 text-lg font-semibold text-balance">{item.caption}</p>}
+
+      {/* A real photo of the post itself ("a foto não só no comentário mas
+          também do autor do post", 2026-09-01) — distinct from a photo on
+          a *comment* below. Shown as its own hero, ahead of the route
+          banner: a photo the athlete actually took is the more personal
+          visual, the map stays the proof of the real GPS trace either way. */}
+      {item.photoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- an Appwrite Storage URL, not a local asset.
+        <img
+          src={item.photoUrl}
+          alt=""
+          className="-mx-5 h-64 w-[calc(100%+2.5rem)] object-cover"
+        />
+      )}
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
@@ -670,7 +707,7 @@ export default function FeedPage() {
   const handleAddComment = async (runRowId: string, text: string, photo: File | null): Promise<boolean> => {
     let photoUrl: string | undefined;
     if (photo) {
-      const uploaded = await uploadCommentPhoto(photo);
+      const uploaded = await uploadSharedPhoto(photo);
       if (!uploaded) return false;
       photoUrl = uploaded;
     }

@@ -708,6 +708,11 @@ async function shareRun({ userId, body, client, res, error }) {
   const caption = typeof body.caption === "string" && body.caption.trim() ? body.caption.trim().slice(0, 140) : undefined;
   const placeName = typeof body.placeName === "string" && body.placeName.trim() ? body.placeName.trim() : undefined;
   const elevationGainMeters = Number.isFinite(body.elevationGainMeters) ? Number(body.elevationGainMeters) : undefined;
+  // A real photo of the post itself (2026-09-01), not just of a comment on
+  // it — already uploaded to the shared avatars bucket client-side (see
+  // uploadSharedPhoto in src/lib/avatar.ts); this only ever stores the URL.
+  const photoUrl =
+    typeof body.photoUrl === "string" && body.photoUrl.trim() ? body.photoUrl.trim().slice(0, 2000) : undefined;
 
   const tablesDB = new TablesDB(client);
   const startedAtIso = new Date(startedAtMs).toISOString();
@@ -761,6 +766,7 @@ async function shareRun({ userId, body, client, res, error }) {
     caption,
     placeName,
     elevationGainMeters,
+    photoUrl,
     visibility,
   };
 
@@ -838,6 +844,24 @@ async function shareRun({ userId, body, client, res, error }) {
  * `runs` directly; `visibility: "friends"` on a row is a filter value
  * this query reads, never a real ACL grant.
  */
+/**
+ * Whether `run` also has a coach reading it — asked for directly ("se a
+ * corrida for compartilhada... com supervisao de treinador seria legal
+ * mostrar isso no card", 2026-09-01). share-run is the only place that ever
+ * grants a per-row `read` on a `runs` row (see its own comment: friends
+ * never get one, list-friends-feed resolves that audience fresh instead),
+ * so any `read("user:<id>")` permission other than the owner's own three
+ * (read/update/delete, always granted to `userId`) can only be a coach.
+ * Cheaper than a coach_relationships lookup per run, and just as correct —
+ * a permission that exists at all already proves share-run validated it.
+ */
+function hasCoachPermission(run) {
+  return (run.$permissions ?? []).some((permission) => {
+    const match = /^read\("user:([^"]+)"\)$/.exec(permission);
+    return match !== null && match[1] !== run.userId;
+  });
+}
+
 /** `run.achievements`/`run.tracks` are JSON strings written by share-run — never trust a stored string is still valid JSON of the right shape (a future schema change, or a row from before either column existed), so a parse failure degrades to "no badges/no track" rather than failing the whole feed item. */
 function safeParseJsonArray(json) {
   if (typeof json !== "string" || !json) return [];
@@ -942,8 +966,10 @@ async function listFriendsFeed({ userId, client, res, error }) {
       caption: run.caption ?? null,
       placeName: run.placeName ?? null,
       elevationGainMeters: run.elevationGainMeters ?? null,
+      photoUrl: run.photoUrl ?? null,
       kudosCount: kudos.count,
       kudosGivenByMe: kudos.givenByMe,
+      coachSupervised: hasCoachPermission(run),
     };
   });
 

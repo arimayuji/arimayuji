@@ -43,8 +43,12 @@ export interface FriendFeedItem {
   caption: string | null;
   placeName: string | null;
   elevationGainMeters: number | null;
+  /** A real photo attached to the post itself — distinct from a photo on a *comment* (RunComment.photoUrl, src/lib/runComments.ts). */
+  photoUrl: string | null;
   kudosCount: number;
   kudosGivenByMe: boolean;
+  /** Whether an accepted coach also has read access to this run — surfaced directly ("se a corrida for compartilhada... com supervisao de treinador seria legal mostrar isso no card", 2026-09-01). Every feed item already implies friends-sharing by construction (list-friends-feed only ever returns visibility:"friends" runs), so that half needs no separate flag. */
+  coachSupervised: boolean;
 }
 
 /** Safe `JSON.parse` for `FriendFeedItem.points` — a malformed or absent route just means "no map for this card," never a crash. */

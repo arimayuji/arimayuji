@@ -33,7 +33,7 @@ export interface RunComment {
  * Adds a comment (text, a photo, or both) to `runRowId` — the Function
  * decides whether the caller may comment at all (own run, accepted coach,
  * or accepted friend of a friends-visible run), never this client.
- * `photoUrl` is the result of `uploadCommentPhoto` (src/lib/avatar.ts),
+ * `photoUrl` is the result of `uploadSharedPhoto` (src/lib/avatar.ts),
  * already uploaded — this call only ever attaches the resulting URL.
  */
 export async function addRunComment(
