@@ -421,7 +421,7 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                   active ? "bg-white/15 font-semibold text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <tab.icon className="h-[22px] w-[22px]" />
+                <tab.icon className="h-[25px] w-[25px]" />
                 {tab.label}
               </Link>
             </li>

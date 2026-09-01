@@ -22,7 +22,11 @@ const eslintConfig = defineConfig([
     // same rationale as native-plugins/ above: third-party tooling this
     // project doesn't author, so its own conventions (plain require() in
     // .cjs scripts, etc.) shouldn't be graded against this project's rules.
+    // .claude/skills/** is mostly symlinks into .agents/skills/** (the CLI
+    // that manages installed skills keeps the real files there), so both
+    // need excluding — ESLint follows the symlink to the real path.
     ".claude/skills/**",
+    ".agents/skills/**",
   ]),
 ]);
 

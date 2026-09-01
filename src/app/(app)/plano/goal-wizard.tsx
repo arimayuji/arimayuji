@@ -138,6 +138,7 @@ export function GoalWizard({
                 inputMode="numeric"
                 maxLength={2}
                 placeholder="00"
+                aria-label="Minutos"
                 value={recentMinutes}
                 onChange={(event) =>
                   setRecentRaceTime(
@@ -158,6 +159,7 @@ export function GoalWizard({
                 inputMode="numeric"
                 maxLength={2}
                 placeholder="00"
+                aria-label="Segundos"
                 value={recentSeconds}
                 onChange={(event) =>
                   setRecentRaceTime(
