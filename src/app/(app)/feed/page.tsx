@@ -164,10 +164,11 @@ const FEED_DRAW_MS = 7000;
  * reported 2026-08-31 looking at exactly this card). Lazily mounted via
  * `useInView` — a live WebGL map per feed card is real cost a flat SVG
  * never was, so only cards actually near the viewport get one.
- * Edge-to-edge (negative margins matching the Card's own `p-5`, same trick
- * historico/page.tsx's empty-state illustration uses) so it reads as this
- * card's hero visual — the same role a photo plays on Strava's card,
- * without pretending to be a photo the app never took.
+ * Edge to edge — and since the post itself now spans the full width of the
+ * screen (see `FeedItemCard`), that means the real screen edges, the way
+ * media sits in a LinkedIn or Instagram post. This used to bleed only to the
+ * edges of an inset card, which is what read as a hard-edged rectangle cut
+ * through a rounded card ("os cantos / integração com o card", 2026-09-01).
  *
  * Draws itself with the same `replay` cursor `RouteReplay`'s scrubber drives
  * — asked for directly ("o mapa tem que ser o gif lá da rota sendo completada
@@ -488,7 +489,18 @@ function FeedItemCard({
   const [composerOpen, setComposerOpen] = useState(false);
 
   return (
-    <Card className="pr-enter flex flex-col gap-3 shadow-sm" style={delay(enterDelayMs)}>
+    // Full width of the screen, not an inset rounded island — the shape a
+    // post has on LinkedIn, Instagram and Facebook, and what got asked for
+    // directly ("nas redes sociais o post é largura full da tela",
+    // 2026-09-01). Negative margin cancels `Screen`'s own `px-5`, and the
+    // side border and corner radius go with it: a band that reaches the
+    // screen edge has no side to round. `Screen`'s `gap-5` between cards
+    // becomes the separation between posts, the same way a feed separates
+    // them with background rather than with a frame around each one.
+    <Card
+      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] flex-col gap-3 rounded-none border-x-0"
+      style={delay(enterDelayMs)}
+    >
       <div className="flex items-start gap-3">
         <Avatar name={item.displayName} avatarUrl={item.avatarUrl} size="lg" />
         <div className="min-w-0 flex-1">
@@ -652,7 +664,10 @@ function FeedItemCard({
  */
 function FeedItemSkeleton({ enterDelayMs }: { enterDelayMs: number }) {
   return (
-    <Card className="pr-enter flex animate-pulse flex-col gap-4" style={delay(enterDelayMs)}>
+    <Card
+      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] animate-pulse flex-col gap-4 rounded-none border-x-0"
+      style={delay(enterDelayMs)}
+    >
       <div className="flex items-start gap-3">
         <div className="h-13 w-13 shrink-0 rounded-full bg-background" />
         <div className="min-w-0 flex-1 space-y-2 py-1">
