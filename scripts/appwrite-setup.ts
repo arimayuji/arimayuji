@@ -1106,10 +1106,15 @@ async function main() {
       databaseId: DATABASE_ID,
       tableId: "run_comments",
       name: "run_comments",
-      // A coach's note on a specific shared run — same "create for anyone,
-      // row-level read/update/delete set at write time" split as every
-      // other table here. Read is granted to the comment's author and the
-      // run's owner (the student) when the row is created, not here.
+      // A comment on a specific shared run — coach note, or (2026-09-01)
+      // a Feed comment among friends. `permissions: []` on every row, same
+      // as run_kudos/plan_overrides: a comment's audience is "whoever can
+      // already see this run" (owner, accepted coach, or accepted friend
+      // when the run is friends-visible) — that set changes over time, so
+      // there's no stable per-row grant worth assigning at write time.
+      // Every read/write goes through client-actions' add-run-comment/
+      // list-run-comments instead (see main.js's canAccessRun) — this
+      // table-level permission only needs to let the Function itself in.
       permissions: [Permission.create(Role.users())],
       rowSecurity: true,
     }),
@@ -1124,6 +1129,14 @@ async function main() {
   );
   await ensure("run_comments.text", () =>
     tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "run_comments", key: "text", size: 500, required: true }),
+  );
+  // Optional — a comment can be photo-only. Holds a resolved Storage view
+  // URL (same convention as `profiles.avatarUrl`), not a bare file id: the
+  // photo lives in the same shared `avatars` bucket (Free plan's 1-bucket
+  // cap, see that bucket's own comment above) under its own file id, so
+  // there's no second bucket to provision for this.
+  await ensure("run_comments.photoUrl", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "run_comments", key: "photoUrl", size: 2000, required: false }),
   );
   await waitForColumn("run_comments", "runRowId");
   await ensure("run_comments index: runRowId", () =>

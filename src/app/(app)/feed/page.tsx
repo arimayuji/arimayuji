@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
+import { uploadCommentPhoto } from "@/lib/avatar";
 import { listFriendConnections } from "@/lib/friendships";
 import { listFriendsFeed, parseFeedRoutePoints, toggleRunKudos, type FriendFeedItem } from "@/lib/friendsFeed";
 import type { DistanceUnit } from "@/lib/preferences";
 import { usePrefersReducedMotion } from "@/lib/reducedMotion";
+import { addRunComment, listRunComments, type RunComment } from "@/lib/runComments";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { buildReplayTimeline, replayCursorAt } from "@/lib/tracking/replay";
 import { projectRoute } from "@/lib/tracking/routeProjection";
@@ -244,6 +246,163 @@ function formatFeedTimestamp(iso: string): string {
   return `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} às ${time}`;
 }
 
+function CameraIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
+      <circle cx="12" cy="12.5" r="3.2" />
+    </svg>
+  );
+}
+
+function SendIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12 20 4l-6 16-3-7-7-1Z" />
+    </svg>
+  );
+}
+
+/**
+ * Comments on a shared run — asked for directly ("tem que poder conseguir
+ * comentar... anexar foto... igual strava", 2026-09-01). Visible to whoever
+ * can already see the post itself (main.js's canAccessRun), never a smaller
+ * circle — same audience as the kudos row above it, not a separate,
+ * stricter one. A comment can be text, a photo, or both; the photo uploads
+ * to the shared `avatars` Storage bucket before the comment row is created
+ * (see uploadCommentPhoto in src/lib/avatar.ts) — the object-URL preview
+ * below is only ever local until that upload actually succeeds.
+ */
+function CommentsSection({
+  comments,
+  onSubmit,
+}: {
+  comments: RunComment[];
+  onSubmit: (text: string, photo: File | null) => Promise<boolean>;
+}) {
+  const fileInputId = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [text, setText] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [posting, setPosting] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const clearPhoto = () => {
+    setPhoto(null);
+    setPhotoPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handlePickPhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+    setPhoto(file);
+    setPhotoPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed && !photo) return;
+    setPosting(true);
+    setFailed(false);
+    const ok = await onSubmit(trimmed, photo);
+    setPosting(false);
+    if (!ok) {
+      setFailed(true);
+      return;
+    }
+    setText("");
+    clearPhoto();
+  };
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {comments.length > 0 && (
+        <ul className="flex flex-col gap-2.5">
+          {comments.map((comment) => (
+            <li key={comment.id} className="flex items-start gap-2">
+              <Avatar name={comment.displayName} avatarUrl={comment.avatarUrl} size="sm" />
+              <div className="min-w-0 flex-1">
+                {comment.text && (
+                  <p className="text-xs leading-relaxed text-pretty">
+                    <span className="font-semibold">{comment.displayName}</span> {comment.text}
+                  </p>
+                )}
+                {!comment.text && <p className="text-xs font-semibold">{comment.displayName}</p>}
+                {comment.photoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element -- an Appwrite Storage URL, not a local asset.
+                  <img src={comment.photoUrl} alt="" className="mt-1.5 max-h-40 rounded-lg object-cover" />
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        {photoPreviewUrl && (
+          <div className="relative w-fit">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, not an Appwrite/next/image asset. */}
+            <img src={photoPreviewUrl} alt="" className="h-16 w-16 rounded-lg object-cover" />
+            <button
+              type="button"
+              onClick={clearPhoto}
+              aria-label="Remover foto"
+              className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bad text-white"
+            >
+              <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <input
+            id={fileInputId}
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePickPhoto}
+            className="hidden"
+          />
+          <label
+            htmlFor={fileInputId}
+            aria-label="Anexar foto"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted hover:border-accent hover:text-accent"
+          >
+            <CameraIcon className="h-4.5 w-4.5" />
+          </label>
+          <input
+            type="text"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="Comentar…"
+            maxLength={500}
+            className="min-w-0 flex-1 rounded-full border border-border bg-background px-3.5 py-2 text-sm outline-none focus:border-accent"
+          />
+          <button
+            type="submit"
+            disabled={posting || (!text.trim() && !photo)}
+            aria-label="Enviar comentário"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground disabled:opacity-40"
+          >
+            <SendIcon className="h-4 w-4" />
+          </button>
+        </div>
+        {failed && <p className="text-xs text-bad">Não deu pra comentar agora — tenta de novo.</p>}
+      </form>
+    </div>
+  );
+}
+
 /**
  * One shared run in the friends feed — no link to a detail screen (see
  * `friendsFeed.ts`'s own comment: v1 only ever shows this aggregate
@@ -259,6 +418,8 @@ function FeedItemCard({
   busy,
   isOwn,
   onToggleKudos,
+  comments,
+  onAddComment,
   enterDelayMs,
 }: {
   item: FriendFeedItem;
@@ -266,6 +427,8 @@ function FeedItemCard({
   busy: boolean;
   isOwn: boolean;
   onToggleKudos: () => void;
+  comments: RunComment[];
+  onAddComment: (text: string, photo: File | null) => Promise<boolean>;
   /** Staggers this card's entrance behind the ones above it — capped by the
    * caller so a feed of 30 posts doesn't grow an ever-longer tail of delay
    * for cards already below the fold. */
@@ -353,6 +516,8 @@ function FeedItemCard({
           </button>
         )}
       </div>
+
+      <CommentsSection comments={comments} onSubmit={onAddComment} />
     </Card>
   );
 }
@@ -398,6 +563,10 @@ function FeedItemSkeleton({ enterDelayMs }: { enterDelayMs: number }) {
  */
 let cachedFeedItems: FriendFeedItem[] | null = null;
 let cachedFriendCount: number | null = null;
+/** Comments, keyed by `runRowId` — fetched in one batched `list-run-comments`
+ * call right after the feed items themselves resolve, same cache lifetime
+ * as `cachedFeedItems`. */
+let cachedFeedComments: Record<string, RunComment[]> | null = null;
 
 /** Module-level, not inline in the component — the lint rule that flags a
  * component reassigning an outer variable during render can't see a plain
@@ -409,6 +578,9 @@ function setCachedFeedItems(items: FriendFeedItem[]) {
 }
 function setCachedFriendCount(count: number) {
   cachedFriendCount = count;
+}
+function setCachedFeedComments(byRun: Record<string, RunComment[]>) {
+  cachedFeedComments = byRun;
 }
 
 /**
@@ -432,6 +604,7 @@ export default function FeedPage() {
   const [{ distanceUnit: unit }] = usePreferences();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [feedItems, setFeedItems] = useState<FriendFeedItem[] | null>(cachedFeedItems);
+  const [feedComments, setFeedComments] = useState<Record<string, RunComment[]>>(cachedFeedComments ?? {});
   const [kudosBusyId, setKudosBusyId] = useState<string | null>(null);
   /**
    * Synchronous guard against a run being toggled twice in the same tap —
@@ -458,6 +631,13 @@ export default function FeedPage() {
       if (cancelled) return;
       setCachedFeedItems(items);
       setFeedItems(items);
+      if (items.length === 0) return;
+      listRunComments(items.map((item) => item.runRowId)).then((byRun) => {
+        if (cancelled) return;
+        const asObject = Object.fromEntries(byRun);
+        setCachedFeedComments(asObject);
+        setFeedComments(asObject);
+      });
     });
     listFriendConnections("accepted").then((rows) => {
       if (cancelled) return;
@@ -485,6 +665,22 @@ export default function FeedPage() {
       setCachedFeedItems(updated);
       setFeedItems(updated);
     }
+  };
+
+  const handleAddComment = async (runRowId: string, text: string, photo: File | null): Promise<boolean> => {
+    let photoUrl: string | undefined;
+    if (photo) {
+      const uploaded = await uploadCommentPhoto(photo);
+      if (!uploaded) return false;
+      photoUrl = uploaded;
+    }
+    const created = await addRunComment(runRowId, text, photoUrl);
+    if (!created) return false;
+    const updated = { ...(cachedFeedComments ?? {}) };
+    updated[runRowId] = [...(updated[runRowId] ?? []), created];
+    setCachedFeedComments(updated);
+    setFeedComments(updated);
+    return true;
   };
 
   return (
@@ -575,6 +771,8 @@ export default function FeedPage() {
                 busy={kudosBusyId === item.runRowId}
                 isOwn={item.userId === account?.id}
                 onToggleKudos={() => handleToggleKudos(item.runRowId)}
+                comments={feedComments[item.runRowId] ?? []}
+                onAddComment={(text, photo) => handleAddComment(item.runRowId, text, photo)}
                 enterDelayMs={Math.min(index, 5) * 40}
               />
             ))

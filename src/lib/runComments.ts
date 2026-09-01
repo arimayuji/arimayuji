@@ -1,73 +1,69 @@
 /**
- * A coach's note on a specific run the student shared — closing the
- * otherwise one-way "student shares, coach only watches" pipe (see
- * runsSync.ts). One row per comment, not one growing text blob per run, so
- * several notes over time never require rewriting history.
+ * Comments on a shared run — a coach's note on a student's run
+ * (`treinador/aluno`), or (2026-09-01) a Strava-style comment in the
+ * friends Feed. Both funnel through the same `client-actions` Function
+ * actions (`add-run-comment`/`list-run-comments`), never a direct
+ * `tablesDB` call the way the old version of this file worked: that old
+ * version tried to grant `Permission.read(Role.user(run.userId))` from a
+ * plain client session — the coach's — which Appwrite always refuses (the
+ * same `401 user_unauthorized` root cause already fixed for friendships/
+ * live_runs/share-run/run_kudos, just never noticed here because the bare
+ * `catch` swallowed the rejection). Every `run_comments` row now carries
+ * `permissions: []` — see main.js's own comment on canAccessRun for why a
+ * comment's audience (owner, accepted coach, or accepted friend once a run
+ * is friends-visible) has no stable per-row grant worth assigning anyway.
  *
  * Same degrade-to-empty/null convention as the rest of the backend layer.
  */
-import { ID, type Models, Permission, Query, Role } from "appwrite";
-import { APPWRITE_DATABASE_ID, TABLES, getAppwrite } from "./appwrite";
-import { getCurrentAccount } from "./auth";
-import type { SyncedRun } from "./runsSync";
+import { ExecutionMethod } from "appwrite";
+import { CLIENT_ACTIONS_FUNCTION_ID, getAppwrite } from "./appwrite";
 
-export interface RunComment extends Models.Row {
+export interface RunComment {
+  id: string;
   runRowId: string;
   authorId: string;
+  displayName: string;
+  avatarUrl: string | null;
   text: string;
+  photoUrl: string | null;
+  createdAt: string;
 }
 
-const MAX_COMMENT_LENGTH = 500;
-
 /**
- * Adds a comment to `runRowId` (a `runs` table row — see `SyncedRun.$id`).
- * The run's owner is *not* a parameter: it's read back here via `getRow`
- * under the caller's own session, so Appwrite's row-level read permission
- * on `runs` is what actually proves the caller (a coach the run was shared
- * with) may comment on it. Trusting a caller-supplied owner id here would
- * let anyone with any account attach a comment — readable by an arbitrary
- * victim — to any run, no relationship required; `getRow` throwing on a
- * run the caller can't read is the whole enforcement.
+ * Adds a comment (text, a photo, or both) to `runRowId` — the Function
+ * decides whether the caller may comment at all (own run, accepted coach,
+ * or accepted friend of a friends-visible run), never this client.
+ * `photoUrl` is the result of `uploadCommentPhoto` (src/lib/avatar.ts),
+ * already uploaded — this call only ever attaches the resulting URL.
  */
-export async function addRunComment(runRowId: string, text: string): Promise<RunComment | null> {
-  const trimmed = text.trim().slice(0, MAX_COMMENT_LENGTH);
-  if (!trimmed) return null;
-
+export async function addRunComment(
+  runRowId: string,
+  text: string,
+  photoUrl?: string | null,
+): Promise<RunComment | null> {
   const appwrite = getAppwrite();
   if (!appwrite) return null;
-  const account = await getCurrentAccount();
-  if (!account) return null;
-  const authorId = account.id;
-
   try {
-    const run = await appwrite.tablesDB.getRow<SyncedRun>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.runs,
-      rowId: runRowId,
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "add-run-comment", runRowId, text, photoUrl: photoUrl || undefined }),
     });
-    return await appwrite.tablesDB.createRow<RunComment>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.runComments,
-      rowId: ID.unique(),
-      data: { runRowId, authorId, text: trimmed },
-      permissions: [
-        Permission.read(Role.user(authorId)),
-        Permission.update(Role.user(authorId)),
-        Permission.delete(Role.user(authorId)),
-        Permission.read(Role.user(run.userId)),
-      ],
-    });
-  } catch {
+    const parsed = JSON.parse(execution.responseBody || "{}") as { ok?: boolean; comment?: RunComment };
+    return parsed.ok && parsed.comment ? parsed.comment : null;
+  } catch (error) {
+    console.error("[runComments] addRunComment failed", error);
     return null;
   }
 }
 
 /**
  * Every comment on any of the given `runs` rows, grouped by which run they
- * belong to — one query for a whole list of shared runs rather than one per
- * run. Row-level permissions do the actual filtering: a coach only gets
- * back the comments they wrote themselves, the student gets back every
- * comment on their own run.
+ * belong to — one Function call for a whole list of runs rather than one
+ * per run. The Function re-checks access per run on every call (same
+ * "recompute, never trust a stored grant" rule `list-friends-feed` already
+ * follows for kudos), so a run that stopped being visible to this caller
+ * just silently drops out of the result instead of erroring.
  */
 export async function listRunComments(runRowIds: string[]): Promise<Map<string, RunComment[]>> {
   const byRun = new Map<string, RunComment[]>();
@@ -77,18 +73,20 @@ export async function listRunComments(runRowIds: string[]): Promise<Map<string, 
   if (!appwrite) return byRun;
 
   try {
-    const result = await appwrite.tablesDB.listRows<RunComment>({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: TABLES.runComments,
-      queries: [Query.equal("runRowId", runRowIds), Query.orderAsc("$createdAt"), Query.limit(500)],
+    const execution = await appwrite.functions.createExecution({
+      functionId: CLIENT_ACTIONS_FUNCTION_ID,
+      method: ExecutionMethod.POST,
+      body: JSON.stringify({ action: "list-run-comments", runRowIds }),
     });
-    for (const comment of result.rows) {
-      const list = byRun.get(comment.runRowId);
-      if (list) list.push(comment);
-      else byRun.set(comment.runRowId, [comment]);
+    const parsed = JSON.parse(execution.responseBody || "{}") as {
+      ok?: boolean;
+      byRun?: Record<string, RunComment[]>;
+    };
+    if (parsed.ok && parsed.byRun) {
+      for (const [runRowId, comments] of Object.entries(parsed.byRun)) byRun.set(runRowId, comments);
     }
-  } catch {
-    // Degrades to empty — same convention as every other list function here.
+  } catch (error) {
+    console.error("[runComments] listRunComments failed", error);
   }
   return byRun;
 }

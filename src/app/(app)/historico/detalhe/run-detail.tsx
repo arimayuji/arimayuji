@@ -544,8 +544,12 @@ function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
       <CardTitle>Comentários do treinador</CardTitle>
       <ul className="flex flex-col gap-2.5">
         {comments.map((comment) => (
-          <li key={comment.$id} className="rounded-lg bg-background px-3 py-2 text-sm leading-relaxed text-pretty">
+          <li key={comment.id} className="rounded-lg bg-background px-3 py-2 text-sm leading-relaxed text-pretty">
             {comment.text}
+            {comment.photoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- an Appwrite Storage URL, not a local asset.
+              <img src={comment.photoUrl} alt="" className="mt-2 max-h-48 w-full rounded-lg object-cover" />
+            )}
           </li>
         ))}
       </ul>

@@ -285,7 +285,7 @@ function AlunoContent() {
                   {(comments.get(run.$id) ?? []).length > 0 && (
                     <ul className="mt-3 flex flex-col gap-2.5">
                       {(comments.get(run.$id) ?? []).map((comment) => (
-                        <li key={comment.$id} className="rounded-lg bg-background px-3 py-2 text-xs leading-relaxed text-pretty">
+                        <li key={comment.id} className="rounded-lg bg-background px-3 py-2 text-xs leading-relaxed text-pretty">
                           {comment.text}
                         </li>
                       ))}

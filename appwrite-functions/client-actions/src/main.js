@@ -1052,6 +1052,225 @@ async function toggleRunKudos({ userId, body, client, res, error }) {
   }
 }
 
+const MAX_COMMENT_TEXT = 500;
+const MAX_COMMENT_PHOTO_URL = 2000;
+
+/**
+ * Whether `callerId` is allowed to see/comment on `run` — the run's own
+ * owner, an accepted coach of the owner, or (only when the owner actually
+ * turned it on) an accepted friend. Shared by add-run-comment and
+ * list-run-comments below so a comment can never be written under an
+ * access rule its own reader wouldn't also honor.
+ */
+async function canAccessRun(tablesDB, callerId, run) {
+  if (run.userId === callerId) return true;
+
+  if (run.visibility === "friends") {
+    const friendIds = await listAcceptedFriendIds(tablesDB, run.userId);
+    if (friendIds.has(callerId)) return true;
+  }
+
+  const coaches = await tablesDB.listRows({
+    databaseId: DATABASE_ID,
+    tableId: "coach_relationships",
+    queries: [
+      Query.equal("coachId", callerId),
+      Query.equal("studentId", run.userId),
+      Query.equal("status", "accepted"),
+      Query.limit(1),
+    ],
+  });
+  return coaches.rows.length > 0;
+}
+
+/**
+ * action: "add-run-comment" — replaces src/lib/runComments.ts's old
+ * client-side addRunComment, which tried to grant
+ * Permission.read(Role.user(run.userId)) straight from a plain client
+ * session (the commenting coach) — the exact same 401 user_unauthorized
+ * root cause already fixed for friendships/live_runs/share-run/run_kudos,
+ * just never noticed here because the bare `catch` swallowed the rejection
+ * and nobody had checked whether a coach's comment ever actually landed.
+ *
+ * Follows run_kudos's model instead: rows get `permissions: []` (no
+ * per-commenter grant at all — an audience for a run's comments changes
+ * over time exactly like list-friends-feed's audience does, so there's no
+ * stable per-row grant worth assigning), and every read goes through
+ * list-run-comments below rather than a direct client query.
+ *
+ * Three legitimate callers, checked by canAccessRun: the run's own owner
+ * (commenting on their own post, same as Strava), an accepted coach of the
+ * owner (the original treinador/aluno.tsx use case), or an accepted friend
+ * of the owner when the run is visible to friends (the new Feed comment
+ * box). `photoUrl` is optional and never uploaded here — the client
+ * uploads to the shared avatars Storage bucket first (see uploadCommentPhoto
+ * in src/lib/avatar.ts) and only sends the resulting URL.
+ */
+async function addRunComment({ userId: authorId, body, client, res, error }) {
+  const runRowId = String(body.runRowId ?? "").trim();
+  if (!runRowId) return res.json({ error: "missing-run-row-id" }, 400);
+
+  const text = typeof body.text === "string" ? body.text.trim().slice(0, MAX_COMMENT_TEXT) : "";
+  const photoUrl =
+    typeof body.photoUrl === "string" && body.photoUrl.trim()
+      ? body.photoUrl.trim().slice(0, MAX_COMMENT_PHOTO_URL)
+      : undefined;
+  if (!text && !photoUrl) return res.json({ error: "empty-comment" }, 400);
+
+  const tablesDB = new TablesDB(client);
+  let run;
+  try {
+    run = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "runs", rowId: runRowId });
+  } catch (err) {
+    if (err.code === 404) return res.json({ error: "not-found" }, 404);
+    error(`add-run-comment: falha lendo run ${runRowId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  let allowed;
+  try {
+    allowed = await canAccessRun(tablesDB, authorId, run);
+  } catch (err) {
+    error(`add-run-comment: falha checando acesso de ${authorId} a ${runRowId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+  if (!allowed) return res.json({ error: "forbidden" }, 403);
+
+  let comment;
+  try {
+    comment = await tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: "run_comments",
+      rowId: ID.unique(),
+      data: { runRowId, authorId, text, photoUrl },
+      permissions: [],
+    });
+  } catch (err) {
+    error(`add-run-comment: falha criando comentário em ${runRowId} de ${authorId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  // Best-effort, same as every other Feed/coach notification here — never
+  // notify yourself for a comment on your own run.
+  if (run.userId !== authorId) {
+    try {
+      const authorName = await resolveDisplayName(tablesDB, authorId);
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "Novo comentário",
+        body: `${authorName} comentou na sua corrida.`,
+        users: [run.userId],
+      });
+    } catch (err) {
+      error(`add-run-comment: push best-effort falhou pra ${run.userId}: ${err.message}`);
+    }
+  }
+
+  const authorProfile = await tablesDB
+    .getRow({ databaseId: DATABASE_ID, tableId: "profiles", rowId: authorId })
+    .catch(() => null);
+
+  return res.json({
+    ok: true,
+    comment: {
+      id: comment.$id,
+      runRowId,
+      authorId,
+      displayName: authorProfile?.displayName ?? "Alguém",
+      avatarUrl: authorProfile?.avatarUrl ?? null,
+      text,
+      photoUrl: photoUrl ?? null,
+      createdAt: comment.$createdAt,
+    },
+  });
+}
+
+/**
+ * action: "list-run-comments" — the read half. `permissions: []` on every
+ * row (see add-run-comment above) means there's no client-side query left
+ * that could ever work, so this is now the only way anyone — the athlete
+ * looking at their own run, a coach, or a friend viewing the feed — sees a
+ * comment. Access is re-checked per run with the same canAccessRun used to
+ * write one, exactly like list-friends-feed re-checks "still friends" on
+ * every read instead of trusting a permission stored at write time.
+ */
+async function listRunCommentsAction({ userId: callerId, body, client, res, error }) {
+  const runRowIds = Array.isArray(body.runRowIds)
+    ? [...new Set(body.runRowIds.filter((id) => typeof id === "string" && id))].slice(0, 50)
+    : [];
+  if (runRowIds.length === 0) return res.json({ ok: true, byRun: {} });
+
+  const tablesDB = new TablesDB(client);
+  let runs;
+  try {
+    const result = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "runs",
+      queries: [Query.equal("$id", runRowIds), Query.limit(runRowIds.length)],
+    });
+    runs = result.rows;
+  } catch (err) {
+    error(`list-run-comments: falha lendo runs pra ${callerId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  const allowedRunIds = [];
+  for (const run of runs) {
+    try {
+      if (await canAccessRun(tablesDB, callerId, run)) allowedRunIds.push(run.$id);
+    } catch (err) {
+      error(`list-run-comments: falha checando acesso de ${callerId} a ${run.$id}: ${err.message}`);
+    }
+  }
+  if (allowedRunIds.length === 0) return res.json({ ok: true, byRun: {} });
+
+  let comments;
+  try {
+    const result = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "run_comments",
+      queries: [Query.equal("runRowId", allowedRunIds), Query.orderAsc("$createdAt"), Query.limit(500)],
+    });
+    comments = result.rows;
+  } catch (err) {
+    error(`list-run-comments: falha lendo comentários: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+  if (comments.length === 0) return res.json({ ok: true, byRun: {} });
+
+  const authorIds = [...new Set(comments.map((c) => c.authorId))];
+  const profilesById = new Map();
+  try {
+    const profiles = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: "profiles",
+      queries: [Query.equal("$id", authorIds), Query.limit(authorIds.length)],
+    });
+    for (const profile of profiles.rows) profilesById.set(profile.$id, profile);
+  } catch (err) {
+    error(`list-run-comments: falha lendo profiles: ${err.message}`);
+  }
+
+  const byRun = {};
+  for (const comment of comments) {
+    const profile = profilesById.get(comment.authorId);
+    const entry = {
+      id: comment.$id,
+      runRowId: comment.runRowId,
+      authorId: comment.authorId,
+      displayName: profile?.displayName ?? "Alguém",
+      avatarUrl: profile?.avatarUrl ?? null,
+      text: comment.text ?? "",
+      photoUrl: comment.photoUrl ?? null,
+      createdAt: comment.$createdAt,
+    };
+    (byRun[comment.runRowId] ??= []).push(entry);
+  }
+
+  return res.json({ ok: true, byRun });
+}
+
 /** action: "join-group-run" — privileged "friend of host" check before creating a group_run_participants row. Originally appwrite-functions/join-group-run. */
 async function joinGroupRun({ userId, body, client, res, error }) {
   const sessionCode = String(body.sessionCode ?? "").toUpperCase();
@@ -2809,6 +3028,8 @@ const ACTIONS = {
   "share-run": shareRun,
   "list-friends-feed": listFriendsFeed,
   "toggle-run-kudos": toggleRunKudos,
+  "add-run-comment": addRunComment,
+  "list-run-comments": listRunCommentsAction,
   "pair-run-session": pairRunSession,
   "start-group-run": startGroupRun,
   "claim-owned-row": claimOwnedRow,
