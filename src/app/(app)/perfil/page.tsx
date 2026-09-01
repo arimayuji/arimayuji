@@ -180,6 +180,56 @@ function SectionLabel({ children, delayMs }: { children: React.ReactNode; delayM
 }
 
 /**
+ * Extracted so the same 5 links can render twice: the mobile "Descubra e
+ * conecte" Card (unchanged) and, in the desktop layout-B experiment below,
+ * a second column beside Conta — these are plain navigation, not
+ * device-local data, so unlike the rest of /perfil they mean the same
+ * thing in a desktop browser tab.
+ */
+function DiscoveryCard({ style }: { style?: React.CSSProperties }) {
+  return (
+    <Card className="pr-enter" style={style}>
+      <DiscoveryRow
+        href="/lugares"
+        icon={<PlacesIcon className="h-4.5 w-4.5" />}
+        label="Lugares pra correr"
+        caption="Parques e rotas avaliados por quem já correu lá"
+        tag="São Paulo"
+      />
+      <DiscoveryRow
+        href="/amigos"
+        icon={<FriendsIcon className="h-4.5 w-4.5" />}
+        label="Amigos"
+        caption="Adicione quem você corre junto pelo @"
+        tag="precisa de conta"
+      />
+      <DiscoveryRow
+        href="/treinador"
+        icon={<CoachIcon className="h-4.5 w-4.5" />}
+        label="Treinador"
+        caption="Conecte com quem te treina ou com quem você treina"
+        tag="precisa de conta"
+      />
+      <DiscoveryRow
+        href="/longao"
+        icon={<LongaoIcon className="h-4.5 w-4.5" />}
+        label="Longão"
+        caption="Corrida em grupo com código — só amigos entram"
+        tag="precisa de conta"
+      />
+      <DiscoveryRow
+        href="https://instagram.com/xanthus.oficial"
+        external
+        icon={<InstagramIcon className="h-4.5 w-4.5" />}
+        label="Instagram"
+        caption="@xanthus.oficial · corridas de quem já usa o app"
+        tag="conectar"
+      />
+    </Card>
+  );
+}
+
+/**
  * Opt-in card for the "ranking de lugares" leaderboard — off by default,
  * one master toggle (`Profile.leaderboardOptIn`) that gates whether this
  * account's km ever shows on any place's leaderboard at all. The actual
@@ -478,12 +528,20 @@ export default function PerfilPage() {
       {/* hideTitle: the bottom nav tab right below already reads "Perfil" — repeating it as a heading is redundant (2026-08-31); compactOnWide still drops the whole (now title-less) header at lg, kept for the desktop sidebar's own reason. */}
       <ScreenHeader compactOnWide hideTitle title="Perfil" />
 
-      <Screen panel>
-        {/* `lg:pt-8`: makes up for `compactOnWide` collapsing ScreenHeader's
-            own breathing room above — otherwise Conta would sit flush
-            against the fixed top bar with zero gap on the desktop surface. */}
-        <div className="lg:pt-8">
+      <Screen wide>
+        {/* Desktop layout comparison (2026-09-01, not yet decided): variant
+            B — `Screen wide` + a two-column grid, Conta beside "Descubra e
+            conecte" (plain navigation, so — unlike the rest of this page —
+            it means the same thing in a desktop browser tab), instead of
+            `Screen panel`'s single left-anchored column. `lg:pt-8` makes up
+            for `compactOnWide` collapsing ScreenHeader's own breathing
+            room above. */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-8 lg:pt-8">
           <AccountCard />
+          <div className="hidden lg:block">
+            <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
+            <DiscoveryCard />
+          </div>
         </div>
 
         {/*
@@ -516,44 +574,7 @@ export default function PerfilPage() {
 
         <div className="lg:hidden">
           <SectionLabel delayMs={40}>Descubra e conecte</SectionLabel>
-          <Card className="pr-enter" style={delay(50)}>
-            <DiscoveryRow
-              href="/lugares"
-              icon={<PlacesIcon className="h-4.5 w-4.5" />}
-              label="Lugares pra correr"
-              caption="Parques e rotas avaliados por quem já correu lá"
-              tag="São Paulo"
-            />
-            <DiscoveryRow
-              href="/amigos"
-              icon={<FriendsIcon className="h-4.5 w-4.5" />}
-              label="Amigos"
-              caption="Adicione quem você corre junto pelo @"
-              tag="precisa de conta"
-            />
-            <DiscoveryRow
-              href="/treinador"
-              icon={<CoachIcon className="h-4.5 w-4.5" />}
-              label="Treinador"
-              caption="Conecte com quem te treina ou com quem você treina"
-              tag="precisa de conta"
-            />
-            <DiscoveryRow
-              href="/longao"
-              icon={<LongaoIcon className="h-4.5 w-4.5" />}
-              label="Longão"
-              caption="Corrida em grupo com código — só amigos entram"
-              tag="precisa de conta"
-            />
-            <DiscoveryRow
-              href="https://instagram.com/xanthus.oficial"
-              external
-              icon={<InstagramIcon className="h-4.5 w-4.5" />}
-              label="Instagram"
-              caption="@xanthus.oficial · corridas de quem já usa o app"
-              tag="conectar"
-            />
-          </Card>
+          <DiscoveryCard style={delay(50)} />
         </div>
 
         <div className="lg:hidden">
