@@ -150,9 +150,8 @@ function ElevationIcon({ className }: { className?: string }) {
   );
 }
 
-/** How long a full loop of the route being drawn takes, and how long it holds still on the finished trace before looping back to the start — a loop only reads as a "gif" if it visibly pauses on the finished shape instead of snapping straight back to zero. */
-const FEED_LOOP_DRAW_MS = 7000;
-const FEED_LOOP_HOLD_MS = 1800;
+/** How long the route takes to draw itself once, the first time a card scrolls into view. */
+const FEED_DRAW_MS = 7000;
 
 /**
  * The GPS trace on the app's real basemap (`RouteMap`, MapLibre + Protomaps —
@@ -170,29 +169,37 @@ const FEED_LOOP_HOLD_MS = 1800;
  * card's hero visual — the same role a photo plays on Strava's card,
  * without pretending to be a photo the app never took.
  *
- * Auto-loops the same `replay` cursor `RouteReplay`'s scrubber drives —
- * asked for directly ("o mapa tem que ser o gif lá da rota sendo completada
- * e não estático", 2026-09-01) — rather than the finished static trace, so
- * scrolling past a card in the feed shows the run being run, not a frozen
- * line. No controls (play/pause/scrub) render here — this is a passive loop,
- * not the interactive player `run-detail.tsx` already gives its own screen.
- * Respects reduced-motion by holding the finished trace instead of animating.
+ * Draws itself with the same `replay` cursor `RouteReplay`'s scrubber drives
+ * — asked for directly ("o mapa tem que ser o gif lá da rota sendo completada
+ * e não estático", 2026-09-01) — so a card scrolling into view shows the run
+ * being run rather than a frozen line. It draws **once** and then holds the
+ * finished trace, instead of looping forever: an endless loop meant every
+ * visible card was animating at the same time, next to the numbers the
+ * viewer is trying to read, which is exactly the kind of ambient motion
+ * that competes with content instead of explaining it. No controls
+ * (play/pause/scrub) render here — this is a passive reveal, not the
+ * interactive player `run-detail.tsx` already gives its own screen.
+ * Respects reduced-motion by holding the finished trace from the start.
  */
 function RouteBanner({ points }: { points: StoredPoint[] }) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const reducedMotion = usePrefersReducedMotion();
   const timeline = useMemo(() => buildReplayTimeline(points), [points]);
-  const [progress, setProgress] = useState(1);
+  /** `null` means "no cursor" — the finished route, drawn whole. That's both the state before this card has ever been on screen and the state it rests in once the reveal has played out. */
+  const [progress, setProgress] = useState<number | null>(null);
 
   useEffect(() => {
     if (!inView || !timeline || reducedMotion) return;
     let raf: number;
     let start: number | null = null;
-    const cycle = FEED_LOOP_DRAW_MS + FEED_LOOP_HOLD_MS;
     const tick = (now: number) => {
       if (start === null) start = now;
-      const elapsed = (now - start) % cycle;
-      setProgress(Math.min(1, elapsed / FEED_LOOP_DRAW_MS));
+      const elapsed = (now - start) / FEED_DRAW_MS;
+      if (elapsed >= 1) {
+        setProgress(null);
+        return;
+      }
+      setProgress(elapsed);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -200,7 +207,7 @@ function RouteBanner({ points }: { points: StoredPoint[] }) {
   }, [inView, timeline, reducedMotion]);
 
   if (points.length < 2) return null;
-  const cursor = timeline && !reducedMotion ? replayCursorAt(timeline, progress) : null;
+  const cursor = timeline && progress !== null && !reducedMotion ? replayCursorAt(timeline, progress) : null;
 
   return (
     <div ref={ref} className="-mx-5 h-40 w-[calc(100%+2.5rem)] overflow-hidden bg-background">
@@ -250,6 +257,14 @@ function CameraIcon({ className }: { className?: string }) {
   );
 }
 
+function CommentIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...ICON_STROKE}>
+      <path d="M20 12.2c0 3.8-3.6 6.9-8 6.9a9.3 9.3 0 0 1-2.7-.4L4 20.3l1.4-3.6A6.5 6.5 0 0 1 4 12.2c0-3.8 3.6-6.9 8-6.9s8 3.1 8 6.9Z" />
+    </svg>
+  );
+}
+
 function SendIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -270,18 +285,30 @@ function SendIcon({ className }: { className?: string }) {
  */
 function CommentsSection({
   comments,
+  open,
   onSubmit,
 }: {
   comments: RunComment[];
+  /** The composer only exists once the viewer asks for it (the "Comentar" action below the map). A feed of 30 posts used to mount 30 live text inputs, and every card ended on an empty box — which reads as an unfinished screen, not an invitation. */
+  open: boolean;
   onSubmit: (text: string, photo: File | null) => Promise<boolean>;
 }) {
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [showAll, setShowAll] = useState(false);
   const [text, setText] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  // Opening the composer is always a deliberate tap on "Comentar", so the
+  // keyboard should already be up by the time the field appears — one tap to
+  // comment, not two.
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
 
   const clearPhoto = () => {
     setPhoto(null);
@@ -318,11 +345,27 @@ function CommentsSection({
     clearPhoto();
   };
 
+  if (comments.length === 0 && !open) return null;
+
+  // Newest two by default (the list arrives oldest-first) — a card in a feed
+  // shows that a conversation exists, it isn't the place to read all of it.
+  const visible = showAll ? comments : comments.slice(-2);
+
   return (
     <div className="flex flex-col gap-2.5">
-      {comments.length > 0 && (
+      {comments.length > visible.length && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="flex min-h-11 w-fit items-center text-xs font-semibold text-muted hover:text-accent"
+        >
+          Ver todos os {comments.length} comentários
+        </button>
+      )}
+
+      {visible.length > 0 && (
         <ul className="flex flex-col gap-2.5">
-          {comments.map((comment) => (
+          {visible.map((comment) => (
             <li key={comment.id} className="flex items-start gap-2">
               <Avatar name={comment.displayName} avatarUrl={comment.avatarUrl} size="sm" />
               <div className="min-w-0 flex-1">
@@ -334,7 +377,7 @@ function CommentsSection({
                 {!comment.text && <p className="text-xs font-semibold">{comment.displayName}</p>}
                 {comment.photoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element -- an Appwrite Storage URL, not a local asset.
-                  <img src={comment.photoUrl} alt="" className="mt-1.5 max-h-40 rounded-lg object-cover" />
+                  <img src={comment.photoUrl} alt="" className="mt-1.5 max-h-40 rounded-xl object-cover" />
                 )}
               </div>
             </li>
@@ -342,18 +385,19 @@ function CommentsSection({
         </ul>
       )}
 
+      {open && (
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         {photoPreviewUrl && (
           <div className="relative w-fit">
             {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, not an Appwrite/next/image asset. */}
-            <img src={photoPreviewUrl} alt="" className="h-16 w-16 rounded-lg object-cover" />
+            <img src={photoPreviewUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />
             <button
               type="button"
               onClick={clearPhoto}
               aria-label="Remover foto"
-              className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bad text-white"
+              className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-bad text-white"
             >
-              <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 6l12 12M18 6 6 18" />
               </svg>
             </button>
@@ -371,29 +415,31 @@ function CommentsSection({
           <label
             htmlFor={fileInputId}
             aria-label="Anexar foto"
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted hover:border-accent hover:text-accent"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted hover:border-accent hover:text-accent"
           >
-            <CameraIcon className="h-4.5 w-4.5" />
+            <CameraIcon className="h-5 w-5" />
           </label>
           <input
+            ref={inputRef}
             type="text"
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder="Comentar…"
             maxLength={500}
-            className="min-w-0 flex-1 rounded-full border border-border bg-background px-3.5 py-2 text-sm outline-none focus:border-accent"
+            className="h-11 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-accent"
           />
           <button
             type="submit"
             disabled={posting || (!text.trim() && !photo)}
             aria-label="Enviar comentário"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground disabled:opacity-40"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground disabled:opacity-40"
           >
-            <SendIcon className="h-4 w-4" />
+            <SendIcon className="h-4.5 w-4.5" />
           </button>
         </div>
         {failed && <p className="text-xs text-bad">Não deu pra comentar agora — tenta de novo.</p>}
       </form>
+      )}
     </div>
   );
 }
@@ -438,6 +484,8 @@ function FeedItemCard({
    * to spend its tallest block of space on whether the viewer wants it or
    * not. */
   const [showPhoto, setShowPhoto] = useState(false);
+  /** Same reasoning one level up: the comment field is an action the viewer opts into from the footer, not a permanent fixture at the bottom of all 30 cards. */
+  const [composerOpen, setComposerOpen] = useState(false);
 
   return (
     <Card className="pr-enter flex flex-col gap-3 shadow-sm" style={delay(enterDelayMs)}>
@@ -506,9 +554,9 @@ function FeedItemCard({
           <button
             type="button"
             onClick={() => setShowPhoto((current) => !current)}
-            className="flex w-fit items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+            className="flex h-11 w-fit items-center gap-2 rounded-full border border-border px-4 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
           >
-            <CameraIcon className="h-3.5 w-3.5" />
+            <CameraIcon className="h-4 w-4" />
             {showPhoto ? "Ocultar foto" : "Ver foto"}
           </button>
           {showPhoto && (
@@ -551,14 +599,16 @@ function FeedItemCard({
       {/* Only the kudos/comments engagement footer lives below the map
           ("deixar somente abaixo do mapa percorrido a seção de
           comentários", 2026-09-01) — every fact about the run itself is
-          above it. */}
-      <div className="flex items-center justify-end border-t border-border pt-3">
+          above it. Both actions are 44pt tall and sit together at the
+          start of the row: they are a pair of equal-weight things you can
+          do to this post, not one lonely control pushed to the far edge. */}
+      <div className="flex items-center gap-2 border-t border-border pt-2">
         {isOwn ? (
           // Own post: kudos is something friends give you, not something
           // you toggle on yourself — a static count instead of a button
           // (the server rejects self-kudos anyway, see toggle-run-kudos).
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted">
-            <HeartIcon className="h-3.5 w-3.5" filled={item.kudosCount > 0} />
+          <span className="flex h-11 shrink-0 items-center gap-2 px-2 text-sm font-semibold text-muted">
+            <HeartIcon className="h-5 w-5" filled={item.kudosCount > 0} />
             {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
           </span>
         ) : (
@@ -567,17 +617,28 @@ function FeedItemCard({
             disabled={busy}
             onClick={onToggleKudos}
             aria-pressed={item.kudosGivenByMe}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold disabled:opacity-60 ${
-              item.kudosGivenByMe ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
+            className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold disabled:opacity-60 ${
+              item.kudosGivenByMe ? "bg-accent/10 text-accent" : "text-muted"
             }`}
           >
-            <HeartIcon className="h-3.5 w-3.5" filled={item.kudosGivenByMe} />
+            <HeartIcon className="h-5 w-5" filled={item.kudosGivenByMe} />
             {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setComposerOpen((current) => !current)}
+          aria-expanded={composerOpen}
+          className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold ${
+            composerOpen ? "bg-accent/10 text-accent" : "text-muted"
+          }`}
+        >
+          <CommentIcon className="h-5 w-5" />
+          {comments.length > 0 ? comments.length : "Comentar"}
+        </button>
       </div>
 
-      <CommentsSection comments={comments} onSubmit={onAddComment} />
+      <CommentsSection comments={comments} open={composerOpen} onSubmit={onAddComment} />
     </Card>
   );
 }
