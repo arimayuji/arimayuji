@@ -148,11 +148,12 @@ function WhistleIcon({ className }: { className?: string }) {
  * the shape of the run reads at a glance without waiting for the full
  * basemap banner below to scroll into view and mount its WebGL context.
  * Asked for directly ("do lado dos numeros seria legal um desenho flat da
- * rota", 2026-09-01) as a complement to the map, not a replacement. No
- * fill behind the line ("remover o fundo branco", 2026-09-01) — it sat on
- * `bg-background`, a visibly different token from the card's own
- * `bg-surface`, which is exactly what read as a stray white box; dropping
- * it lets the trace sit directly on the card instead.
+ * rota", 2026-09-01) as a complement to the map, not a replacement. A soft
+ * accent tint stands in for the plain `border border-border` box this used
+ * to sit in ("essa borda está estranha", 2026-09-01) — an empty outlined
+ * frame around a thin line read as an unstyled placeholder rather than a
+ * drawn element; a tinted disc echoing the card's new header wash reads as
+ * a deliberate mark instead.
  */
 function RouteThumb({ points }: { points: StoredPoint[] }) {
   const projected = projectRoute(points, { viewBoxSize: 64, paddingFraction: 0.12 });
@@ -161,7 +162,7 @@ function RouteThumb({ points }: { points: StoredPoint[] }) {
   return (
     <svg
       viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
-      className="h-20 w-20 shrink-0 rounded-xl border border-border text-accent"
+      className="h-20 w-20 shrink-0 rounded-xl bg-accent/8 p-1.5 text-accent"
       role="img"
       aria-label="Traçado do trajeto"
     >
@@ -459,8 +460,19 @@ function FeedItemCard({
   const [showPhoto, setShowPhoto] = useState(false);
 
   return (
-    <Card className="pr-enter flex flex-col gap-3" style={delay(enterDelayMs)}>
-      <div className="flex items-start gap-3">
+    <Card className="pr-enter flex flex-col gap-3 shadow-sm" style={delay(enterDelayMs)}>
+      {/* A tinted header band, not just another row on the same flat white
+          surface as everything below it — the whole card read as "meio
+          homogêneo" (2026-09-01) once every section (avatar row, badges,
+          stats, map, footer) sat on the identical `bg-surface`, with only
+          hairline borders telling them apart. Bleeding to the card's own
+          edges (negative margin matching `Card`'s padding, same trick
+          `RouteBanner` already uses below) and rounding just the top
+          corners lets it read as the card's own header, not a stray box —
+          the accent wash also ties directly to `RouteThumb`'s tint and the
+          badge pills further down, instead of introducing a color nothing
+          else on the card uses. */}
+      <div className="-mx-5 -mt-5 flex items-start gap-3 rounded-t-2xl border-b border-border bg-gradient-to-br from-accent/22 via-accent/10 to-accent/0 px-5 py-4 lg:-mx-4 lg:-mt-4 lg:rounded-t-lg lg:px-4 lg:py-3">
         <Avatar name={item.displayName} avatarUrl={item.avatarUrl} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{isOwn ? "Você" : item.displayName}</p>
