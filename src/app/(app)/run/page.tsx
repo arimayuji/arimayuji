@@ -3727,19 +3727,27 @@ export default function RunPage() {
             )}
           </div>
 
-          <div className="flex w-full max-w-xs flex-col items-center gap-2">
-            <Link
-              href={state.finishedRun ? `/compartilhar?run=${state.finishedRun.id}` : "/compartilhar"}
-              className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground"
+          {/*
+            One clear hierarchy instead of two side-by-side pairs of
+            equal-weight pills ("está ruim essa hierarquia stack de ações",
+            2026-09-01) — primary action biggest and first, secondary
+            outlined below it, and the destructive one last and visually
+            quieter (still solid red, per the app-wide rule that a
+            destructive action is never just outlined — but smaller, so it
+            reads as the least likely next step rather than competing with
+            "Nova corrida" for attention). "Compartilhar" dropped entirely:
+            it duplicates the same share entry point `historico/detalhe`
+            already gives every saved run, and this screen doesn't need to
+            be the only door to it.
+          */}
+          <div className="flex w-full max-w-xs flex-col items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="w-full rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground"
             >
-              <svg viewBox="0 0 24 24" className="relative h-4.5 w-4.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="5" r="2.75" />
-                <circle cx="6" cy="12" r="2.75" />
-                <circle cx="18" cy="19" r="2.75" />
-                <path d="M8.5 10.5l7-4.2M8.5 13.5l7 4.2" />
-              </svg>
-              <span className="relative">Compartilhar</span>
-            </Link>
+              Nova corrida
+            </button>
             <Link
               href="/aquecimento?tipo=alongamento"
               className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-6 py-3 text-sm font-semibold text-muted hover:border-accent hover:text-foreground"
@@ -3747,17 +3755,8 @@ export default function RunPage() {
               <WarmupIcon className="h-4 w-4" />
               Alongar agora
             </Link>
-          </div>
-          <div className="flex w-full max-w-xs flex-col items-center gap-3">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
-            >
-              Nova corrida
-            </button>
             {confirmingDiscard ? (
-              <div className="flex w-full flex-col gap-2">
+              <div className="mt-1 flex w-full flex-col gap-2">
                 <p className="text-center text-xs leading-snug text-pretty text-muted">
                   Descartar essa corrida? Não dá pra desfazer.
                 </p>
@@ -3766,7 +3765,7 @@ export default function RunPage() {
                     type="button"
                     onClick={() => setConfirmingDiscard(false)}
                     disabled={discarding}
-                    className="flex-1 rounded-full border border-border px-6 py-3 text-sm font-semibold disabled:opacity-60"
+                    className="flex-1 rounded-full border border-border px-6 py-2.5 text-xs font-semibold disabled:opacity-60"
                   >
                     Cancelar
                   </button>
@@ -3774,7 +3773,7 @@ export default function RunPage() {
                     type="button"
                     onClick={handleDiscard}
                     disabled={discarding}
-                    className="flex-1 rounded-full bg-bad px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                    className="flex-1 rounded-full bg-bad px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-60"
                   >
                     {discarding ? "Descartando…" : "Descartar"}
                   </button>
@@ -3784,7 +3783,7 @@ export default function RunPage() {
               <button
                 type="button"
                 onClick={() => setConfirmingDiscard(true)}
-                className="w-full rounded-full border border-border px-6 py-3 text-sm font-semibold text-bad"
+                className="mt-1 w-full rounded-full bg-bad px-6 py-2.5 text-xs font-semibold text-white"
               >
                 Descartar corrida
               </button>

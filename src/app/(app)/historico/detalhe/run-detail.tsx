@@ -1209,7 +1209,7 @@ export function RunDetail({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-bad hover:text-bad"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-bad py-3 text-sm font-semibold text-white"
             >
               <TrashIcon />
               Excluir corrida

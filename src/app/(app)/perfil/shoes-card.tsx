@@ -444,7 +444,7 @@ function ShoeRow({
           <button
             type="button"
             onClick={() => setConfirmingDelete(true)}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad"
+            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white"
           >
             Excluir
           </button>

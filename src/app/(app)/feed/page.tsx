@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { listFriendConnections } from "@/lib/friendships";
 import { listFriendsFeed, parseFeedRoutePoints, toggleRunKudos, type FriendFeedItem } from "@/lib/friendsFeed";
 import type { DistanceUnit } from "@/lib/preferences";
+import { usePrefersReducedMotion } from "@/lib/reducedMotion";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
+import { buildReplayTimeline, replayCursorAt } from "@/lib/tracking/replay";
+import { projectRoute } from "@/lib/tracking/routeProjection";
+import type { StoredPoint } from "@/lib/tracking/storage";
 import { formatAveragePace, formatDistance, unitLabel } from "@/lib/units";
 import { usePreferences } from "@/lib/usePreferences";
 import { useAuth } from "@/lib/useAuth";
@@ -127,6 +131,44 @@ function PinIcon({ className }: { className?: string }) {
 }
 
 /**
+ * The same flattened-route SVG `matched-runs-card.tsx`'s 56px corner
+ * thumbnail draws (real geometry, just a bit bigger here) — sits next to the
+ * stat numbers so the shape of the run reads at a glance without waiting for
+ * the full basemap banner below to scroll into view and mount its WebGL
+ * context. Asked for directly ("do lado dos numeros seria legal um desenho
+ * flat da rota", 2026-09-01) as a complement to the map, not a replacement.
+ */
+function RouteThumb({ points }: { points: StoredPoint[] }) {
+  const projected = projectRoute(points, { viewBoxSize: 64, paddingFraction: 0.12 });
+  if (!projected) return null;
+
+  return (
+    <svg
+      viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
+      className="h-16 w-16 shrink-0 rounded-xl border border-border bg-background text-accent"
+      role="img"
+      aria-label="Traçado do trajeto"
+    >
+      {projected.polylines.map((pts, i) => (
+        <polyline
+          key={i}
+          points={pts}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+    </svg>
+  );
+}
+
+/** How long a full loop of the route being drawn takes, and how long it holds still on the finished trace before looping back to the start — a loop only reads as a "gif" if it visibly pauses on the finished shape instead of snapping straight back to zero. */
+const FEED_LOOP_DRAW_MS = 7000;
+const FEED_LOOP_HOLD_MS = 1800;
+
+/**
  * The GPS trace on the app's real basemap (`RouteMap`, MapLibre + Protomaps —
  * same component /historico's detail screen and live tracking already use),
  * not a bare flattened line on blank background. A first pass here drew just
@@ -140,18 +182,43 @@ function PinIcon({ className }: { className?: string }) {
  * Edge-to-edge (negative margins matching the Card's own `p-5`, same trick
  * historico/page.tsx's empty-state illustration uses) so it reads as this
  * card's hero visual — the same role a photo plays on Strava's card,
- * without pretending to be a photo the app never took. `points` comes
- * straight from `runs.points` (a downsampled trace, see runsSync.ts), so a
- * friend's card draws the same shape their own device would.
+ * without pretending to be a photo the app never took.
+ *
+ * Auto-loops the same `replay` cursor `RouteReplay`'s scrubber drives —
+ * asked for directly ("o mapa tem que ser o gif lá da rota sendo completada
+ * e não estático", 2026-09-01) — rather than the finished static trace, so
+ * scrolling past a card in the feed shows the run being run, not a frozen
+ * line. No controls (play/pause/scrub) render here — this is a passive loop,
+ * not the interactive player `run-detail.tsx` already gives its own screen.
+ * Respects reduced-motion by holding the finished trace instead of animating.
  */
-function RouteBanner({ points }: { points: FriendFeedItem["points"] }) {
-  const parsed = parseFeedRoutePoints(points);
+function RouteBanner({ points }: { points: StoredPoint[] }) {
   const { ref, inView } = useInView<HTMLDivElement>();
-  if (parsed.length < 2) return null;
+  const reducedMotion = usePrefersReducedMotion();
+  const timeline = useMemo(() => buildReplayTimeline(points), [points]);
+  const [progress, setProgress] = useState(1);
+
+  useEffect(() => {
+    if (!inView || !timeline || reducedMotion) return;
+    let raf: number;
+    let start: number | null = null;
+    const cycle = FEED_LOOP_DRAW_MS + FEED_LOOP_HOLD_MS;
+    const tick = (now: number) => {
+      if (start === null) start = now;
+      const elapsed = (now - start) % cycle;
+      setProgress(Math.min(1, elapsed / FEED_LOOP_DRAW_MS));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, timeline, reducedMotion]);
+
+  if (points.length < 2) return null;
+  const cursor = timeline && !reducedMotion ? replayCursorAt(timeline, progress) : null;
 
   return (
     <div ref={ref} className="-mx-5 h-52 w-[calc(100%+2.5rem)] overflow-hidden bg-background">
-      {inView && <RouteMap points={parsed} square={false} rounded={false} className="h-52 w-full" />}
+      {inView && <RouteMap points={points} replay={cursor} square={false} rounded={false} className="h-52 w-full" />}
     </div>
   );
 }
@@ -206,11 +273,12 @@ function FeedItemCard({
 }) {
   const pace = formatAveragePace(item.distanceMeters, item.movingSeconds, unit);
   const track = item.tracks[0];
+  const routePoints = useMemo(() => parseFeedRoutePoints(item.points), [item.points]);
 
   return (
     <Card className="pr-enter flex flex-col gap-4" style={delay(enterDelayMs)}>
       <div className="flex items-start gap-3">
-        <Avatar name={item.displayName} avatarUrl={item.avatarUrl} />
+        <Avatar name={item.displayName} avatarUrl={item.avatarUrl} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{isOwn ? "Você" : item.displayName}</p>
           <p className="truncate text-xs text-muted">
@@ -229,16 +297,19 @@ function FeedItemCard({
       {/* The closest thing this app has to Strava's activity title — the athlete's own free-text line, never generated (see FriendFeedItem.caption's own comment) — styled as a real headline instead of a small quoted aside, so the card has the same anchor a named activity gives Strava's. */}
       {item.caption && <p className="-mt-1 text-lg font-semibold text-balance">{item.caption}</p>}
 
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
-        <StatBlock label="Distância" value={`${formatDistance(item.distanceMeters, unit)} ${unitLabel(unit)}`} />
-        <StatBlock label="Ritmo" value={pace} />
-        <StatBlock label="Tempo" value={formatElapsed(item.movingSeconds)} />
-        {(item.elevationGainMeters ?? 0) > 0 && (
-          <StatBlock label="Ganho de elevação" value={`${Math.round(item.elevationGainMeters ?? 0)} m`} />
-        )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+          <StatBlock label="Distância" value={`${formatDistance(item.distanceMeters, unit)} ${unitLabel(unit)}`} />
+          <StatBlock label="Ritmo" value={pace} />
+          <StatBlock label="Tempo" value={formatElapsed(item.movingSeconds)} />
+          {(item.elevationGainMeters ?? 0) > 0 && (
+            <StatBlock label="Ganho de elevação" value={`${Math.round(item.elevationGainMeters ?? 0)} m`} />
+          )}
+        </div>
+        <RouteThumb points={routePoints} />
       </div>
 
-      <RouteBanner points={item.points} />
+      <RouteBanner points={routePoints} />
 
       {item.achievements.length > 0 && (
         <div className="flex items-center gap-2 rounded-xl bg-accent/10 px-3.5 py-3 text-accent">
@@ -287,6 +358,60 @@ function FeedItemCard({
 }
 
 /**
+ * One skeleton `Card`, shaped like a real `FeedItemCard` (avatar, name
+ * lines, stat row, map banner) rather than one flat pulsing rectangle — the
+ * previous version ("percebi que não tem skeleton loading aqui", 2026-09-01)
+ * read as a generic loading box with no relation to what was about to
+ * appear, not an actual preview of the feed's shape.
+ */
+function FeedItemSkeleton({ enterDelayMs }: { enterDelayMs: number }) {
+  return (
+    <Card className="pr-enter flex animate-pulse flex-col gap-4" style={delay(enterDelayMs)}>
+      <div className="flex items-start gap-3">
+        <div className="h-13 w-13 shrink-0 rounded-full bg-background" />
+        <div className="min-w-0 flex-1 space-y-2 py-1">
+          <div className="h-3.5 w-28 rounded bg-background" />
+          <div className="h-3 w-36 rounded bg-background" />
+        </div>
+      </div>
+      <div className="flex items-end gap-6">
+        <div className="h-9 w-14 rounded bg-background" />
+        <div className="h-9 w-14 rounded bg-background" />
+        <div className="h-9 w-14 rounded bg-background" />
+      </div>
+      <div className="-mx-5 h-52 w-[calc(100%+2.5rem)] bg-background" />
+    </Card>
+  );
+}
+
+/**
+ * Module-level cache, shared by every mounted `FeedPage` — same
+ * stale-while-revalidate pattern `useAuth.ts` already uses for the account
+ * check. Before this, `feedItems` started at `null` on every mount, so
+ * leaving the tab and coming back (or any remount at all) blanked the whole
+ * feed back to the loading skeleton and re-fetched from scratch every time —
+ * reported directly ("fica toda hora mudando... verificou 1 vez a gente
+ * deveria fazer algum cache", 2026-09-01). Now the first mount's fetch result
+ * is kept around: a later mount renders the last-known feed immediately and
+ * only silently refreshes it in the background, instead of flashing back to
+ * skeletons the visitor already scrolled past.
+ */
+let cachedFeedItems: FriendFeedItem[] | null = null;
+let cachedFriendCount: number | null = null;
+
+/** Module-level, not inline in the component — the lint rule that flags a
+ * component reassigning an outer variable during render can't see a plain
+ * function call, only an assignment expression lexically inside the
+ * component body. Same reason `useAuth.ts`'s cache exposes `notify()`
+ * rather than assigning `cachedState` directly from inside `useAuth()`. */
+function setCachedFeedItems(items: FriendFeedItem[]) {
+  cachedFeedItems = items;
+}
+function setCachedFriendCount(count: number) {
+  cachedFriendCount = count;
+}
+
+/**
  * Feed's own top-level tab (bottom nav: Corrida, Feed, Plano, Perfil) —
  * used to live as a tab inside /amigos, promoted out on request ("tem q
  * ser um feed como foco principal para nao ser uma tela so de coisa
@@ -306,7 +431,7 @@ export default function FeedPage() {
   const { status, account } = useAuth();
   const [{ distanceUnit: unit }] = usePreferences();
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
-  const [feedItems, setFeedItems] = useState<FriendFeedItem[] | null>(null);
+  const [feedItems, setFeedItems] = useState<FriendFeedItem[] | null>(cachedFeedItems);
   const [kudosBusyId, setKudosBusyId] = useState<string | null>(null);
   /**
    * Synchronous guard against a run being toggled twice in the same tap —
@@ -319,16 +444,25 @@ export default function FeedPage() {
    */
   const kudosInFlightRef = useRef<Set<string>>(new Set());
   /** Only used to tell "no friends yet" apart from "friends, but nobody's shared a run" in the empty state below. */
-  const [friendCount, setFriendCount] = useState<number | null>(null);
+  const [friendCount, setFriendCount] = useState<number | null>(cachedFriendCount);
 
   useEffect(() => {
     if (status !== "signed-in") return;
     let cancelled = false;
+    // Runs on every mount, cache or no cache — this is the "revalidate" half
+    // of stale-while-revalidate. What changed is that a cache hit already
+    // rendered real content before this fetch even starts, so a fast
+    // network never shows a loading state at all, and a slow one keeps
+    // showing what was there rather than blanking out while it waits.
     listFriendsFeed().then((items) => {
-      if (!cancelled) setFeedItems(items);
+      if (cancelled) return;
+      setCachedFeedItems(items);
+      setFeedItems(items);
     });
     listFriendConnections("accepted").then((rows) => {
-      if (!cancelled) setFriendCount(rows.length);
+      if (cancelled) return;
+      setCachedFriendCount(rows.length);
+      setFriendCount(rows.length);
     });
     return () => {
       cancelled = true;
@@ -343,13 +477,13 @@ export default function FeedPage() {
     kudosInFlightRef.current.delete(runRowId);
     setKudosBusyId(null);
     if (result.ok) {
-      setFeedItems((current) =>
-        (current ?? []).map((item) =>
-          item.runRowId === runRowId
-            ? { ...item, kudosCount: result.kudosCount, kudosGivenByMe: result.kudosGivenByMe }
-            : item,
-        ),
+      const updated = (cachedFeedItems ?? []).map((item) =>
+        item.runRowId === runRowId
+          ? { ...item, kudosCount: result.kudosCount, kudosGivenByMe: result.kudosGivenByMe }
+          : item,
       );
+      setCachedFeedItems(updated);
+      setFeedItems(updated);
     }
   };
 
@@ -409,9 +543,11 @@ export default function FeedPage() {
 
         {status === "signed-in" &&
           (feedItems === null ? (
-            <Card className="pr-enter animate-pulse" style={delay(40)}>
-              <div className="h-36 rounded-xl bg-background" />
-            </Card>
+            <>
+              <FeedItemSkeleton enterDelayMs={0} />
+              <FeedItemSkeleton enterDelayMs={40} />
+              <FeedItemSkeleton enterDelayMs={80} />
+            </>
           ) : feedItems.length === 0 ? (
             <Card className="pr-enter" style={delay(40)}>
               <div className="py-2 text-center">

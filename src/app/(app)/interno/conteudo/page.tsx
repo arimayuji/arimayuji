@@ -238,7 +238,7 @@ function IdeaCard({
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted hover:border-bad hover:text-bad"
+            className="rounded-full bg-bad px-3 py-1 text-xs font-semibold text-white"
           >
             Excluir
           </button>

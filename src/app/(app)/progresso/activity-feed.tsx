@@ -738,7 +738,7 @@ function RunRow({
           type="button"
           onClick={onRequestDelete}
           aria-label="Excluir corrida"
-          className="mt-3 mr-3 h-fit shrink-0 self-start rounded-full p-2 text-muted hover:bg-bad/10 hover:text-bad"
+          className="mt-3 mr-3 h-fit shrink-0 self-start rounded-full bg-bad p-2 text-white"
         >
           <TrashIcon />
         </button>
