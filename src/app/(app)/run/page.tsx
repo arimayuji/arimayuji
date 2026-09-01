@@ -893,18 +893,38 @@ function CustomValueSheet({
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState(value);
+  // `onClose`/`onConfirm` both flip the caller's state that decides whether
+  // to render this sheet at all — the instant either fires, the parent would
+  // unmount `<CustomValueSheet>` before the exit transition gets a single
+  // frame. `closing` buys it those ~200ms: the sheet visually slides away
+  // first, then the real close/confirm (and the unmount it triggers) fires
+  // on a matching timer.
+  const [closing, setClosing] = useState(false);
+  const EXIT_MS = 200;
+
+  const requestClose = () => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(onClose, EXIT_MS);
+  };
+
+  const requestConfirm = () => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(() => onConfirm(draft), EXIT_MS);
+  };
 
   return (
     <ModalPortal>
       <div
-        className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 transition-opacity duration-200 ease-out starting:opacity-0 sm:items-center"
-        onClick={onClose}
+        className={`fixed inset-0 z-50 flex items-end justify-center bg-black/50 transition-opacity duration-200 ease-out starting:opacity-0 sm:items-center ${closing ? "opacity-0" : ""}`}
+        onClick={requestClose}
       >
         <div
           role="dialog"
           aria-label={title}
           onClick={(event) => event.stopPropagation()}
-          className="w-full max-w-sm translate-y-0 rounded-t-3xl bg-background p-5 pb-8 text-foreground transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] starting:translate-y-full sm:rounded-3xl"
+          className={`w-full max-w-sm translate-y-0 rounded-t-3xl bg-background p-5 pb-8 text-foreground transition-transform ease-[cubic-bezier(0.23,1,0.32,1)] starting:translate-y-full sm:rounded-3xl ${closing ? "translate-y-full duration-200" : "duration-300"}`}
         >
           <div className="mx-auto mb-5 h-1 w-9 rounded-full bg-border" />
           <p className="mb-6 text-center text-base font-bold">{title}</p>
@@ -931,7 +951,7 @@ function CustomValueSheet({
           </div>
           <button
             type="button"
-            onClick={() => onConfirm(draft)}
+            onClick={requestConfirm}
             className="min-h-12 w-full rounded-full bg-accent px-4 py-3 text-sm font-bold text-accent-foreground active:scale-[0.98]"
           >
             Confirmar
