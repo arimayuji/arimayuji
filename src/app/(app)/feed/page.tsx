@@ -211,7 +211,7 @@ function RouteBanner({ points }: { points: StoredPoint[] }) {
   const cursor = timeline && progress !== null && !reducedMotion ? replayCursorAt(timeline, progress) : null;
 
   return (
-    <div ref={ref} className="-mx-5 h-40 w-[calc(100%+2.5rem)] overflow-hidden bg-background">
+    <div ref={ref} className="-mx-5 h-40 w-[calc(100%+2.5rem)] overflow-hidden bg-background lg:mx-0 lg:w-full">
       {inView && <RouteMap points={points} replay={cursor} square={false} rounded={false} className="h-40 w-full" />}
     </div>
   );
@@ -498,7 +498,7 @@ function FeedItemCard({
     // becomes the separation between posts, the same way a feed separates
     // them with background rather than with a frame around each one.
     <Card
-      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] flex-col gap-3 rounded-none border-x-0"
+      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] flex-col gap-3 rounded-none border-x-0 lg:mx-0 lg:w-full lg:rounded-lg lg:border-x"
       style={delay(enterDelayMs)}
     >
       <div className="flex items-start gap-3">
@@ -566,7 +566,7 @@ function FeedItemCard({
           <button
             type="button"
             onClick={() => setShowPhoto((current) => !current)}
-            className="flex h-11 w-fit items-center gap-2 rounded-full border border-border px-4 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+            className="flex h-11 w-fit items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-muted hover:border-accent hover:text-accent"
           >
             <CameraIcon className="h-4 w-4" />
             {showPhoto ? "Ocultar foto" : "Ver foto"}
@@ -576,7 +576,7 @@ function FeedItemCard({
             <img
               src={item.photoUrl}
               alt=""
-              className="-mx-5 h-64 w-[calc(100%+2.5rem)] object-cover"
+              className="-mx-5 h-64 w-[calc(100%+2.5rem)] object-cover lg:mx-0 lg:w-full"
             />
           )}
         </div>
@@ -619,7 +619,7 @@ function FeedItemCard({
           // Own post: kudos is something friends give you, not something
           // you toggle on yourself — a static count instead of a button
           // (the server rejects self-kudos anyway, see toggle-run-kudos).
-          <span className="flex h-11 shrink-0 items-center gap-2 px-2 text-sm font-semibold text-muted">
+          <span className="flex h-11 shrink-0 items-center gap-2 px-3 text-sm font-semibold text-muted">
             <HeartIcon className="h-5 w-5" filled={item.kudosCount > 0} />
             {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
           </span>
@@ -665,7 +665,7 @@ function FeedItemCard({
 function FeedItemSkeleton({ enterDelayMs }: { enterDelayMs: number }) {
   return (
     <Card
-      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] animate-pulse flex-col gap-4 rounded-none border-x-0"
+      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] animate-pulse flex-col gap-4 rounded-none border-x-0 lg:mx-0 lg:w-full lg:rounded-lg lg:border-x"
       style={delay(enterDelayMs)}
     >
       <div className="flex items-start gap-3">
@@ -680,7 +680,7 @@ function FeedItemSkeleton({ enterDelayMs }: { enterDelayMs: number }) {
         <div className="h-11 rounded bg-background" />
         <div className="h-11 rounded bg-background" />
       </div>
-      <div className="-mx-5 h-40 w-[calc(100%+2.5rem)] bg-background" />
+      <div className="-mx-5 h-40 w-[calc(100%+2.5rem)] bg-background lg:mx-0 lg:w-full" />
     </Card>
   );
 }
