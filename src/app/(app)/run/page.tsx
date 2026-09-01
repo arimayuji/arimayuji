@@ -317,6 +317,55 @@ function HoldToFinishButton({
   );
 }
 
+/**
+ * The lap/carb-gel toasts already entered via `.pr-enter`, but the parent
+ * clears `message` back to `null` on its own timer — which unmounts this
+ * `<div>` immediately, before any exit transition gets a frame. This wraps
+ * that same visual, keeping a copy of the last message around for one more
+ * beat while it fades, without the parent's timer/clearing logic having to
+ * know or care that an exit animation exists.
+ */
+function FadeToast({ message }: { message: string | null }) {
+  const [shown, setShown] = useState(message);
+  const [closing, setClosing] = useState(false);
+  // React's own documented pattern for "adjust state when a prop changes"
+  // without an effect: compare against the last-seen prop value during
+  // render, and call setState conditionally right here — React re-renders
+  // immediately with the new state before the browser paints, so this never
+  // shows a stale frame.
+  const [prevMessage, setPrevMessage] = useState(message);
+  if (message !== prevMessage) {
+    setPrevMessage(message);
+    if (message !== null) {
+      setShown(message);
+      setClosing(false);
+    } else {
+      setClosing(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!closing) return;
+    const timer = setTimeout(() => setShown(null), 150);
+    return () => clearTimeout(timer);
+  }, [closing]);
+
+  if (shown === null) return null;
+
+  return (
+    <div
+      className={
+        closing
+          ? "absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-accent px-4 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground opacity-0 transition-opacity duration-150 ease-out"
+          : "pr-enter absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-accent px-4 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground"
+      }
+      style={{ "--pr-dur": "0.25s" } as CSSProperties}
+    >
+      {shown}
+    </div>
+  );
+}
+
 function GhostDeltaPill({ deltaSeconds }: { deltaSeconds: number }) {
   const ahead = deltaSeconds >= 0;
   return (
@@ -3246,7 +3295,7 @@ export default function RunPage() {
                 (() => {
                   const currentPause = state.pauseEvents[state.pauseEvents.length - 1];
                   return (
-                    <div className="mb-2 rounded-xl border border-border bg-surface p-4">
+                    <div className="mb-2 rounded-xl border border-border bg-surface p-4 transition-[opacity,transform] duration-200 ease-out starting:-translate-y-1.5 starting:opacity-0">
                       <span className="text-xs uppercase tracking-wide text-muted">
                         Pausado — por quê? (opcional)
                       </span>
@@ -3314,23 +3363,8 @@ export default function RunPage() {
                 />
               </div>
 
-              {lapToast && (
-                <div
-                  className="pr-enter absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-accent px-4 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground"
-                  style={{ "--pr-dur": "0.25s" } as CSSProperties}
-                >
-                  {lapToast}
-                </div>
-              )}
-
-              {carbToast && (
-                <div
-                  className="pr-enter absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-accent px-4 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground"
-                  style={{ "--pr-dur": "0.25s" } as CSSProperties}
-                >
-                  {carbToast}
-                </div>
-              )}
+              <FadeToast message={lapToast} />
+              <FadeToast message={carbToast} />
             </main>
           );
         })()}

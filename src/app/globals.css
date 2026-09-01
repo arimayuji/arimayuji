@@ -293,6 +293,21 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/** A bounce on an already-visible element (the feed's kudos heart going from
+ * outline to filled) — distinct from `pr-pop` above, which is an entrance for
+ * something newly appearing. Never applied on the reverse (un-kudos) toggle. */
+@keyframes pr-heart-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 @keyframes pr-bar {
   from {
     transform: scaleY(0.06);

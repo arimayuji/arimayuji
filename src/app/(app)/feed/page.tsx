@@ -66,11 +66,24 @@ function FriendsIcon({ className }: { className?: string }) {
   );
 }
 
+/** Bounces once (`pr-heart-pop`, globals.css) the moment `filled` flips from
+ * false to true — confirms the tap registered, same idea as any social app's
+ * like button. Never plays on the reverse (removing kudos) or on the initial
+ * mount with `filled` already true (a feed refresh showing kudos you gave
+ * earlier shouldn't replay the bounce). */
 function HeartIcon({ className, filled }: { className?: string; filled: boolean }) {
+  const [pulse, setPulse] = useState(false);
+  const wasFilled = useRef(filled);
+  useEffect(() => {
+    if (filled && !wasFilled.current) setPulse(true);
+    wasFilled.current = filled;
+  }, [filled]);
+
   return (
     <svg
       viewBox="0 0 24 24"
-      className={className}
+      className={`${className} ${pulse ? "animate-[pr-heart-pop_300ms_cubic-bezier(0.23,1,0.32,1)]" : ""}`}
+      onAnimationEnd={() => setPulse(false)}
       aria-hidden="true"
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
@@ -179,18 +192,23 @@ function FeedItemCard({
   busy,
   isOwn,
   onToggleKudos,
+  enterDelayMs,
 }: {
   item: FriendFeedItem;
   unit: DistanceUnit;
   busy: boolean;
   isOwn: boolean;
   onToggleKudos: () => void;
+  /** Staggers this card's entrance behind the ones above it — capped by the
+   * caller so a feed of 30 posts doesn't grow an ever-longer tail of delay
+   * for cards already below the fold. */
+  enterDelayMs: number;
 }) {
   const pace = formatAveragePace(item.distanceMeters, item.movingSeconds, unit);
   const track = item.tracks[0];
 
   return (
-    <Card className="pr-enter flex flex-col gap-4">
+    <Card className="pr-enter flex flex-col gap-4" style={delay(enterDelayMs)}>
       <div className="flex items-start gap-3">
         <Avatar name={item.displayName} avatarUrl={item.avatarUrl} />
         <div className="min-w-0 flex-1">
@@ -413,7 +431,7 @@ export default function FeedPage() {
               </div>
             </Card>
           ) : (
-            feedItems.map((item) => (
+            feedItems.map((item, index) => (
               <FeedItemCard
                 key={item.runRowId}
                 item={item}
@@ -421,6 +439,7 @@ export default function FeedPage() {
                 busy={kudosBusyId === item.runRowId}
                 isOwn={item.userId === account?.id}
                 onToggleKudos={() => handleToggleKudos(item.runRowId)}
+                enterDelayMs={Math.min(index, 5) * 40}
               />
             ))
           ))}
