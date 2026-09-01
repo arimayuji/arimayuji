@@ -75,14 +75,18 @@ function FriendsIcon({ className }: { className?: string }) {
  * false to true — confirms the tap registered, same idea as any social app's
  * like button. Never plays on the reverse (removing kudos) or on the initial
  * mount with `filled` already true (a feed refresh showing kudos you gave
- * earlier shouldn't replay the bounce). */
+ * earlier shouldn't replay the bounce). Gated on `prefers-reduced-motion` —
+ * this was the one movement effect on the whole screen not already checking
+ * it (an audit finding, 2026-09-01), unlike `RouteBanner` right below it in
+ * the same card, which already does. */
 function HeartIcon({ className, filled }: { className?: string; filled: boolean }) {
+  const reducedMotion = usePrefersReducedMotion();
   const [pulse, setPulse] = useState(false);
   const wasFilled = useRef(filled);
   useEffect(() => {
-    if (filled && !wasFilled.current) setPulse(true);
+    if (filled && !wasFilled.current && !reducedMotion) setPulse(true);
     wasFilled.current = filled;
-  }, [filled]);
+  }, [filled, reducedMotion]);
 
   return (
     <svg
@@ -274,6 +278,28 @@ function SendIcon({ className }: { className?: string }) {
   );
 }
 
+/** One row in the comment list — pulled out so the "recent" and "older"
+ * lists in `CommentsSection` render identical markup without duplicating it. */
+function CommentRow({ comment }: { comment: RunComment }) {
+  return (
+    <li className="flex items-start gap-2">
+      <Avatar name={comment.displayName} avatarUrl={comment.avatarUrl} size="sm" />
+      <div className="min-w-0 flex-1">
+        {comment.text && (
+          <p className="text-xs leading-relaxed text-pretty">
+            <span className="font-semibold">{comment.displayName}</span> {comment.text}
+          </p>
+        )}
+        {!comment.text && <p className="text-xs font-semibold">{comment.displayName}</p>}
+        {comment.photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- an Appwrite Storage URL, not a local asset.
+          <img src={comment.photoUrl} alt="" className="mt-1.5 max-h-40 rounded-xl object-cover" />
+        )}
+      </div>
+    </li>
+  );
+}
+
 /**
  * Comments on a shared run — asked for directly ("tem que poder conseguir
  * comentar... anexar foto... igual strava", 2026-09-01). Visible to whoever
@@ -350,44 +376,43 @@ function CommentsSection({
 
   // Newest two by default (the list arrives oldest-first) — a card in a feed
   // shows that a conversation exists, it isn't the place to read all of it.
-  const visible = showAll ? comments : comments.slice(-2);
+  // Split rather than one `visible` slice so only the block that's newly
+  // revealed by "Ver todos" gets an entrance animation — the two always-shown
+  // recent comments never replay it.
+  const recentCount = Math.min(2, comments.length);
+  const recent = comments.slice(comments.length - recentCount);
+  const older = showAll ? comments.slice(0, comments.length - recentCount) : [];
 
   return (
     <div className="flex flex-col gap-2.5">
-      {comments.length > visible.length && (
+      {older.length === 0 && comments.length > recentCount && (
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="flex min-h-11 w-fit items-center text-xs font-semibold text-muted hover:text-accent"
+          className="flex min-h-11 w-fit items-center text-xs font-semibold text-muted transition-colors duration-150 hover:text-accent"
         >
           Ver todos os {comments.length} comentários
         </button>
       )}
 
-      {visible.length > 0 && (
+      {older.length > 0 && (
+        <ul className="pr-panel-in flex flex-col gap-2.5">
+          {older.map((comment) => (
+            <CommentRow key={comment.id} comment={comment} />
+          ))}
+        </ul>
+      )}
+
+      {recent.length > 0 && (
         <ul className="flex flex-col gap-2.5">
-          {visible.map((comment) => (
-            <li key={comment.id} className="flex items-start gap-2">
-              <Avatar name={comment.displayName} avatarUrl={comment.avatarUrl} size="sm" />
-              <div className="min-w-0 flex-1">
-                {comment.text && (
-                  <p className="text-xs leading-relaxed text-pretty">
-                    <span className="font-semibold">{comment.displayName}</span> {comment.text}
-                  </p>
-                )}
-                {!comment.text && <p className="text-xs font-semibold">{comment.displayName}</p>}
-                {comment.photoUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element -- an Appwrite Storage URL, not a local asset.
-                  <img src={comment.photoUrl} alt="" className="mt-1.5 max-h-40 rounded-xl object-cover" />
-                )}
-              </div>
-            </li>
+          {recent.map((comment) => (
+            <CommentRow key={comment.id} comment={comment} />
           ))}
         </ul>
       )}
 
       {open && (
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <form onSubmit={handleSubmit} className="pr-panel-in flex flex-col gap-2">
         {photoPreviewUrl && (
           <div className="relative w-fit">
             {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, not an Appwrite/next/image asset. */}
@@ -416,7 +441,7 @@ function CommentsSection({
           <label
             htmlFor={fileInputId}
             aria-label="Anexar foto"
-            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted hover:border-accent hover:text-accent"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted transition-colors duration-150 hover:border-accent hover:text-accent"
           >
             <CameraIcon className="h-5 w-5" />
           </label>
@@ -566,7 +591,7 @@ function FeedItemCard({
           <button
             type="button"
             onClick={() => setShowPhoto((current) => !current)}
-            className="flex h-11 w-fit items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-muted hover:border-accent hover:text-accent"
+            className="flex h-11 w-fit items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-muted transition-colors duration-150 hover:border-accent hover:text-accent"
           >
             <CameraIcon className="h-4 w-4" />
             {showPhoto ? "Ocultar foto" : "Ver foto"}
@@ -629,7 +654,7 @@ function FeedItemCard({
             disabled={busy}
             onClick={onToggleKudos}
             aria-pressed={item.kudosGivenByMe}
-            className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold disabled:opacity-60 ${
+            className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold transition-colors duration-150 disabled:opacity-60 ${
               item.kudosGivenByMe ? "bg-accent/10 text-accent" : "text-muted"
             }`}
           >
@@ -641,7 +666,7 @@ function FeedItemCard({
           type="button"
           onClick={() => setComposerOpen((current) => !current)}
           aria-expanded={composerOpen}
-          className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold ${
+          className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold transition-colors duration-150 ${
             composerOpen ? "bg-accent/10 text-accent" : "text-muted"
           }`}
         >

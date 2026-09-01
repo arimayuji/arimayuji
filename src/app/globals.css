@@ -307,6 +307,26 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+/** A small panel materializing from a trigger just above it — the feed's
+ * comment composer opening, and the older comments revealed by "Ver todos
+ * os N comentários" (both src/app/(app)/feed/page.tsx). Distinct from
+ * `pr-rise` above: that's a whole card's one-time entrance on page load
+ * (20px travel, slower), this is a small popover-scale reveal — shorter
+ * travel and duration match the "small popover" budget, not a page
+ * transition. Gated the same way as `.pr-enter` below (see that rule's own
+ * comment) rather than importing `usePrefersReducedMotion` into every
+ * consumer. */
+@keyframes pr-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /** A bounce on an already-visible element (the feed's kudos heart going from
  * outline to filled) — distinct from `pr-pop` above, which is an entrance for
  * something newly appearing. Never applied on the reverse (un-kudos) toggle. */
@@ -605,6 +625,11 @@ input[type="number"]::-webkit-inner-spin-button {
   .pr-enter {
     animation: pr-rise var(--pr-dur, 0.8s) cubic-bezier(0.22, 0.61, 0.36, 1)
       var(--pr-delay, 0ms) both;
+  }
+
+  /* Small popover-scale reveal — see `pr-panel-in`'s own comment above. */
+  .pr-panel-in {
+    animation: pr-panel-in 180ms cubic-bezier(0.23, 1, 0.32, 1) both;
   }
 
   /* Sections: hidden until the observer in reveal.tsx marks them seen. */
