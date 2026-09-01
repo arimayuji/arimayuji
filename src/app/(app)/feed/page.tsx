@@ -229,8 +229,8 @@ function RouteBanner({ points }: { points: StoredPoint[] }) {
   const cursor = timeline && !reducedMotion ? replayCursorAt(timeline, progress) : null;
 
   return (
-    <div ref={ref} className="-mx-5 h-52 w-[calc(100%+2.5rem)] overflow-hidden bg-background">
-      {inView && <RouteMap points={points} replay={cursor} square={false} rounded={false} className="h-52 w-full" />}
+    <div ref={ref} className="-mx-5 h-40 w-[calc(100%+2.5rem)] overflow-hidden bg-background">
+      {inView && <RouteMap points={points} replay={cursor} square={false} rounded={false} className="h-40 w-full" />}
     </div>
   );
 }
@@ -447,9 +447,15 @@ function FeedItemCard({
   const pace = formatAveragePace(item.distanceMeters, item.movingSeconds, unit);
   const track = item.tracks[0];
   const routePoints = useMemo(() => parseFeedRoutePoints(item.points), [item.points]);
+  /** Collapsed by default — a full-height photo on every card made the feed
+   * read as "muito extenso"/"grotesco" (2026-09-01); showing a photo is now
+   * an optional reveal (tap "Ver foto"), not something every card is forced
+   * to spend its tallest block of space on whether the viewer wants it or
+   * not. */
+  const [showPhoto, setShowPhoto] = useState(false);
 
   return (
-    <Card className="pr-enter flex flex-col gap-4" style={delay(enterDelayMs)}>
+    <Card className="pr-enter flex flex-col gap-3" style={delay(enterDelayMs)}>
       <div className="flex items-start gap-3">
         <Avatar name={item.displayName} avatarUrl={item.avatarUrl} size="lg" />
         <div className="min-w-0 flex-1">
@@ -458,23 +464,31 @@ function FeedItemCard({
             {formatFeedTimestamp(item.startedAt)}
             {item.shoeName ? ` · ${item.shoeName}` : ""}
           </p>
-          {item.placeName && (
-            <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted">
-              <PinIcon className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{item.placeName}</span>
-            </p>
-          )}
-          {/* New info the Feed didn't surface before ("se a corrida for
+          {/* Place and coach-supervision share one line when both exist —
+              two separate lines here made the header alone run 4 lines
+              tall before any real content started (flagged by improve-ui,
+              2026-09-01, after "muito extenso"/"muito grotesco"). New info
+              the Feed didn't surface before ("se a corrida for
               compartilhada... com supervisao de treinador seria legal
               mostrar isso no card", 2026-09-01) — every card here already
               implies friends-sharing by construction (list-friends-feed
               only ever returns visibility:"friends" runs), so that half
               needs no badge of its own; coach access is the genuinely new
               fact worth calling out. */}
-          {item.coachSupervised && (
-            <p className="mt-1 flex w-fit items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
-              <WhistleIcon className="h-3 w-3 shrink-0" />
-              Supervisionada por treinador
+          {(item.placeName || item.coachSupervised) && (
+            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+              {item.placeName && (
+                <span className="flex min-w-0 flex-1 items-center gap-1">
+                  <PinIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{item.placeName}</span>
+                </span>
+              )}
+              {item.coachSupervised && (
+                <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                  <WhistleIcon className="h-3 w-3 shrink-0" />
+                  Treinador
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -485,16 +499,31 @@ function FeedItemCard({
 
       {/* A real photo of the post itself ("a foto não só no comentário mas
           também do autor do post", 2026-09-01) — distinct from a photo on
-          a *comment* below. Shown as its own hero, ahead of the route
-          banner: a photo the athlete actually took is the more personal
-          visual, the map stays the proof of the real GPS trace either way. */}
+          a *comment* below. Collapsed behind a toggle by default ("acho
+          que poderia ser opcional ter fotos, aí seria 'escondido' a parte
+          de visualizar imagens", same day): the map banner already covers
+          the mandatory hero visual, so a photo is an optional extra the
+          viewer opts into, not another full-height block every card pays
+          for whether it's wanted or not. */}
       {item.photoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- an Appwrite Storage URL, not a local asset.
-        <img
-          src={item.photoUrl}
-          alt=""
-          className="-mx-5 h-64 w-[calc(100%+2.5rem)] object-cover"
-        />
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPhoto((current) => !current)}
+            className="flex w-fit items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+          >
+            <CameraIcon className="h-3.5 w-3.5" />
+            {showPhoto ? "Ocultar foto" : "Ver foto"}
+          </button>
+          {showPhoto && (
+            // eslint-disable-next-line @next/next/no-img-element -- an Appwrite Storage URL, not a local asset.
+            <img
+              src={item.photoUrl}
+              alt=""
+              className="-mx-5 h-64 w-[calc(100%+2.5rem)] object-cover"
+            />
+          )}
+        </div>
       )}
 
       <div className="flex items-start justify-between gap-3">
@@ -581,7 +610,7 @@ function FeedItemSkeleton({ enterDelayMs }: { enterDelayMs: number }) {
         <div className="h-9 w-14 rounded bg-background" />
         <div className="h-9 w-14 rounded bg-background" />
       </div>
-      <div className="-mx-5 h-52 w-[calc(100%+2.5rem)] bg-background" />
+      <div className="-mx-5 h-40 w-[calc(100%+2.5rem)] bg-background" />
     </Card>
   );
 }
