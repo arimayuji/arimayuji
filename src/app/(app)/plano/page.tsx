@@ -1367,7 +1367,7 @@ export default function PlanoPage() {
           <button
             type="button"
             onClick={() => setShowExample(true)}
-            className="pr-enter flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 text-left"
+            className="pr-enter flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 text-left lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:px-0 lg:pt-4 lg:pb-0"
             style={delay(110)}
           >
             <span>

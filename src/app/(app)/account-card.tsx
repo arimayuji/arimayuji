@@ -170,7 +170,7 @@ export function AccountCard() {
         className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm lg:mt-2.5 lg:pt-2.5"
       >
         <span className="text-muted">Dados pessoais — peso, dores</span>
-        <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-md lg:px-2.5 lg:py-1">Abrir</span>
+        <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-none lg:bg-transparent lg:p-0 lg:font-medium lg:text-accent">Abrir</span>
       </Link>
 
       {status === "signed-in" && profile && (
@@ -179,7 +179,7 @@ export function AccountCard() {
           className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm lg:mt-2.5 lg:pt-2.5"
         >
           <span className="text-muted">Amigos e convites</span>
-          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-md lg:px-2.5 lg:py-1">Abrir</span>
+          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-none lg:bg-transparent lg:p-0 lg:font-medium lg:text-accent">Abrir</span>
         </Link>
       )}
 
@@ -190,7 +190,7 @@ export function AccountCard() {
           className="mt-3 flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm lg:mt-2.5 lg:pt-2.5"
         >
           <span className="text-muted">Convidar amigos</span>
-          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-md lg:px-2.5 lg:py-1">
+          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-none lg:bg-transparent lg:p-0 lg:font-medium lg:text-accent">
             {inviteCopied ? "Link copiado" : shareSupport === "share" ? "Compartilhar" : "Copiar link"}
           </span>
         </button>
@@ -203,7 +203,7 @@ export function AccountCard() {
           className="mt-3 flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm lg:mt-2.5 lg:pt-2.5"
         >
           <span className="text-bad">Excluir conta</span>
-          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold text-bad lg:rounded-md lg:px-2.5 lg:py-1">
+          <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold text-bad lg:rounded-none lg:bg-transparent lg:p-0 lg:font-medium">
             Abrir
           </span>
         </button>

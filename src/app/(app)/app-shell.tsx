@@ -296,8 +296,22 @@ const TAB_RECLICK_EVENT = "xanthus:tab-reclick";
  * WebView never reports a viewport this wide, so every `lg:` class below
  * is a pure no-op there, and on any narrow browser window.
  */
-const SIDEBAR_WIDTH_CLASS = "lg:w-60";
-const SIDEBAR_OFFSET_CLASS = "lg:left-60";
+/**
+ * The rail rests collapsed (icon-only) and expands to full width on hover —
+ * same interaction as Aceternity's Sidebar component (21st.dev), picked
+ * specifically because a permanently-expanded rail down the left edge is
+ * the one piece of chrome every native-mobile-tab-bar-reskinned-for-desktop
+ * critique kept landing on. Since the rail is `position: absolute` (an
+ * overlay, not a flex sibling — see the `<nav>` below), only the COLLAPSED
+ * width needs reserving in the header/content layout; the expanded state
+ * on hover overlays on top of content instead of reflowing it, which is
+ * also why it's a pure CSS `group-hover` trick rather than JS state.
+ */
+const SIDEBAR_COLLAPSED_WIDTH_CLASS = "lg:w-16";
+const SIDEBAR_OFFSET_CLASS = "lg:left-16";
+/** Collapses a label to nothing at rest, reveals it once `.group` (the nav) is hovered — shared by the brand wordmark and every DESKTOP_TABS label below. `max-w` (not `w`) because `width: auto` can't be transitioned; a generous cap plus `overflow-hidden` gets the same clipped-to-content result while staying animatable. */
+const SIDEBAR_LABEL_CLASS =
+  "max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-200 ease-out lg:group-hover:max-w-40 lg:group-hover:opacity-100";
 
 function BottomNav({ hidden }: { hidden: boolean }) {
   const pathname = usePathname() ?? "";
@@ -310,9 +324,9 @@ function BottomNav({ hidden }: { hidden: boolean }) {
       // on `lg:` instead — a coach's dashboard has no reason to hide its own
       // nav on scroll, and `lg:translate-x-0 lg:translate-y-0` overrides
       // whatever the mobile scroll-hide state was, unconditionally.
-      className={`chrome-gradient-nav absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-transform duration-200 ease-out ${
+      className={`chrome-gradient-nav group absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-[transform,width] duration-200 ease-out ${
         hidden ? "translate-y-full" : "translate-y-0"
-      } lg:inset-y-0 lg:right-auto lg:top-0 ${SIDEBAR_WIDTH_CLASS} lg:translate-x-0 lg:translate-y-0 lg:rounded-none lg:shadow-none`}
+      } lg:inset-y-0 lg:right-auto lg:top-0 ${SIDEBAR_COLLAPSED_WIDTH_CLASS} lg:translate-x-0 lg:translate-y-0 lg:rounded-none lg:shadow-none lg:hover:w-60 lg:hover:shadow-2xl`}
     >
       {/* Brand mark, sidebar-only — the flat desktop rail carries its own
           identity instead of doubling it with the header's, so the header
@@ -321,12 +335,12 @@ function BottomNav({ hidden }: { hidden: boolean }) {
           own brand mark treatment just below (same paths, same white),
           since the rail itself is solid accent blue rather than a neutral
           background. */}
-      <div className="hidden items-center gap-2.5 border-b border-white/15 px-5 py-5 lg:flex">
-        <svg viewBox="0 0 100 100" className="h-6 w-6 text-white" aria-hidden="true">
+      <div className="hidden h-16 shrink-0 items-center gap-3 border-b border-white/15 px-4 lg:flex">
+        <svg viewBox="0 0 100 100" className="h-8 w-8 shrink-0 text-white" aria-hidden="true">
           <path d={HORSE_BUST_BODY_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
           <path d={HORSE_BUST_LEGS_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
         </svg>
-        <span className="font-mono text-base font-semibold tracking-wide text-white">Xanthus</span>
+        <span className={`font-mono text-lg font-semibold tracking-wide text-white ${SIDEBAR_LABEL_CLASS}`}>Xanthus</span>
       </div>
 
       {/* Mobile/native tab bar — always Feed/Histórico/Corrida/Plano/Perfil,
@@ -415,8 +429,8 @@ function BottomNav({ hidden }: { hidden: boolean }) {
                   active ? "bg-white/15 font-semibold text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <tab.icon className="h-[25px] w-[25px]" />
-                {tab.label}
+                <tab.icon className="h-[25px] w-[25px] shrink-0" />
+                <span className={SIDEBAR_LABEL_CLASS}>{tab.label}</span>
               </Link>
             </li>
           );
@@ -621,8 +635,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           */}
           <div
             ref={setScrollEl}
-            // `lg:pl-60` clears the sidebar BottomNav becomes at that
-            // breakpoint — the bottom padding below (still sized for the
+            // `lg:pl-16` clears the sidebar BottomNav becomes at that
+            // breakpoint — matching its COLLAPSED width (SIDEBAR_COLLAPSED_WIDTH_CLASS),
+            // not the width it grows to on hover: the rail is `position:
+            // absolute`, so its hover-expanded state is a floating overlay
+            // on top of this content rather than something content reflows
+            // around. The bottom padding below (still sized for the
             // now-gone bottom tab bar) is left as a small amount of unused
             // space at that width rather than reworked, since it's set via
             // inline `style` below and an inline style always wins over any
@@ -633,7 +651,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             // (see the `{children}` tree-position note above) and isn't
             // worth the risk for a few pixels of harmless dead space.
             className={
-              immersive ? "flex h-full flex-col" : "h-full overflow-y-auto overscroll-y-contain lg:pl-60"
+              immersive ? "flex h-full flex-col" : "h-full overflow-y-auto overscroll-y-contain lg:pl-16"
             }
             style={
               immersive

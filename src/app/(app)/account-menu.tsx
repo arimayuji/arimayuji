@@ -61,9 +61,23 @@ export function AccountMenuButton({ open, onOpenChange }: { open: boolean; onOpe
               role="dialog"
               aria-modal="true"
               aria-label="Conta"
-              className="w-full max-w-md border border-border bg-background p-6 shadow-xl"
+              className="relative w-full max-w-md rounded-2xl bg-background p-6 pr-14 shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
+              {/* `pr-14` on the dialog itself (not just this button) reserves
+                  the whole right margin so CardTitle's own right-aligned
+                  aside (the "conectado"/"opcional" badge) never collides
+                  with it, instead of fighting over the same corner. */}
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                aria-label="Fechar"
+                className="absolute top-6 right-5 text-muted hover:text-foreground"
+              >
+                <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
               <AccountCard />
             </div>
           </div>
