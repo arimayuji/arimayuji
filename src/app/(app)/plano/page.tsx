@@ -645,10 +645,25 @@ function GoalCard({
   profile,
   updateProfile,
   className,
+  plainAt = "lg",
 }: {
   profile: RunnerProfile;
   updateProfile: (patch: Partial<RunnerProfile>) => void;
   className?: string;
+  /**
+   * Which breakpoint drops the mobile Card's rounded/tinted chrome in favor
+   * of the plain content its desktop caller already wraps. Defaults to
+   * `"lg"` (the wide, `hasGoal` dashboard's own breakpoint, side-by-side
+   * columns and all) — the empty-state screen's own instance passes `"md"`
+   * instead, since that screen's plain-desktop treatment starts a
+   * breakpoint earlier (see that render's own comment for why: a resized/
+   * tablet-width browser window is a real desktop use case, not a phone).
+   * A prop instead of always `"md"` because Tailwind needs the complete
+   * class name written literally somewhere for its scanner to find it —
+   * string-concatenating a breakpoint prefix onto a class name doesn't
+   * work, so both variants are spelled out below and picked between.
+   */
+  plainAt?: "md" | "lg";
 }) {
   const recentMinutes = profile.recentRaceTimeSeconds
     ? Math.floor(profile.recentRaceTimeSeconds / 60)
@@ -660,14 +675,13 @@ function GoalCard({
     updateProfile({ recentRaceTimeSeconds: total > 0 ? total : undefined });
   };
 
-  // Desktop (`lg:`) drops the mobile Card's rounded/tinted chrome — plain
-  // content in the plain, centered desktop wrapper /plano's empty state
-  // and GoalCard's own desktop caller already provide — while keeping
-  // every field exactly as-is: DistanceTileGrid/PillSlider/GoalDatePicker
-  // are shared controls used across the mobile app too, out of scope for
-  // a per-surface pass like this one.
+  const plainChrome =
+    plainAt === "md"
+      ? "md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none"
+      : "lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none";
+
   return (
-    <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${className ?? ""}`} style={delay(80)}>
+    <Card className={`pr-enter ${plainChrome} ${className ?? ""}`} style={delay(80)}>
       <CardTitle>Meta de prova</CardTitle>
 
       <fieldset>
@@ -1265,8 +1279,16 @@ export default function PlanoPage() {
       <Screen panel>
         {/* Desktop: plain, centered, black-on-white — not the mobile card
             (rounded/tinted/pill-button) stretched wide. A browser tab isn't
-            a phone screen, so this state shouldn't read like one. */}
-        <div className="hidden lg:flex lg:flex-col lg:items-center lg:py-10 lg:text-center">
+            a phone screen, so this state shouldn't read like one.
+            Breakpoint is `md:` (768px), not this file's usual `lg:`
+            (1024px, where the sidebar/header chrome switches over) —
+            reported directly against this exact screen: a resized desktop
+            window or a tablet between those two widths was still getting
+            the mobile card, just stretched wider, which is the same "native
+            app re-rendered on web" complaint this whole pass exists to fix,
+            not a real fix for it. GoalCard's own `plainAt="md"` below keeps
+            its chrome-dropping in sync with this same threshold. */}
+        <div className="hidden md:flex md:flex-col md:items-center md:py-10 md:text-center">
           <div className="w-full max-w-xl">
             <h2 className="text-xl font-semibold text-foreground">O que falta pro seu plano de verdade</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -1298,14 +1320,14 @@ export default function PlanoPage() {
 
           <div className="mt-10 w-full max-w-xl text-left">
             {hasGoal ? (
-              <GoalCard profile={profile} updateProfile={updateProfile} />
+              <GoalCard profile={profile} updateProfile={updateProfile} plainAt="md" />
             ) : (
               <GoalWizard profile={profile} updateProfile={updateProfile} hasGoal={hasGoal} />
             )}
           </div>
         </div>
 
-        <Card className="pr-enter border-warn/30 bg-warn/5 lg:hidden" style={delay(60)}>
+        <Card className="pr-enter border-warn/30 bg-warn/5 md:hidden" style={delay(60)}>
           <CardTitle>O que falta pro seu plano de verdade</CardTitle>
           <p className="text-sm leading-relaxed text-muted text-pretty">
             O motor que monta o treino já existe — falta só o que ele precisa de você:
@@ -1338,7 +1360,7 @@ export default function PlanoPage() {
           )}
         </Card>
 
-        <GoalCard profile={profile} updateProfile={updateProfile} className="lg:hidden" />
+        <GoalCard profile={profile} updateProfile={updateProfile} className="md:hidden" />
 
         {showExample ? (
           <>
@@ -1367,7 +1389,7 @@ export default function PlanoPage() {
           <button
             type="button"
             onClick={() => setShowExample(true)}
-            className="pr-enter flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 text-left lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:px-0 lg:pt-4 lg:pb-0"
+            className="pr-enter flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 text-left md:rounded-none md:border-0 md:border-t md:border-border md:bg-transparent md:px-0 md:pt-4 md:pb-0"
             style={delay(110)}
           >
             <span>
