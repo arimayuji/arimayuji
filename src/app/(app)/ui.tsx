@@ -215,8 +215,18 @@ const SCREEN_WIDTH_WIDE = "max-w-md lg:max-w-6xl";
  * /perfil/dados, /privacidade), never a substitute for `wide`'s own
  * multi-column dashboards. `ScreenHeader` accepts the same prop so a
  * subpage's title lines up flush with the panel below it.
+ *
+ * `md:max-w-xl` fills a real gap: nothing here widens again until `lg:`
+ * (1024px), so any window between phone-narrow and that — a resized
+ * desktop browser, a tablet, a half-width split view — sat at the same
+ * 448px column with the excess just turning into dead space on both
+ * sides, which reads as broken rather than intentional (reported
+ * directly against /plano's own empty state at ~900px). Only one step
+ * before `lg:` takes over; not the same problem as `wide`'s "floating in
+ * the middle" note above, since this stays a single centered column the
+ * whole way, just a wider one.
  */
-const SCREEN_WIDTH_PANEL = "max-w-md lg:mx-0 lg:max-w-2xl";
+const SCREEN_WIDTH_PANEL = "max-w-md md:max-w-xl lg:mx-0 lg:max-w-2xl";
 
 export function ScreenHeader({
   title,
