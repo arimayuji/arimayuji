@@ -143,12 +143,16 @@ function WhistleIcon({ className }: { className?: string }) {
 }
 
 /**
- * The same flattened-route SVG `matched-runs-card.tsx`'s 56px corner
- * thumbnail draws (real geometry, just a bit bigger here) — sits next to the
- * stat numbers so the shape of the run reads at a glance without waiting for
- * the full basemap banner below to scroll into view and mount its WebGL
- * context. Asked for directly ("do lado dos numeros seria legal um desenho
- * flat da rota", 2026-09-01) as a complement to the map, not a replacement.
+ * The same flattened-route SVG `matched-runs-card.tsx`'s corner thumbnail
+ * draws (real geometry, bigger here) — sits next to the stat numbers so
+ * the shape of the run reads at a glance without waiting for the full
+ * basemap banner below to scroll into view and mount its WebGL context.
+ * Asked for directly ("do lado dos numeros seria legal um desenho flat da
+ * rota", 2026-09-01) as a complement to the map, not a replacement. No
+ * fill behind the line ("remover o fundo branco", 2026-09-01) — it sat on
+ * `bg-background`, a visibly different token from the card's own
+ * `bg-surface`, which is exactly what read as a stray white box; dropping
+ * it lets the trace sit directly on the card instead.
  */
 function RouteThumb({ points }: { points: StoredPoint[] }) {
   const projected = projectRoute(points, { viewBoxSize: 64, paddingFraction: 0.12 });
@@ -157,7 +161,7 @@ function RouteThumb({ points }: { points: StoredPoint[] }) {
   return (
     <svg
       viewBox={`0 0 ${projected.viewBoxSize} ${projected.viewBoxSize}`}
-      className="h-16 w-16 shrink-0 rounded-xl border border-border bg-background text-accent"
+      className="h-20 w-20 shrink-0 rounded-xl border border-border text-accent"
       role="img"
       aria-label="Traçado do trajeto"
     >
@@ -464,35 +468,47 @@ function FeedItemCard({
             {formatFeedTimestamp(item.startedAt)}
             {item.shoeName ? ` · ${item.shoeName}` : ""}
           </p>
-          {/* Place and coach-supervision share one line when both exist —
-              two separate lines here made the header alone run 4 lines
-              tall before any real content started (flagged by improve-ui,
-              2026-09-01, after "muito extenso"/"muito grotesco"). New info
-              the Feed didn't surface before ("se a corrida for
-              compartilhada... com supervisao de treinador seria legal
-              mostrar isso no card", 2026-09-01) — every card here already
-              implies friends-sharing by construction (list-friends-feed
-              only ever returns visibility:"friends" runs), so that half
-              needs no badge of its own; coach access is the genuinely new
-              fact worth calling out. */}
-          {(item.placeName || item.coachSupervised) && (
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
-              {item.placeName && (
-                <span className="flex min-w-0 flex-1 items-center gap-1">
-                  <PinIcon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{item.placeName}</span>
-                </span>
-              )}
-              {item.coachSupervised && (
-                <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
-                  <WhistleIcon className="h-3 w-3 shrink-0" />
-                  Treinador
-                </span>
-              )}
-            </p>
-          )}
         </div>
       </div>
+
+      {/* Place, coach-supervision, new records and the track played all
+          collapsed into one wrapping row of small badges at the top of
+          the card ("a música e conquista poderia virar badge no topo",
+          2026-09-01) — previously each was its own full-width block
+          scattered from the header down through after the map, which is
+          exactly what made the card read as "muito extenso"/"muito
+          grotesco". Wrapping keeps every badge legible instead of forcing
+          them onto one unbreakable line. */}
+      {(item.placeName || item.coachSupervised || item.achievements.length > 0 || track) && (
+        <div className="-mt-1 flex flex-wrap items-center gap-1.5">
+          {item.placeName && (
+            <span className="flex min-w-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">
+              <PinIcon className="h-3 w-3 shrink-0" />
+              <span className="truncate">{item.placeName}</span>
+            </span>
+          )}
+          {item.coachSupervised && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+              <WhistleIcon className="h-3 w-3 shrink-0" />
+              Treinador
+            </span>
+          )}
+          {item.achievements.length > 0 && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+              <TrophyIcon className="h-3 w-3 shrink-0" />
+              Novo recorde{item.achievements.length > 1 ? "s" : ""}: {item.achievements.join(", ")}
+            </span>
+          )}
+          {track && (
+            <span className="flex min-w-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">
+              <MusicIcon className="h-3 w-3 shrink-0" />
+              <span className="truncate">
+                {track.name} — {track.artist}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* The closest thing this app has to Strava's activity title — the athlete's own free-text line, never generated (see FriendFeedItem.caption's own comment) — styled as a real headline instead of a small quoted aside, so the card has the same anchor a named activity gives Strava's. */}
       {item.caption && <p className="-mt-1 text-lg font-semibold text-balance">{item.caption}</p>}
@@ -540,24 +556,10 @@ function FeedItemCard({
 
       <RouteBanner points={routePoints} />
 
-      {item.achievements.length > 0 && (
-        <div className="flex items-center gap-2 rounded-xl bg-accent/10 px-3.5 py-3 text-accent">
-          <TrophyIcon className="h-5 w-5 shrink-0" />
-          <p className="text-sm font-semibold text-pretty">
-            Novo recorde{item.achievements.length > 1 ? "s" : ""}: {item.achievements.join(", ")}
-          </p>
-        </div>
-      )}
-
-      {track && (
-        <div className="flex items-center gap-1.5 text-xs text-muted">
-          <MusicIcon className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">
-            {track.name} — {track.artist}
-          </span>
-        </div>
-      )}
-
+      {/* Only the kudos/comments engagement footer lives below the map now
+          ("deixar somente abaixo do mapa percorrido a seção de
+          comentários", 2026-09-01) — achievements and the track played
+          moved up into the badge row above. */}
       <div className="flex items-center justify-end border-t border-border pt-3">
         {isOwn ? (
           // Own post: kudos is something friends give you, not something
