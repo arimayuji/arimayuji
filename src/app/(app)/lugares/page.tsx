@@ -73,6 +73,18 @@ export default function LugaresPage() {
           </Card>
         </Link>
 
+        <Link href="/rotas" className="pr-enter block" style={delay(15)}>
+          <Card className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Suas rotas desenhadas</p>
+              <p className="mt-0.5 text-xs text-muted">Desenhe um trajeto no mapa e compartilhe com amigos</p>
+            </div>
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </Card>
+        </Link>
+
         <div className="pr-enter -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" style={delay(20)}>
           {CITIES_WITH_PLACES.map((c) => (
             <button

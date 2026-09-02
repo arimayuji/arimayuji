@@ -84,6 +84,7 @@ export const TABLES = {
   runnerProfileSync: "runner_profile_sync",
   runSummaries: "run_summaries",
   recoverySnapshots: "recovery_snapshots",
+  customRoutes: "custom_routes",
 } as const;
 
 /**

@@ -869,6 +869,53 @@ async function main() {
     }),
   );
 
+  // ---------------------------------------------------------- custom_routes
+  console.log("\ncustom_routes");
+  // Same shape as runs/friendships/place_ratings — NOT run_kudos/plan_overrides's
+  // `permissions: []`. Creating a route only ever grants the creator's own
+  // read/update/delete, a permission every signed-in session already holds
+  // over itself (same as place_ratings's submitRating) — no privileged write
+  // needed for that step. Sharing with a specific friend is the one write
+  // that needs client-actions's `share-custom-route` action instead (grants
+  // Permission.read to someone who isn't the caller). No `sharedWithIds`
+  // column: who can currently read a route is derived from the row's own
+  // `$permissions` (same technique main.js's hasCoachPermission already uses
+  // for runs), so there's no separate list that could ever drift from the
+  // real permissions.
+  await ensure("table custom_routes", () =>
+    tablesDB.createTable({
+      databaseId: DATABASE_ID,
+      tableId: "custom_routes",
+      name: "custom_routes",
+      permissions: [Permission.create(Role.users())],
+      rowSecurity: true,
+    }),
+  );
+  await ensure("custom_routes.ownerId", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "custom_routes", key: "ownerId", size: 36, required: true }),
+  );
+  await ensure("custom_routes.name", () =>
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "custom_routes", key: "name", size: 80, required: true }),
+  );
+  await ensure("custom_routes.points", () =>
+    // JSON-encoded StoredPoint[] — a hand-clicked route never approaches GPS-trace
+    // density, so this is far smaller than runs.points's 200000.
+    tablesDB.createStringColumn({ databaseId: DATABASE_ID, tableId: "custom_routes", key: "points", size: 20000, required: true }),
+  );
+  await ensure("custom_routes.distanceMeters", () =>
+    tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "custom_routes", key: "distanceMeters", required: true, min: 0 }),
+  );
+  await waitForColumn("custom_routes", "ownerId");
+  await ensure("custom_routes index: ownerId", () =>
+    tablesDB.createIndex({
+      databaseId: DATABASE_ID,
+      tableId: "custom_routes",
+      key: "idx_owner_id",
+      type: TablesDBIndexType.Key,
+      columns: ["ownerId"],
+    }),
+  );
+
   // -------------------------------------------------------------- live_runs
   console.log("\nlive_runs");
   await ensure("table live_runs", () =>

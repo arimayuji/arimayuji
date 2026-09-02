@@ -833,6 +833,99 @@ async function shareRun({ userId, body, client, res, error }) {
 }
 
 /**
+ * action: "share-custom-route" — grants read on a saved, hand-drawn route
+ * (`custom_routes`) to a specific, currently-checked set of accepted
+ * friends. Same root cause as send-friend-request/share-run: a plain
+ * client session can never assign Permission.read(Role.user(friendId)) to
+ * anyone but itself, so this has to run with the privileged key. Creating
+ * the route itself never goes through this Function — see
+ * `src/lib/customRoutes.ts`'s `createCustomRoute` and its own comment for
+ * why that step only ever needs the owner's own permissions, which a
+ * plain client session already holds.
+ *
+ * Unlike share-run's coachIds (additive-only — a button per coach, never a
+ * revoke path in the UI), this is a real multi-select picker: the caller
+ * always sends the FULL set of friend ids that should currently have
+ * access, and this replaces the friend-read grants wholesale (an
+ * unchecked friend loses read here, not just a newly-checked one gaining
+ * it). The owner's own three permissions are always re-asserted
+ * regardless.
+ */
+async function shareCustomRoute({ userId, body, client, res, error }) {
+  const routeId = String(body.routeId ?? "").trim();
+  if (!routeId) return res.json({ error: "missing-route-id" }, 400);
+
+  const requestedFriendIds = Array.isArray(body.friendIds)
+    ? body.friendIds.filter((id) => typeof id === "string" && id && id !== userId)
+    : [];
+
+  const tablesDB = new TablesDB(client);
+  let route;
+  try {
+    route = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: "custom_routes", rowId: routeId });
+  } catch (err) {
+    if (err.code === 404) return res.json({ error: "not-found" }, 404);
+    error(`share-custom-route: falha lendo rota ${routeId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+  if (route.ownerId !== userId) return res.json({ error: "forbidden" }, 403);
+
+  let friendIds;
+  try {
+    const accepted = await listAcceptedFriendIds(tablesDB, userId);
+    friendIds = requestedFriendIds.filter((id) => accepted.has(id));
+  } catch (err) {
+    error(`share-custom-route: falha resolvendo amigos de ${userId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  const previousFriendIds = new Set(
+    (route.$permissions ?? [])
+      .map((p) => /^read\("user:([^"]+)"\)$/.exec(p)?.[1])
+      .filter((id) => typeof id === "string" && id !== userId),
+  );
+  const newlyAddedIds = friendIds.filter((id) => !previousFriendIds.has(id));
+
+  const permissions = [
+    Permission.read(Role.user(userId)),
+    Permission.update(Role.user(userId)),
+    Permission.delete(Role.user(userId)),
+    ...friendIds.map((id) => Permission.read(Role.user(id))),
+  ];
+
+  let updated;
+  try {
+    updated = await tablesDB.updateRow({
+      databaseId: DATABASE_ID,
+      tableId: "custom_routes",
+      rowId: routeId,
+      data: {},
+      permissions,
+    });
+  } catch (err) {
+    error(`share-custom-route: falha atualizando permissões de ${routeId}: ${err.message}`);
+    return res.json({ error: "failed" }, 500);
+  }
+
+  if (newlyAddedIds.length > 0) {
+    try {
+      const ownerName = await resolveDisplayName(tablesDB, userId);
+      const messaging = new Messaging(client);
+      await messaging.createPush({
+        messageId: ID.unique(),
+        title: "Nova rota compartilhada",
+        body: `${ownerName} compartilhou uma rota com você: "${route.name}".`,
+        users: newlyAddedIds,
+      });
+    } catch (err) {
+      error(`share-custom-route: push best-effort falhou pra ${newlyAddedIds.join(",")}: ${err.message}`);
+    }
+  }
+
+  return res.json({ ok: true, row: updated });
+}
+
+/**
  * action: "list-friends-feed" — the read half of the friends activity
  * feed. Deliberately NOT a per-row `Permission.read(Role.user(friendId))`
  * grant on each `runs` row, unlike coach-sharing above — a friends feed's
@@ -3052,6 +3145,7 @@ const ACTIONS = {
   "refresh-presence": refreshPresence,
   "send-coach-cue": sendCoachCue,
   "share-run": shareRun,
+  "share-custom-route": shareCustomRoute,
   "list-friends-feed": listFriendsFeed,
   "toggle-run-kudos": toggleRunKudos,
   "add-run-comment": addRunComment,
