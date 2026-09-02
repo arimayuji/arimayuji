@@ -53,7 +53,7 @@ export function generatePlan(
 
   const weeks: PlannedWeek[] = ramp.map((entry) => {
     const phase = phaseForWeek(entry.weekIndex, rampWeekCount, entry.isTaper);
-    const sessions = buildWeekSessions(entry.km, phase, profile.weeklyRunDays);
+    const sessions = buildWeekSessions(entry.km, phase, profile.weeklyRunDays, profile.availableWeekdays);
     return {
       weekNumber: entry.weekIndex + 1,
       startDate: toIsoDate(addDays(now, entry.weekIndex * 7)),

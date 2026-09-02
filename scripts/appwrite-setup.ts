@@ -636,6 +636,14 @@ async function main() {
   await ensure("runner_profile_sync.weeklyRunDays", () =>
     tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "weeklyRunDays", required: false, min: 2, max: 6 }),
   );
+  // 0 = Monday .. 6 = Sunday, same indexing as periodization.ts's session
+  // slots. Bounds are enforced by the two sanitizers (runnerProfile.ts and
+  // the Function's runnerProfileSyncFields), not by column min/max, since
+  // what matters is the *list's* length being 2..6 — a per-element range
+  // check can't express that.
+  await ensure("runner_profile_sync.availableWeekdays", () =>
+    tablesDB.createIntegerColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "availableWeekdays", required: false, array: true }),
+  );
   await ensure("runner_profile_sync.weightKg", () =>
     tablesDB.createFloatColumn({ databaseId: DATABASE_ID, tableId: "runner_profile_sync", key: "weightKg", required: false, min: 25, max: 250 }),
   );

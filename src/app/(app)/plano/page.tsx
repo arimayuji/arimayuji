@@ -61,7 +61,7 @@ import {
   RecoveryTrendCard,
 } from "./plan-dashboard";
 import { GoalWizard } from "./goal-wizard";
-import { DistanceTileGrid, WeeklyDaysField } from "./goal-fields";
+import { DistanceTileGrid, WeekdayPicker } from "./goal-fields";
 
 /**
  * The plan screen has two real modes, not a mockup-vs-real toggle a person
@@ -325,6 +325,7 @@ function SelfPlanSuggestionCard({
   goalDistanceMeters,
   goalDate,
   weeklyRunDays,
+  availableWeekdays,
   recentRace,
   painSignal,
   signedIn,
@@ -337,6 +338,7 @@ function SelfPlanSuggestionCard({
   goalDistanceMeters: number;
   goalDate: string;
   weeklyRunDays?: number;
+  availableWeekdays?: number[];
   recentRace?: { distanceMeters: number; timeSeconds: number };
   painSignal?: { severity: PainSeverity; region?: string };
   signedIn: boolean;
@@ -359,6 +361,7 @@ function SelfPlanSuggestionCard({
       goalDistanceMeters,
       goalDate,
       weeklyRunDays,
+      availableWeekdays,
       recentRace,
       painSignal,
       athleteNote: athleteNote.trim() || undefined,
@@ -712,11 +715,12 @@ function GoalCard({
 
       <fieldset className="mt-6 border-t border-border pt-5">
         <legend className="mb-2.5 block text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
-          Dias de corrida por semana
+          Dias que você pode correr
         </legend>
-        <WeeklyDaysField
-          value={profile.weeklyRunDays ?? 4}
-          onChange={(days) => updateProfile({ weeklyRunDays: days })}
+        <WeekdayPicker
+          value={profile.availableWeekdays}
+          weeklyRunDays={profile.weeklyRunDays}
+          onChange={(days) => updateProfile({ availableWeekdays: days, weeklyRunDays: days.length })}
         />
       </fieldset>
 
@@ -1253,6 +1257,7 @@ export default function PlanoPage() {
                   goalDistanceMeters={profile.goalDistanceMeters!}
                   goalDate={profile.goalDate!}
                   weeklyRunDays={profile.weeklyRunDays}
+                  availableWeekdays={profile.availableWeekdays}
                   recentRace={
                     profile.recentRaceDistanceMeters && profile.recentRaceTimeSeconds
                       ? { distanceMeters: profile.recentRaceDistanceMeters, timeSeconds: profile.recentRaceTimeSeconds }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { GoalDatePicker } from "../date-picker";
-import { DistanceTileGrid, WeeklyDaysField } from "./goal-fields";
+import { DistanceTileGrid, WeekdayPicker } from "./goal-fields";
 import type { RunnerProfile } from "@/lib/runnerProfile";
 
 /**
@@ -38,6 +38,7 @@ export function GoalWizard({
     goalDistanceMeters: profile.goalDistanceMeters,
     goalDate: profile.goalDate,
     weeklyRunDays: profile.weeklyRunDays ?? 4,
+    availableWeekdays: profile.availableWeekdays,
     recentRaceDistanceMeters: profile.recentRaceDistanceMeters,
     recentRaceTimeSeconds: profile.recentRaceTimeSeconds,
   }));
@@ -104,11 +105,14 @@ export function GoalWizard({
       {stage === 1 && (
         <fieldset className="mt-5">
           <legend className="mb-2.5 block text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
-            Dias de corrida por semana
+            Dias que você pode correr
           </legend>
-          <WeeklyDaysField
-            value={draft.weeklyRunDays ?? 4}
-            onChange={(days) => setDraft((d) => ({ ...d, weeklyRunDays: days }))}
+          <WeekdayPicker
+            value={draft.availableWeekdays}
+            weeklyRunDays={draft.weeklyRunDays}
+            onChange={(days) =>
+              setDraft((d) => ({ ...d, availableWeekdays: days, weeklyRunDays: days.length }))
+            }
           />
         </fieldset>
       )}
@@ -206,7 +210,7 @@ export function GoalWizard({
   );
 }
 
-const STEP_LABELS = ["Sua prova", "Frequência", "Tempo recente"] as const;
+const STEP_LABELS = ["Sua prova", "Seus dias", "Tempo recente"] as const;
 
 /** Stripe-checkout-style progress: numbered circles joined by a hairline, not a full-screen dot indicator — this sits inside a dense desktop panel instead. */
 function StepProgress({ current }: { current: 0 | 1 | 2 }) {

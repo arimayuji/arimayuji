@@ -20,8 +20,10 @@ export interface RunnerProfile {
   goalDistanceMeters: number;
   /** ISO date (yyyy-mm-dd) of the goal race. */
   goalDate: string;
-  /** How many days a week the athlete runs. Defaults to 4 if omitted. */
+  /** How many days a week the athlete runs. Defaults to 4 if omitted, and is ignored entirely when `availableWeekdays` is set. */
   weeklyRunDays?: number;
+  /** Which weekdays are actually available, 0 = Monday .. 6 = Sunday — see `periodization.ts`'s `buildWeekSessions`. */
+  availableWeekdays?: number[];
 }
 
 export interface PaceZones {

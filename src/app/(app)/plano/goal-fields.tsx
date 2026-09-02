@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { GOAL_DISTANCE_OPTIONS } from "@/lib/runnerProfile";
-import { PillSlider } from "../pill-slider";
+import {
+  defaultAvailableWeekdays,
+  GOAL_DISTANCE_OPTIONS,
+  WEEKDAY_FULL_LABELS,
+  WEEKDAY_LABELS,
+} from "@/lib/runnerProfile";
+import { pickLongRunDay } from "@/lib/plan/periodization";
 
 /**
  * Shared between the mobile/always-editable `GoalCard` (page.tsx) and the
@@ -12,7 +17,7 @@ import { PillSlider } from "../pill-slider";
  * GoalWizard importing back from page.tsx would be a circular import).
  */
 
-/** Matches what the plan engine itself clamps to (periodization.ts: "at least 2 — long + one more, at most 6 — always 1 rest day") — the stepper's own bounds, not an arbitrary UI choice. */
+/** Matches what the plan engine itself clamps to (periodization.ts: "at least 2 — long + one more, at most 6 — always 1 rest day"), not an arbitrary UI choice. */
 export const MIN_WEEKLY_DAYS = 2;
 export const MAX_WEEKLY_DAYS = 6;
 
@@ -156,42 +161,74 @@ export function DistanceTileGrid({
 }
 
 /**
- * The weekly-run-days field, mobile `PillSlider` vs. desktop `<select>` —
- * same reasoning as `DistanceTileGrid` above, split out on its own since
- * unlike distance this has no "personalizada" branch to keep in sync.
+ * Which weekdays the athlete can run — replaces the old "how many days per
+ * week" slider outright, rather than sitting next to it. The count was never
+ * the real question: `periodization.ts` used to hardcode the long run onto
+ * Sunday and quality onto Thursday no matter what, so anyone who can't run
+ * Sundays got a plan whose biggest session landed on a day they'd never do,
+ * every single week. Picking days answers both questions at once (the count
+ * is just the list's length), so there is strictly more information here and
+ * one fewer control.
+ *
+ * `value` undefined means a profile from before this existed: the picker
+ * pre-selects `defaultAvailableWeekdays(weeklyRunDays)`, which is exactly the
+ * set of days that profile's plan is already using — so opening this shows
+ * the current plan, never a blank slate or a silently different week. Nothing
+ * is persisted until a day is actually toggled.
  */
-export function WeeklyDaysField({
+export function WeekdayPicker({
   value,
+  weeklyRunDays,
   onChange,
 }: {
-  value: number;
-  onChange: (days: number) => void;
+  value: number[] | undefined;
+  weeklyRunDays: number | undefined;
+  onChange: (days: number[]) => void;
 }) {
-  const options = Array.from({ length: MAX_WEEKLY_DAYS - MIN_WEEKLY_DAYS + 1 }, (_, i) => MIN_WEEKLY_DAYS + i);
+  const selected = value ?? defaultAvailableWeekdays(weeklyRunDays);
+  const selectedSet = new Set(selected);
+  const atMax = selected.length >= MAX_WEEKLY_DAYS;
+  const atMin = selected.length <= MIN_WEEKLY_DAYS;
+
+  const toggle = (day: number) => {
+    const isOn = selectedSet.has(day);
+    // The bounds aren't cosmetic: under 2 days there's no room for a long run
+    // plus anything else, and 7 would leave the week with no rest day at all.
+    if (isOn ? atMin : atMax) return;
+    const next = isOn ? selected.filter((d) => d !== day) : [...selected, day].sort((a, b) => a - b);
+    onChange(next);
+  };
+
+  const longDay = WEEKDAY_FULL_LABELS[pickLongRunDay(selected)];
 
   return (
-    <>
-      <div className="lg:hidden">
-        <PillSlider
-          min={MIN_WEEKLY_DAYS}
-          max={MAX_WEEKLY_DAYS}
-          step={1}
-          value={value}
-          onChange={onChange}
-          formatValue={(days) => String(days)}
-        />
+    <div>
+      <div className="grid grid-cols-7 gap-1 lg:gap-1.5">
+        {WEEKDAY_LABELS.map((label, day) => {
+          const isOn = selectedSet.has(day);
+          const locked = isOn ? atMin : atMax;
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => toggle(day)}
+              aria-pressed={isOn}
+              aria-label={WEEKDAY_FULL_LABELS[day]}
+              disabled={locked}
+              className={`pr-press flex h-12 items-center justify-center rounded-xl border text-[11px] font-bold active:scale-95 lg:h-9 lg:rounded-md lg:text-xs lg:font-semibold ${
+                isOn
+                  ? "border-transparent bg-accent text-accent-foreground"
+                  : "border-border bg-background text-muted"
+              } ${locked ? "opacity-45" : ""}`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
-      <select
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="hidden h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus:border-accent lg:block"
-      >
-        {options.map((days) => (
-          <option key={days} value={days}>
-            {days} {days === 1 ? "dia" : "dias"} por semana
-          </option>
-        ))}
-      </select>
-    </>
+      <p className="mt-2 text-xs text-muted">
+        {selected.length} dias por semana · longão no {longDay}
+      </p>
+    </div>
   );
 }

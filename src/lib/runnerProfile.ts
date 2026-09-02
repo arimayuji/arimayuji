@@ -35,6 +35,17 @@ export interface RunnerProfile {
   recentRaceDistanceMeters?: number;
   recentRaceTimeSeconds?: number;
   weeklyRunDays?: number;
+  /**
+   * Which weekdays the athlete can actually run, 0 = Monday .. 6 = Sunday
+   * (`periodization.ts`'s slot order, *not* JS's Sunday-first `getDay()`).
+   * Undefined on any profile set up before the weekday picker existed — the
+   * plan engine falls back to its old fixed layout in that case rather than
+   * inventing an answer nobody gave. When set it supersedes `weeklyRunDays`
+   * for placement *and* count; `weeklyRunDays` is still written alongside it
+   * (kept equal to this list's length) because the AI suggestion prompt and
+   * the cross-device sync column both still speak in "how many days".
+   */
+  availableWeekdays?: number[];
   weightKg?: number;
   /** The athlete's own weekly consistency target (see tracking/constancy.ts) — one unit or the other, never both, since it's "did I keep showing up" measured one way, not a combined score. */
   weeklyTargetKind?: WeeklyTargetKind;
@@ -49,6 +60,41 @@ export const GOAL_DISTANCE_OPTIONS = [
 ] as const;
 
 export const DEFAULT_RUNNER_PROFILE: RunnerProfile = {};
+
+/** Monday-first, matching `availableWeekdays`' own 0..6 indexing. */
+export const WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"] as const;
+export const WEEKDAY_FULL_LABELS = [
+  "segunda",
+  "terça",
+  "quarta",
+  "quinta",
+  "sexta",
+  "sábado",
+  "domingo",
+] as const;
+
+/**
+ * What to pre-select in the weekday picker for someone who only ever
+ * answered "how many days a week" — follows the old fixed layout's own
+ * priority (long run Sunday, quality Thursday, then Tue/Wed/Sat/Fri/Mon),
+ * so opening the picker shows the week they already have rather than a
+ * blank slate. Verified to reproduce that layout's day set *exactly* for
+ * every count from 2 to 6 in the build/peak/taper phases; a base-phase week
+ * (which has no quality session) lands one easy run on Thursday where the
+ * old layout put it on Saturday — same count, same volume, different day.
+ * Nothing is persisted until the athlete actually toggles a day, so an
+ * untouched profile keeps the legacy layout untouched too.
+ */
+export function defaultAvailableWeekdays(weeklyRunDays: number | undefined): number[] {
+  const count = Math.min(6, Math.max(2, weeklyRunDays ?? 4));
+  const days = [6]; // Sunday: the long run, in the old layout always
+  if (count >= 3) days.push(3); // Thursday: quality, which that layout only added from 3 days up
+  for (const day of [1, 2, 5, 4, 0]) {
+    if (days.length >= count) break;
+    days.push(day);
+  }
+  return days.sort((a, b) => a - b);
+}
 
 const STORAGE_KEY = "xanthus:runner-profile";
 /**
@@ -90,6 +136,18 @@ function sanitize(raw: unknown): RunnerProfile {
     value.weeklyRunDays <= 6
   ) {
     profile.weeklyRunDays = value.weeklyRunDays;
+  }
+  if (Array.isArray(value.availableWeekdays)) {
+    const days = [
+      ...new Set(
+        value.availableWeekdays.filter(
+          (day): day is number => typeof day === "number" && Number.isInteger(day) && day >= 0 && day <= 6,
+        ),
+      ),
+    ].sort((a, b) => a - b);
+    // Same 2..6 bounds `weeklyRunDays` has always had — fewer than 2 can't
+    // hold a long run plus anything else, and 7 would leave no rest day.
+    if (days.length >= 2 && days.length <= 6) profile.availableWeekdays = days;
   }
   if (typeof value.weightKg === "number" && value.weightKg >= 25 && value.weightKg <= 250) {
     profile.weightKg = value.weightKg;

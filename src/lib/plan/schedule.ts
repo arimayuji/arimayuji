@@ -64,6 +64,7 @@ function reprojectFromActual(
   weeksActualKm: (number | null)[],
   currentWeekIndex: number,
   weeklyRunDays: number | undefined,
+  availableWeekdays: number[] | undefined,
 ): { plan: GeneratedPlan; wasReprojected: boolean } {
   let anchorKm: number | null = null;
   for (let i = currentWeekIndex - 1; i >= 0; i--) {
@@ -86,7 +87,11 @@ function reprojectFromActual(
     const km = rebuilt[i - currentWeekIndex].km;
     if (km === week.totalKm) return week;
     changed = true;
-    return { ...week, totalKm: km, sessions: buildWeekSessions(km, week.phase, weeklyRunDays) };
+    return {
+      ...week,
+      totalKm: km,
+      sessions: buildWeekSessions(km, week.phase, weeklyRunDays, availableWeekdays),
+    };
   });
 
   return { plan: { ...plan, weeks }, wasReprojected: changed };
@@ -119,6 +124,7 @@ export function computeCurrentPlanWeek(
       goalDistanceMeters: profile.goalDistanceMeters,
       goalDate: profile.goalDate,
       weeklyRunDays: profile.weeklyRunDays,
+      availableWeekdays: profile.availableWeekdays,
     },
     new Date(`${planStartDate}T00:00:00`),
     activePain,
@@ -141,6 +147,7 @@ export function computeCurrentPlanWeek(
     weeksActualKm,
     currentWeekIndex,
     profile.weeklyRunDays,
+    profile.availableWeekdays,
   );
   const currentWeek = plan.weeks[currentWeekIndex];
 

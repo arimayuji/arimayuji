@@ -30,6 +30,8 @@ export interface SuggestPlanForSelfInput {
   /** ISO date (yyyy-mm-dd). */
   goalDate: string;
   weeklyRunDays?: number;
+  /** Which weekdays the athlete can run, 0 = Monday .. 6 = Sunday. The Function both states this in the prompt and enforces it deterministically on the model's answer — see `enforceAvailableWeekdays` there. */
+  availableWeekdays?: number[];
   recentRace?: { distanceMeters: number; timeSeconds: number };
   /** The athlete's own active pain check-in, if any — see `activePainSignal`. Passed straight through rather than re-derived server-side, since the Function has no access to `/perfil/dados`'s local check-in log. */
   painSignal?: { severity: PainSeverity; region?: string };

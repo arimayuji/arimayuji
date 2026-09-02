@@ -201,12 +201,58 @@ function mondayIsoDate(ms) {
   return `${y}-${m}-${d}`;
 }
 
+/** Index 0 = Monday .. 6 = Sunday, matching `availableWeekdays` and the Mon..Sun order the model answers in. */
+const WEEKDAY_NAMES = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
+
 function capNextWeekKm(recentWeeksKm, suggestedKm) {
   if (recentWeeksKm.length === 0) return suggestedKm;
   const lastWeek = recentWeeksKm[recentWeeksKm.length - 1];
   const twoWeeksAgo = recentWeeksKm.length >= 2 ? recentWeeksKm[recentWeeksKm.length - 2] : lastWeek;
   const cap = Math.min(lastWeek * WEEKLY_STEP, twoWeeksAgo * TWO_WEEK_CEILING);
   return Math.min(suggestedKm, Math.round(cap * 10) / 10);
+}
+
+/**
+ * Moves any suggested session that landed on a day the athlete said they
+ * can't run onto the nearest day they can — deterministic enforcement of
+ * the same constraint the prompt already states, in the same
+ * defense-in-depth spirit as `capNextWeekKm` (which enforces the volume
+ * ceiling after the model answers rather than trusting the prompt alone).
+ * Relocating rather than deleting matters: silently dropping a long run
+ * because the model put it on a blocked Monday would gut the week instead
+ * of respecting it. A session only becomes rest when there is genuinely no
+ * free available day left to move it to.
+ *
+ * `availableWeekdays` is 0 = Monday .. 6 = Sunday, matching the Mon..Sun
+ * order the model is asked to answer in. Absent or unusable input returns
+ * the sessions untouched — an athlete who never answered the weekday
+ * question has no constraint to enforce.
+ */
+function enforceAvailableWeekdays(sessions, availableWeekdays) {
+  if (!Array.isArray(availableWeekdays)) return sessions;
+  const allowed = new Set(availableWeekdays.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6));
+  if (allowed.size < 2 || allowed.size > 6) return sessions;
+
+  const out = sessions.map((s) => ({ ...s }));
+  const displaced = [];
+  for (let day = 0; day < 7; day++) {
+    if (out[day].kind === "rest" || allowed.has(day)) continue;
+    displaced.push(out[day]);
+    out[day] = { kind: "rest", km: 0 };
+  }
+  // Long run first: it's the session whose placement matters most, so it
+  // gets first pick of whatever free days remain.
+  displaced.sort((a, b) => rank(b.kind) - rank(a.kind));
+  for (const session of displaced) {
+    const target = [...allowed].find((day) => out[day].kind === "rest");
+    if (target === undefined) continue; // no free day left — the session is dropped, never stacked onto an occupied one
+    out[target] = session;
+  }
+  return out;
+}
+
+function rank(kind) {
+  return kind === "long" ? 2 : kind === "quality" ? 1 : 0;
 }
 
 /** action: "delete-account" — deletes the account, profile and every row this user owns elsewhere. Originally appwrite-functions/delete-account. */
@@ -1723,6 +1769,12 @@ function runnerProfileSyncFields(body) {
   if (typeof body.weeklyRunDays === "number" && body.weeklyRunDays >= 2 && body.weeklyRunDays <= 6) {
     out.weeklyRunDays = body.weeklyRunDays;
   }
+  if (Array.isArray(body.availableWeekdays)) {
+    const days = [
+      ...new Set(body.availableWeekdays.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)),
+    ].sort((a, b) => a - b);
+    if (days.length >= 2 && days.length <= 6) out.availableWeekdays = days;
+  }
   if (typeof body.weightKg === "number" && body.weightKg >= 25 && body.weightKg <= 250) {
     out.weightKg = body.weightKg;
   }
@@ -2463,7 +2515,7 @@ async function suggestPlanForSelf({ body, res, error }) {
     return res.json({ error: "ai-not-configured" }, 500);
   }
 
-  const { weekStartDate, goalDistanceMeters, goalDate, weeklyRunDays, recentRace, painSignal } = body;
+  const { weekStartDate, goalDistanceMeters, goalDate, weeklyRunDays, availableWeekdays, recentRace, painSignal } = body;
   const athleteNote = typeof body.athleteNote === "string" ? body.athleteNote.trim().slice(0, 300) : "";
 
   if (typeof weekStartDate !== "string" || !WEEK_START_DATE_RE.test(weekStartDate)) {
@@ -2506,7 +2558,7 @@ Histórico real de volume semanal do próprio atleta (mais recente por último):
 ${trendBlock}
 
 Objetivo do atleta: uma prova de ${goalKm} km em ${goalDate}, faltando aproximadamente ${weeksUntilGoal} semana(s) a partir da semana a planejar.
-${weeklyRunDays ? `Dias de corrida por semana disponíveis: ${weeklyRunDays}.` : ""}
+${Array.isArray(availableWeekdays) && availableWeekdays.length >= 2 ? `Dias em que o atleta PODE correr: ${availableWeekdays.map((d) => WEEKDAY_NAMES[d]).filter(Boolean).join(", ")}. Todos os outros dias da semana precisam ser "rest" — o atleta não tem como treinar neles.` : weeklyRunDays ? `Dias de corrida por semana disponíveis: ${weeklyRunDays}.` : ""}
 ${recentRace?.distanceMeters && recentRace?.timeSeconds ? `Prova/treino forte recente: ${Math.round((recentRace.distanceMeters / 1000) * 10) / 10} km em ${Math.round(recentRace.timeSeconds / 60)} min.` : ""}
 ${painSignal?.severity ? `Sinal de dor/desconforto ativo, sinalizado pelo próprio atleta: intensidade "${painSignal.severity}"${painSignal.region ? ` na região "${painSignal.region}"` : ""} — leve isso a sério, é o fator de risco mais forte pra nova lesão.` : "Nenhuma dor/desconforto ativo sinalizado."}
 Semana a planejar: começa em ${weekStartDate} (segunda-feira).
@@ -2575,13 +2627,18 @@ Responda só o JSON pedido.`;
     cleanSessions.push(clean);
   }
 
-  const suggestedTotalKm = Math.round(cleanSessions.reduce((sum, s) => sum + s.km, 0) * 10) / 10;
+  // Deterministic enforcement of the weekday constraint the prompt states,
+  // applied before the volume cap so the cap scales whatever actually
+  // survived relocation — see `enforceAvailableWeekdays`.
+  const placedSessions = enforceAvailableWeekdays(cleanSessions, availableWeekdays);
+
+  const suggestedTotalKm = Math.round(placedSessions.reduce((sum, s) => sum + s.km, 0) * 10) / 10;
   const finalTotalKm = capNextWeekKm(recentWeeksKm, suggestedTotalKm);
   const capped = finalTotalKm < suggestedTotalKm;
   const scale = suggestedTotalKm > 0 ? finalTotalKm / suggestedTotalKm : 1;
   const finalSessions = capped
-    ? cleanSessions.map((s) => ({ ...s, km: Math.round(s.km * scale * 10) / 10 }))
-    : cleanSessions;
+    ? placedSessions.map((s) => ({ ...s, km: Math.round(s.km * scale * 10) / 10 }))
+    : placedSessions;
 
   return res.json({
     ok: true,
