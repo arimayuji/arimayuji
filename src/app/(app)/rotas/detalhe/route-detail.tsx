@@ -11,10 +11,11 @@ import {
   shareCustomRoute,
   type CustomRoute,
 } from "@/lib/customRoutes";
+import { computeElevationGain } from "@/lib/elevation";
 import { listFriendConnections, type FriendConnection } from "@/lib/friendships";
 import { formatDistanceKm } from "@/lib/tracking/geoFilter";
 import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
-import { RouteMap } from "../../route-map";
+import { RouteBuilderMap } from "../route-builder-map";
 
 type LoadState =
   | { status: "loading" }
@@ -28,6 +29,8 @@ export function RouteDetail({ id }: { id: string }) {
   const [sharedIds, setSharedIds] = useState<Set<string>>(new Set());
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [elevationGain, setElevationGain] = useState<number | null>(null);
+  const [elevationUnavailable, setElevationUnavailable] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +51,14 @@ export function RouteDetail({ id }: { id: string }) {
           if (!cancelled) setFriends(rows);
         });
       }
+      // Real DEM lookup, one network round trip per visit — same "no
+      // invented numbers" rule elevation.ts already follows for real runs;
+      // a hand-drawn route has no altitude of its own to read.
+      computeElevationGain(parseCustomRoutePoints(route)).then((gain) => {
+        if (cancelled) return;
+        if (gain === null) setElevationUnavailable(true);
+        else setElevationGain(gain);
+      });
     })();
     return () => {
       cancelled = true;
@@ -104,20 +115,36 @@ export function RouteDetail({ id }: { id: string }) {
       <Screen>
         {/* No Card wrapper — the map's own pixels are the content, a gray
             box behind it would just be chrome. rounded-xl here clips the
-            map's own corners, it isn't a component boundary. */}
+            map's own corners, it isn't a component boundary. A real,
+            pannable/zoomable map (not the fixed RouteMap summary view) so
+            looking at someone else's route feels like exploring it, not
+            just glancing at a static trace — same km-checkpoint markers
+            shown while drawing it. */}
         <div className="pr-enter overflow-hidden rounded-xl" style={delay(10)}>
-          <RouteMap points={points} />
+          <RouteBuilderMap points={points} className="h-80 w-full lg:h-[28rem]" />
         </div>
 
         <div
-          className="pr-enter flex items-center justify-between rounded-2xl border border-border bg-surface p-5 lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4"
+          className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-5 lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4"
           style={delay(30)}
         >
-          <div>
-            <p className="text-[11px] font-bold tracking-[0.05em] text-muted uppercase">Distância</p>
-            <p className="font-mono text-lg font-semibold tabular-nums">
-              {formatDistanceKm(route.distanceMeters)} <span className="text-xs font-normal text-muted">km</span>
-            </p>
+          <div className="flex gap-6">
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.05em] text-muted uppercase">Distância</p>
+              <p className="font-mono text-lg font-semibold tabular-nums">
+                {formatDistanceKm(route.distanceMeters)} <span className="text-xs font-normal text-muted">km</span>
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.05em] text-muted uppercase">Elevação</p>
+              {elevationGain !== null ? (
+                <p className="font-mono text-lg font-semibold tabular-nums">
+                  +{elevationGain} <span className="text-xs font-normal text-muted">m</span>
+                </p>
+              ) : (
+                <p className="text-sm text-muted">{elevationUnavailable ? "Indisponível" : "Calculando…"}</p>
+              )}
+            </div>
           </div>
           {isOwner && (
             <button

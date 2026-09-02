@@ -41,6 +41,42 @@ export function routeDistanceMeters(points: LatLon[]): number {
   return total;
 }
 
+export interface RouteKmMarker {
+  lat: number;
+  lon: number;
+  km: number;
+}
+
+/**
+ * One marker per completed kilometer along the drawn route, placed by linear
+ * interpolation between the two points bracketing that distance — good
+ * enough at this scale, the same tradeoff `projectRoute`'s flat
+ * equirectangular approximation already makes elsewhere. Never a marker at
+ * km 0 (the start point already marks that) or past the route's own total
+ * distance.
+ */
+export function routeKmMarkers(points: LatLon[]): RouteKmMarker[] {
+  const markers: RouteKmMarker[] = [];
+  let cumulative = 0;
+  let nextKm = 1000;
+  for (let i = 1; i < points.length; i++) {
+    const from = points[i - 1];
+    const to = points[i];
+    const legMeters = haversineMeters(from, to);
+    while (legMeters > 0 && cumulative + legMeters >= nextKm) {
+      const fraction = (nextKm - cumulative) / legMeters;
+      markers.push({
+        lat: from.lat + (to.lat - from.lat) * fraction,
+        lon: from.lon + (to.lon - from.lon) * fraction,
+        km: nextKm / 1000,
+      });
+      nextKm += 1000;
+    }
+    cumulative += legMeters;
+  }
+  return markers;
+}
+
 /** Never trust a stored string is still valid JSON of the right shape — degrades to an empty route rather than failing the whole screen. */
 export function parseCustomRoutePoints(route: CustomRoute): StoredPoint[] {
   try {

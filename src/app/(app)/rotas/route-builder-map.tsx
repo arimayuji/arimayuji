@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef } from "react";
 // Pinned to maplibre-gl 5 for the same reason route-map.tsx/live-map.tsx are.
 import type { GeoJSONSource } from "maplibre-gl";
-import { Map as MapLibreMap } from "maplibre-gl";
+import { Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
+import { routeKmMarkers } from "@/lib/customRoutes";
 import { ensurePmtilesProtocol, protomapsStyle } from "@/lib/protomaps";
 import { useEffectiveColorScheme } from "@/lib/theme";
 
@@ -19,6 +20,15 @@ const ROUTE_COLOR = "#2f6fed";
 // clicking the first point.
 const DEFAULT_CENTER: [number, number] = [-46.6577, -23.5874];
 const DEFAULT_ZOOM = 13;
+
+/** A small pill DOM marker for a km checkpoint — plain HTML/CSS via maplibre's Marker rather than a canvas symbol layer, since it needs no glyph setup on the basemap style and can reuse the app's own Tailwind tokens directly. */
+function createKmMarkerElement(km: number): HTMLDivElement {
+  const el = document.createElement("div");
+  el.className =
+    "flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-accent px-1.5 text-[10px] font-bold text-accent-foreground shadow-sm";
+  el.textContent = `${km}km`;
+  return el;
+}
 
 function toGeoJson(points: { lat: number; lon: number }[]) {
   return {
@@ -49,6 +59,10 @@ function toGeoJson(points: { lat: number; lon: number }[]) {
  * A pure controlled renderer + click emitter — undo/clear live as plain
  * state operations on `points` in whichever page owns this, same separation
  * `live-map.tsx`'s `LiveMap` already has from whoever owns `lat`/`lon`.
+ *
+ * `onAddPoint` is optional: omitting it (the detail/view screen, looking at
+ * a route you didn't draw) leaves the map fully interactive — pan/zoom still
+ * work, clicking just does nothing — without a second component to maintain.
  */
 export function RouteBuilderMap({
   points,
@@ -56,11 +70,12 @@ export function RouteBuilderMap({
   className = "",
 }: {
   points: { lat: number; lon: number }[];
-  onAddPoint: (lat: number, lon: number) => void;
+  onAddPoint?: (lat: number, lon: number) => void;
   className?: string;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const markersRef = useRef<Marker[]>([]);
   const onAddPointRef = useRef(onAddPoint);
   useEffect(() => {
     onAddPointRef.current = onAddPoint;
@@ -83,7 +98,7 @@ export function RouteBuilderMap({
     });
     // Two clicks placed close together while drawing shouldn't also zoom in.
     map.doubleClickZoom.disable();
-    map.on("click", (event) => onAddPointRef.current(event.lngLat.lat, event.lngLat.lng));
+    map.on("click", (event) => onAddPointRef.current?.(event.lngLat.lat, event.lngLat.lng));
     map.on("style.load", () => {
       if (map.getSource(SOURCE_ID)) return;
       map.addSource(SOURCE_ID, { type: "geojson", data: toGeoJson([]) });
@@ -110,17 +125,27 @@ export function RouteBuilderMap({
     });
     mapRef.current = map;
     return () => {
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
       map.remove();
       mapRef.current = null;
     };
   }, [style]);
 
-  // Redraws on every point change without ever tearing the map down.
+  // Redraws on every point change without ever tearing the map down. Km
+  // markers are plain DOM Marker instances, cheapest to just wipe and
+  // recreate wholesale each time — a hand-drawn route never has enough
+  // points/km for that to matter.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
     const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
     source?.setData(toGeoJson(points));
+
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = routeKmMarkers(points).map(({ lat, lon, km }) =>
+      new Marker({ element: createKmMarkerElement(km) }).setLngLat([lon, lat]).addTo(map),
+    );
   }, [points]);
 
   if (scheme === null) {
