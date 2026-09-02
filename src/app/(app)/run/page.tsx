@@ -3228,19 +3228,26 @@ export default function RunPage() {
                * that data. Everything else about the run stays reachable
                * here instead of sitting fixed on screen regardless of pick.
                */}
-              <div className="mt-3 flex flex-wrap gap-2">
+              {/*
+               * Sized for a thumb mid-run, not for density: min-h-12 (48px,
+               * above the 44pt floor) and a 10px gutter, after a real-device
+               * report of mis-taps here. The screen has vertical room to
+               * spare below — the giant number absorbs whatever is left — so
+               * the extra height costs nothing that matters.
+               */}
+              <div className="mt-3 flex flex-wrap gap-2.5">
                 {pickerMetrics.map((m) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => setMetricTemplate(m.id)}
-                    className={`flex flex-1 basis-[30%] items-center justify-center gap-1.5 rounded-xl border px-2.5 py-2 text-[13px] font-bold whitespace-nowrap transition-colors ${
+                    className={`pr-press flex min-h-12 flex-1 basis-[30%] items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-bold whitespace-nowrap active:scale-[0.97] ${
                       m.id === featured.id
                         ? "border-accent bg-accent/15 text-accent"
                         : "border-border bg-surface text-foreground"
                     }`}
                   >
-                    <MetricIcon id={m.id} className="h-4 w-4" />
+                    <MetricIcon id={m.id} className="h-[18px] w-[18px]" />
                     {m.chip}
                   </button>
                 ))}
