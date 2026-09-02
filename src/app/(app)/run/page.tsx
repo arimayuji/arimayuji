@@ -1557,6 +1557,7 @@ export default function RunPage() {
   const [placeConfirming, setPlaceConfirming] = useState(false);
   const [placeConfirmed, setPlaceConfirmed] = useState(false);
   const [placeDismissed, setPlaceDismissed] = useState(false);
+  const [placeFailed, setPlaceFailed] = useState(false);
 
   useEffect(() => {
     if (state.status !== "finished" || !state.finishedRun) return;
@@ -1569,6 +1570,7 @@ export default function RunPage() {
       setPlaceMatch(matchPlaceForRoute(points));
       setPlaceConfirmed(false);
       setPlaceDismissed(false);
+      setPlaceFailed(false);
     });
   }, [state.status, state.finishedRun]);
 
@@ -1583,13 +1585,29 @@ export default function RunPage() {
   const handleConfirmPlace = useCallback(async () => {
     if (!placeMatch || !state.finishedRun || placeConfirming) return;
     setPlaceConfirming(true);
-    if (account && !profile?.leaderboardOptIn) {
-      await updateProfile(account.id, { leaderboardOptIn: true });
-      await refreshAuth();
+    setPlaceFailed(false);
+    // Every await below can reject — `recordRunAtPlace` starts with
+    // `account.get()`, which throws outright without a session, and rethrows
+    // whatever the Function answers. Before this try/catch there was none:
+    // a rejection skipped `setPlaceConfirming(false)`, so the button sat on
+    // "Contando…" forever while nothing was written, nothing was logged and
+    // nothing was shown. That is the exact shape of "corri no Ibirapuera e
+    // nada apareceu no ranking" — and the same silent-catch failure mode
+    // that hid the friendships/live_runs bugs for weeks, just with the
+    // swallow happening at the top level instead of inside the lib.
+    try {
+      if (account && !profile?.leaderboardOptIn) {
+        await updateProfile(account.id, { leaderboardOptIn: true });
+        await refreshAuth();
+      }
+      await recordRunAtPlace(placeMatch.id, state.finishedRun.distanceMeters);
+      setPlaceConfirmed(true);
+    } catch (error) {
+      console.error("[ranking] recordRunAtPlace failed", error);
+      setPlaceFailed(true);
+    } finally {
+      setPlaceConfirming(false);
     }
-    await recordRunAtPlace(placeMatch.id, state.finishedRun.distanceMeters);
-    setPlaceConfirming(false);
-    setPlaceConfirmed(true);
   }, [placeMatch, state.finishedRun, placeConfirming, account, profile, refreshAuth]);
 
   /**
@@ -3585,25 +3603,38 @@ export default function RunPage() {
               <span className="text-xs uppercase tracking-wide text-muted">Ranking de lugares</span>
               <p className="mt-1 text-sm font-medium">Essa corrida foi em {placeMatch.name}?</p>
               <p className="mt-1 text-xs leading-relaxed text-muted">
-                Confirma pra contar esse km no ranking desse lugar.
+                {account
+                  ? "Confirma pra contar esse km no ranking desse lugar."
+                  : "O ranking compara você com outras pessoas, então precisa de conta. Sua corrida já está salva neste aparelho de qualquer forma."}
               </p>
               <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleConfirmPlace}
-                  disabled={placeConfirming}
-                  className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                >
-                  {placeConfirming ? "Contando…" : "Sim, contar"}
-                </button>
+                {/*
+                 * Sem conta o botão simplesmente não existe: `recordRunAtPlace`
+                 * abre com `account.get()`, então oferecer "Sim, contar" a quem
+                 * está deslogado é um botão que não tem como funcionar. Antes
+                 * ele aparecia igual e falhava em silêncio.
+                 */}
+                {account && (
+                  <button
+                    type="button"
+                    onClick={handleConfirmPlace}
+                    disabled={placeConfirming}
+                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {placeConfirming ? "Contando…" : placeFailed ? "Tentar de novo" : "Sim, contar"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setPlaceDismissed(true)}
                   className="rounded-full border border-border px-4 py-2 text-xs font-medium"
                 >
-                  Não
+                  {account ? "Não" : "Entendi"}
                 </button>
               </div>
+              {placeFailed && (
+                <p className="mt-2 text-xs text-bad">Não deu pra contar agora — tenta de novo.</p>
+              )}
             </div>
           )}
           {placeConfirmed && placeMatch && (
