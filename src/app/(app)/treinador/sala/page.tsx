@@ -115,13 +115,13 @@ export default function SalaDeTreinoPage() {
 
       <Screen wide>
         {status === "loading" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>
           </Card>
         )}
 
         {status !== "loading" && status !== "signed-in" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Entra pra acessar a Sala de Treino</CardTitle>
             <Link href="/treinador" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
               Voltar pro treinador
@@ -130,7 +130,7 @@ export default function SalaDeTreinoPage() {
         )}
 
         {status === "signed-in" && connections !== null && myStudents.length === 0 && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Nenhum aluno ainda</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Convide alguém pelo @ marcando &quot;É meu aluno&quot; no Treinador — assim que aceitar, essa
@@ -144,22 +144,27 @@ export default function SalaDeTreinoPage() {
 
         {status === "signed-in" && myStudents.length > 0 && (
           <>
-            <Card className="pr-enter" style={delay(40)}>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <p className="text-metal font-mono text-2xl tabular-nums">{myStudents.length}</p>
-                  <span className="text-[10px] uppercase tracking-wide text-muted">Ativos</span>
-                </div>
-                <div>
-                  <p className="text-metal font-mono text-2xl tabular-nums text-good">{liveCount}</p>
-                  <span className="text-[10px] uppercase tracking-wide text-muted">Correndo agora</span>
-                </div>
-                <div>
-                  <p className="text-metal font-mono text-2xl tabular-nums">{noContactCount}</p>
-                  <span className="text-[10px] uppercase tracking-wide text-muted">Sem contato 7d+</span>
-                </div>
+            {/* KPI strip, not a boxed stat card — same hairline-top/bottom
+                treatment as /plano's PlanKpiStrip, so this dashboard doesn't
+                open with the exact rounded/backed "widget" the rest of this
+                page is being fixed to drop. */}
+            <div
+              className="pr-enter grid grid-cols-3 gap-3 rounded-2xl border border-border bg-surface p-5 text-center lg:rounded-none lg:border-0 lg:border-t lg:border-b lg:border-border lg:bg-transparent lg:p-0 lg:py-3.5"
+              style={delay(40)}
+            >
+              <div>
+                <p className="text-metal font-mono text-2xl tabular-nums">{myStudents.length}</p>
+                <span className="text-[10px] uppercase tracking-wide text-muted">Ativos</span>
               </div>
-            </Card>
+              <div>
+                <p className="text-metal font-mono text-2xl tabular-nums text-good">{liveCount}</p>
+                <span className="text-[10px] uppercase tracking-wide text-muted">Correndo agora</span>
+              </div>
+              <div>
+                <p className="text-metal font-mono text-2xl tabular-nums">{noContactCount}</p>
+                <span className="text-[10px] uppercase tracking-wide text-muted">Sem contato 7d+</span>
+              </div>
+            </div>
 
             {/*
               Stacked on mobile (list, then the selected student's panel
@@ -173,7 +178,10 @@ export default function SalaDeTreinoPage() {
               desktop browser.
             */}
             <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[22rem_1fr] lg:items-start lg:gap-6">
-            <Card className="pr-enter !p-0" style={delay(60)}>
+            <Card
+              className="pr-enter !p-0 lg:rounded-none lg:border-0 lg:border-r lg:border-border lg:bg-transparent lg:!pr-4 lg:shadow-none"
+              style={delay(60)}
+            >
               <ul>
                 {myStudents.map((connection) => {
                   const live = isLive(connection.otherId);
@@ -225,7 +233,7 @@ export default function SalaDeTreinoPage() {
               // Only worth showing on the two-pane desktop layout — on
               // mobile, nothing selected means nothing to show below the
               // list at all, same as before this grid existed.
-              <p className="hidden text-sm text-muted lg:flex lg:h-full lg:min-h-40 lg:items-center lg:justify-center lg:rounded-2xl lg:border lg:border-dashed lg:border-border">
+              <p className="hidden text-sm text-muted lg:flex lg:h-full lg:min-h-40 lg:items-center lg:justify-center lg:rounded-md lg:border lg:border-dashed lg:border-border">
                 Selecione um aluno pra ver a planilha da semana
               </p>
             )}
@@ -278,7 +286,7 @@ function StudentPanel({
       </div>
 
       {live && (
-        <Card className="pr-enter overflow-hidden !p-0" style={delay(90)}>
+        <Card className="pr-enter overflow-hidden !p-0 lg:rounded-md" style={delay(90)}>
           <div className="h-56 w-full">
             <LiveMap lat={live.lat} lon={live.lon} className="h-full w-full" />
           </div>

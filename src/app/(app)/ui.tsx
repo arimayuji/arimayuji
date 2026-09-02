@@ -149,10 +149,18 @@ export function PillTabs<T extends string>({
   // out of alignment with its slot the further right the active tab is.
   const gapRem = 0.25;
   return (
-    <div className="relative flex gap-1 rounded-full bg-background p-1">
+    // At `lg:` this drops the pill track for plain underline tabs — a
+    // filled accent pill sliding in a rounded track is a touch control
+    // (the same "widget" register as a tile grid or a slider), not
+    // something a desktop web app reaches for; Notion/Linear-style tabs
+    // are a bottom-border indicator on flat text ("pense como se fosse
+    // Notion... esse fundo arredondado só faz sentido no widget de app
+    // nativo", 2026-09-02). The sliding highlight is mobile-only
+    // (`lg:hidden`) — at `lg:` each tab just draws its own border instead.
+    <div className="relative flex gap-1 rounded-full bg-background p-1 lg:gap-5 lg:rounded-none lg:border-b lg:border-border lg:bg-transparent lg:p-0">
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 rounded-full bg-accent transition-transform duration-200 ease-out"
+        className="absolute inset-y-0 left-0 rounded-full bg-accent transition-transform duration-200 ease-out lg:hidden"
         style={{
           width: `calc((100% - ${(tabs.length - 1) * gapRem}rem) / ${tabs.length})`,
           transform: `translateX(calc(${activeIndex} * 100% + ${activeIndex * gapRem}rem))`,
@@ -163,8 +171,10 @@ export function PillTabs<T extends string>({
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`relative z-10 h-9 flex-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-            active === tab.id ? "text-accent-foreground" : "text-muted"
+          className={`relative z-10 h-9 flex-1 rounded-full text-xs font-bold transition-colors active:scale-95 lg:h-auto lg:flex-none lg:rounded-none lg:border-b-2 lg:pb-2.5 lg:text-sm lg:font-semibold lg:active:scale-100 ${
+            active === tab.id
+              ? "text-accent-foreground lg:border-accent lg:text-accent"
+              : "text-muted lg:border-transparent lg:hover:text-foreground"
           }`}
         >
           {tab.label}

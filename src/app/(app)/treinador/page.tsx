@@ -143,21 +143,28 @@ export default function TreinadorPage() {
 
   return (
     <>
+      {/* panel, not wide: this page is one form plus one tabbed list — the
+          same "settings panel" shape as /perfil, not a multi-column
+          dashboard like /treinador/sala. `wide` centered that short content
+          in a mostly-empty 6xl column, which read as the native screen
+          just stretched wider ("o que incomoda é a forma como o conteúdo
+          está jogado na tela", 2026-09-02); `panel` anchors it left at a
+          reading width instead, same as account-card.tsx/perfil. */}
       <ScreenHeader
-        wide
+        panel
         title="Treinador"
         badge={<NoticeBadge>precisa de conta</NoticeBadge>}
       />
 
-      <Screen wide>
+      <Screen panel>
         {status === "loading" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>
           </Card>
         )}
 
         {status === "signed-out" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Entra pra conectar com seu treinador</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Essa relação é entre duas contas — é a única parte disso que precisa de login.
@@ -165,7 +172,7 @@ export default function TreinadorPage() {
             <button
               type="button"
               onClick={() => setShowAccountPrompt(true)}
-              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent lg:rounded-md"
+              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent lg:mt-4 lg:w-auto lg:rounded-md lg:px-4 lg:py-1.5"
             >
               Entrar
             </button>
@@ -173,7 +180,7 @@ export default function TreinadorPage() {
         )}
 
         {status === "needs-handle" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Falta escolher seu @</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Seu @ é como as pessoas te acham aqui.{" "}
@@ -190,7 +197,7 @@ export default function TreinadorPage() {
             {connections !== null && connections.some((c) => c.myRole === "coach" && c.relationship.status === "accepted") && (
               <Link
                 href="/treinador/sala"
-                className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4 lg:rounded-lg"
+                className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4 lg:rounded-none lg:border-0 lg:border-l-2 lg:border-accent lg:bg-transparent lg:px-4 lg:py-2"
                 style={delay(20)}
               >
                 <span>
@@ -203,7 +210,7 @@ export default function TreinadorPage() {
               </Link>
             )}
 
-            <Card className="pr-enter" style={delay(40)}>
+            <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
               <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>Convidar</CardTitle>
               {/* Mobile: pill toggle, thumb-sized. Desktop: a real <select> —
                   two mutually-exclusive options read as a form field on a
@@ -255,7 +262,7 @@ export default function TreinadorPage() {
                 <button
                   type="submit"
                   disabled={sending || normalizeHandle(handle).length === 0}
-                  className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60 lg:min-h-9 lg:rounded-md lg:py-1.5"
+                  className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60 lg:min-h-0 lg:w-auto lg:rounded-md lg:px-4 lg:py-1.5"
                 >
                   {sending ? "Enviando…" : "Enviar convite"}
                 </button>
@@ -268,7 +275,10 @@ export default function TreinadorPage() {
             </Card>
 
             {loadFailed && (
-              <Card className="pr-enter border-bad/30 bg-bad/5" style={delay(60)}>
+              <Card
+                className="pr-enter border-bad/30 bg-bad/5 lg:rounded-none lg:border-0 lg:border-l-2 lg:border-bad lg:bg-transparent lg:px-4 lg:py-2"
+                style={delay(60)}
+              >
                 <p className="text-sm leading-relaxed text-bad text-pretty">
                   Não deu pra carregar suas relações agora — pode ser a conexão.
                 </p>
@@ -282,7 +292,10 @@ export default function TreinadorPage() {
               </Card>
             )}
 
-            <Card className="pr-enter" style={delay(80)}>
+            <Card
+              className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+              style={delay(80)}
+            >
               <div className="mb-4">
                 <PillTabs tabs={COACH_TABS} active={activeTab} onChange={setActiveTab} />
               </div>
