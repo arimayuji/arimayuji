@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listCompletedRuns, type CompletedRun } from "@/lib/tracking/storage";
 import { usePreferences } from "@/lib/usePreferences";
-import { Card, CardTitle, Screen, ScreenHeader } from "../ui";
+import { CardTitle, Screen, ScreenHeader } from "../ui";
 import { ActivityCard } from "../progresso/activity-feed";
 
 type LoadState = { status: "loading" } | { status: "ready"; runs: CompletedRun[] } | { status: "error" };
@@ -47,27 +47,33 @@ export default function HistoricoPage() {
     <>
       {/* hideTitle: the bottom nav tab right below already reads "Histórico" — repeating it as a heading is redundant (2026-08-31). */}
       <ScreenHeader title="Histórico" hideTitle />
+      {/* No `Card` chrome anywhere on this screen — a bordered box floating
+          with margin makes sense when it's one widget among several (this
+          same content sits inside a `Card` on /perfil's Progresso tab,
+          next to other cards it needs to visually match), not when it's
+          the entire page. Here the content sits directly on the page
+          background, the same call already made for the Feed's own posts. */}
       <Screen>
         {load.status === "loading" && (
-          <Card className="animate-pulse">
+          <div className="animate-pulse">
             <div className="h-4 w-32 rounded bg-border" />
             <div className="mt-4 h-14 rounded-xl bg-border/70" />
-          </Card>
+          </div>
         )}
 
         {load.status === "error" && (
-          <Card>
+          <div>
             <CardTitle>Não deu pra ler o histórico</CardTitle>
             <p className="text-sm leading-relaxed text-muted">
               O armazenamento local do aparelho não respondeu. Em janela anônima ou com
               armazenamento bloqueado, o histórico não tem de onde vir.
             </p>
-          </Card>
+          </div>
         )}
 
         {load.status === "ready" && load.runs.length === 0 && (
-          <Card className="overflow-hidden">
-            <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden">
+          <div>
+            <div className="-mx-5 mb-6 h-48 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
               <img
                 src="/progresso-empty.png"
@@ -79,11 +85,11 @@ export default function HistoricoPage() {
             <p className="text-sm leading-relaxed text-muted">
               Assim que a primeira corrida for salva, ela aparece aqui.
             </p>
-          </Card>
+          </div>
         )}
 
         {load.status === "ready" && load.runs.length > 0 && (
-          <ActivityCard runs={load.runs} unit={unit} onRunDeleted={handleRunDeleted} delayMs={0} />
+          <ActivityCard runs={load.runs} unit={unit} onRunDeleted={handleRunDeleted} delayMs={0} bare />
         )}
       </Screen>
     </>

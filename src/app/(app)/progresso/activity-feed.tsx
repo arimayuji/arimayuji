@@ -873,17 +873,27 @@ export function ActivityCard({
   unit,
   onRunDeleted,
   delayMs,
+  bare = false,
 }: {
   runs: CompletedRun[];
   unit: DistanceUnit;
   onRunDeleted: (id: string) => void;
   delayMs: number;
+  /** Skips the `Card` chrome (border, surface fill, rounded corners) — for
+   * /historico, where this is the *entire* page, not one card among several
+   * the way it sits inside /perfil's Progresso tab. A single bordered box
+   * floating with margin on an otherwise blank page reads as an unstyled
+   * placeholder, not a widget ("não faz sentido essa borda... contrastando
+   * com branco", 2026-09-02) — the fix is to let the content sit directly
+   * on the page the way the Feed's own posts do, not to theme the border. */
+  bare?: boolean;
 }) {
   const totalMeters = runs.reduce((sum, run) => sum + run.distanceMeters, 0);
   const totalSeconds = runs.reduce((sum, run) => sum + runMovingSeconds(run), 0);
+  const Wrapper = bare ? "div" : Card;
 
   return (
-    <Card className="pr-enter" style={delay(delayMs)}>
+    <Wrapper className="pr-enter" style={delay(delayMs)}>
       <CardTitle>Corridas</CardTitle>
       <div className="mb-4 grid grid-cols-3 gap-3 border-b border-border pb-4">
         <Stat label="Total" value={formatDistance(totalMeters, unit)} unit={unitLabel(unit)} />
@@ -891,6 +901,6 @@ export function ActivityCard({
         <Stat label="Tempo total" value={formatElapsed(totalSeconds)} />
       </div>
       <ActivityFeed runs={runs} unit={unit} onRunDeleted={onRunDeleted} />
-    </Card>
+    </Wrapper>
   );
 }

@@ -512,6 +512,8 @@ function FeedItemCard({
   const [showPhoto, setShowPhoto] = useState(false);
   /** Same reasoning one level up: the comment field is an action the viewer opts into from the footer, not a permanent fixture at the bottom of all 30 cards. */
   const [composerOpen, setComposerOpen] = useState(false);
+  /** A real `<button>` that explains itself on tap, not a control that silently does nothing — reported directly ("cara não consegui salvar meu próprio kudos", 2026-09-02): the static kudos indicator on your own post looked tappable but never was (the server rejects self-kudos, see toggle-run-kudos), and tapping it gave zero feedback either way. */
+  const [showKudosHint, setShowKudosHint] = useState(false);
 
   return (
     // Full width of the screen, not an inset rounded island — the shape a
@@ -642,12 +644,18 @@ function FeedItemCard({
       <div className="flex items-center gap-2 border-t border-border pt-2">
         {isOwn ? (
           // Own post: kudos is something friends give you, not something
-          // you toggle on yourself — a static count instead of a button
-          // (the server rejects self-kudos anyway, see toggle-run-kudos).
-          <span className="flex h-11 shrink-0 items-center gap-2 px-3 text-sm font-semibold text-muted">
+          // you toggle on yourself (the server rejects self-kudos anyway,
+          // see toggle-run-kudos) — but a tap still needs an answer instead
+          // of silence, so this is a real button that explains itself
+          // rather than a static, dead-looking count.
+          <button
+            type="button"
+            onClick={() => setShowKudosHint(true)}
+            className="flex h-11 shrink-0 items-center gap-2 px-3 text-sm font-semibold text-muted"
+          >
             <HeartIcon className="h-5 w-5" filled={item.kudosCount > 0} />
             {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
-          </span>
+          </button>
         ) : (
           <button
             type="button"
@@ -674,6 +682,12 @@ function FeedItemCard({
           {comments.length > 0 ? comments.length : "Comentar"}
         </button>
       </div>
+
+      {showKudosHint && (
+        <p className="pr-panel-in -mt-1 text-xs text-muted">
+          Kudos vem dos seus amigos — não dá pra dar na própria corrida.
+        </p>
+      )}
 
       <CommentsSection comments={comments} open={composerOpen} onSubmit={onAddComment} />
     </Card>
