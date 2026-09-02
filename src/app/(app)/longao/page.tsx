@@ -236,13 +236,13 @@ function LongaoContent() {
 
       <Screen>
         {authStatus === "loading" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>
           </Card>
         )}
 
         {authStatus === "signed-out" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Entra pra criar ou entrar num longão</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               O longão precisa de conta pra saber quem é amigo de quem.
@@ -258,7 +258,7 @@ function LongaoContent() {
         )}
 
         {authStatus === "needs-handle" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Falta escolher seu @</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Seu @ é como as pessoas te acham aqui.{" "}
@@ -282,7 +282,10 @@ function LongaoContent() {
             )}
 
             {activeSession ? (
-              <Card className="pr-enter" style={delay(40)}>
+              <Card
+                className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+                style={delay(40)}
+              >
                 <CardTitle aside={activeSession.status === "closed" ? <NoticeBadge>encerrado</NoticeBadge> : undefined}>
                   {activeSession.name}
                 </CardTitle>
@@ -353,7 +356,10 @@ function LongaoContent() {
               </Card>
             ) : (
               <>
-                <Card className="pr-enter" style={delay(40)}>
+                <Card
+                  className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+                  style={delay(40)}
+                >
                   <div className="mb-4">
                     <PillTabs tabs={LONGAO_TABS} active={activeTab} onChange={setActiveTab} />
                   </div>
@@ -401,7 +407,10 @@ function LongaoContent() {
                 </Card>
 
                 {mySessions !== null && mySessions.length > 0 && (
-                  <Card className="pr-enter" style={delay(80)}>
+                  <Card
+                    className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+                    style={delay(80)}
+                  >
                     <CardTitle>Seus longões recentes</CardTitle>
                     <ul className="flex flex-col gap-3.5">
                       {mySessions.map((session) => (

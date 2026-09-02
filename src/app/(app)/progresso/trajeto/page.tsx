@@ -29,7 +29,7 @@ function TrajetoContent() {
   if (!anchor) {
     return (
       <Screen>
-        <Card>
+        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <CardTitle>Nenhum trajeto selecionado</CardTitle>
           <Link href="/perfil?tab=progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
             Voltar pro progresso

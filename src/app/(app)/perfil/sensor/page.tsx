@@ -92,7 +92,10 @@ export default function SensorPairingPage() {
       <ScreenHeader title="Sensor de frequência cardíaca" />
 
       <Screen>
-        <Card className="pr-enter" style={delay(20)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(20)}
+        >
           <CardTitle aside={<NoticeBadge>{paired ? "pareado" : "nenhum pareado"}</NoticeBadge>}>
             Cinta ou relógio Bluetooth
           </CardTitle>
@@ -129,7 +132,10 @@ export default function SensorPairingPage() {
           )}
         </Card>
 
-        <Card className="pr-enter" style={delay(40)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(40)}
+        >
           <CardTitle>Procurar sensores</CardTitle>
           <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
             Deixe o sensor ligado e por perto antes de buscar.

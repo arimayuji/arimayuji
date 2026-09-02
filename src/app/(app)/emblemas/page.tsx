@@ -139,7 +139,10 @@ export default function EmblemasPage() {
       <ScreenHeader title="Emblemas" />
 
       <Screen>
-        <Card className="pr-enter" style={delay(0)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+          style={delay(0)}
+        >
           <CardTitle>Quilometragem na vida</CardTitle>
           <p className="font-mono text-3xl font-semibold tabular-nums">
             {totalMeters === null
@@ -167,7 +170,10 @@ export default function EmblemasPage() {
           )}
         </Card>
 
-        <Card className="pr-enter" style={delay(20)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(20)}
+        >
           <CardTitle>Coleção · Quilometragem</CardTitle>
           <CollectionGrid
             category="distancia"
@@ -178,7 +184,10 @@ export default function EmblemasPage() {
           />
         </Card>
 
-        <Card className="pr-enter" style={delay(40)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(40)}
+        >
           <CardTitle>Elevação na vida</CardTitle>
           <p className="font-mono text-3xl font-semibold tabular-nums">
             {totalElevation === null ? "—" : Math.round(totalElevation).toLocaleString("pt-BR")}
@@ -207,7 +216,10 @@ export default function EmblemasPage() {
           </p>
         </Card>
 
-        <Card className="pr-enter" style={delay(60)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(60)}
+        >
           <CardTitle>Coleção · Elevação</CardTitle>
           <CollectionGrid
             category="elevacao"
@@ -218,7 +230,10 @@ export default function EmblemasPage() {
           />
         </Card>
 
-        <Card className="pr-enter" style={delay(80)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(80)}
+        >
           <CardTitle>Tempo na vida</CardTitle>
           <p className="font-mono text-3xl font-semibold tabular-nums">
             {totalHours === null ? "—" : totalHours.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
@@ -240,7 +255,10 @@ export default function EmblemasPage() {
           )}
         </Card>
 
-        <Card className="pr-enter" style={delay(100)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(100)}
+        >
           <CardTitle>Coleção · Tempo</CardTitle>
           <CollectionGrid
             category="tempo"

@@ -93,7 +93,10 @@ export default function SincronizacaoPage() {
       <ScreenHeader title="Sincronização entre aparelhos" />
 
       <Screen>
-        <Card className="pr-enter" style={delay(20)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(20)}
+        >
           <CardTitle aside={<NoticeBadge>{optedIn ? "ativado" : "desligado"}</NoticeBadge>}>
             Sincronizar plano e histórico
           </CardTitle>
@@ -132,7 +135,10 @@ export default function SincronizacaoPage() {
         </Card>
 
         {status === "signed-in" && optedIn && (
-          <Card className="pr-enter" style={delay(30)}>
+          <Card
+            className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+            style={delay(30)}
+          >
             <CardTitle aside={<NoticeBadge>{recoveryOptedIn ? "ativado" : "desligado"}</NoticeBadge>}>
               Também sincronizar recuperação
             </CardTitle>
@@ -169,7 +175,10 @@ export default function SincronizacaoPage() {
           </Card>
         )}
 
-        <Card className="pr-enter" style={delay(40)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(40)}
+        >
           <CardTitle>Como o conflito é resolvido</CardTitle>
           <p className="text-xs leading-relaxed text-muted text-pretty">
             Se você editar a meta em dois aparelhos antes de sincronizar, a edição mais recente

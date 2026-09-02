@@ -178,7 +178,10 @@ export function WeekPlanEditor({
   };
 
   return (
-    <Card className="pr-enter" style={delay(0)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(0)}
+    >
       <CardTitle aside={<NoticeBadge>{draftTotalKm} km na semana</NoticeBadge>}>Planilha da semana</CardTitle>
 
       <div className="mb-3 flex items-center justify-between gap-2">

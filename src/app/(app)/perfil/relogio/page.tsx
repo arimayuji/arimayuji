@@ -66,7 +66,10 @@ export default function DadosRelogioPage() {
       <ScreenHeader title="Dados do relógio" />
 
       <Screen>
-        <Card className="pr-enter" style={delay(20)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(20)}
+        >
           <CardTitle
             aside={
               <NoticeBadge>{preferences.healthDataConsent ? "ativado" : "desligado"}</NoticeBadge>
@@ -88,7 +91,10 @@ export default function DadosRelogioPage() {
           />
         </Card>
 
-        <Card className="pr-enter" style={delay(40)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(40)}
+        >
           <CardTitle aside={<NoticeBadge>sem validação em campo</NoticeBadge>}>Onde aparece</CardTitle>
           <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
             Direto no card da corrida, no seu Histórico — sem tela própria.

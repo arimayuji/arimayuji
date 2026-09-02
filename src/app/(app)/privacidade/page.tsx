@@ -21,7 +21,10 @@ export default function PrivacidadePage() {
       />
 
       <Screen panel>
-        <Card className="pr-enter" style={delay(40)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(40)}
+        >
           <CardTitle>Dados guardados só no seu aparelho</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Toda corrida gravada — rota GPS, ritmo, distância, splits — fica salva localmente no
@@ -31,7 +34,10 @@ export default function PrivacidadePage() {
           </p>
         </Card>
 
-        <Card className="pr-enter" style={delay(80)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(80)}
+        >
           <CardTitle>Dados enviados aos nossos servidores</CardTitle>
           <p className="mb-3 text-sm leading-relaxed text-muted">
             Só quando você cria conta (login com Google ou Apple) — usada em recursos
@@ -57,7 +63,10 @@ export default function PrivacidadePage() {
           </ul>
         </Card>
 
-        <Card className="pr-enter" style={delay(120)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(120)}
+        >
           <CardTitle>Dados sensíveis (dores, esforço percebido)</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Registros de dor/desconforto e RPE (esforço percebido) que você marcar durante uma
@@ -68,7 +77,10 @@ export default function PrivacidadePage() {
           </p>
         </Card>
 
-        <Card className="pr-enter" style={delay(140)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(140)}
+        >
           <CardTitle>Dados do seu smartwatch (Apple Health / Health Connect)</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Se você ligar &quot;Ler dados de saúde&quot; (desligado por padrão, em Perfil → Dados do
@@ -88,7 +100,10 @@ export default function PrivacidadePage() {
           </p>
         </Card>
 
-        <Card className="pr-enter" style={delay(160)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(160)}
+        >
           <CardTitle>Serviços de terceiros</CardTitle>
           <ul className="flex flex-col gap-2.5 text-sm leading-relaxed text-muted">
             <li>
@@ -123,7 +138,10 @@ export default function PrivacidadePage() {
           </ul>
         </Card>
 
-        <Card className="pr-enter" style={delay(180)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(180)}
+        >
           <CardTitle>Créditos</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             O modelo 3D de tênis (vitrine em Perfil → Meus tênis) é{" "}
@@ -157,7 +175,10 @@ export default function PrivacidadePage() {
           </p>
         </Card>
 
-        <Card className="pr-enter" style={delay(200)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(200)}
+        >
           <CardTitle>Apagar sua conta e seus dados</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Em <strong className="text-foreground">Perfil → Excluir conta</strong>, dentro do

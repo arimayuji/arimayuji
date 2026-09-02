@@ -124,7 +124,10 @@ function PainCard() {
   };
 
   return (
-    <Card className="pr-enter" style={delay(60)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(60)}
+    >
       <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Como você está</CardTitle>
 
       {checkIns === null ? (
@@ -276,7 +279,10 @@ function WeightCard({
   };
 
   return (
-    <Card className="pr-enter" style={delay(90)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(90)}
+    >
       <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Peso</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
         Só usado pra estimar calorias gastas em cada corrida (≈1 kcal/kg/km, mais o custo

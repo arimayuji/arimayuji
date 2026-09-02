@@ -525,7 +525,7 @@ function FeedItemCard({
     // becomes the separation between posts, the same way a feed separates
     // them with background rather than with a frame around each one.
     <Card
-      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] flex-col gap-3 rounded-none border-x-0 lg:mx-0 lg:w-full lg:rounded-lg lg:border-x"
+      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] flex-col gap-3 rounded-none border-x-0 lg:mx-0 lg:w-full lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none first:lg:border-t-0"
       style={delay(enterDelayMs)}
     >
       <div className="flex items-start gap-3">
@@ -704,7 +704,7 @@ function FeedItemCard({
 function FeedItemSkeleton({ enterDelayMs }: { enterDelayMs: number }) {
   return (
     <Card
-      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] animate-pulse flex-col gap-4 rounded-none border-x-0 lg:mx-0 lg:w-full lg:rounded-lg lg:border-x"
+      className="pr-enter -mx-5 flex w-[calc(100%+2.5rem)] animate-pulse flex-col gap-4 rounded-none border-x-0 lg:mx-0 lg:w-full lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none first:lg:border-t-0"
       style={delay(enterDelayMs)}
     >
       <div className="flex items-start gap-3">
@@ -877,13 +877,13 @@ export default function FeedPage() {
 
       <Screen>
         {status === "loading" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>
           </Card>
         )}
 
         {status === "signed-out" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Entra pra ver o feed</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               O feed mostra as corridas que seus amigos escolheram compartilhar — amizade é entre
@@ -900,7 +900,7 @@ export default function FeedPage() {
         )}
 
         {status === "needs-handle" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Falta escolher seu @</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Seu @ é como as pessoas te acham aqui.{" "}
@@ -920,7 +920,7 @@ export default function FeedPage() {
               <FeedItemSkeleton enterDelayMs={80} />
             </>
           ) : feedItems.length === 0 ? (
-            <Card className="pr-enter" style={delay(40)}>
+            <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
               <div className="py-2 text-center">
                 <p className="text-xs leading-relaxed text-muted">
                   {friendCount === 0 ? (

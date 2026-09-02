@@ -32,7 +32,10 @@ export function HealthDataCard() {
   const [prefs] = usePreferences();
 
   return (
-    <Card className="pr-enter" style={delay(300)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+      style={delay(300)}
+    >
       <CardTitle aside={<NoticeBadge>{prefs.healthDataConsent ? "ativado" : "desligado"}</NoticeBadge>}>
         Dados de saúde do smartwatch
       </CardTitle>

@@ -2504,7 +2504,7 @@ export default function RunPage() {
 
             <RunWeatherCard />
 
-            <Card>
+            <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
               <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
                 Tipo de meta
               </span>
@@ -2666,7 +2666,7 @@ export default function RunPage() {
               )}
             </Card>
 
-            <Card>
+            <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
               {/* Suppressed for "Intervalado": the interval cues ("Vai!"/"Descanso") already tell the athlete when something changed, and would talk over a periodic split announcement — see useRunTracker.ts's own guard on the split-announcer call sites. */}
               {goalType !== "intervalo" && (
                 <>
@@ -2938,7 +2938,7 @@ export default function RunPage() {
               )}
             </div>
 
-            <Card>
+            <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
               <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
                 Compartilhar corrida
               </span>

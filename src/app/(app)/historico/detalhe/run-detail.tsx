@@ -374,7 +374,7 @@ function SplitsTable({
   const showElevation = metric === "elevacao" && elevationProfile;
 
   return (
-    <Card className="pr-enter" style={delay(140)}>
+    <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(140)}>
       <div className="flex items-center justify-between gap-3">
         <CardTitle>Parciais por {unitLabel(unit)}</CardTitle>
         <div className="flex shrink-0 rounded-full border border-border p-0.5 font-mono text-[11px]">
@@ -482,7 +482,7 @@ function ZonesCard({ points }: { points: Pick<StoredPoint, "lat" | "lon" | "time
   if (totalSeconds <= 0) return null;
 
   return (
-    <Card className="pr-enter" style={delay(150)}>
+    <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(150)}>
       <CardTitle>Tempo por zona</CardTitle>
       <div className="mb-4 flex h-2 overflow-hidden rounded-full bg-background">
         {ZONE_ORDER.map((zone) =>
@@ -541,7 +541,7 @@ function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
   if (!comments || comments.length === 0) return null;
 
   return (
-    <Card className="pr-enter" style={delay(160)}>
+    <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(160)}>
       <CardTitle>Comentários do treinador</CardTitle>
       <ul className="flex flex-col gap-2.5">
         {comments.map((comment) => (
@@ -691,7 +691,7 @@ export function RunDetail({ id }: { id: string }) {
   if (load.status === "loading") {
     return (
       <Screen>
-        <Card className="animate-pulse">
+        <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <div className="h-48 rounded-xl bg-border/70" />
         </Card>
       </Screen>
@@ -701,7 +701,7 @@ export function RunDetail({ id }: { id: string }) {
   if (load.status === "not-found") {
     return (
       <Screen>
-        <Card>
+        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <CardTitle>Corrida não encontrada</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Esse registro não existe mais neste aparelho — pode já ter sido excluído.
@@ -877,7 +877,7 @@ export function RunDetail({ id }: { id: string }) {
           <RouteReplay points={run.points} unit={unit} rounded={false} />
         </div>
 
-        <Card className="pr-enter" style={delay(50)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(50)}>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <span className="text-[11px] uppercase tracking-wide text-muted">Distância</span>
@@ -962,7 +962,7 @@ export function RunDetail({ id }: { id: string }) {
           )}
         </Card>
 
-        <Card className="pr-enter" style={delay(86)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(86)}>
           <CardTitle>Lugar</CardTitle>
           {matchedPlace ? (
             <Link
@@ -999,7 +999,7 @@ export function RunDetail({ id }: { id: string }) {
           )}
         </Card>
 
-        <Card className="pr-enter" style={delay(87)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(87)}>
           <CardTitle>Trilha sonora</CardTitle>
           <p className="text-xs leading-relaxed text-muted text-pretty">
             Anexa a música ou playlist que tocou nessa corrida, pra lembrar depois o que rolou —
@@ -1084,7 +1084,7 @@ export function RunDetail({ id }: { id: string }) {
         </Card>
 
         {recoveryContext && (
-          <Card className="pr-enter" style={delay(85)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(85)}>
             <CardTitle aside={<NoticeBadge>relógio</NoticeBadge>}>Recuperação</CardTitle>
             <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
               Como você chegou nessa corrida, não o que aconteceu durante ela.
@@ -1122,7 +1122,7 @@ export function RunDetail({ id }: { id: string }) {
         )}
 
         {newRecords.length > 0 && (
-          <Card className="pr-enter" style={delay(90)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(90)}>
             <CardTitle aside={<NoticeBadge>{newRecords.length}</NoticeBadge>}>Conquistas dessa corrida</CardTitle>
             <div className="flex flex-col gap-3">
               {newRecords.map((record) => (
@@ -1147,7 +1147,7 @@ export function RunDetail({ id }: { id: string }) {
         <CommentsCard startedAtMs={run.startedAt} />
 
         {coaches !== null && coaches.length > 0 && (
-          <Card className="pr-enter" style={delay(170)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(170)}>
             <CardTitle>Enviar pro treinador</CardTitle>
             <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
               Só essa corrida, só pra quem você escolher aqui — nada é enviado automaticamente.
@@ -1178,7 +1178,7 @@ export function RunDetail({ id }: { id: string }) {
         )}
 
         {friendCount > 0 && (
-          <Card className="pr-enter" style={delay(172)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(172)}>
             <CardTitle>Compartilhar com amigos</CardTitle>
             <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
               Aparece no feed de todos os seus amigos aceitos, com kudos — nunca só pra um por vez.
@@ -1245,7 +1245,7 @@ export function RunDetail({ id }: { id: string }) {
           </Card>
         )}
 
-        <Card className="pr-enter" style={delay(175)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(175)}>
           <CardTitle>Vídeo sincronizado</CardTitle>
           <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
             Gravou essa corrida por fora (óculos, câmera no peito)? Sobrepõe ritmo, distância e tempo
@@ -1259,7 +1259,7 @@ export function RunDetail({ id }: { id: string }) {
           </Link>
         </Card>
 
-        <Card className="pr-enter" style={delay(180)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(180)}>
           {confirmingDelete ? (
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs leading-snug text-pretty">Excluir essa corrida? Não dá pra desfazer.</p>

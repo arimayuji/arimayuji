@@ -60,7 +60,7 @@ function CountdownRing({ secondsLeft, totalSeconds }: { secondsLeft: number; tot
 
 function IntroScreen({ routine, onStart }: { routine: WarmupRoutine; onStart: () => void }) {
   return (
-    <Card>
+    <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
       {/* No repeated <h1> here — ScreenHeader above already shows routine.title (found duplicated on screen, 2026-08-31). */}
       <p className="mb-4 text-xs leading-relaxed text-muted">{routine.rationale}</p>
       <p className="mb-3 text-[11px] font-semibold tracking-wide text-muted uppercase">
@@ -104,7 +104,7 @@ function PlayerScreen({
 }) {
   const step = routine.steps[stepIndex];
   return (
-    <Card>
+    <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
       <p className="mb-4 text-center text-[11px] font-semibold tracking-wide text-muted uppercase">
         Passo {stepIndex + 1} de {routine.steps.length}
       </p>
@@ -150,7 +150,7 @@ function PlayerScreen({
 
 function DoneScreen({ routine }: { routine: WarmupRoutine }) {
   return (
-    <Card className="text-center">
+    <Card className="text-center lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
       <h1 className="mb-2 font-mono text-xl font-semibold">Sessão concluída</h1>
       <p className="mb-6 text-sm text-muted">
         {routine.steps.length} passos · {formatMinSec(totalDurationSeconds(routine.steps))}

@@ -34,7 +34,10 @@ export default function EstudosPage() {
       />
 
       <Screen>
-        <Card className="pr-enter" style={delay(40)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(40)}
+        >
           <div className="grid grid-cols-4 gap-2">
             <Stat label="Estudos" value={String(EVIDENCE_FACTS.length)} />
             <Stat label="Fortes" value={String(STRENGTH_COUNTS.forte)} />
@@ -47,7 +50,10 @@ export default function EstudosPage() {
             from a specific topic link elsewhere in the app (each one now
             points at /estudos#<topic>, not just the top of this page), so
             the index itself has to work as real in-page navigation too. */}
-        <Card className="pr-enter" style={delay(60)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(60)}
+        >
           <p className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
             Índice
           </p>
@@ -72,7 +78,12 @@ export default function EstudosPage() {
           const facts = getEvidenceForTopicRanked(topic);
           if (facts.length === 0) return null;
           return (
-            <Card key={topic} id={topic} className="pr-enter" style={delay(80 + index * 25)}>
+            <Card
+              key={topic}
+              id={topic}
+              className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+              style={delay(80 + index * 25)}
+            >
               <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-accent">
                 <TopicIcon topic={topic} />
               </span>

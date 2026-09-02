@@ -108,7 +108,7 @@ function NotificationCard({
   );
 
   const className =
-    "pr-enter flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left";
+    "pr-enter flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none first:lg:border-t-0";
 
   if (external) {
     // target="_blank" (same convention as the Instagram link on /perfil,

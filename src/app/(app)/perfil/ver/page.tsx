@@ -242,7 +242,7 @@ function VerPerfilContent() {
   if (handle === undefined) {
     return (
       <Screen>
-        <Card className="pr-enter">
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <p className="text-sm text-muted">Carregando…</p>
         </Card>
       </Screen>
@@ -254,7 +254,7 @@ function VerPerfilContent() {
       <>
         <ScreenHeader title="Perfil" />
         <Screen>
-          <Card className="pr-enter">
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Não achamos essa conta — o @ pode ter mudado ou a conta não existe mais.
             </p>
@@ -267,7 +267,7 @@ function VerPerfilContent() {
   if (profile === undefined) {
     return (
       <Screen>
-        <Card className="pr-enter">
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <p className="text-sm text-muted">Carregando…</p>
         </Card>
       </Screen>
@@ -279,7 +279,7 @@ function VerPerfilContent() {
       <>
         <ScreenHeader title="Perfil" />
         <Screen>
-          <Card className="pr-enter">
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Não achamos essa conta — o @ pode ter mudado ou a conta não existe mais.
             </p>
@@ -295,7 +295,7 @@ function VerPerfilContent() {
     <>
       <ScreenHeader title={displayName} subtitle={`@${profile.handle}`} />
       <Screen>
-        <Card className="pr-enter flex flex-col items-center text-center">
+        <Card className="pr-enter flex flex-col items-center text-center lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
           <Avatar name={profile.displayName} avatarUrl={profile.avatarUrl} />
           <p className="mt-3 text-base font-semibold">{displayName}</p>
           <p className="font-mono text-xs text-muted">@{profile.handle}</p>
@@ -322,7 +322,7 @@ function VerPerfilContent() {
         </Card>
 
         {isFriend && stats && (
-          <Card className="pr-enter">
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
             <p className="mb-4 text-sm font-semibold">Comparar</p>
             <div className="space-y-4">
               <CompareBarRow
@@ -390,13 +390,13 @@ function VerPerfilContent() {
         )}
 
         {isFriend && !stats && (
-          <Card className="pr-enter">
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
             <p className="text-sm text-muted">Ainda sem corridas registradas.</p>
           </Card>
         )}
 
         {(isFriend || isSelf) && playlists.length > 0 && (
-          <Card className="pr-enter">
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
             <p className="mb-3 text-sm font-semibold">
               {playlists.length > 1 ? "Playlists pra corrida" : "Playlist pra corrida"}
             </p>
@@ -432,7 +432,7 @@ function VerPerfilContent() {
         )}
 
         {!isFriend && !isSelf && (
-          <Card className="pr-enter">
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Vira amigo pra ver as estatísticas e o que essa pessoa decidir compartilhar.
             </p>

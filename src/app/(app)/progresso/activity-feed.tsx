@@ -137,7 +137,10 @@ export function PersonalRecords({
   if (bests.length === 0) return null;
 
   return (
-    <Card className="pr-enter" style={delay(delayMs)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(delayMs)}
+    >
       <CardTitle
         aside={
           <div className="flex overflow-hidden rounded-full border border-border text-xs font-semibold">
@@ -687,8 +690,11 @@ function RunRow({
   const started = new Date(run.startedAt);
 
   return (
-    <li className="pr-enter" style={delay(index * 45)}>
-      <article className="relative flex items-stretch overflow-hidden rounded-2xl border border-border bg-surface">
+    <li
+      className="pr-enter lg:border-t lg:border-border lg:pt-3 first:lg:border-t-0"
+      style={delay(index * 45)}
+    >
+      <article className="relative flex items-stretch overflow-hidden rounded-2xl border border-border bg-surface lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
         <button
           type="button"
           onClick={onFocusRun}
@@ -893,7 +899,10 @@ export function ActivityCard({
   const Wrapper = bare ? "div" : Card;
 
   return (
-    <Wrapper className="pr-enter" style={delay(delayMs)}>
+    <Wrapper
+      className={`pr-enter ${bare ? "" : "lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"}`}
+      style={delay(delayMs)}
+    >
       <CardTitle>Corridas</CardTitle>
       <div className="mb-4 grid grid-cols-3 gap-3 border-b border-border pb-4">
         <Stat label="Total" value={formatDistance(totalMeters, unit)} unit={unitLabel(unit)} />

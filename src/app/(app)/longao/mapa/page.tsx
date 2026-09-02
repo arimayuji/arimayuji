@@ -59,7 +59,7 @@ function LongaoMapaContent() {
   if (!code) {
     return (
       <Screen>
-        <Card>
+        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <CardTitle>Nenhum longão selecionado</CardTitle>
           <Link href="/longao" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
             Voltar pro longão
@@ -78,13 +78,13 @@ function LongaoMapaContent() {
 
       <Screen>
         {session === undefined && (
-          <Card className="pr-enter" style={delay(0)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(0)}>
             <p className="text-sm text-muted">Carregando…</p>
           </Card>
         )}
 
         {session === null && (
-          <Card className="pr-enter" style={delay(0)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(0)}>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Não achei esse longão — o código pode estar errado, ou a sessão já venceu.
             </p>
@@ -96,13 +96,16 @@ function LongaoMapaContent() {
 
         {session && (
           <>
-            <Card className="pr-enter overflow-hidden !p-0" style={delay(0)}>
+            <div className="pr-enter overflow-hidden rounded-xl" style={delay(0)}>
               <div className="h-72 w-full">
                 <GroupLiveMap markers={markers} className="h-full w-full" />
               </div>
-            </Card>
+            </div>
 
-            <Card className="pr-enter" style={delay(40)}>
+            <Card
+              className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+              style={delay(40)}
+            >
               <CardTitle>Quem está no longão</CardTitle>
               {data.participants.length === 0 ? (
                 <div className="h-10 animate-pulse rounded-lg bg-background" />

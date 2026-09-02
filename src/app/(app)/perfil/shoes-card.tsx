@@ -543,7 +543,10 @@ export function ShoesCard({ unit }: { unit: DistanceUnit }) {
   const summaryFor = (name: string) => summaries.find((s) => s.name === name);
 
   return (
-    <Card className="pr-enter" style={delay(240)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+      style={delay(240)}
+    >
       <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>Meus tênis</CardTitle>
       <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
         Registre seus tênis com marca, cor e foto. A quilometragem de cada um vem das corridas

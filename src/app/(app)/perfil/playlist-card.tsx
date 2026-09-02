@@ -62,7 +62,10 @@ export function PlaylistCard() {
   }
 
   return (
-    <Card className="pr-enter" style={delay(90)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+      style={delay(90)}
+    >
       <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Playlists pra corrida</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
         Amigos que veem seu perfil conseguem abrir direto.

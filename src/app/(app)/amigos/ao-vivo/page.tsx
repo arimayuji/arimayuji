@@ -76,7 +76,7 @@ function AmigoAoVivoContent() {
   if (!friendId) {
     return (
       <Screen>
-        <Card>
+        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <CardTitle>Nenhum amigo selecionado</CardTitle>
           <Link href="/amigos" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
             Voltar pros amigos
@@ -95,11 +95,16 @@ function AmigoAoVivoContent() {
 
       <Screen>
         {liveRun && !liveStale ? (
-          <Card className="pr-enter overflow-hidden !p-0" style={delay(0)}>
-            <div className="h-56 w-full">
-              <LiveMap lat={liveRun.lat} lon={liveRun.lon} className="h-full w-full" />
+          <>
+            <div className="pr-enter overflow-hidden rounded-xl" style={delay(0)}>
+              <div className="h-56 w-full">
+                <LiveMap lat={liveRun.lat} lon={liveRun.lon} className="h-full w-full" />
+              </div>
             </div>
-            <div className="p-4">
+            <div
+              className="pr-enter rounded-2xl border border-border bg-surface p-4 lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4"
+              style={delay(20)}
+            >
               <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-good">
                 <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden="true" />
                 Ao vivo agora
@@ -124,16 +129,19 @@ function AmigoAoVivoContent() {
                 </div>
               </div>
             </div>
-          </Card>
+          </>
         ) : liveRun && liveStale ? (
-          <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(0)}>
+          <Card
+            className="pr-enter border-warn/30 bg-warn/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+            style={delay(0)}
+          >
             <p className="text-xs leading-relaxed text-muted text-pretty">
               Última posição recebida há um tempo — provavelmente a corrida já terminou sem avisar (app
               fechado, sinal perdido). Isso some sozinho na próxima sincronização.
             </p>
           </Card>
         ) : (
-          <Card className="pr-enter" style={delay(0)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(0)}>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               {profile?.displayName ?? "Essa pessoa"} não está correndo agora. Essa tela atualiza sozinha
               assim que a corrida começar, se ela escolher compartilhar com você.

@@ -123,7 +123,7 @@ export function RunWeatherCard() {
 
   if (status === "ready" && forecast) {
     return (
-      <Card>
+      <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
         <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
           Clima pra corrida
         </span>

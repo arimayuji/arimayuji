@@ -112,7 +112,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="pr-enter" style={delay(delayMs)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(delayMs)}
+    >
       <CardTitle>{title}</CardTitle>
       {children}
     </Card>
@@ -147,7 +150,10 @@ function ChevronIcon({ className }: { className?: string }) {
 /** Lives here rather than /perfil now — the collectible ladder is exactly the kind of thing this screen exists for, not a setting. */
 function EmblemsCard() {
   return (
-    <Card className="pr-enter" style={delay(45)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(45)}
+    >
       <CardTitle>Emblemas</CardTitle>
       <Link href="/emblemas" className="flex items-center gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
@@ -648,7 +654,7 @@ export function ProgressoContent() {
 
   if (load.status === "loading") {
     return (
-      <Card className="animate-pulse">
+      <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
         <div className="h-4 w-32 rounded bg-border" />
         <div className="mt-4 h-14 rounded-xl bg-border/70" />
       </Card>
@@ -657,7 +663,7 @@ export function ProgressoContent() {
 
   if (load.status === "error") {
     return (
-      <Card>
+      <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
         <CardTitle>Não deu pra ler o histórico</CardTitle>
         <p className="text-sm leading-relaxed text-muted">
           O armazenamento local do navegador não respondeu. Em janela anônima ou com
@@ -669,8 +675,8 @@ export function ProgressoContent() {
 
   if (runs.length === 0) {
     return (
-      <Card className="overflow-hidden">
-        <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden">
+      <Card className="overflow-hidden lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden lg:mx-0 lg:mt-0 lg:rounded-xl">
           {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
           <img
             src="/progresso-empty.png"

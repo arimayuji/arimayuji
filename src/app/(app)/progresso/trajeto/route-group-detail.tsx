@@ -173,7 +173,7 @@ export function RouteGroupDetail({ anchorRunId }: { anchorRunId: string }) {
   if (load.status === "loading") {
     return (
       <Screen>
-        <Card className="animate-pulse">
+        <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <div className="h-4 w-32 rounded bg-border" />
           <div className="mt-4 h-14 rounded-xl bg-border/70" />
         </Card>
@@ -184,7 +184,7 @@ export function RouteGroupDetail({ anchorRunId }: { anchorRunId: string }) {
   if (load.status === "not-found") {
     return (
       <Screen>
-        <Card>
+        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <CardTitle>Trajeto não encontrado</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Esse trajeto pode ter parado de se repetir (menos de duas corridas parecidas no
@@ -208,17 +208,21 @@ export function RouteGroupDetail({ anchorRunId }: { anchorRunId: string }) {
         subtitle={`${group.runs.length} corridas seguiram aproximadamente o mesmo caminho.`}
       />
       <Screen>
-        <Card className="pr-enter" style={delay(30)}>
+        {/* No Card wrapper — the map's own pixels are the content, a gray
+            box behind it would just be chrome. rounded-xl here clips the
+            map's own corners, it isn't a component boundary — same
+            reasoning as /rotas/detalhe's RouteBuilderMap wrapper. */}
+        <div className="pr-enter overflow-hidden rounded-xl" style={delay(30)}>
           <RouteMap points={anchorRun.points} />
-        </Card>
+        </div>
 
-        <Card className="pr-enter" style={delay(60)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(60)}>
           <CardTitle>Evolução do pace</CardTitle>
           <RepeatsPaceChart group={group} unit={unit} />
           <p className="mt-1 text-center text-[10px] text-muted">{paceLabel(unit)}, por repetição</p>
         </Card>
 
-        <Card className="pr-enter" style={delay(90)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(90)}>
           <CardTitle>Todas as corridas</CardTitle>
           <ul className="flex flex-col">
             {runsNewestFirst.map((r, index) => (

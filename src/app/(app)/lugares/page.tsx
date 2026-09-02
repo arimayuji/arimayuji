@@ -62,7 +62,7 @@ export default function LugaresPage() {
 
       <Screen>
         <Link href="/corridas" className="pr-enter block" style={delay(10)}>
-          <Card className="flex items-center justify-between gap-3">
+          <Card className="flex items-center justify-between gap-3 lg:rounded-none lg:border-0 lg:border-b lg:border-border lg:bg-transparent lg:p-0 lg:pb-4 lg:shadow-none">
             <div>
               <p className="text-sm font-semibold">Corridas de rua na sua cidade</p>
               <p className="mt-0.5 text-xs text-muted">Calendário de provas abertas, atualizado toda semana</p>
@@ -74,7 +74,7 @@ export default function LugaresPage() {
         </Link>
 
         <Link href="/rotas" className="pr-enter block" style={delay(15)}>
-          <Card className="flex items-center justify-between gap-3">
+          <Card className="flex items-center justify-between gap-3 lg:rounded-none lg:border-0 lg:border-b lg:border-border lg:bg-transparent lg:p-0 lg:pb-4 lg:shadow-none">
             <div>
               <p className="text-sm font-semibold">Suas rotas desenhadas</p>
               <p className="mt-0.5 text-xs text-muted">Desenhe um trajeto no mapa e compartilhe com amigos</p>

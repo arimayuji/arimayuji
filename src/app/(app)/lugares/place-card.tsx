@@ -34,7 +34,7 @@ function directionsUrl(place: RunningPlace): string {
 
 export function PlaceCard({ place }: { place: RunningPlace }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-border bg-surface">
+    <article className="overflow-hidden rounded-2xl border border-border bg-surface lg:rounded-xl lg:border-0 lg:bg-transparent">
       <Link href={`/lugares/${place.id}`} className="block focus:outline-accent">
         {place.coverImage && (
           // eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway.

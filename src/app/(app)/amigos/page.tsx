@@ -127,7 +127,10 @@ function NearbyFriendsCard() {
   if (status !== "signed-in") return null;
 
   return (
-    <Card className="pr-enter" style={delay(50)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(50)}
+    >
       <CardTitle aside={<NoticeBadge>desligado por padrão</NoticeBadge>}>Amigo por perto</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
         Leitura pontual da localização ao abrir o app — nunca rastreamento contínuo. Só amigos
@@ -317,13 +320,13 @@ export default function AmigosPage() {
 
       <Screen>
         {status === "loading" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>
           </Card>
         )}
 
         {status === "signed-out" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Entra pra adicionar amigos</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Amizade é entre duas contas — é a única parte disso que precisa de login.
@@ -339,7 +342,7 @@ export default function AmigosPage() {
         )}
 
         {status === "needs-handle" && (
-          <Card className="pr-enter" style={delay(40)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
             <CardTitle>Falta escolher seu @</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Seu @ é como as pessoas te acham aqui.{" "}
@@ -353,7 +356,10 @@ export default function AmigosPage() {
 
         {status === "signed-in" && (
           <>
-            <Card className="pr-enter" style={delay(40)}>
+            <Card
+              className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+              style={delay(40)}
+            >
               <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>Adicionar amigo</CardTitle>
               <form onSubmit={handleSend}>
                 <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3.5 py-3">
@@ -388,7 +394,10 @@ export default function AmigosPage() {
             <NearbyFriendsCard />
 
             {loadFailed && (
-              <Card className="pr-enter border-bad/30 bg-bad/5" style={delay(60)}>
+              <Card
+                className="pr-enter border-bad/30 bg-bad/5 lg:rounded-none lg:border-0 lg:border-t lg:border-bad/30 lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+                style={delay(60)}
+              >
                 <p className="text-sm leading-relaxed text-bad text-pretty">
                   Não deu pra carregar seus amigos agora — pode ser a conexão.
                 </p>
@@ -402,7 +411,10 @@ export default function AmigosPage() {
               </Card>
             )}
 
-            <Card className="pr-enter" style={delay(80)}>
+            <Card
+              className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+              style={delay(80)}
+            >
               <div className="mb-4">
                 <PillTabs tabs={FRIEND_TABS} active={activeTab} onChange={setActiveTab} />
               </div>

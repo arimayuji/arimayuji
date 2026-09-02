@@ -27,7 +27,7 @@ function formatRaceDate(iso: string): string {
 function RaceCard({ race }: { race: CityRace }) {
   const location = [race.city, race.state].filter(Boolean).join(" - ");
   return (
-    <Card>
+    <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-mono text-[11px] font-bold tracking-wide text-accent">{formatRaceDate(race.date)}</p>
@@ -109,7 +109,7 @@ export default function CorridasPage() {
         )}
 
         {load.status === "error" && (
-          <Card>
+          <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <p className="text-sm text-muted">Não deu pra carregar o calendário agora. Tenta de novo mais tarde.</p>
           </Card>
         )}
@@ -152,7 +152,7 @@ export default function CorridasPage() {
             )}
 
             {filtered.length === 0 ? (
-              <Card>
+              <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
                 <p className="text-sm text-muted">
                   {races.length === 0
                     ? "Nenhuma corrida encontrada ainda — volta em alguns dias, a lista é atualizada toda semana."

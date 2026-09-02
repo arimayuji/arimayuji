@@ -111,7 +111,10 @@ export function MatchedRunsCard({
   const [topGroup, ...rest] = groups;
 
   return (
-    <Card className="pr-enter" style={delay(delayMs)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(delayMs)}
+    >
       <CardTitle>Corridas correspondentes</CardTitle>
       <TopGroupTeaser group={topGroup} unit={unit} />
       {rest.length > 0 && (

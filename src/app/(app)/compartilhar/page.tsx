@@ -819,7 +819,10 @@ function CompartilharContent() {
           Surpreenda-me
         </button>
 
-        <Card className="pr-enter" style={delay(185)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(185)}
+        >
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Sua foto ou vídeo</CardTitle>
           <p className="text-xs leading-relaxed text-muted text-pretty">
             Suba até {MAX_SHARE_PHOTOS} fotos ou um vídeo da sua corrida pra usar como fundo do
@@ -1033,7 +1036,10 @@ function CompartilharContent() {
         </Card>
 
         {run && track && (
-          <Card className="pr-enter" style={delay(192)}>
+          <Card
+            className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+            style={delay(192)}
+          >
             <CardTitle>Trilha sonora</CardTitle>
             <div className="mt-1 flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2">
               {track.artworkUrl && (
@@ -1058,7 +1064,10 @@ function CompartilharContent() {
           </Card>
         )}
 
-        <Card className="pr-enter" style={delay(200)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(200)}
+        >
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
             Cenário de fundo
           </CardTitle>
@@ -1122,7 +1131,10 @@ function CompartilharContent() {
         </Card>
 
         {headline && (
-          <Card className="pr-enter" style={delay(210)}>
+          <Card
+            className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+            style={delay(210)}
+          >
             <PreferenceToggle
               label="Mostrar a medalha do recorde"
               hint={
@@ -1137,7 +1149,10 @@ function CompartilharContent() {
         )}
 
         {shoes && shoes.length > 0 && (
-          <Card className="pr-enter" style={delay(215)}>
+          <Card
+            className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+            style={delay(215)}
+          >
             <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
               Tênis em destaque
             </CardTitle>

@@ -266,7 +266,10 @@ function PaceZonesCard({ zones }: { zones: PaceZones }) {
   const maxVelocity = Math.max(...velocities);
 
   return (
-    <Card className="pr-enter" style={delay(160)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(160)}
+    >
       <CardTitle aside={<NoticeBadge>seu plano</NoticeBadge>}>Suas zonas de pace</CardTitle>
       <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
         Calculadas do seu tempo recente pela fórmula VDOT (Daniels &amp; Gilbert).
@@ -394,7 +397,10 @@ function SelfPlanSuggestionCard({
 
   if (!signedIn) {
     return (
-      <Card className="pr-enter" style={delay(230)}>
+      <Card
+        className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+        style={delay(230)}
+      >
         <CardTitle aside={<NoticeBadge>experimental</NoticeBadge>}>Sugestão de treino com IA</CardTitle>
         <p className="text-sm leading-relaxed text-muted text-pretty">
           Entra na sua conta pra pedir uma sugestão pra essa semana, travada pelo mesmo motor de
@@ -406,7 +412,10 @@ function SelfPlanSuggestionCard({
 
   if (override) {
     return (
-      <Card className="pr-enter" style={delay(230)}>
+      <Card
+        className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+        style={delay(230)}
+      >
         <CardTitle aside={<NoticeBadge>sugerido por ia</NoticeBadge>}>
           Você aplicou uma sugestão de IA nessa semana
         </CardTitle>
@@ -426,7 +435,10 @@ function SelfPlanSuggestionCard({
   }
 
   return (
-    <Card className="pr-enter" style={delay(230)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(230)}
+    >
       <CardTitle aside={<NoticeBadge>experimental</NoticeBadge>}>Sugestão de treino com IA</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
         Pede uma sugestão pra essa semana específica, travada pelo mesmo limite seguro de
@@ -580,7 +592,7 @@ function PlanBuildSequence({ stages, onDone }: { stages: readonly string[]; onDo
   }, [doneCount, stages.length, onDone]);
 
   return (
-    <Card className="pr-enter" style={delay(60)}>
+    <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(60)}>
       <CardTitle aside={<NoticeBadge>montando</NoticeBadge>}>Montando seu plano</CardTitle>
       <ul className="flex flex-col gap-3.5">
         {stages.map((label, index) => {
@@ -955,7 +967,7 @@ export default function PlanoPage() {
       <>
         <ScreenHeader panel compactOnWide hideTitle title="Plano" />
         <Screen panel>
-          <Card className="animate-pulse">
+          <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <div className="h-4 w-32 rounded bg-border" />
             <div className="mt-4 h-24 rounded-xl bg-border/70" />
           </Card>
@@ -1020,13 +1032,19 @@ export default function PlanoPage() {
         />
         <Screen wide>
           {plan.warning && (
-            <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(60)}>
+            <Card
+              className="pr-enter border-warn/30 bg-warn/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2"
+              style={delay(60)}
+            >
               <p className="text-sm leading-relaxed text-muted text-pretty">{plan.warning}</p>
             </Card>
           )}
 
           {plan.painAdjustment && (
-            <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(85)}>
+            <Card
+              className="pr-enter border-warn/30 bg-warn/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2"
+              style={delay(85)}
+            >
               <CardTitle aside={<NoticeBadge>ajustado</NoticeBadge>}>
                 Volume reduzido por causa da dor sinalizada
               </CardTitle>
@@ -1049,7 +1067,10 @@ export default function PlanoPage() {
           )}
 
           {coachOverride ? (
-            <Card className="pr-enter border-accent/30 bg-accent/5" style={delay(95)}>
+            <Card
+              className="pr-enter border-accent/30 bg-accent/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2"
+              style={delay(95)}
+            >
               <CardTitle aside={<NoticeBadge>treinador</NoticeBadge>}>
                 Seu treinador definiu essa semana
               </CardTitle>
@@ -1060,7 +1081,10 @@ export default function PlanoPage() {
               </p>
             </Card>
           ) : selfOverride ? (
-            <Card className="pr-enter border-accent/30 bg-accent/5" style={delay(95)}>
+            <Card
+              className="pr-enter border-accent/30 bg-accent/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2"
+              style={delay(95)}
+            >
               <CardTitle aside={<NoticeBadge>sugerido por ia</NoticeBadge>}>
                 Você aplicou uma sugestão de IA nessa semana
               </CardTitle>
@@ -1071,7 +1095,10 @@ export default function PlanoPage() {
             </Card>
           ) : (
             current?.wasReprojected && (
-              <Card className="pr-enter border-accent/30 bg-accent/5" style={delay(95)}>
+              <Card
+                className="pr-enter border-accent/30 bg-accent/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2"
+                style={delay(95)}
+              >
                 <CardTitle aside={<NoticeBadge>ajustado</NoticeBadge>}>
                   Ajustamos essa semana pelo que você realmente correu
                 </CardTitle>
@@ -1359,7 +1386,10 @@ export default function PlanoPage() {
 
         {showExample ? (
           <>
-            <Card className="pr-enter" style={delay(110)}>
+            <Card
+              className="pr-enter md:rounded-none md:border-0 md:border-t md:border-border md:bg-transparent md:p-0 md:pt-4 md:shadow-none"
+              style={delay(110)}
+            >
               <CardTitle aside={<ExampleBadge>semana de exemplo</ExampleBadge>}>
                 Semana 3 de 12 — base
               </CardTitle>

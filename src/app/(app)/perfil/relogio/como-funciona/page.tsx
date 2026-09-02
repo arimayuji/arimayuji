@@ -71,7 +71,10 @@ export default function ComoFuncionaDadosRelogioPage() {
       <ScreenHeader title="Como funciona a leitura do relógio" />
 
       <Screen>
-        <Card className="pr-enter" style={delay(20)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(20)}
+        >
           <CardTitle>Onde os dados aparecem</CardTitle>
           <p className="text-sm leading-relaxed text-pretty">
             Não é uma lista separada — FC média, calorias e passos entram direto no card da
@@ -82,7 +85,10 @@ export default function ComoFuncionaDadosRelogioPage() {
           </p>
         </Card>
 
-        <Card className="pr-enter" style={delay(50)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(50)}
+        >
           <CardTitle>Como isso funciona</CardTitle>
           <div className="flex flex-col gap-4">
             {INFO_ITEMS.map((item, index) => (

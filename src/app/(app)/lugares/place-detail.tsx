@@ -76,7 +76,10 @@ function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
       : entries?.filter((entry) => entry.userId === account?.id || friendProfiles?.has(entry.userId));
 
   return (
-    <Card className="pr-enter" style={delay(145)}>
+    <Card
+      className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+      style={delay(145)}
+    >
       <CardTitle aside={<NoticeBadge>opcional</NoticeBadge>}>Ranking</CardTitle>
       <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
         Km total corrido aqui, entre quem ligou o ranking em Perfil e confirmou pelo menos uma
@@ -213,9 +216,12 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
       <ScreenHeader title={place.name} subtitle={place.neighborhood} />
 
       <Screen>
-        <Card className="pr-enter overflow-hidden" style={delay(40)}>
+        <Card
+          className="pr-enter overflow-hidden lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(40)}
+        >
           {place.coverImage && (
-            <div className="-mx-5 -mt-5 mb-4 h-40 overflow-hidden">
+            <div className="-mx-5 -mt-5 mb-4 h-40 overflow-hidden lg:mx-0 lg:mt-0 lg:rounded-xl">
               {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
               <img src={place.coverImage} alt="" className="h-full w-full object-cover" />
             </div>
@@ -227,14 +233,17 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
         </Card>
 
         {place.circuits && place.circuits.length > 0 && (
-          <Card className="pr-enter" style={delay(60)}>
+          <div className="pr-enter" style={delay(60)}>
             <CardTitle>Circuitos sugeridos</CardTitle>
             <CircuitMap circuits={place.circuits} />
-          </Card>
+          </div>
         )}
 
         {place.safetyFlag && (
-          <Card className="pr-enter border-bad/30 bg-bad/5" style={delay(70)}>
+          <Card
+            className="pr-enter border-bad/30 bg-bad/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2"
+            style={delay(70)}
+          >
             <div className="flex items-start gap-2.5">
               <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-bad" aria-hidden="true" {...STROKE}>
                 <path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0Z" />
@@ -247,7 +256,10 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
           </Card>
         )}
 
-        <Card className="pr-enter" style={delay(100)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(100)}
+        >
           <CardTitle aside={<NoticeBadge>curadoria inicial</NoticeBadge>}>Critérios</CardTitle>
           <div className="flex flex-col gap-3.5">
             {CRITERIA_KEYS.map((key) => (
@@ -267,7 +279,10 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
           </p>
         </Card>
 
-        <Card className="pr-enter" style={delay(130)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(130)}
+        >
           <CardTitle
             aside={
               <NoticeBadge>

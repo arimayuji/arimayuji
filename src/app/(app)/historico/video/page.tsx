@@ -111,7 +111,7 @@ function VideoHudContent() {
   if (load.status === "loading") {
     return (
       <Screen>
-        <Card className="animate-pulse">
+        <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <div className="h-48 rounded-xl bg-border/70" />
         </Card>
       </Screen>
@@ -121,7 +121,7 @@ function VideoHudContent() {
   if (load.status === "not-found") {
     return (
       <Screen>
-        <Card>
+        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <CardTitle>Corrida não encontrada</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Esse registro não existe mais neste aparelho — pode já ter sido excluído.
@@ -142,13 +142,13 @@ function VideoHudContent() {
       <ScreenHeader title="Vídeo sincronizado" />
       <Screen>
         {!timeline ? (
-          <Card className="pr-enter" style={delay(30)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(30)}>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Essa corrida não tem rota registrada o bastante pra sincronizar com um vídeo.
             </p>
           </Card>
         ) : !videoUrl ? (
-          <Card className="pr-enter" style={delay(30)}>
+          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(30)}>
             <CardTitle>Escolher vídeo</CardTitle>
             <p className="mb-4 text-sm leading-relaxed text-muted text-pretty">
               Qualquer vídeo do aparelho — o app nunca grava nada por conta própria aqui, só sobrepõe os
@@ -212,7 +212,7 @@ function VideoHudPlayer({
   const frame = inRange ? replayFrameAt(timeline, elapsedFromMark / timeline.totalSeconds) : null;
 
   return (
-    <Card className="pr-enter overflow-hidden" style={delay(30)}>
+    <Card className="pr-enter overflow-hidden lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(30)}>
       <div className="relative -mx-5 -mt-5 mb-4 bg-black">
         <video
           ref={videoRef}

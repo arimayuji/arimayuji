@@ -131,7 +131,7 @@ function AlunoContent() {
   if (!studentId) {
     return (
       <Screen wide>
-        <Card>
+        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           <CardTitle>Nenhum aluno selecionado</CardTitle>
           <Link href="/treinador" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
             Voltar pro treinador
@@ -175,7 +175,7 @@ function AlunoContent() {
         />
 
         {liveRun && !liveStale && (
-          <Card className="pr-enter overflow-hidden !p-0" style={delay(20)}>
+          <div className="pr-enter overflow-hidden rounded-xl" style={delay(20)}>
             <div className="h-56 w-full">
               <LiveMap lat={liveRun.lat} lon={liveRun.lon} className="h-full w-full" />
             </div>
@@ -232,11 +232,14 @@ function AlunoContent() {
               </div>
               <CoachCueButtons studentId={studentId} />
             </div>
-          </Card>
+          </div>
         )}
 
         {liveRun && liveStale && (
-          <Card className="pr-enter border-warn/30 bg-warn/5" style={delay(20)}>
+          <Card
+            className="pr-enter border-warn/30 bg-warn/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2"
+            style={delay(20)}
+          >
             <p className="text-xs leading-relaxed text-muted text-pretty">
               Última posição recebida há um tempo — provavelmente a corrida já terminou sem avisar (app
               fechado, sinal perdido). Isso some sozinho na próxima sincronização.
@@ -244,7 +247,10 @@ function AlunoContent() {
           </Card>
         )}
 
-        <Card className="pr-enter" style={delay(40)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(40)}
+        >
           <CardTitle>Corridas compartilhadas</CardTitle>
           {runs === null ? (
             <div className="h-12 animate-pulse rounded-lg bg-background" />

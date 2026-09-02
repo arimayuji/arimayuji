@@ -94,7 +94,7 @@ export default function ConteudoInternoPage() {
   if (status === "loading") {
     return (
       <Screen>
-        <Card className="pr-enter" style={delay(40)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
           <p className="text-sm text-muted">Verificando sua conta…</p>
         </Card>
       </Screen>
@@ -104,7 +104,7 @@ export default function ConteudoInternoPage() {
   if (!authorized) {
     return (
       <Screen>
-        <Card className="pr-enter" style={delay(40)}>
+        <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
           <CardTitle>Essa área não é pública</CardTitle>
         </Card>
       </Screen>
@@ -118,7 +118,10 @@ export default function ConteudoInternoPage() {
       <ScreenHeader title="Conteúdo" />
 
       <Screen>
-        <Card className="pr-enter" style={delay(0)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(0)}
+        >
           <CardTitle>Nova ideia</CardTitle>
           <form onSubmit={handleCreate} className="flex flex-col gap-3.5">
             <input
@@ -159,7 +162,10 @@ export default function ConteudoInternoPage() {
           </form>
         </Card>
 
-        <Card className="pr-enter" style={delay(20)}>
+        <Card
+          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          style={delay(20)}
+        >
           <div className="mb-4">
             <PillTabs tabs={STATUS_TABS} active={activeStatus} onChange={setActiveStatus} />
           </div>
