@@ -197,9 +197,17 @@ function engineSessionToDisplay(session: EngineSession, day: string, outcome?: S
   return { day, title, detail, km: session.km > 0 ? session.km : undefined, kind, outcome };
 }
 
+/**
+ * `over` shares `--warn` with `partial` on purpose, and deliberately never
+ * gets `--bad`: "pulado" is the only outcome that is actually a miss.
+ * Running well past the prescription isn't a failure to scold — it's the
+ * risk signal the volume engine exists to catch, so it reads as attention,
+ * not as a red mark. See `OVER_THRESHOLD` in plan/adherence.ts.
+ */
 export const OUTCOME_STYLE: Record<Exclude<SessionOutcome, "rest" | "upcoming">, { label: string; className: string }> = {
   done: { label: "feito", className: "bg-good/15 text-good" },
   partial: { label: "parcial", className: "bg-warn/15 text-warn" },
+  over: { label: "acima", className: "bg-warn/15 text-warn" },
   skipped: { label: "pulado", className: "bg-bad/15 text-bad" },
 };
 

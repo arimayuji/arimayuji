@@ -11,7 +11,7 @@
 import type { CompletedRun } from "../tracking/storage";
 import type { PlannedWeek } from "./types";
 
-export type SessionOutcome = "upcoming" | "done" | "partial" | "skipped" | "rest";
+export type SessionOutcome = "upcoming" | "done" | "partial" | "over" | "skipped" | "rest";
 
 /**
  * How much of a planned session's distance has to actually show up that day
@@ -21,6 +21,28 @@ export type SessionOutcome = "upcoming" | "done" | "partial" | "skipped" | "rest
  * miss the same way skipping entirely does.
  */
 const DONE_THRESHOLD = 0.7;
+
+/**
+ * And the ceiling the scale was missing. Until this existed the comparison
+ * only had a floor: a 1 km easy day answered with 12 km scored exactly the
+ * same green "feito" as running it on the nose. For an app whose whole
+ * pitch is a plan with a real safety ceiling, that is backwards — a day far
+ * above what was prescribed is precisely the risk signal the volume engine
+ * exists to prevent (`volumeProgression.ts`'s +10%/week and 30%/2-week
+ * caps), and it was being congratulated.
+ *
+ * 1.5× is **an app heuristic, not a number from `evidence/facts.ts`** — the
+ * corpus has progression limits for *weekly* volume, nothing per session,
+ * and inventing a citation for this would be exactly the dishonesty the
+ * rest of the plan engine avoids. Set where a normal overshoot still reads
+ * as normal: finishing 5.4 km on a 5 km day is hitting the session, not
+ * exceeding it.
+ *
+ * Deliberately not styled as a failure. Running more than planned isn't a
+ * miss, and calling it one would be the scolding tone SOCIAL-CONTEXT.md
+ * rules out — it's information the athlete should have, not a grade.
+ */
+const OVER_THRESHOLD = 1.5;
 
 function startOfLocalDay(ms: number): number {
   const d = new Date(ms);
@@ -61,6 +83,9 @@ export function weekAdherence(
     const km = kmRunOn(dayStart, runs);
     if (dayStart === todayStart && km <= 0) return "upcoming";
     if (km <= 0) return "skipped";
+    // `session.km > 0` guards the ratio: a non-rest session always carries
+    // distance today, but a zero would make every run "over" by division.
+    if (session.km > 0 && km >= session.km * OVER_THRESHOLD) return "over";
     return km >= session.km * DONE_THRESHOLD ? "done" : "partial";
   });
 }
