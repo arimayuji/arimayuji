@@ -197,7 +197,7 @@ export default function TreinadorPage() {
             {connections !== null && connections.some((c) => c.myRole === "coach" && c.relationship.status === "accepted") && (
               <Link
                 href="/treinador/sala"
-                className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4 lg:rounded-none lg:border-0 lg:border-l-2 lg:border-accent lg:bg-transparent lg:px-4 lg:py-2"
+                className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4 transition-opacity lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2 lg:hover:opacity-70"
                 style={delay(20)}
               >
                 <span>
@@ -276,7 +276,7 @@ export default function TreinadorPage() {
 
             {loadFailed && (
               <Card
-                className="pr-enter border-bad/30 bg-bad/5 lg:rounded-none lg:border-0 lg:border-l-2 lg:border-bad lg:bg-transparent lg:px-4 lg:py-2"
+                className="pr-enter border-bad/30 bg-bad/5 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2"
                 style={delay(60)}
               >
                 <p className="text-sm leading-relaxed text-bad text-pretty">
