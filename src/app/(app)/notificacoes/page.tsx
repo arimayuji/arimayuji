@@ -177,7 +177,7 @@ export default function NotificacoesPage() {
       <Screen>
         {total === 0 ? (
           <div className="pr-enter" style={delay(40)}>
-            <EmptyState title="Nada novo por enquanto." />
+            <EmptyState size="screen" title="Nada novo por enquanto." />
           </div>
         ) : (
           <>

@@ -679,7 +679,7 @@ export function ProgressoContent() {
   if (runs.length === 0) {
     return (
       <Card className="overflow-hidden lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-        <EmptyState
+        <EmptyState size="screen"
           title="Nada pra mostrar ainda"
           description="Assim que a primeira corrida for salva, as estatísticas de rodagem, pace e frequência aparecem aqui."
         />

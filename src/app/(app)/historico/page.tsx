@@ -72,7 +72,7 @@ export default function HistoricoPage() {
         )}
 
         {load.status === "ready" && load.runs.length === 0 && (
-          <EmptyState
+          <EmptyState size="screen"
             title="Nada pra mostrar ainda"
             description="Assim que a primeira corrida for salva, ela aparece aqui."
           />

@@ -924,7 +924,7 @@ export default function FeedPage() {
           ) : feedItems.length === 0 ? (
             <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
               {friendCount === 0 ? (
-                <EmptyState
+                <EmptyState size="screen"
                   title="Você ainda não tem amigos aceitos"
                   description={
                     <>
@@ -936,7 +936,7 @@ export default function FeedPage() {
                   }
                 />
               ) : (
-                <EmptyState
+                <EmptyState size="screen"
                   title="Nada por aqui ainda"
                   description="Aparece quando um amigo compartilhar uma corrida."
                 />

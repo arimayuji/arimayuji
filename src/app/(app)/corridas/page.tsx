@@ -154,12 +154,12 @@ export default function CorridasPage() {
             {filtered.length === 0 ? (
               <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
                 {races.length === 0 ? (
-                  <EmptyState
+                  <EmptyState size="screen"
                     title="Nenhuma corrida encontrada ainda"
                     description="Volta em alguns dias, a lista é atualizada toda semana."
                   />
                 ) : (
-                  <EmptyState title="Nenhuma corrida bate com esse filtro" />
+                  <EmptyState size="screen" title="Nenhuma corrida bate com esse filtro" />
                 )}
               </Card>
             ) : (

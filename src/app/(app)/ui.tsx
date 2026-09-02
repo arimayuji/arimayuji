@@ -498,22 +498,38 @@ export function EmptyState({
   title,
   description,
   action,
+  size = "section",
   className = "",
 }: {
   title: string;
   description?: ReactNode;
   /** Optional call to action — the one thing that would fill this screen. */
   action?: ReactNode;
+  /**
+   * `"screen"` when this IS the page — nothing else rendered, so the
+   * illustration carries the whole moment and gets the room to do it.
+   * `"section"` (the default) when it's one card's worth of nothing among
+   * other sections: /rotas has two of these stacked, and two full-size
+   * horses on one screen reads as a repeated stamp rather than a state.
+   */
+  size?: "section" | "screen";
   className?: string;
 }) {
+  const screen = size === "screen";
   const maskUrl = "url(/empty/cavalo-triste.svg)";
   return (
-    <div className={`flex flex-col items-center px-4 py-8 text-center lg:py-10 ${className}`}>
+    // Scales up at `lg:`. The phone sizing is right for a card you hold; the
+    // same 144px illustration on a 1440px screen disappears into the middle
+    // of it ("empty state no web ficou pequeno", 2026-09-02). How far up it
+    // scales is what `size` decides — see that prop.
+    <div
+      className={`flex flex-col items-center px-4 py-8 text-center ${screen ? "lg:py-14" : "lg:py-10"} ${className}`}
+    >
       <span
         aria-hidden="true"
         // Native `aspect-ratio` off the artwork's own viewBox (754×695), so
         // the mask never letterboxes inside a square box.
-        className="block w-32 bg-muted/40 lg:w-36"
+        className={`block w-32 bg-muted/40 ${screen ? "lg:w-56" : "lg:w-40"}`}
         style={{
           aspectRatio: "754 / 695",
           maskImage: maskUrl,
@@ -526,11 +542,23 @@ export function EmptyState({
           WebkitMaskSize: "contain",
         }}
       />
-      <p className="mt-5 text-sm font-semibold lg:tracking-[-0.006em]">{title}</p>
+      <p
+        className={`mt-5 text-sm font-semibold ${
+          screen ? "lg:mt-7 lg:text-lg lg:tracking-[-0.012em]" : "lg:mt-5 lg:text-base lg:tracking-[-0.008em]"
+        }`}
+      >
+        {title}
+      </p>
       {description && (
-        <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted text-pretty">{description}</p>
+        <p
+          className={`mt-1.5 max-w-xs text-xs leading-relaxed text-muted text-pretty lg:mt-2 ${
+            screen ? "lg:max-w-sm lg:text-sm" : ""
+          }`}
+        >
+          {description}
+        </p>
       )}
-      {action && <div className="mt-5">{action}</div>}
+      {action && <div className={`mt-5 ${screen ? "lg:mt-7" : ""}`}>{action}</div>}
     </div>
   );
 }
