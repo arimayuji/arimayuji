@@ -760,6 +760,62 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 /** The emblem bursting out of the shell — overshoots past full size before settling, instead of easing flatly from 90% to 100%. */
+/**
+ * The impact beat that was missing (emblem-reveal.tsx). The shell used to
+ * fracture and the emblem used to appear, but nothing carried force *out*
+ * of the sphere — the burst read as a dissolve rather than a break. A ring
+ * thrown clear of the orb plus a one-frame white bloom is what sells "that
+ * just broke", and both are pure transform/opacity so they cost nothing.
+ */
+@keyframes pr-shockwave {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+    border-width: 10px;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+@keyframes pr-flash {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/**
+ * Light thrown behind the emblem once it lands — the sealed sphere had a
+ * light source circling it, so the opened face keeping nothing at all
+ * behind it is what made the payoff read flatter than the wind-up. Turns
+ * very slowly and never loops back to zero opacity: it is the new resting
+ * state of the scene, not another event competing with the emblem.
+ */
+@keyframes pr-godray {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) rotate(0deg);
+  }
+  55% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0.32;
+    transform: scale(1) rotate(26deg);
+  }
+}
+
 @keyframes pr-crack-emerge {
   0% {
     transform: scale(0.68) rotate(-7deg);
@@ -954,6 +1010,19 @@ input[type="number"]::-webkit-inner-spin-button {
 
   .pr-crack-shard-b {
     animation: pr-crack-shard-b 560ms cubic-bezier(0.3, 0.7, 0.35, 1) 160ms both;
+  }
+
+  .pr-shockwave {
+    animation: pr-shockwave 720ms cubic-bezier(0.16, 0.8, 0.3, 1) 60ms both;
+  }
+
+  .pr-flash {
+    animation: pr-flash 340ms ease-out both;
+  }
+
+  /* Starts as the emblem finishes overshooting, so the light arrives to meet it instead of racing it. */
+  .pr-godray {
+    animation: pr-godray 1400ms var(--ease-spring) 520ms both;
   }
 
   .pr-crack-emerge {
