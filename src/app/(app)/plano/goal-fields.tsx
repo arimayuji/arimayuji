@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GOAL_DISTANCE_OPTIONS } from "@/lib/runnerProfile";
+import { PillSlider } from "../pill-slider";
 
 /**
  * Shared between the mobile/always-editable `GoalCard` (page.tsx) and the
@@ -27,6 +28,8 @@ function isPresetDistance(meters: number | undefined): boolean {
   return meters !== undefined && GOAL_DISTANCE_OPTIONS.some((option) => option.meters === meters);
 }
 
+const CUSTOM_VALUE = "custom";
+
 /**
  * Big number + unit, not a squeezed-in label on a segmented button — a race
  * distance is the single most consequential choice on this screen. A 5th
@@ -35,6 +38,14 @@ function isPresetDistance(meters: number | undefined): boolean {
  * it opens by itself whenever `selected` already holds a non-preset value,
  * so a profile someone set up before this existed — or synced from
  * elsewhere — still shows its real number instead of looking unset.
+ *
+ * At `lg:` this whole tile grid swaps for a real `<select>` — the touch-tile
+ * treatment is right for a thumb on a phone, but stretched onto a desktop
+ * browser it read as an oversized widget instead of a form control ("vamos
+ * aplicar formulários mesmo... o design de widget não funciona", 2026-09-02).
+ * Both markups share the same `selected`/`onSelect` state and the same
+ * custom-km input below, so picking a distance in one never desyncs from
+ * the other if the viewport crosses the breakpoint mid-session.
  */
 export function DistanceTileGrid({
   selected,
@@ -58,7 +69,7 @@ export function DistanceTileGrid({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5 lg:hidden">
         {GOAL_DISTANCE_OPTIONS.map((option) => {
           const isSelected = !customSelected && selected === option.meters;
           const tile = DISTANCE_TILE[option.meters];
@@ -98,6 +109,34 @@ export function DistanceTileGrid({
           )}
         </button>
       </div>
+
+      {/* Desktop web: a real <select>, not a tile grid — see this
+          function's own comment for why. */}
+      <select
+        value={customSelected ? CUSTOM_VALUE : (selected ?? "")}
+        onChange={(event) => {
+          if (event.target.value === CUSTOM_VALUE) {
+            setCustomOpen(true);
+            return;
+          }
+          setCustomOpen(false);
+          onSelect(Number(event.target.value));
+        }}
+        className="hidden h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus:border-accent lg:block"
+      >
+        {selected === undefined && !customSelected && (
+          <option value="" disabled>
+            Escolher distância
+          </option>
+        )}
+        {GOAL_DISTANCE_OPTIONS.map((option) => (
+          <option key={option.meters} value={option.meters}>
+            {DISTANCE_TILE[option.meters].main} ({DISTANCE_TILE[option.meters].sub})
+          </option>
+        ))}
+        <option value={CUSTOM_VALUE}>Personalizada</option>
+      </select>
+
       {customOpen && (
         <div className="mt-2.5 flex items-center gap-2">
           <input
@@ -107,11 +146,52 @@ export function DistanceTileGrid({
             onChange={(event) => handleCustomChange(event.target.value)}
             placeholder="Ex: 15"
             autoFocus
-            className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-lg font-bold outline-none focus:border-accent"
+            className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-lg font-bold outline-none focus:border-accent lg:h-9 lg:rounded-md lg:text-sm lg:font-medium"
           />
-          <span className="text-sm font-semibold text-muted">km</span>
+          <span className="text-sm font-semibold text-muted lg:text-xs">km</span>
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The weekly-run-days field, mobile `PillSlider` vs. desktop `<select>` —
+ * same reasoning as `DistanceTileGrid` above, split out on its own since
+ * unlike distance this has no "personalizada" branch to keep in sync.
+ */
+export function WeeklyDaysField({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (days: number) => void;
+}) {
+  const options = Array.from({ length: MAX_WEEKLY_DAYS - MIN_WEEKLY_DAYS + 1 }, (_, i) => MIN_WEEKLY_DAYS + i);
+
+  return (
+    <>
+      <div className="lg:hidden">
+        <PillSlider
+          min={MIN_WEEKLY_DAYS}
+          max={MAX_WEEKLY_DAYS}
+          step={1}
+          value={value}
+          onChange={onChange}
+          formatValue={(days) => String(days)}
+        />
+      </div>
+      <select
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="hidden h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus:border-accent lg:block"
+      >
+        {options.map((days) => (
+          <option key={days} value={days}>
+            {days} {days === 1 ? "dia" : "dias"} por semana
+          </option>
+        ))}
+      </select>
+    </>
   );
 }

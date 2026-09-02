@@ -205,11 +205,15 @@ export default function TreinadorPage() {
 
             <Card className="pr-enter" style={delay(40)}>
               <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>Convidar</CardTitle>
-              <div className="mb-3 flex gap-2">
+              {/* Mobile: pill toggle, thumb-sized. Desktop: a real <select> —
+                  two mutually-exclusive options read as a form field on a
+                  browser, not a segmented touch control ("o design de
+                  widget não funciona", 2026-09-02). */}
+              <div className="mb-3 flex gap-2 lg:hidden">
                 <button
                   type="button"
                   onClick={() => setInviteRole("student")}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold lg:rounded-md ${
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold ${
                     inviteRole === "student" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
                   }`}
                 >
@@ -218,15 +222,23 @@ export default function TreinadorPage() {
                 <button
                   type="button"
                   onClick={() => setInviteRole("coach")}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold lg:rounded-md ${
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold ${
                     inviteRole === "coach" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
                   }`}
                 >
                   É meu aluno
                 </button>
               </div>
+              <select
+                value={inviteRole}
+                onChange={(event) => setInviteRole(event.target.value as MyCoachRole)}
+                className="mb-3 hidden h-9 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus:border-accent lg:block"
+              >
+                <option value="student">É meu treinador</option>
+                <option value="coach">É meu aluno</option>
+              </select>
               <form onSubmit={handleSend}>
-                <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3.5 py-3 lg:rounded-md">
+                <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3.5 py-3 lg:h-9 lg:rounded-md lg:px-3 lg:py-0">
                   <span className="font-semibold text-muted">@</span>
                   <input
                     type="text"
@@ -243,7 +255,7 @@ export default function TreinadorPage() {
                 <button
                   type="submit"
                   disabled={sending || normalizeHandle(handle).length === 0}
-                  className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60 lg:rounded-md"
+                  className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60 lg:min-h-9 lg:rounded-md lg:py-1.5"
                 >
                   {sending ? "Enviando…" : "Enviar convite"}
                 </button>

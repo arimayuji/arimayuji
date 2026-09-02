@@ -186,7 +186,7 @@ export function GoalDatePicker({
         onClick={toggle}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`flex min-h-12 w-full items-center gap-2 rounded-xl border bg-background px-3 py-3 text-left font-mono text-sm tabular-nums outline-none ${
+        className={`flex min-h-12 w-full items-center gap-2 rounded-xl border bg-background px-3 py-3 text-left font-mono text-sm tabular-nums outline-none lg:min-h-9 lg:rounded-md lg:py-1.5 lg:text-sm lg:font-medium ${
           open ? "border-accent" : "border-border focus-visible:border-accent"
         }`}
       >

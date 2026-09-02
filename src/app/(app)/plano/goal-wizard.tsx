@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { GoalDatePicker } from "../date-picker";
-import { PillSlider } from "../pill-slider";
-import { DistanceTileGrid, MIN_WEEKLY_DAYS, MAX_WEEKLY_DAYS } from "./goal-fields";
+import { DistanceTileGrid, WeeklyDaysField } from "./goal-fields";
 import type { RunnerProfile } from "@/lib/runnerProfile";
 
 /**
@@ -107,13 +106,9 @@ export function GoalWizard({
           <legend className="mb-2.5 block text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
             Dias de corrida por semana
           </legend>
-          <PillSlider
-            min={MIN_WEEKLY_DAYS}
-            max={MAX_WEEKLY_DAYS}
-            step={1}
+          <WeeklyDaysField
             value={draft.weeklyRunDays ?? 4}
             onChange={(days) => setDraft((d) => ({ ...d, weeklyRunDays: days }))}
-            formatValue={(days) => String(days)}
           />
         </fieldset>
       )}
@@ -146,7 +141,7 @@ export function GoalWizard({
                     Number(recentSeconds) || 0,
                   )
                 }
-                className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 lg:w-12 lg:text-xl ${
                   recentMinutes ? "border-accent" : "border-border"
                 }`}
               />
@@ -167,7 +162,7 @@ export function GoalWizard({
                     Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0,
                   )
                 }
-                className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 lg:w-12 lg:text-xl ${
                   recentSeconds ? "border-accent" : "border-border"
                 }`}
               />

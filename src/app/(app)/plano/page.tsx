@@ -47,7 +47,6 @@ import { weeklyBuckets } from "@/lib/tracking/stats";
 import { computeConstancyWeeks, tallyConstancy } from "@/lib/tracking/constancy";
 import { usePreferences } from "@/lib/usePreferences";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
-import { PillSlider } from "../pill-slider";
 import { ModalPortal } from "../modal-portal";
 import {
   PlanKpiStrip,
@@ -60,7 +59,7 @@ import {
   RecoveryTrendCard,
 } from "./plan-dashboard";
 import { GoalWizard } from "./goal-wizard";
-import { DistanceTileGrid, MIN_WEEKLY_DAYS, MAX_WEEKLY_DAYS } from "./goal-fields";
+import { DistanceTileGrid, WeeklyDaysField } from "./goal-fields";
 
 /**
  * The plan screen has two real modes, not a mockup-vs-real toggle a person
@@ -703,13 +702,9 @@ function GoalCard({
         <legend className="mb-2.5 block text-[11px] font-bold tracking-[0.05em] text-muted uppercase">
           Dias de corrida por semana
         </legend>
-        <PillSlider
-          min={MIN_WEEKLY_DAYS}
-          max={MAX_WEEKLY_DAYS}
-          step={1}
+        <WeeklyDaysField
           value={profile.weeklyRunDays ?? 4}
           onChange={(days) => updateProfile({ weeklyRunDays: days })}
-          formatValue={(days) => String(days)}
         />
       </fieldset>
 
@@ -740,7 +735,7 @@ function GoalCard({
                   Number(recentSeconds) || 0,
                 )
               }
-              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 lg:w-12 lg:text-xl ${
                 recentMinutes ? "border-accent" : "border-border"
               }`}
             />
@@ -761,7 +756,7 @@ function GoalCard({
                   Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0,
                 )
               }
-              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 lg:w-12 lg:text-xl ${
                 recentSeconds ? "border-accent" : "border-border"
               }`}
             />
