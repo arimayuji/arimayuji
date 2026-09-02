@@ -72,6 +72,20 @@ export interface RunningPlace {
    * never actually done.
    */
   circuits?: RunningCircuit[];
+  /**
+   * Roughly where the place is and how far it extends — what
+   * `matchPlaceForRoute` actually needs to answer "did this run happen
+   * here". Optional because a place that has `circuits` gets its area
+   * derived from them automatically; this exists for the 54 places that
+   * have no traced path, since a centre point and a rough radius is
+   * minutes of research per place, while tracing a full circuit is hours.
+   *
+   * Deliberately a circle and not a polygon: the question is "was the run
+   * at this park", not "which side of the fence" — and a fabricated
+   * precise boundary would be exactly the false rigor the circuits comment
+   * above already warns against.
+   */
+  area?: { lat: number; lon: number; radiusMeters: number };
 }
 
 /** Cities with real researched entries. Anything else shown in the filter is "em breve". */
