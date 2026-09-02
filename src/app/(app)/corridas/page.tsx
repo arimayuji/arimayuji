@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { listUpcomingCityRaces, type CityRace } from "@/lib/cityRaces";
 import { useHeaderClose } from "../app-shell";
-import { Card, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, delay, EmptyState, NoticeBadge, Screen, ScreenHeader, SPAN_COLUMNS } from "../ui";
 
 /**
  * "Calendário de corridas de rua" — a live feed of upcoming street races,
@@ -39,7 +39,7 @@ function RaceCard({ race }: { race: CityRace }) {
             href={race.registrationUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground"
+            className="pr-press shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground hover:opacity-90 active:scale-95"
           >
             Inscreva-se
           </a>
@@ -103,13 +103,13 @@ export default function CorridasPage() {
 
       <Screen>
         {load.status === "loading" && (
-          <p className="pr-enter text-center text-sm text-muted" style={delay(20)}>
+          <p className={`pr-enter text-center text-sm text-muted ${SPAN_COLUMNS}`} style={delay(20)}>
             Carregando corridas…
           </p>
         )}
 
         {load.status === "error" && (
-          <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+          <Card className={`lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
             <p className="text-sm text-muted">Não deu pra carregar o calendário agora. Tenta de novo mais tarde.</p>
           </Card>
         )}
@@ -121,17 +121,17 @@ export default function CorridasPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por nome ou cidade…"
-              className="pr-enter h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm outline-none focus:border-accent"
+              className={`pr-enter h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm outline-none focus:border-accent ${SPAN_COLUMNS}`}
               style={delay(20)}
             />
 
             {states.length > 1 && (
-              <div className="pr-enter -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" style={delay(35)}>
+              <div className={`pr-enter -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 ${SPAN_COLUMNS}`} style={delay(35)}>
                 <button
                   type="button"
                   onClick={() => setState(ALL_STATES)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
-                    state === ALL_STATES ? "bg-accent text-accent-foreground" : "bg-surface text-muted"
+                  className={`pr-press shrink-0 rounded-full px-4 py-2 text-xs font-semibold active:scale-95 ${
+                    state === ALL_STATES ? "bg-accent text-accent-foreground" : "bg-surface text-muted hover:bg-foreground/[0.04]"
                   }`}
                 >
                   Todos os estados
@@ -141,8 +141,8 @@ export default function CorridasPage() {
                     key={uf}
                     type="button"
                     onClick={() => setState(uf)}
-                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
-                      state === uf ? "bg-accent text-accent-foreground" : "bg-surface text-muted"
+                    className={`pr-press shrink-0 rounded-full px-4 py-2 text-xs font-semibold active:scale-95 ${
+                      state === uf ? "bg-accent text-accent-foreground" : "bg-surface text-muted hover:bg-foreground/[0.04]"
                     }`}
                   >
                     {uf}
@@ -153,11 +153,14 @@ export default function CorridasPage() {
 
             {filtered.length === 0 ? (
               <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
-                <p className="text-sm text-muted">
-                  {races.length === 0
-                    ? "Nenhuma corrida encontrada ainda — volta em alguns dias, a lista é atualizada toda semana."
-                    : "Nenhuma corrida bate com esse filtro."}
-                </p>
+                {races.length === 0 ? (
+                  <EmptyState
+                    title="Nenhuma corrida encontrada ainda"
+                    description="Volta em alguns dias, a lista é atualizada toda semana."
+                  />
+                ) : (
+                  <EmptyState title="Nenhuma corrida bate com esse filtro" />
+                )}
               </Card>
             ) : (
               filtered.slice(0, 100).map((race, index) => (

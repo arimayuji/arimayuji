@@ -187,18 +187,18 @@ function AlunoContent() {
               <div className="mt-3 grid grid-cols-3 gap-3">
                 <div>
                   <span className="text-[10px] uppercase tracking-wide text-muted">Distância</span>
-                  <p className="font-mono text-lg tabular-nums">
+                  <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">
                     {formatDistance(liveRun.distanceMeters, unit)}
                     <span className="ml-1 text-xs text-muted">{unitLabel(unit)}</span>
                   </p>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase tracking-wide text-muted">Tempo</span>
-                  <p className="font-mono text-lg tabular-nums">{formatElapsed(liveRun.elapsedSeconds)}</p>
+                  <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">{formatElapsed(liveRun.elapsedSeconds)}</p>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase tracking-wide text-muted">{paceLabel(unit)}</span>
-                  <p className="font-mono text-lg tabular-nums">
+                  <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">
                     {formatPace(liveRun.currentPaceSecPerKm ?? null)}
                   </p>
                 </div>
@@ -212,7 +212,7 @@ function AlunoContent() {
               <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3">
                 <div>
                   <span className="text-[10px] uppercase tracking-wide text-muted">FC</span>
-                  <p className="font-mono text-lg tabular-nums">
+                  <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">
                     {liveRun.heartRateBpm ? (
                       <>
                         {liveRun.heartRateBpm}
@@ -225,7 +225,7 @@ function AlunoContent() {
                 </div>
                 <div>
                   <span className="text-[10px] uppercase tracking-wide text-muted">Chegada prevista</span>
-                  <p className="font-mono text-lg tabular-nums">
+                  <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">
                     {formatGoalEta(liveRun.forecastSecondsRemaining ?? null)}
                   </p>
                 </div>
@@ -318,7 +318,7 @@ function AlunoContent() {
                     <button
                       type="submit"
                       disabled={postingComment === run.$id || !(commentDrafts[run.$id] ?? "").trim()}
-                      className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-40"
+                      className="pr-press shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground hover:bg-accent/90 active:scale-95 disabled:opacity-40"
                     >
                       {postingComment === run.$id ? "Enviando…" : "Enviar"}
                     </button>

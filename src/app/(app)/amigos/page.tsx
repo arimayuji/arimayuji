@@ -18,7 +18,17 @@ import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
 import { Avatar } from "../avatar";
-import { Card, CardTitle, delay, NoticeBadge, PillTabs, PreferenceToggle, Screen, ScreenHeader } from "../ui";
+import {
+  Card,
+  CardTitle,
+  delay,
+  EmptyState,
+  NoticeBadge,
+  PillTabs,
+  PreferenceToggle,
+  Screen,
+  ScreenHeader,
+} from "../ui";
 
 const RETURN_TO = "/amigos";
 
@@ -71,7 +81,10 @@ function PersonRow({
   return (
     <li className="flex items-center gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
       {linkToProfile && profile ? (
-        <Link href={`/perfil/ver?h=${profile.handle}`} className="flex min-w-0 flex-1 items-center gap-3">
+        <Link
+          href={`/perfil/ver?h=${profile.handle}`}
+          className="pr-press flex min-w-0 flex-1 items-center gap-3 hover:text-accent active:scale-[0.98]"
+        >
           {info}
         </Link>
       ) : (
@@ -334,7 +347,7 @@ export default function AmigosPage() {
             <button
               type="button"
               onClick={() => setShowAccountPrompt(true)}
-              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent"
+              className="pr-press mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent hover:bg-accent/10 active:scale-[0.98]"
             >
               Entrar
             </button>
@@ -346,7 +359,7 @@ export default function AmigosPage() {
             <CardTitle>Falta escolher seu @</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Seu @ é como as pessoas te acham aqui.{" "}
-              <Link href="/perfil" className="underline underline-offset-2 hover:text-accent">
+              <Link href="/perfil" className="pr-press underline underline-offset-2 hover:text-accent">
                 Termina de criar sua conta no Perfil
               </Link>{" "}
               pra adicionar amigos.
@@ -379,7 +392,7 @@ export default function AmigosPage() {
                 <button
                   type="submit"
                   disabled={sending || normalizeHandle(handle).length === 0}
-                  className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+                  className="pr-press mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground hover:bg-accent/90 active:scale-[0.98] disabled:opacity-60"
                 >
                   {sending ? "Enviando…" : "Enviar convite"}
                 </button>
@@ -404,7 +417,7 @@ export default function AmigosPage() {
                 <button
                   type="button"
                   onClick={reload}
-                  className="mt-3 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-accent"
+                  className="pr-press mt-3 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-accent active:scale-95"
                 >
                   Tentar de novo
                 </button>
@@ -423,9 +436,10 @@ export default function AmigosPage() {
                 connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : incoming.length === 0 && outgoing.length === 0 ? (
-                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
-                    Nenhum convite esperando resposta — enviados ou recebidos.
-                  </p>
+                  <EmptyState
+                    title="Nenhum convite esperando resposta"
+                    description="Enviados ou recebidos."
+                  />
                 ) : (
                   <div className="flex flex-col gap-6">
                     {incoming.length > 0 && (
@@ -446,7 +460,7 @@ export default function AmigosPage() {
                                     "accept",
                                   )
                                 }
-                                className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+                                className="pr-press rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground hover:bg-accent/90 active:scale-95 disabled:opacity-60"
                               >
                                 {busyId === connection.friendship.$id && busyAction === "accept"
                                   ? "Aceitando…"
@@ -462,7 +476,7 @@ export default function AmigosPage() {
                                     "decline",
                                   )
                                 }
-                                className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60"
+                                className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad active:scale-95 disabled:opacity-60"
                               >
                                 {busyId === connection.friendship.$id && busyAction === "decline"
                                   ? "Recusando…"
@@ -501,19 +515,7 @@ export default function AmigosPage() {
                 (connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : friends.length === 0 ? (
-                  <div className="py-2 text-center">
-                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-                      <img
-                        src="/amigos-empty.png"
-                        alt="Ilustração de dois amigos correndo juntos"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      Nenhum amigo ainda. Adicione pelo @ acima.
-                    </p>
-                  </div>
+                  <EmptyState title="Nenhum amigo ainda" description="Adicione pelo @ acima." />
                 ) : (
                   <ul className="flex flex-col gap-3.5">
                     {friends.map((connection) => (
@@ -561,14 +563,14 @@ function OutgoingRequestRow({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            className="pr-press rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white hover:bg-bad/90 active:scale-95 disabled:opacity-60"
           >
             {busy ? "Cancelando…" : "Confirmar"}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground"
+            className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground active:scale-95"
           >
             Voltar
           </button>
@@ -577,7 +579,7 @@ function OutgoingRequestRow({
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad"
+          className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad active:scale-95"
         >
           Cancelar
         </button>
@@ -609,7 +611,7 @@ function FriendRow({
       {live && !confirming && (
         <Link
           href={`/amigos/ao-vivo?id=${connection.otherId}`}
-          className="flex items-center gap-1.5 self-center rounded-full border border-good/30 bg-good/10 px-3 py-1.5 text-xs font-medium text-good"
+          className="pr-press flex items-center gap-1.5 self-center rounded-full border border-good/30 bg-good/10 px-3 py-1.5 text-xs font-medium text-good hover:bg-good/15 active:scale-95"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden="true" />
           Ao vivo
@@ -618,7 +620,7 @@ function FriendRow({
       {!live && nearby && !confirming && (
         <Link
           href="/run"
-          className="flex items-center gap-1.5 self-center rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent"
+          className="pr-press flex items-center gap-1.5 self-center rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/15 active:scale-95"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
           Por perto agora
@@ -630,14 +632,14 @@ function FriendRow({
             type="button"
             disabled={busy}
             onClick={onRemove}
-            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            className="pr-press rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white hover:bg-bad/90 active:scale-95 disabled:opacity-60"
           >
             {busy ? "Desfazendo…" : "Confirmar"}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground"
+            className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground active:scale-95"
           >
             Voltar
           </button>
@@ -646,7 +648,7 @@ function FriendRow({
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad"
+          className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad active:scale-95"
         >
           Desfazer
         </button>

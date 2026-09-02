@@ -51,12 +51,12 @@ export function PreferenceToggle({
         <span className="mt-0.5 block text-xs text-muted">{hint}</span>
       </span>
       <span
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+        className={`pr-press relative h-6 w-11 shrink-0 rounded-full ${
           checked ? "bg-accent" : "bg-surface"
         } border border-border`}
       >
         <span
-          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-background transition-transform ${
+          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-background transition-transform duration-300 [transition-timing-function:var(--ease-spring)] ${
             checked ? "translate-x-[22px]" : "translate-x-0.5"
           }`}
         />
@@ -86,7 +86,7 @@ export function ToggleChip({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`flex-1 rounded-full border px-3 py-2 text-xs font-semibold transition-colors active:scale-95 ${
+      className={`pr-press flex-1 rounded-full border px-3 py-2 text-xs font-semibold active:scale-95 ${
         checked ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
       }`}
     >
@@ -110,7 +110,7 @@ export function SegmentedButton({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`min-h-12 min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm font-medium transition-colors active:scale-95 ${
+      className={`pr-press min-h-12 min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm font-medium active:scale-95 ${
         selected
           ? "border-accent bg-accent text-accent-foreground"
           : "border-border bg-background text-foreground hover:border-accent"
@@ -160,7 +160,7 @@ export function PillTabs<T extends string>({
     <div className="relative flex gap-1 rounded-full bg-background p-1 lg:gap-5 lg:rounded-none lg:border-b lg:border-border lg:bg-transparent lg:p-0">
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 rounded-full bg-accent transition-transform duration-200 ease-out lg:hidden"
+        className="absolute inset-y-0 left-0 rounded-full bg-accent transition-transform duration-300 [transition-timing-function:var(--ease-spring)] lg:hidden"
         style={{
           width: `calc((100% - ${(tabs.length - 1) * gapRem}rem) / ${tabs.length})`,
           transform: `translateX(calc(${activeIndex} * 100% + ${activeIndex * gapRem}rem))`,
@@ -171,7 +171,7 @@ export function PillTabs<T extends string>({
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`relative z-10 h-9 flex-1 rounded-full text-xs font-bold transition-colors active:scale-95 lg:h-auto lg:flex-none lg:rounded-none lg:border-b-2 lg:pb-2.5 lg:text-sm lg:font-semibold lg:active:scale-100 ${
+          className={`pr-press relative z-10 h-9 flex-1 rounded-full text-xs font-bold active:scale-95 lg:h-auto lg:flex-none lg:rounded-none lg:border-b-2 lg:pb-2.5 lg:text-sm lg:font-semibold lg:active:scale-100 ${
             active === tab.id
               ? "text-accent-foreground lg:border-accent lg:text-accent"
               : "text-muted lg:border-transparent lg:hover:text-foreground"
@@ -211,8 +211,52 @@ export function NoticeBadge({ children, className = "" }: { children: ReactNode;
  * and on any narrow browser window; nothing about the default (non-wide)
  * path changes for the ~30 other screens that don't pass it.
  */
-const SCREEN_WIDTH = "max-w-md";
+const SCREEN_WIDTH = "max-w-md md:max-w-2xl lg:max-w-6xl";
 const SCREEN_WIDTH_WIDE = "max-w-md lg:max-w-6xl";
+
+/**
+ * The desktop surface stopped being one tall phone-width column.
+ *
+ * Every screen used to clamp to `max-w-md` at every width, so a 1440px
+ * browser showed a ~450px ribbon of content with two thirds of the window
+ * empty on either side — the single loudest "this is a phone app someone
+ * opened on a laptop" tell left in the product, and called out directly
+ * ("não quero conteúdo todo em uma coluna só", 2026-09-02).
+ *
+ * CSS multi-column rather than a grid, deliberately: these screens are a
+ * stack of independent sections of wildly different heights (a two-line
+ * toggle next to a chart next to a list of twelve rows), and a grid's rows
+ * would leave a hole beside every short cell. Columns flow content instead,
+ * so both columns end level with no per-section span markup to maintain —
+ * which also means a screen author adding a new section gets the layout for
+ * free instead of having to think about which cell it lands in.
+ *
+ * `break-inside-avoid` is what keeps a card from being sliced across the
+ * column boundary; the bottom margin on children replaces the flex `gap`
+ * that no longer applies once the container stops being a flex column.
+ */
+const SCREEN_COLUMNS =
+  "lg:block lg:columns-2 lg:gap-x-8 lg:[&>*]:mb-4 lg:[&>*]:break-inside-avoid " +
+  // A screen showing exactly one thing — an empty state, a loading skeleton,
+  // a "not found" — has nothing to balance, and leaving that single card in
+  // the left half with a bare right half reads as a broken page rather than
+  // a deliberate one. `:only-child` catches every such case structurally,
+  // so no screen has to remember to opt out by hand.
+  "lg:[&>*:only-child]:[column-span:all]";
+
+/**
+ * Put on a direct child of `Screen` that must run the full width instead of
+ * being squeezed into one column — a page-level filter/toolbar row, a wide
+ * table, a chart or map whose whole point is horizontal room. Anything that
+ * scrolls sideways especially: a chip row clipped at a column boundary
+ * reads as broken rather than scrollable.
+ *
+ * `column-span: all` breaks the flow at that point (content above it
+ * balances across both columns, the spanning element runs full width, then
+ * columns resume), which is exactly the behaviour a toolbar wants and the
+ * reason this is deliberately not applied to ordinary cards.
+ */
+export const SPAN_COLUMNS = "lg:[column-span:all]";
 /**
  * A third option besides the phone-narrow default and the `wide` dashboard
  * grid: a moderate reading width that, critically, drops the `mx-auto`
@@ -236,7 +280,7 @@ const SCREEN_WIDTH_WIDE = "max-w-md lg:max-w-6xl";
  * the middle" note above, since this stays a single centered column the
  * whole way, just a wider one.
  */
-const SCREEN_WIDTH_PANEL = "max-w-md md:max-w-xl lg:mx-0 lg:max-w-2xl";
+const SCREEN_WIDTH_PANEL = "max-w-md md:max-w-xl lg:mx-0 lg:max-w-5xl";
 
 export function ScreenHeader({
   title,
@@ -286,27 +330,62 @@ export function ScreenHeader({
     >
       <div className={`mx-auto w-full ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH}`}>
         <div className={`flex flex-wrap items-center gap-3 ${hideTitle ? "justify-end" : "justify-between"}`}>
-          {!hideTitle && <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance">{title}</h1>}
+          {!hideTitle && (
+            // Two different type systems, on purpose. Mobile keeps the
+            // condensed display face (Oswald, via `font-mono`) with positive
+            // tracking — that's the app's own identity in your hand. Desktop
+            // switches to the text face at a larger size with *negative*
+            // tracking and tighter leading, which is the rule Apple applies
+            // to every optical size: letters read further apart as they grow,
+            // so large text has to be tightened to keep its colour even.
+            // Oswald's own wide tracking at 2xl reads as a poster headline
+            // sitting on top of a data dashboard. Numerals stay Oswald
+            // everywhere (see `Stat`) — that's the part that's actually brand.
+            <h1 className="font-mono text-2xl font-semibold tracking-wide text-balance lg:font-sans lg:text-[28px] lg:leading-[1.15] lg:font-semibold lg:tracking-[-0.021em]">
+              {title}
+            </h1>
+          )}
           {badge}
         </div>
         {subtitle && (
-          <p className="mt-2 text-sm leading-relaxed text-muted text-pretty">{subtitle}</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted text-pretty lg:mt-1.5 lg:tracking-[-0.005em]">{subtitle}</p>
         )}
       </div>
     </header>
   );
 }
 
-/** Standard content column for every app screen: one max-width, one gutter — see `wide`'s own comment above `SCREEN_WIDTH`, and `panel`'s above `SCREEN_WIDTH_PANEL`. `wide` and `panel` are mutually exclusive; `wide` wins if both are somehow passed. */
+/**
+ * Standard content area for every app screen: one max-width, one gutter, and
+ * — at `lg:` — two columns instead of a phone-width ribbon (see
+ * `SCREEN_COLUMNS`). `wide` and `panel` are mutually exclusive; `wide` wins
+ * if both are somehow passed.
+ */
 export function Screen({
   children,
   wide = false,
   panel = false,
+  singleColumn = false,
 }: {
   children: ReactNode;
   wide?: boolean;
   panel?: boolean;
+  /**
+   * Opts out of the two-column desktop flow, keeping one column at every
+   * width. For content whose order is the point and whose items are meant to
+   * be read in sequence — a chronological feed, a step-by-step flow — where
+   * splitting into columns would ask someone to read down one side and jump
+   * back up. Never a way to avoid thinking about the desktop layout: a
+   * screen that's just a stack of independent sections belongs in columns.
+   * Ignored when `wide` is set, since those screens lay themselves out.
+   */
+  singleColumn?: boolean;
 }) {
+  // `wide` screens build their own desktop layout internally
+  // (plan-dashboard.tsx, treinador/sala), so they must stay a plain flex
+  // column here — flowing them through `columns` would slice a dashboard
+  // that already knows how it wants to be arranged.
+  const columns = !wide && !singleColumn ? SCREEN_COLUMNS : "";
   return (
     <main className="flex flex-1 flex-col px-5 pb-10">
       <div
@@ -314,7 +393,7 @@ export function Screen({
         // sections on the native app's own touch-sized cards; lg:gap-4 pins
         // desktop back to its already-tuned dense-panel spacing (plan-dashboard.tsx,
         // treinador/sala) so this only affects the native/narrow surface.
-        className={`mx-auto flex w-full flex-1 flex-col gap-5 lg:gap-4 ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH}`}
+        className={`mx-auto flex w-full flex-1 flex-col gap-5 lg:gap-4 ${wide ? SCREEN_WIDTH_WIDE : panel ? SCREEN_WIDTH_PANEL : SCREEN_WIDTH} ${columns}`}
       >
         {children}
       </div>
@@ -362,8 +441,96 @@ export function Card({
 export function CardTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-2 lg:mb-2.5">
-      <h2 className="text-sm font-semibold tracking-wide">{children}</h2>
+      {/* Section headings on the desktop surface lose the extra tracking for
+          the same optical-size reason `ScreenHeader` does — at this size the
+          job is a crisp label, not a spaced-out caption. */}
+      <h2 className="text-sm font-semibold tracking-wide lg:tracking-[-0.006em]">{children}</h2>
       {aside}
+    </div>
+  );
+}
+
+/**
+ * A section's subject, as a row of keywords instead of a paragraph.
+ *
+ * Most sections in this app carried an explanatory sentence or two under the
+ * title — fine on a phone you read one card at a time, but on a desktop
+ * screen showing a dozen sections at once it turns into a wall of prose
+ * nobody reads ("vamos colocar labels nas seções ao invés de jogar muito
+ * texto bruto", 2026-09-02). Keywords carry the same "what is this" in a
+ * shape you scan rather than read.
+ *
+ * Never a replacement for text that is load-bearing: a consent explanation,
+ * a privacy disclosure, an honesty disclaimer ("números inventados", "não é
+ * recomendação médica"), or an error telling someone what actually broke.
+ * Those say something a keyword can't, and this app's whole posture depends
+ * on them staying legible — see SOCIAL-CONTEXT.md.
+ */
+export function Keywords({ items, className = "" }: { items: readonly string[]; className?: string }) {
+  if (items.length === 0) return null;
+  return (
+    <ul className={`flex flex-wrap gap-1.5 ${className}`}>
+      {items.map((item) => (
+        <li
+          key={item}
+          className="rounded-full border border-border px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-muted uppercase lg:rounded-md"
+        >
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The one empty state the product uses — a screen with nothing on it yet
+ * (no friends, no saved routes, no runs), never an error or a failed load.
+ * That distinction is the whole point: the horse is disappointed that
+ * there's nothing here *yet*, which is honest for an empty shelf and would
+ * be gaslighting for a request that actually failed.
+ *
+ * The illustration is masked rather than drawn: `cavalo-triste.svg` is pure
+ * line art, so painting it through a CSS mask lets it take `currentColor`
+ * (here a soft muted tint) instead of sitting on the page as a hard black
+ * drawing that outweighs the text it's supporting.
+ */
+export function EmptyState({
+  title,
+  description,
+  action,
+  className = "",
+}: {
+  title: string;
+  description?: ReactNode;
+  /** Optional call to action — the one thing that would fill this screen. */
+  action?: ReactNode;
+  className?: string;
+}) {
+  const maskUrl = "url(/empty/cavalo-triste.svg)";
+  return (
+    <div className={`flex flex-col items-center px-4 py-8 text-center lg:py-10 ${className}`}>
+      <span
+        aria-hidden="true"
+        // Native `aspect-ratio` off the artwork's own viewBox (754×695), so
+        // the mask never letterboxes inside a square box.
+        className="block w-32 bg-muted/40 lg:w-36"
+        style={{
+          aspectRatio: "754 / 695",
+          maskImage: maskUrl,
+          WebkitMaskImage: maskUrl,
+          maskRepeat: "no-repeat",
+          WebkitMaskRepeat: "no-repeat",
+          maskPosition: "center",
+          WebkitMaskPosition: "center",
+          maskSize: "contain",
+          WebkitMaskSize: "contain",
+        }}
+      />
+      <p className="mt-5 text-sm font-semibold lg:tracking-[-0.006em]">{title}</p>
+      {description && (
+        <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted text-pretty">{description}</p>
+      )}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   );
 }

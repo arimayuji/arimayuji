@@ -49,7 +49,7 @@ import { AchievementReveal } from "../../achievement-reveal";
 import { PrBadge } from "../../pr-badge";
 import { RouteReplay } from "../../route-replay";
 import { StatIconBadge, type StatIconKey } from "../../stat-icon-badge";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader } from "../../ui";
+import { Card, CardTitle, delay, Keywords, NoticeBadge, Screen, ScreenHeader, SPAN_COLUMNS } from "../../ui";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   weekday: "long",
@@ -229,7 +229,7 @@ function StatQuadrant({
         )}
       </div>
       <p
-        className={`${flame ? "text-flame" : "text-metal"} mt-1.5 truncate font-mono text-lg tabular-nums`}
+        className={`${flame ? "text-flame" : "text-metal"} mt-1.5 truncate font-mono text-lg tabular-nums lg:tracking-[-0.01em]`}
       >
         {value}
         {unit && <span className="ml-1 text-xs text-muted">{unit}</span>}
@@ -383,8 +383,8 @@ function SplitsTable({
               key={option}
               type="button"
               onClick={() => setMetric(option)}
-              className={`rounded-full px-2.5 py-1 font-semibold transition-colors ${
-                metric === option ? "bg-accent text-accent-foreground" : "text-muted"
+              className={`pr-press rounded-full px-2.5 py-1 font-semibold active:scale-95 ${
+                metric === option ? "bg-accent text-accent-foreground" : "text-muted hover:text-foreground"
               }`}
             >
               {option === "pace" ? "Pace" : "Elevação"}
@@ -691,7 +691,7 @@ export function RunDetail({ id }: { id: string }) {
   if (load.status === "loading") {
     return (
       <Screen>
-        <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <div className="h-48 rounded-xl bg-border/70" />
         </Card>
       </Screen>
@@ -701,14 +701,14 @@ export function RunDetail({ id }: { id: string }) {
   if (load.status === "not-found") {
     return (
       <Screen>
-        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <CardTitle>Corrida não encontrada</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Esse registro não existe mais neste aparelho — pode já ter sido excluído.
           </p>
           <Link
             href="/perfil?tab=progresso"
-            className="mt-4 flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
+            className="pr-press mt-4 flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground active:scale-[0.98]"
           >
             Voltar pro progresso
           </Link>
@@ -853,14 +853,14 @@ export function RunDetail({ id }: { id: string }) {
             <Link
               href={`/run?repeatRunId=${run.id}`}
               aria-label="Repetir essa corrida"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:text-accent"
+              className="pr-press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:border-accent hover:text-accent active:scale-95"
             >
               <RepeatIcon />
             </Link>
             <Link
               href={`/compartilhar?run=${run.id}`}
               aria-label="Compartilhar essa corrida"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:text-accent"
+              className="pr-press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:border-accent hover:text-accent active:scale-95"
             >
               <ShareIcon />
             </Link>
@@ -873,7 +873,7 @@ export function RunDetail({ id }: { id: string }) {
             element — the map reads better full-bleed than boxed in with
             everything else on the page, so it's the one thing here that
             deliberately breaks out of the shared content column. */}
-        <div className="pr-enter -mx-5" style={delay(20)}>
+        <div className={`pr-enter -mx-5 ${SPAN_COLUMNS}`} style={delay(20)}>
           <RouteReplay points={run.points} unit={unit} rounded={false} />
         </div>
 
@@ -881,18 +881,18 @@ export function RunDetail({ id }: { id: string }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <span className="text-[11px] uppercase tracking-wide text-muted">Distância</span>
-              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums">
+              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums lg:tracking-[-0.02em]">
                 {formatDistance(run.distanceMeters, unit)}
                 <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
               </p>
             </div>
             <div>
               <span className="text-[11px] uppercase tracking-wide text-muted">Tempo</span>
-              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums">{formatElapsed(seconds)}</p>
+              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums lg:tracking-[-0.02em]">{formatElapsed(seconds)}</p>
             </div>
             <div>
               <span className="text-[11px] uppercase tracking-wide text-muted">{paceLabel(unit)}</span>
-              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums">
+              <p className="text-metal mt-0.5 font-mono text-2xl tabular-nums lg:tracking-[-0.02em]">
                 {formatAveragePace(run.distanceMeters, seconds, unit)}
               </p>
             </div>
@@ -929,7 +929,7 @@ export function RunDetail({ id }: { id: string }) {
                   <button
                     type="button"
                     onClick={() => setElevationRetryToken((token) => token + 1)}
-                    className="mt-1.5 text-left text-xs font-medium text-accent"
+                    className="pr-press mt-1.5 text-left text-xs font-medium text-accent hover:opacity-80 active:scale-95"
                   >
                     Indisponível — tentar de novo
                   </button>
@@ -967,7 +967,7 @@ export function RunDetail({ id }: { id: string }) {
           {matchedPlace ? (
             <Link
               href={`/lugares/${matchedPlace.id}`}
-              className="mt-1 inline-block text-sm font-medium text-accent underline underline-offset-2"
+              className="pr-press mt-1 inline-block text-sm font-medium text-accent underline underline-offset-2 hover:opacity-80"
             >
               {matchedPlace.name}
             </Link>
@@ -984,13 +984,13 @@ export function RunDetail({ id }: { id: string }) {
                   onChange={(event) => setPlaceNameInput(event.target.value)}
                   placeholder="Ex.: Parque tal, bairro tal…"
                   maxLength={60}
-                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                  className="pr-press min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                 />
                 <button
                   type="button"
                   disabled={savingPlaceName || placeNameInput.trim() === savedPlaceName}
                   onClick={() => void handleSavePlaceName()}
-                  className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent disabled:opacity-60"
+                  className="pr-press shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent active:scale-95 disabled:opacity-60"
                 >
                   {savingPlaceName ? "Salvando…" : "Salvar"}
                 </button>
@@ -1001,10 +1001,7 @@ export function RunDetail({ id }: { id: string }) {
 
         <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(87)}>
           <CardTitle>Trilha sonora</CardTitle>
-          <p className="text-xs leading-relaxed text-muted text-pretty">
-            Anexa a música ou playlist que tocou nessa corrida, pra lembrar depois o que rolou —
-            fica salva na corrida, com ou sem card pra postar.
-          </p>
+          <Keywords items={["música ou playlist", "fica salva na corrida", "pra lembrar depois"]} />
 
           {manualTracks.length > 0 && (
             <ul className="mt-3 flex flex-col gap-1.5">
@@ -1024,7 +1021,7 @@ export function RunDetail({ id }: { id: string }) {
                     type="button"
                     onClick={() => void handleRemoveTrack(t)}
                     aria-label={`Remover ${t.name}`}
-                    className="shrink-0 rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad"
+                    className="pr-press shrink-0 rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad active:scale-95"
                   >
                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M6 6l12 12M18 6L6 18" />
@@ -1041,12 +1038,12 @@ export function RunDetail({ id }: { id: string }) {
               value={musicQuery}
               onChange={(event) => setMusicQuery(event.target.value)}
               placeholder="nome da música ou artista"
-              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+              className="pr-press min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
             />
             <button
               type="submit"
               disabled={musicSearching || !musicQuery.trim()}
-              className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent disabled:opacity-60"
+              className="pr-press shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent active:scale-95 disabled:opacity-60"
             >
               {musicSearching ? "Buscando…" : "Buscar"}
             </button>
@@ -1067,7 +1064,7 @@ export function RunDetail({ id }: { id: string }) {
                   <button
                     type="button"
                     onClick={() => void handleAddManualTrack(candidate)}
-                    className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-sm hover:bg-background"
+                    className="pr-press flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-sm hover:bg-background active:scale-[0.98]"
                   >
                     {candidate.artworkUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -1164,7 +1161,7 @@ export function RunDetail({ id }: { id: string }) {
                       type="button"
                       disabled={sent || sharingId === connection.otherId}
                       onClick={() => handleShareWithCoach(connection.otherId)}
-                      className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-semibold disabled:opacity-60 ${
+                      className={`pr-press shrink-0 rounded-full px-3.5 py-2 text-xs font-semibold hover:opacity-90 active:scale-95 disabled:opacity-60 ${
                         sent ? "bg-good/15 text-good" : "bg-accent text-accent-foreground"
                       }`}
                     >
@@ -1189,7 +1186,7 @@ export function RunDetail({ id }: { id: string }) {
               onChange={(e) => setCaption(e.target.value)}
               placeholder={captionPlaceholder}
               maxLength={140}
-              className="mb-3 w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm outline-none focus:border-accent"
+              className="pr-press mb-3 w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm outline-none focus:border-accent"
             />
             <div className="mb-3 flex items-center gap-2.5">
               <input
@@ -1208,7 +1205,7 @@ export function RunDetail({ id }: { id: string }) {
                     type="button"
                     onClick={handleRemovePostPhoto}
                     aria-label="Remover foto"
-                    className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bad text-white"
+                    className="pr-press absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bad text-white hover:opacity-90 active:scale-95"
                   >
                     <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M6 6l12 12M18 6 6 18" />
@@ -1218,7 +1215,7 @@ export function RunDetail({ id }: { id: string }) {
               ) : (
                 <label
                   htmlFor={postPhotoInputId}
-                  className="flex items-center gap-2 rounded-xl border border-border px-3.5 py-2.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+                  className="pr-press flex items-center gap-2 rounded-xl border border-border px-3.5 py-2.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent active:scale-95"
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
@@ -1232,7 +1229,7 @@ export function RunDetail({ id }: { id: string }) {
               type="button"
               disabled={sharingFriends}
               onClick={() => void handleToggleFriendsShare()}
-              className={`flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-60 ${
+              className={`pr-press flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold active:scale-[0.98] disabled:opacity-60 ${
                 friendsShared ? "bg-good/15 text-good" : "border border-border text-foreground hover:border-accent"
               }`}
             >
@@ -1247,13 +1244,10 @@ export function RunDetail({ id }: { id: string }) {
 
         <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(175)}>
           <CardTitle>Vídeo sincronizado</CardTitle>
-          <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-            Gravou essa corrida por fora (óculos, câmera no peito)? Sobrepõe ritmo, distância e tempo
-            em cima do vídeo, sincronizado com o que o GPS registrou.
-          </p>
+          <Keywords className="mb-3" items={["vídeo de fora", "ritmo e distância", "sincronizado ao gps"]} />
           <Link
             href={`/historico/video?run=${run.id}`}
-            className="flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-semibold hover:border-accent"
+            className="pr-press flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-semibold hover:border-accent active:scale-[0.98]"
           >
             Sincronizar vídeo
           </Link>
@@ -1268,7 +1262,7 @@ export function RunDetail({ id }: { id: string }) {
                   type="button"
                   onClick={() => setConfirmingDelete(false)}
                   disabled={deleting}
-                  className="rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                  className="pr-press rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-foreground/[0.04] active:scale-95 disabled:opacity-50"
                 >
                   Cancelar
                 </button>
@@ -1276,7 +1270,7 @@ export function RunDetail({ id }: { id: string }) {
                   type="button"
                   onClick={() => void handleDelete()}
                   disabled={deleting}
-                  className="rounded-full bg-bad px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                  className="pr-press rounded-full bg-bad px-3 py-2 text-xs font-semibold text-white hover:opacity-90 active:scale-95 disabled:opacity-50"
                 >
                   {deleting ? "Excluindo…" : "Excluir"}
                 </button>
@@ -1286,7 +1280,7 @@ export function RunDetail({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-bad py-3 text-sm font-semibold text-white"
+              className="pr-press flex w-full items-center justify-center gap-2 rounded-xl bg-bad py-3 text-sm font-semibold text-white hover:opacity-90 active:scale-[0.98]"
             >
               <TrashIcon />
               Excluir corrida
@@ -1296,7 +1290,7 @@ export function RunDetail({ id }: { id: string }) {
 
         <Link
           href="/perfil?tab=progresso"
-          className="pr-enter flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
+          className="pr-enter pr-press flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
           style={delay(210)}
         >
           Voltar pro progresso

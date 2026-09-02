@@ -82,7 +82,7 @@ export function DistanceTileGrid({
                 onSelect(option.meters);
               }}
               aria-pressed={isSelected}
-              className={`flex h-16 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${
+              className={`pr-press flex h-16 flex-col items-center justify-center gap-0.5 rounded-xl border active:scale-95 ${
                 isSelected
                   ? "border-transparent bg-accent text-accent-foreground"
                   : "border-border bg-background text-foreground"
@@ -97,7 +97,7 @@ export function DistanceTileGrid({
           type="button"
           onClick={() => setCustomOpen(true)}
           aria-pressed={customSelected}
-          className={`col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-xl border transition-colors ${
+          className={`pr-press col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-xl border active:scale-95 ${
             customSelected
               ? "border-transparent bg-accent text-accent-foreground"
               : "border-border bg-background text-foreground"

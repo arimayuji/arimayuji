@@ -68,7 +68,7 @@ function TopGroupTeaser({ group, unit }: { group: MatchedRunGroup; unit: Distanc
   return (
     <Link
       href={`/progresso/trajeto?anchor=${group.anchorRunId}`}
-      className="-mx-1 flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-background"
+      className="pr-press -mx-1 flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-background active:scale-[0.98]"
     >
       <RouteThumb points={last.run.points} />
       <div className="min-w-0 flex-1">

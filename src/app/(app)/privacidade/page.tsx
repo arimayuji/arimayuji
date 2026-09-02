@@ -149,7 +149,7 @@ export default function PrivacidadePage() {
               href="https://sketchfab.com/3d-models/running-shoe-759202749ca548c09d7cad02046588d8"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-accent"
+              className="pr-press underline underline-offset-2 hover:text-accent"
             >
               &quot;Running Shoe&quot;
             </a>{" "}
@@ -158,7 +158,7 @@ export default function PrivacidadePage() {
               href="https://sketchfab.com/shyambhanushali3"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-accent"
+              className="pr-press underline underline-offset-2 hover:text-accent"
             >
               shyambhanushali3
             </a>
@@ -167,7 +167,7 @@ export default function PrivacidadePage() {
               href="http://creativecommons.org/licenses/by/4.0/"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-accent"
+              className="pr-press underline underline-offset-2 hover:text-accent"
             >
               CC BY 4.0
             </a>{" "}
@@ -191,7 +191,7 @@ export default function PrivacidadePage() {
 
         <p className="pr-enter text-center text-xs leading-relaxed text-muted text-pretty" style={delay(240)}>
           Dúvida sobre privacidade? Escreva pra{" "}
-          <a href="mailto:contato@xanthus.app.br" className="underline underline-offset-2 hover:text-accent">
+          <a href="mailto:contato@xanthus.app.br" className="pr-press underline underline-offset-2 hover:text-accent">
             contato@xanthus.app.br
           </a>
           .

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CITIES_WITH_PLACES, getPlacesByCity } from "@/lib/places";
 import { useHeaderClose } from "../app-shell";
-import { Card, delay, NoticeBadge, Screen, ScreenHeader } from "../ui";
+import { Card, delay, NoticeBadge, Screen, ScreenHeader, SPAN_COLUMNS } from "../ui";
 import { PlaceCard } from "./place-card";
 
 /** Shown in the city picker so someone outside São Paulo sees the feature exists, not that it's broken. */
@@ -61,8 +61,8 @@ export default function LugaresPage() {
       />
 
       <Screen>
-        <Link href="/corridas" className="pr-enter block" style={delay(10)}>
-          <Card className="flex items-center justify-between gap-3 lg:rounded-none lg:border-0 lg:border-b lg:border-border lg:bg-transparent lg:p-0 lg:pb-4 lg:shadow-none">
+        <Link href="/corridas" className="pr-enter pr-press block hover:bg-foreground/[0.04]" style={delay(10)}>
+          <Card className="pr-press flex items-center justify-between gap-3 active:scale-[0.98] lg:rounded-none lg:border-0 lg:border-b lg:border-border lg:bg-transparent lg:p-0 lg:pb-4 lg:shadow-none">
             <div>
               <p className="text-sm font-semibold">Corridas de rua na sua cidade</p>
               <p className="mt-0.5 text-xs text-muted">Calendário de provas abertas, atualizado toda semana</p>
@@ -73,8 +73,8 @@ export default function LugaresPage() {
           </Card>
         </Link>
 
-        <Link href="/rotas" className="pr-enter block" style={delay(15)}>
-          <Card className="flex items-center justify-between gap-3 lg:rounded-none lg:border-0 lg:border-b lg:border-border lg:bg-transparent lg:p-0 lg:pb-4 lg:shadow-none">
+        <Link href="/rotas" className="pr-enter pr-press block hover:bg-foreground/[0.04]" style={delay(15)}>
+          <Card className="pr-press flex items-center justify-between gap-3 active:scale-[0.98] lg:rounded-none lg:border-0 lg:border-b lg:border-border lg:bg-transparent lg:p-0 lg:pb-4 lg:shadow-none">
             <div>
               <p className="text-sm font-semibold">Suas rotas desenhadas</p>
               <p className="mt-0.5 text-xs text-muted">Desenhe um trajeto no mapa e compartilhe com amigos</p>
@@ -85,13 +85,13 @@ export default function LugaresPage() {
           </Card>
         </Link>
 
-        <div className="pr-enter -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" style={delay(20)}>
+        <div className={`pr-enter -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 ${SPAN_COLUMNS}`} style={delay(20)}>
           {CITIES_WITH_PLACES.map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setCity(c)}
-              className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
+              className={`pr-press shrink-0 rounded-full px-4 py-2 text-xs font-semibold active:scale-95 ${
                 city === c ? "bg-accent text-accent-foreground" : "bg-surface text-muted"
               }`}
             >
@@ -109,13 +109,13 @@ export default function LugaresPage() {
           ))}
         </div>
 
-        <div className="pr-enter -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" style={delay(35)}>
+        <div className={`pr-enter -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 ${SPAN_COLUMNS}`} style={delay(35)}>
           {SORTS.map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={() => setSort(option.id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold whitespace-nowrap transition-colors ${
+              className={`pr-press flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold whitespace-nowrap active:scale-95 ${
                 sort === option.id ? "border-accent text-accent" : "border-border text-muted"
               }`}
             >

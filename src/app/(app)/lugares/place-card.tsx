@@ -35,7 +35,7 @@ function directionsUrl(place: RunningPlace): string {
 export function PlaceCard({ place }: { place: RunningPlace }) {
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-surface lg:rounded-xl lg:border-0 lg:bg-transparent">
-      <Link href={`/lugares/${place.id}`} className="block focus:outline-accent">
+      <Link href={`/lugares/${place.id}`} className="pr-press block hover:bg-foreground/[0.04] focus:outline-accent active:scale-[0.98]">
         {place.coverImage && (
           // eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway.
           <img
@@ -82,7 +82,7 @@ export function PlaceCard({ place }: { place: RunningPlace }) {
           href={directionsUrl(place)}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground"
+          className="pr-press flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-xs font-bold whitespace-nowrap text-accent-foreground hover:opacity-90 active:scale-95"
         >
           <MapPinIcon className="h-3.5 w-3.5" />
           Ir

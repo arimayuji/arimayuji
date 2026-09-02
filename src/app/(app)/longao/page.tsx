@@ -24,7 +24,7 @@ import { useShareSupport } from "@/lib/share";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
 import { ParticipantRow } from "../participant-row";
-import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader, SPAN_COLUMNS } from "../ui";
 
 const RETURN_TO = "/longao";
 
@@ -236,13 +236,13 @@ function LongaoContent() {
 
       <Screen>
         {authStatus === "loading" && (
-          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
+          <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>
           </Card>
         )}
 
         {authStatus === "signed-out" && (
-          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
+          <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(40)}>
             <CardTitle>Entra pra criar ou entrar num longão</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               O longão precisa de conta pra saber quem é amigo de quem.
@@ -250,7 +250,7 @@ function LongaoContent() {
             <button
               type="button"
               onClick={() => setShowAccountPrompt(true)}
-              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent"
+              className="pr-press mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent hover:bg-accent/[0.06] active:scale-[0.98]"
             >
               Entrar
             </button>
@@ -258,11 +258,11 @@ function LongaoContent() {
         )}
 
         {authStatus === "needs-handle" && (
-          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
+          <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(40)}>
             <CardTitle>Falta escolher seu @</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Seu @ é como as pessoas te acham aqui.{" "}
-              <Link href="/perfil" className="underline underline-offset-2 hover:text-accent">
+              <Link href="/perfil" className="pr-press underline underline-offset-2 hover:text-accent">
                 Termina de criar sua conta no Perfil
               </Link>{" "}
               pra criar ou entrar num longão.
@@ -283,7 +283,7 @@ function LongaoContent() {
 
             {activeSession ? (
               <Card
-                className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+                className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}
                 style={delay(40)}
               >
                 <CardTitle aside={activeSession.status === "closed" ? <NoticeBadge>encerrado</NoticeBadge> : undefined}>
@@ -297,7 +297,7 @@ function LongaoContent() {
                     type="button"
                     disabled={sharing}
                     onClick={() => void handleShare(activeSession.$id, activeSession.name)}
-                    className="rounded-full border border-accent px-3.5 py-2 text-xs font-semibold text-accent disabled:opacity-60"
+                    className="pr-press rounded-full border border-accent px-3.5 py-2 text-xs font-semibold text-accent hover:bg-accent/[0.06] active:scale-95 disabled:opacity-60"
                   >
                     {sharing ? "Compartilhando…" : "Compartilhar"}
                   </button>
@@ -311,7 +311,7 @@ function LongaoContent() {
                 </div>
                 <Link
                   href={`/longao/mapa?c=${activeSession.$id}`}
-                  className="mt-3 inline-block text-xs text-accent underline underline-offset-2"
+                  className="pr-press mt-3 inline-block text-xs text-accent underline underline-offset-2 hover:opacity-80 active:scale-95"
                 >
                   Ver mapa do grupo
                 </Link>
@@ -340,7 +340,7 @@ function LongaoContent() {
                     type="button"
                     disabled={leaving}
                     onClick={handleLeave}
-                    className="flex-1 rounded-full border border-border py-2.5 text-xs font-semibold text-muted hover:border-bad hover:text-bad disabled:opacity-60"
+                    className="pr-press flex-1 rounded-full border border-border py-2.5 text-xs font-semibold text-muted hover:border-bad hover:text-bad active:scale-95 disabled:opacity-60"
                   >
                     {leaving ? "Saindo…" : "Sair do longão"}
                   </button>
@@ -348,7 +348,7 @@ function LongaoContent() {
                     type="button"
                     disabled={closing || activeSession.status === "closed"}
                     onClick={handleClose}
-                    className="flex-1 rounded-full bg-bad py-2.5 text-xs font-semibold text-white disabled:opacity-60"
+                    className="pr-press flex-1 rounded-full bg-bad py-2.5 text-xs font-semibold text-white hover:opacity-90 active:scale-95 disabled:opacity-60"
                   >
                     {closing ? "Encerrando…" : "Encerrar pra todo mundo"}
                   </button>
@@ -377,7 +377,7 @@ function LongaoContent() {
                       <button
                         type="submit"
                         disabled={creating}
-                        className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+                        className="pr-press mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
                       >
                         {creating ? "Criando…" : "Criar e gerar código"}
                       </button>
@@ -398,7 +398,7 @@ function LongaoContent() {
                       <button
                         type="submit"
                         disabled={joining || !normalizeJoinCode(joinCode)}
-                        className="mt-3 min-h-12 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent disabled:opacity-60"
+                        className="pr-press mt-3 min-h-12 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent hover:bg-accent/[0.06] active:scale-[0.98] disabled:opacity-60"
                       >
                         {joining ? "Entrando…" : "Entrar"}
                       </button>
@@ -426,7 +426,7 @@ function LongaoContent() {
                             type="button"
                             disabled={openingId === session.$id}
                             onClick={() => void performJoin(session.$id, session.$id)}
-                            className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:border-accent disabled:opacity-60"
+                            className="pr-press shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:border-accent active:scale-95 disabled:opacity-60"
                           >
                             {openingId === session.$id ? "Abrindo…" : "Abrir"}
                           </button>

@@ -26,7 +26,7 @@ import type { DistanceUnit } from "@/lib/preferences";
 import { usePreferences } from "@/lib/usePreferences";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import type { WeeklyTargetKind } from "@/lib/runnerProfile";
-import { Card, CardTitle, delay, PillTabs, Stat } from "../ui";
+import { Card, CardTitle, delay, EmptyState, Keywords, PillTabs, Stat } from "../ui";
 import { PillSlider } from "../pill-slider";
 import { RunFrequencyHeatmap } from "../run-frequency-heatmap";
 import { MatchedRunsCard } from "../matched-runs-card";
@@ -155,13 +155,11 @@ function EmblemsCard() {
       style={delay(45)}
     >
       <CardTitle>Emblemas</CardTitle>
-      <Link href="/emblemas" className="flex items-center gap-3">
+      <Link href="/emblemas" className="pr-press flex items-center gap-3 hover:opacity-80 active:scale-[0.98]">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
           <EmblemsIcon className="h-5 w-5" />
         </span>
-        <p className="flex-1 text-sm leading-relaxed text-muted text-pretty">
-          Sua coleção de marcos de quilometragem — cada um escondido até você destravar e abrir.
-        </p>
+        <Keywords className="flex-1" items={["marcos de quilometragem", "escondido até destravar"]} />
         <ChevronIcon className="h-4 w-4 shrink-0 text-muted" />
       </Link>
     </Card>
@@ -284,7 +282,7 @@ function ConstancyCard({
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
+              className="pr-press rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-accent active:scale-95"
             >
               Cancelar
             </button>
@@ -292,7 +290,7 @@ function ConstancyCard({
           <button
             type="button"
             onClick={handleSaveTarget}
-            className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground"
+            className="pr-press rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground hover:bg-accent/90 active:scale-95"
           >
             Salvar meta
           </button>
@@ -308,7 +306,7 @@ function ConstancyCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-2xl font-semibold tabular-nums">
+          <p className="font-mono text-2xl font-semibold tabular-nums lg:tracking-[-0.02em]">
             {tally.met}
             <span className="text-sm text-muted"> de {tally.judged} semanas</span>
           </p>
@@ -323,7 +321,7 @@ function ConstancyCard({
             setDraftValue(target.value);
             setEditing(true);
           }}
-          className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted"
+          className="pr-press shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-foreground active:scale-95"
         >
           Editar meta
         </button>
@@ -393,11 +391,15 @@ function WeeklyVolumeChart({ weeks, unit }: { weeks: WeekBucket[]; unit: Distanc
           return (
             <div key={week.weekStart} className="flex flex-1 flex-col items-center gap-1.5">
               <div className="flex h-32 w-full items-end">
+                {/* Opacity, never `active:scale-*`, for the press state: `.pr-bar` owns this
+                    element's `transform` (its grow-in keyframe), so a scale utility would
+                    either be swallowed by that animation or clobber its resting pose. Still
+                    on `pr-press`'s shared timing, same as every other pressable here. */}
                 <button
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => setSelected(isSelected ? null : index)}
-                  className={`pr-bar w-full rounded-md transition-opacity ${isCurrent ? "bg-accent/50" : "bg-accent"} ${
+                  className={`pr-bar pr-press w-full rounded-md hover:opacity-80 active:opacity-60 ${isCurrent ? "bg-accent/50" : "bg-accent"} ${
                     selected !== null && !isSelected ? "opacity-40" : ""
                   }`}
                   style={delay(100 + index * 45, { height: `${heightPct}%` } as CSSProperties)}
@@ -587,11 +589,12 @@ function DailyVolumeChart({ runs, unit }: { runs: CompletedRun[]; unit: Distance
           return (
             <div key={day.dayStart} className="flex flex-1 flex-col items-center gap-1">
               <div className="flex h-24 w-full items-end">
+                {/* Opacity, not scale, for the press — same reason as `WeeklyVolumeChart`'s bars above. */}
                 <button
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => setSelected(isSelected ? null : index)}
-                  className={`pr-bar w-full rounded-md transition-opacity ${
+                  className={`pr-bar pr-press w-full rounded-md hover:opacity-80 active:opacity-60 ${
                     isToday ? "bg-accent/50" : day.distanceMeters > 0 ? "bg-accent" : "bg-border"
                   } ${selected !== null && !isSelected ? "opacity-40" : ""}`}
                   style={delay(180 + index * 25, { height: `${Math.max(heightPct, 4)}%` } as CSSProperties)}
@@ -676,19 +679,10 @@ export function ProgressoContent() {
   if (runs.length === 0) {
     return (
       <Card className="overflow-hidden lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-        <div className="-mx-5 -mt-5 mb-6 h-48 overflow-hidden lg:mx-0 lg:mt-0 lg:rounded-xl">
-          {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-          <img
-            src="/progresso-empty.png"
-            alt="Ilustração de pegadas numa trilha, começando uma jornada"
-            className="h-full w-full object-cover"
-          />
-        </div>
-        <CardTitle>Nada pra mostrar ainda</CardTitle>
-        <p className="text-sm leading-relaxed text-muted">
-          Assim que a primeira corrida for salva, as estatísticas de rodagem, pace e
-          frequência aparecem aqui.
-        </p>
+        <EmptyState
+          title="Nada pra mostrar ainda"
+          description="Assim que a primeira corrida for salva, as estatísticas de rodagem, pace e frequência aparecem aqui."
+        />
       </Card>
     );
   }

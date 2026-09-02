@@ -52,7 +52,7 @@ function CountdownRing({ secondsLeft, totalSeconds }: { secondsLeft: number; tot
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-mono text-4xl font-bold tabular-nums">{secondsLeft}</span>
+        <span className="font-mono text-4xl font-bold tabular-nums lg:tracking-[-0.02em]">{secondsLeft}</span>
       </div>
     </div>
   );
@@ -77,7 +77,7 @@ function IntroScreen({ routine, onStart }: { routine: WarmupRoutine; onStart: ()
       <button
         type="button"
         onClick={onStart}
-        className="w-full rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground"
+        className="pr-press w-full rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground hover:opacity-90 active:scale-[0.98]"
       >
         Começar
       </button>
@@ -109,7 +109,9 @@ function PlayerScreen({
         Passo {stepIndex + 1} de {routine.steps.length}
       </p>
       <CountdownRing secondsLeft={secondsLeft} totalSeconds={step.durationSeconds} />
-      <h2 className="mt-4 text-center font-mono text-lg font-semibold text-balance">{step.name}</h2>
+      <h2 className="mt-4 text-center font-mono text-lg font-semibold text-balance lg:leading-[1.2] lg:tracking-[-0.01em]">
+        {step.name}
+      </h2>
       <p className="mx-auto mt-2 max-w-xs text-center text-sm leading-relaxed text-muted text-pretty">{step.instruction}</p>
 
       <div className="mt-5 flex justify-center gap-1.5">
@@ -125,14 +127,14 @@ function PlayerScreen({
         <button
           type="button"
           onClick={onTogglePause}
-          className="rounded-full border border-accent bg-accent/10 px-5 py-2.5 text-xs font-semibold text-accent"
+          className="pr-press rounded-full border border-accent bg-accent/10 px-5 py-2.5 text-xs font-semibold text-accent hover:bg-accent/[0.18] active:scale-95"
         >
           {paused ? "Continuar" : "Pausar"}
         </button>
         <button
           type="button"
           onClick={onSkip}
-          className="rounded-full border border-border px-5 py-2.5 text-xs font-medium text-muted hover:border-accent hover:text-foreground"
+          className="pr-press rounded-full border border-border px-5 py-2.5 text-xs font-medium text-muted hover:border-accent hover:text-foreground active:scale-95"
         >
           Pular passo
         </button>
@@ -140,7 +142,7 @@ function PlayerScreen({
       <button
         type="button"
         onClick={onExit}
-        className="mt-4 block w-full text-center text-xs text-muted underline underline-offset-2"
+        className="pr-press mt-4 block w-full text-center text-xs text-muted underline underline-offset-2 hover:text-foreground active:scale-95"
       >
         Sair
       </button>
@@ -151,13 +153,13 @@ function PlayerScreen({
 function DoneScreen({ routine }: { routine: WarmupRoutine }) {
   return (
     <Card className="text-center lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-      <h1 className="mb-2 font-mono text-xl font-semibold">Sessão concluída</h1>
+      <h1 className="mb-2 font-mono text-xl font-semibold lg:tracking-[-0.01em]">Sessão concluída</h1>
       <p className="mb-6 text-sm text-muted">
         {routine.steps.length} passos · {formatMinSec(totalDurationSeconds(routine.steps))}
       </p>
       <Link
         href="/run"
-        className="inline-block rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
+        className="pr-press inline-block rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground hover:opacity-90 active:scale-95"
       >
         Voltar
       </Link>
@@ -246,7 +248,7 @@ export default function AquecimentoPage() {
   return (
     <>
       <ScreenHeader title={routine.title} />
-      <Screen>
+      <Screen singleColumn>
         {phase === "intro" && <IntroScreen routine={routine} onStart={handleStart} />}
         {phase === "playing" && (
           <PlayerScreen

@@ -17,7 +17,7 @@ import { formatDistanceKm } from "@/lib/tracking/geoFilter";
 import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, SegmentedButton } from "../ui";
+import { Card, CardTitle, delay, EmptyState, NoticeBadge, Screen, ScreenHeader, SegmentedButton, SPAN_COLUMNS } from "../ui";
 import { CircuitMap } from "./circuit-map";
 import { CriteriaRow } from "./criteria";
 import { RatePlaceModal } from "./rate-place-modal";
@@ -101,19 +101,10 @@ function PlaceLeaderboardSection({ placeId }: { placeId: string }) {
         <p className="text-sm leading-relaxed text-muted">Carregando ranking…</p>
       ) : visible.length === 0 ? (
         scope === "public" ? (
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
-              {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-              <img
-                src="/lugares-ranking-empty.png"
-                alt="Ilustração de uma placa de trilha num caminho vazio"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <p className="text-sm leading-relaxed text-muted text-pretty">
-              Ninguém participando ainda — seja a primeira pessoa a contar uma corrida aqui.
-            </p>
-          </div>
+          <EmptyState
+            title="Ninguém participando ainda"
+            description="Seja a primeira pessoa a contar uma corrida aqui."
+          />
         ) : (
           <p className="text-sm leading-relaxed text-muted text-pretty">
             Nenhum amigo seu participa do ranking neste lugar ainda.
@@ -233,7 +224,7 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
         </Card>
 
         {place.circuits && place.circuits.length > 0 && (
-          <div className="pr-enter" style={delay(60)}>
+          <div className={`pr-enter ${SPAN_COLUMNS}`} style={delay(60)}>
             <CardTitle>Circuitos sugeridos</CardTitle>
             <CircuitMap circuits={place.circuits} />
           </div>
@@ -271,7 +262,7 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
             {place.sources.map((source, i) => (
               <span key={source}>
                 {i > 0 && ", "}
-                <a href={source} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-accent">
+                <a href={source} target="_blank" rel="noreferrer" className="pr-press underline underline-offset-2 hover:text-accent">
                   {hostnameOf(source)}
                 </a>
               </span>
@@ -311,7 +302,7 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
             <button
               type="button"
               onClick={() => setShowRateModal(true)}
-              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent"
+              className="pr-press mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent hover:bg-accent/10 active:scale-[0.98]"
             >
               {myRating ? "Atualizar sua avaliação" : "Avaliar esse lugar"}
             </button>
@@ -320,14 +311,14 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
             <button
               type="button"
               onClick={() => setShowAccountPrompt(true)}
-              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent"
+              className="pr-press mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent hover:bg-accent/10 active:scale-[0.98]"
             >
               Avaliar esse lugar
             </button>
           )}
           {status === "needs-handle" && (
             <p className="mt-5 text-center text-xs text-muted">
-              <Link href="/perfil" className="underline underline-offset-2 hover:text-accent">
+              <Link href="/perfil" className="pr-press underline underline-offset-2 hover:text-accent">
                 Termina de criar sua conta no Perfil
               </Link>{" "}
               pra avaliar.
@@ -360,7 +351,7 @@ export function PlaceDetail({ place }: { place: RunningPlace }) {
 
         <Link
           href="/lugares"
-          className="pr-enter text-center text-xs text-muted underline underline-offset-2"
+          className="pr-enter pr-press text-center text-xs text-muted underline underline-offset-2 hover:text-foreground"
           style={delay(160)}
         >
           Voltar pra todos os lugares

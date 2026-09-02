@@ -54,14 +54,174 @@
 }
 
 /*
+ * ============================================================================
+ * Desktop web design layer (Apple-oriented)
+ * ============================================================================
+ *
+ * Everything in this block exists for the `lg:` surface — the web product a
+ * runner opens on a laptop to plan, analyse and build (see PROJECT-CONTEXT.md,
+ * "web é um produto à parte"). The native app keeps its own touch language
+ * untouched; nothing here is allowed to change how a phone renders.
+ *
+ * The reference is Apple's own interface behaviour, not Apple's *branding*:
+ * motion described as damping + response instead of duration + easing,
+ * translucent materials that say "this floats above your content", type whose
+ * tracking changes with its size, and chrome that reveals a separator only
+ * once there is actually something scrolled under it.
+ */
+:root {
+  /*
+   * Apple parameterises springs as damping ratio + response, never as a fixed
+   * duration; CSS has no springs, so this is the closest single-curve
+   * approximation of the pose the HIG treats as the default: damping 1.0,
+   * critically damped, zero overshoot.
+   *
+   * There is deliberately NO bounce/overshoot counterpart here. Apple only
+   * reaches for one when the gesture itself carried momentum (a flick, a
+   * throw, a drag release) — this product has no such interaction on the web
+   * surface today, and a token nothing uses is exactly how overshoot ends up
+   * decorating panels that merely appeared, which is what makes bounce read
+   * as dated. Add it back next to a real call site, not before.
+   *
+   * `--dur-*` mirror Apple's own response values (0.3–0.4s for a drawer/move).
+   */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-instant: 120ms;
+  --dur-fast: 200ms;
+  --dur-base: 320ms;
+
+  /*
+   * Materials. A translucent layer only means anything when real content
+   * passes under it, which is exactly what the header does on this app's
+   * contained scroller, and what the sidebar does once it expands on hover.
+   * `saturate` is what keeps colour alive through the blur instead of the
+   * washed-out grey a plain blur gives.
+   */
+  --material-blur: 24px;
+  --material-saturate: 180%;
+  --material-chrome: color-mix(in srgb, var(--background) 72%, transparent);
+  /* A separator that reads as an edge, not as a drawn line. */
+  --hairline: color-mix(in srgb, var(--border) 78%, transparent);
+
+  /* Travel for the shared `.pr-enter` entrance — see the `lg:` override below. */
+  --pr-rise: 20px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    /*
+     * A dense dashboard is something you navigate back to constantly, so its
+     * entrance should read as "settling into place", not as a slide. Same
+     * animation, a third of the travel.
+     */
+    --pr-rise: 8px;
+  }
+}
+
+/*
+ * Floating chrome (the desktop header and the hover-expanded sidebar): a real
+ * material rather than an opaque bar. Both accessibility escape hatches Apple
+ * itself honours are wired here rather than at each call site — someone who
+ * asked for less transparency or more contrast gets a solid surface, never a
+ * blurred one they have to read through.
+ */
+.material-chrome {
+  background: var(--material-chrome);
+  -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
+  backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .material-chrome {
+    background: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/*
+ * Scroll edge effect: no separator at rest, a hairline (plus the faintest
+ * lift) only once content has actually scrolled under the chrome — Apple's
+ * rule that a divider should describe a real relationship between layers
+ * instead of being painted there permanently. Driven by `data-scrolled` on
+ * the header, set from the shell's own scroll container (app-shell.tsx).
+ */
+.scroll-edge {
+  border-bottom: 1px solid transparent;
+  transition:
+    border-color var(--dur-fast) var(--ease-spring),
+    box-shadow var(--dur-fast) var(--ease-spring);
+}
+
+.scroll-edge[data-scrolled="true"] {
+  border-bottom-color: var(--hairline);
+  box-shadow: 0 1px 14px -8px rgba(20, 24, 28, 0.35);
+}
+
+/*
+ * Response: feedback belongs on pointer-*down*, not on release ("the moment
+ * lag appears, the feeling of directness falls off a cliff"). Tailwind's
+ * `active:scale-95` already does the state; this pairs it with the spring
+ * timing and a pointer-down-sized duration so every pressable thing in the
+ * product reacts with the same physics instead of each one inventing its own.
+ */
+.pr-press {
+  transition:
+    transform var(--dur-instant) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-spring),
+    border-color var(--dur-fast) var(--ease-spring),
+    color var(--dur-fast) var(--ease-spring),
+    opacity var(--dur-fast) var(--ease-spring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pr-press {
+    transition-property: background-color, border-color, color, opacity;
+  }
+}
+
+/*
+ * Keyboard focus, one ring for the whole product. A desktop surface is
+ * driven by a keyboard as much as a pointer, and the browser default outline
+ * lands differently on every control shape here (pills, capsules, squared
+ * desktop panels). `:focus-visible` only — never a ring on a plain mouse
+ * click, which is what makes people disable focus styles in the first place.
+ */
+@media (min-width: 1024px) {
+  :where(a, button, [role="switch"], [role="tab"], input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: max(6px, inherit);
+  }
+
+  /*
+   * Numerals go flat on the desktop surface. `.text-metal`'s brushed-chrome
+   * banding (see its own rule above) is a deliberate flourish on the phone,
+   * where a number is the hero of the screen; on a dashboard reading a dozen
+   * of them at once it costs contrast and legibility for decoration — the
+   * opposite of the "every element earns its place" rule this layer follows.
+   * Oswald and tabular figures stay: the typeface is the brand here, the
+   * gradient never was.
+   */
+  .text-metal {
+    background-image: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: var(--foreground);
+  }
+}
+
+/*
  * The top header is flat/neutral at every breakpoint — it used to share the
  * bottom nav's accent gradient (a "frame" of blue top and bottom around the
  * scrollable content between them), but that read as too much blue and was
  * dropped in favor of a plain bar that blends with the page. The bottom nav
  * keeps its own identity: the accent gradient on mobile/native (a phone-app
- * bar you hold in your hand, colored like the homescreen icon), flattened to
- * solid accent at `lg:` for the desktop coach sidebar (see the media query
- * below) — still Xanthus blue there, just not a gradient.
+ * bar you hold in your hand, colored like the homescreen icon), replaced at
+ * `lg:` by a translucent neutral rail for the desktop web product (see the
+ * media query below) — the solid slab of brand blue that used to run down
+ * that edge was the loudest thing on every desktop screen, competing with
+ * the content it exists to navigate.
  */
 .chrome-gradient-header {
   background: var(--background);
@@ -115,9 +275,41 @@
  */
 @media (min-width: 1024px) {
   .chrome-gradient-nav {
-    background: var(--accent);
+    /*
+     * A translucent neutral rail, not a solid accent slab. Two reasons, both
+     * Apple's: a sidebar is structural chrome, so it takes the *heavier,
+     * quieter* material and leaves colour to the one selected row (a lighter
+     * material draws attention to what's interactive); and once the rail
+     * expands on hover it genuinely floats over content, which is the only
+     * condition under which translucency means anything at all.
+     */
+    background: var(--material-chrome);
+    -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
+    backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
     border-top: none;
-    border-right: 1px solid rgba(255, 255, 255, 0.14);
+    border-right: 1px solid var(--hairline);
+  }
+
+  /*
+   * The header is the one piece of chrome real content actually scrolls
+   * beneath (the shell's scroll container is padded to start below it), so
+   * it gets the same material — plus `.scroll-edge`, which is what draws the
+   * separator, and only while there's something under it to separate from.
+   */
+  .chrome-gradient-header {
+    background: var(--material-chrome);
+    -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
+    backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
+    border-bottom: none;
+  }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-transparency: reduce) {
+  .chrome-gradient-nav,
+  .chrome-gradient-header {
+    background: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 
@@ -279,7 +471,8 @@ input[type="number"]::-webkit-inner-spin-button {
 @keyframes pr-rise {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    /* Travel is a token so the desktop surface can settle rather than slide — see `--pr-rise` at the top of this file. */
+    transform: translateY(var(--pr-rise, 20px));
   }
   to {
     opacity: 1;
@@ -622,9 +815,22 @@ input[type="number"]::-webkit-inner-spin-button {
      landing page's original pace; the app screens' `delay()` helper (see
      src/app/(app)/ui.tsx) sets a snappier one, since a card list is
      something you scan past on every navigation, not a one-time reveal. */
+  /*
+   * `backwards`, not `both`. The forwards half of `both` pins the final
+   * keyframe's `transform: none` onto the element *after* the entrance
+   * finishes, and a filled animation value beats any declared `transform` —
+   * so every `active:scale-*` press state on a card carrying `.pr-enter`
+   * silently did nothing. Dropping forwards costs nothing here: this
+   * animation ends on `opacity: 1; transform: none`, which is already the
+   * element's natural state, and `backwards` still covers the staggered
+   * delay before it starts (the reason the fill mode is here at all).
+   *
+   * Note the reveal-on-scroll rules below deliberately keep `both` — those
+   * DO have a real base state to hold (`[data-reveal] { opacity: 0 }`), so
+   * dropping forwards there would snap the section back to invisible.
+   */
   .pr-enter {
-    animation: pr-rise var(--pr-dur, 0.8s) cubic-bezier(0.22, 0.61, 0.36, 1)
-      var(--pr-delay, 0ms) both;
+    animation: pr-rise var(--pr-dur, 0.8s) var(--ease-spring) var(--pr-delay, 0ms) backwards;
   }
 
   /* Small popover-scale reveal — see `pr-panel-in`'s own comment above. */

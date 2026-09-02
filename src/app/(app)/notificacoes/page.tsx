@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useHeaderClose } from "../app-shell";
-import { delay, Screen, ScreenHeader } from "../ui";
+import { delay, EmptyState, Screen, ScreenHeader } from "../ui";
 import { useNotificationSummary } from "@/lib/notifications";
 import { markUpdateRead, wasDismissed, wasRead } from "../notifications-read-state";
 import type { FriendConnection } from "@/lib/friendships";
@@ -108,7 +108,7 @@ function NotificationCard({
   );
 
   const className =
-    "pr-enter flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none first:lg:border-t-0";
+    "pr-enter pr-press flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 text-left hover:text-accent active:scale-[0.98] lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none first:lg:border-t-0";
 
   if (external) {
     // target="_blank" (same convention as the Instagram link on /perfil,
@@ -166,7 +166,7 @@ export default function NotificacoesPage() {
                 if (update) markUpdateRead(update.versionCode);
                 setTick((t) => t + 1);
               }}
-              className="text-sm font-semibold text-accent"
+              className="pr-press text-sm font-semibold text-accent hover:text-accent/80 active:scale-95"
             >
               Marcar tudo como lido
             </button>
@@ -176,9 +176,9 @@ export default function NotificacoesPage() {
 
       <Screen>
         {total === 0 ? (
-          <p className="pr-enter py-10 text-center text-sm text-muted" style={delay(40)}>
-            Nada novo por enquanto.
-          </p>
+          <div className="pr-enter" style={delay(40)}>
+            <EmptyState title="Nada novo por enquanto." />
+          </div>
         ) : (
           <>
             {updateVisible && update && (
@@ -227,7 +227,7 @@ export default function NotificacoesPage() {
 
         <Link
           href="/perfil"
-          className="pr-enter flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
+          className="pr-enter pr-press flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground active:scale-[0.98]"
           style={delay(60 + total * 15 + 20)}
         >
           Voltar pro perfil

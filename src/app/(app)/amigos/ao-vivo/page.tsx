@@ -10,7 +10,7 @@ import { usePreferences } from "@/lib/usePreferences";
 import { formatDistance, paceLabel, unitLabel } from "@/lib/units";
 import { LiveMap } from "../../live-map";
 import { useHeaderClose } from "../../app-shell";
-import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
+import { Card, CardTitle, delay, Screen, ScreenHeader, SPAN_COLUMNS } from "../../ui";
 
 /** Same threshold `/treinador/aluno` uses — a ping older than this reads as "not really live anymore" rather than a frozen dot, most likely the app closed without a clean end. */
 const LIVE_STALE_MS = 45_000;
@@ -76,9 +76,12 @@ function AmigoAoVivoContent() {
   if (!friendId) {
     return (
       <Screen>
-        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <CardTitle>Nenhum amigo selecionado</CardTitle>
-          <Link href="/amigos" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
+          <Link
+            href="/amigos"
+            className="pr-press mt-2 inline-block text-sm text-accent underline underline-offset-2 hover:opacity-80 active:scale-95"
+          >
             Voltar pros amigos
           </Link>
         </Card>
@@ -93,7 +96,7 @@ function AmigoAoVivoContent() {
         subtitle={profile ? `@${profile.handle} · ao vivo enquanto a corrida rolar` : undefined}
       />
 
-      <Screen>
+      <Screen singleColumn>
         {liveRun && !liveStale ? (
           <>
             <div className="pr-enter overflow-hidden rounded-xl" style={delay(0)}>
@@ -112,18 +115,18 @@ function AmigoAoVivoContent() {
               <div className="mt-3 grid grid-cols-3 gap-3">
                 <div>
                   <span className="text-[10px] uppercase tracking-wide text-muted">Distância</span>
-                  <p className="font-mono text-lg tabular-nums">
+                  <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">
                     {formatDistance(liveRun.distanceMeters, unit)}
                     <span className="ml-1 text-xs text-muted">{unitLabel(unit)}</span>
                   </p>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase tracking-wide text-muted">Tempo</span>
-                  <p className="font-mono text-lg tabular-nums">{formatElapsed(liveRun.elapsedSeconds)}</p>
+                  <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">{formatElapsed(liveRun.elapsedSeconds)}</p>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase tracking-wide text-muted">{paceLabel(unit)}</span>
-                  <p className="font-mono text-lg tabular-nums">
+                  <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">
                     {formatPace(liveRun.currentPaceSecPerKm ?? null)}
                   </p>
                 </div>
@@ -151,7 +154,7 @@ function AmigoAoVivoContent() {
 
         <Link
           href="/amigos"
-          className="pr-enter text-center text-xs text-muted underline underline-offset-2"
+          className="pr-enter pr-press text-center text-xs text-muted underline underline-offset-2 hover:text-foreground active:scale-95"
           style={delay(20)}
         >
           Voltar pros amigos

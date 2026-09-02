@@ -9,6 +9,7 @@ import {
   CardTitle,
   delay,
   ExampleBadge,
+  Keywords,
   NoticeBadge,
   PreferenceToggle,
   Screen,
@@ -751,7 +752,7 @@ function CompartilharContent() {
         badge={scene ? <NoticeBadge>corrida de verdade</NoticeBadge> : <ExampleBadge>prévia estática</ExampleBadge>}
       />
 
-      <Screen>
+      <Screen singleColumn>
         <div className="pr-enter mx-auto w-full max-w-[300px]" style={delay(80)}>
           {scene ? (
             <ShareCardPreview
@@ -824,12 +825,7 @@ function CompartilharContent() {
           style={delay(185)}
         >
           <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>Sua foto ou vídeo</CardTitle>
-          <p className="text-xs leading-relaxed text-muted text-pretty">
-            Suba até {MAX_SHARE_PHOTOS} fotos ou um vídeo da sua corrida pra usar como fundo do
-            card, no lugar de um cenário desenhado — o vídeo toca em loop atrás do trajeto e dos
-            números, e 2+ fotos entram lado a lado numa grade. Um substitui o outro. Vale pros
-            templates de foto — o de música usa a capa do álbum.
-          </p>
+          <Keywords items={["fundo do card", "vídeo em loop", "grade de fotos"]} />
           <div className="mt-3 flex gap-2">
             <SegmentedButton selected={mediaPickerTab === "foto"} onClick={() => setMediaPickerTab("foto")}>
               Foto
@@ -1156,10 +1152,7 @@ function CompartilharContent() {
             <CardTitle aside={<NoticeBadge>funciona de verdade</NoticeBadge>}>
               Tênis em destaque
             </CardTitle>
-            <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-              Escolha um dos tênis que você registrou pra ele flutuar no card, na cor que você
-              cadastrou. Numa corrida que bateu recorde, a medalha entra no lugar dele.
-            </p>
+            <Keywords className="mb-3" items={["flutua no card", "na cor cadastrada", "medalha tem prioridade"]} />
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"

@@ -8,9 +8,11 @@ import {
   CardTitle,
   delay,
   ExampleBadge,
+  Keywords,
   NoticeBadge,
   Screen,
   ScreenHeader,
+  SPAN_COLUMNS,
   Stat,
 } from "../ui";
 import { GoalDatePicker } from "../date-picker";
@@ -271,9 +273,7 @@ function PaceZonesCard({ zones }: { zones: PaceZones }) {
       style={delay(160)}
     >
       <CardTitle aside={<NoticeBadge>seu plano</NoticeBadge>}>Suas zonas de pace</CardTitle>
-      <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-        Calculadas do seu tempo recente pela fórmula VDOT (Daniels &amp; Gilbert).
-      </p>
+      <Keywords className="mb-4" items={["seu tempo recente", "fórmula vdot", "daniels & gilbert"]} />
       <div className="flex flex-col gap-3">
         {rows.map(([zone, secPerKm], index) => (
           <div key={zone} className="flex items-center gap-3">
@@ -426,7 +426,7 @@ function SelfPlanSuggestionCard({
           type="button"
           onClick={handleRemove}
           disabled={removing}
-          className="rounded-full bg-bad px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 lg:rounded-md"
+          className="pr-press rounded-full bg-bad px-4 py-2 text-xs font-semibold text-white hover:bg-bad/90 active:scale-95 disabled:opacity-40 lg:rounded-md"
         >
           {removing ? "Removendo…" : "Remover sugestão"}
         </button>
@@ -455,7 +455,7 @@ function SelfPlanSuggestionCard({
         type="button"
         onClick={handleSuggest}
         disabled={suggesting}
-        className="w-full rounded-xl border border-accent px-4 py-3 text-sm font-semibold text-accent disabled:opacity-40 lg:rounded-md"
+        className="pr-press w-full rounded-xl border border-accent px-4 py-3 text-sm font-semibold text-accent hover:bg-accent/[0.06] active:scale-95 disabled:opacity-40 lg:rounded-md"
       >
         {suggesting ? "Pensando…" : "Sugerir com IA"}
       </button>
@@ -499,14 +499,14 @@ function SelfPlanSuggestionCard({
                 <button
                   type="button"
                   onClick={() => setPendingSuggestion(null)}
-                  className="flex-1 rounded-full border border-border px-4 py-3 text-sm font-semibold lg:rounded-md"
+                  className="pr-press flex-1 rounded-full border border-border px-4 py-3 text-sm font-semibold hover:bg-foreground/[0.04] active:scale-95 lg:rounded-md"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleAccept}
-                  className="flex-1 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground lg:rounded-md"
+                  className="pr-press flex-1 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground hover:bg-accent/90 active:scale-95 lg:rounded-md"
                 >
                   Estou ciente, aplicar essa semana
                 </button>
@@ -747,7 +747,7 @@ function GoalCard({
                   Number(recentSeconds) || 0,
                 )
               }
-              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 lg:w-12 lg:text-xl ${
+              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 lg:w-12 lg:text-xl lg:tracking-[-0.01em] ${
                 recentMinutes ? "border-accent" : "border-border"
               }`}
             />
@@ -768,7 +768,7 @@ function GoalCard({
                   Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0,
                 )
               }
-              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 lg:w-12 lg:text-xl ${
+              className={`w-16 border-b-2 bg-transparent text-center text-3xl font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 lg:w-12 lg:text-xl lg:tracking-[-0.01em] ${
                 recentSeconds ? "border-accent" : "border-border"
               }`}
             />
@@ -967,7 +967,7 @@ export default function PlanoPage() {
       <>
         <ScreenHeader panel compactOnWide hideTitle title="Plano" />
         <Screen panel>
-          <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+          <Card className={`animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
             <div className="h-4 w-32 rounded bg-border" />
             <div className="mt-4 h-24 rounded-xl bg-border/70" />
           </Card>
@@ -987,7 +987,7 @@ export default function PlanoPage() {
             title="Plano"
             badge={<NoticeBadge>seu plano</NoticeBadge>}
           />
-          <Screen panel>
+          <Screen panel singleColumn>
             <PlanBuildSequence
               stages={plan.paceZones ? STAGES_WITH_PACE : STAGES_WITHOUT_PACE}
               onDone={handleBuildSequenceDone}
@@ -1298,7 +1298,7 @@ export default function PlanoPage() {
         badge={showExample ? <ExampleBadge /> : undefined}
       />
 
-      <Screen panel>
+      <Screen panel singleColumn>
         {/* Desktop: plain, centered, black-on-white — not the mobile card
             (rounded/tinted/pill-button) stretched wide. A browser tab isn't
             a phone screen, so this state shouldn't read like one.
@@ -1312,7 +1312,7 @@ export default function PlanoPage() {
             its chrome-dropping in sync with this same threshold. */}
         <div className="hidden md:flex md:flex-col md:items-center md:py-10 md:text-center">
           <div className="w-full max-w-xl">
-            <h2 className="text-xl font-semibold text-foreground">O que falta pro seu plano de verdade</h2>
+            <h2 className="text-xl font-semibold text-foreground lg:tracking-[-0.01em]">O que falta pro seu plano de verdade</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted">
               O motor que monta o treino já existe — falta só o que ele precisa de você:
             </p>
@@ -1375,7 +1375,7 @@ export default function PlanoPage() {
           {!hasHistory && (
             <Link
               href="/run"
-              className="mt-4 inline-block rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground"
+              className="pr-press mt-4 inline-block rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground hover:bg-accent/90 active:scale-95"
             >
               Gravar uma corrida
             </Link>
@@ -1414,7 +1414,7 @@ export default function PlanoPage() {
           <button
             type="button"
             onClick={() => setShowExample(true)}
-            className="pr-enter flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 text-left md:rounded-none md:border-0 md:border-t md:border-border md:bg-transparent md:px-0 md:pt-4 md:pb-0"
+            className="pr-enter pr-press flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-5 py-4 text-left hover:bg-foreground/[0.04] active:bg-foreground/[0.08] md:rounded-none md:border-0 md:border-t md:border-border md:bg-transparent md:px-0 md:pt-4 md:pb-0"
             style={delay(110)}
           >
             <span>

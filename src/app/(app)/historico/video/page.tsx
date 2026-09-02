@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Chang
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useHeaderClose } from "../../app-shell";
-import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
+import { Card, CardTitle, delay, Screen, ScreenHeader, SPAN_COLUMNS } from "../../ui";
 import { Readout } from "../../route-replay";
 import { usePreferences } from "@/lib/usePreferences";
 import type { DistanceUnit } from "@/lib/preferences";
@@ -111,7 +111,7 @@ function VideoHudContent() {
   if (load.status === "loading") {
     return (
       <Screen>
-        <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <div className="h-48 rounded-xl bg-border/70" />
         </Card>
       </Screen>
@@ -121,14 +121,14 @@ function VideoHudContent() {
   if (load.status === "not-found") {
     return (
       <Screen>
-        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <CardTitle>Corrida não encontrada</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Esse registro não existe mais neste aparelho — pode já ter sido excluído.
           </p>
           <Link
             href="/perfil?tab=progresso"
-            className="mt-4 flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground"
+            className="pr-press mt-4 flex w-full items-center justify-center rounded-xl border border-border py-3 text-sm font-medium text-muted hover:border-accent hover:text-foreground active:scale-[0.98]"
           >
             Voltar pro progresso
           </Link>
@@ -140,7 +140,7 @@ function VideoHudContent() {
   return (
     <>
       <ScreenHeader title="Vídeo sincronizado" />
-      <Screen>
+      <Screen singleColumn>
         {!timeline ? (
           <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(30)}>
             <p className="text-sm leading-relaxed text-muted text-pretty">
@@ -154,7 +154,7 @@ function VideoHudContent() {
               Qualquer vídeo do aparelho — o app nunca grava nada por conta própria aqui, só sobrepõe os
               números da corrida em cima do que você já gravou.
             </p>
-            <label className="flex w-full items-center justify-center rounded-xl border border-border bg-background py-3 text-sm font-semibold hover:border-accent">
+            <label className="pr-press flex w-full items-center justify-center rounded-xl border border-border bg-background py-3 text-sm font-semibold hover:border-accent active:scale-[0.98]">
               Escolher vídeo do aparelho
               <input type="file" accept="video/*" className="hidden" onChange={handlePickVideo} />
             </label>
@@ -242,7 +242,7 @@ function VideoHudPlayer({
           <button
             type="button"
             onClick={onMark}
-            className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-foreground"
+            className="pr-press w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-foreground hover:opacity-90 active:scale-[0.98]"
           >
             Marcar esse instante como o início da corrida
           </button>
@@ -257,7 +257,7 @@ function VideoHudPlayer({
           <button
             type="button"
             onClick={onRecalibrate}
-            className="shrink-0 rounded-full border border-border px-3.5 py-2 text-xs font-semibold hover:border-accent"
+            className="pr-press shrink-0 rounded-full border border-border px-3.5 py-2 text-xs font-semibold hover:border-accent active:scale-95"
           >
             Recalibrar
           </button>
@@ -267,7 +267,7 @@ function VideoHudPlayer({
       <button
         type="button"
         onClick={onChangeVideo}
-        className="mt-3 w-full rounded-xl border border-border py-2.5 text-xs font-medium text-muted hover:border-accent hover:text-foreground"
+        className="pr-press mt-3 w-full rounded-xl border border-border py-2.5 text-xs font-medium text-muted hover:border-accent hover:text-foreground active:scale-[0.98]"
       >
         Trocar vídeo
       </button>

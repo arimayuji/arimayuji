@@ -144,7 +144,7 @@ export function PlanKpiStrip({
         {actualKmSoFar !== null ? (
           <CompareBar actual={actualKmSoFar} target={totalKmPlanned} />
         ) : (
-          <p className="mt-2 font-mono text-lg font-semibold tabular-nums">
+          <p className="mt-2 font-mono text-lg font-semibold tabular-nums lg:tracking-[-0.01em]">
             {totalKmPlanned}
             <span className="ml-1 text-xs font-medium text-muted">km planejado</span>
           </p>
@@ -157,7 +157,7 @@ export function PlanKpiStrip({
         </span>
         {currentPace !== null ? (
           <>
-            <p className="mt-1 font-mono text-lg font-semibold tabular-nums">
+            <p className="mt-1 font-mono text-lg font-semibold tabular-nums lg:tracking-[-0.01em]">
               {formatPace(currentPace)}
               <span className="ml-1 text-xs font-medium text-muted">/km</span>
             </p>
@@ -182,7 +182,7 @@ export function PlanKpiStrip({
         </span>
         {elevationRunsCounted > 0 ? (
           <>
-            <p className="mt-1 font-mono text-lg font-semibold tabular-nums">
+            <p className="mt-1 font-mono text-lg font-semibold tabular-nums lg:tracking-[-0.01em]">
               {Math.round(elevationMeters).toLocaleString("pt-BR")}
               <span className="ml-1 text-xs font-medium text-muted">m</span>
             </p>
@@ -208,7 +208,7 @@ export function PlanKpiStrip({
         </span>
         {constancy && constancy.tally.judged > 0 ? (
           <>
-            <p className="mt-1 font-mono text-lg font-semibold tabular-nums">
+            <p className="mt-1 font-mono text-lg font-semibold tabular-nums lg:tracking-[-0.01em]">
               {constancy.tally.met}
               <span className="ml-1 text-xs font-medium text-muted">/{constancy.tally.judged} sem.</span>
             </p>
@@ -230,7 +230,7 @@ export function PlanKpiStrip({
         <span className="font-mono text-[10px] font-semibold tracking-[0.09em] text-muted uppercase">
           Plano — semana {weekNumber} de {totalWeeks}
         </span>
-        <p className="mt-1 font-mono text-lg font-semibold tabular-nums">
+        <p className="mt-1 font-mono text-lg font-semibold tabular-nums lg:tracking-[-0.01em]">
           {remainingDays >= 0 ? remainingDays : 0}
           <span className="ml-1 text-xs font-medium text-muted">dias p/ prova</span>
         </p>
@@ -351,7 +351,7 @@ export function WeekDayTable({ sessions }: { sessions: DisplaySession[] }) {
           </thead>
           <tbody>
             {visible.map((session) => (
-              <tr key={session.day} className="border-b border-border transition-colors last:border-b-0 hover:bg-border/20">
+              <tr key={session.day} className="pr-press border-b border-border last:border-b-0 hover:bg-border/20">
                 <td className="p-3 align-middle font-mono text-[10.5px] font-semibold tracking-wide text-muted uppercase">
                   {session.day}
                 </td>

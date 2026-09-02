@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { listCompletedRuns, type CompletedRun } from "@/lib/tracking/storage";
 import { usePreferences } from "@/lib/usePreferences";
-import { CardTitle, Screen, ScreenHeader } from "../ui";
+import { CardTitle, EmptyState, Screen, ScreenHeader } from "../ui";
 import { ActivityCard } from "../progresso/activity-feed";
 
 type LoadState = { status: "loading" } | { status: "ready"; runs: CompletedRun[] } | { status: "error" };
@@ -72,20 +72,10 @@ export default function HistoricoPage() {
         )}
 
         {load.status === "ready" && load.runs.length === 0 && (
-          <div>
-            <div className="-mx-5 mb-6 h-48 overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-              <img
-                src="/progresso-empty.png"
-                alt="Ilustração de pegadas numa trilha, começando uma jornada"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <CardTitle>Nada pra mostrar ainda</CardTitle>
-            <p className="text-sm leading-relaxed text-muted">
-              Assim que a primeira corrida for salva, ela aparece aqui.
-            </p>
-          </div>
+          <EmptyState
+            title="Nada pra mostrar ainda"
+            description="Assim que a primeira corrida for salva, ela aparece aqui."
+          />
         )}
 
         {load.status === "ready" && load.runs.length > 0 && (

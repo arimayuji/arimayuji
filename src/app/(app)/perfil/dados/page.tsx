@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useHeaderClose } from "../../app-shell";
-import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../../ui";
+import { Card, CardTitle, delay, Keywords, NoticeBadge, PillTabs, Screen, ScreenHeader, SPAN_COLUMNS } from "../../ui";
 import { PillSlider } from "../../pill-slider";
 import { ModalPortal } from "../../modal-portal";
 import { usePreferences } from "@/lib/usePreferences";
@@ -151,10 +151,7 @@ function PainCard() {
         </>
       ) : (
         <>
-          <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-            Sentindo alguma dor ou desconforto? Sinalizar aqui reduz o volume da semana no plano em
-            vez de ignorar e seguir subindo.
-          </p>
+          <Keywords className="mb-4" items={["dor ou desconforto", "reduz o volume", "semana do plano"]} />
           <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
             Onde dói (opcional)
           </span>
@@ -420,11 +417,11 @@ export default function DadosPessoaisPage() {
       <ScreenHeader panel title="Dados pessoais" />
 
       <Screen panel>
-        <div className="pr-enter mb-4">
+        <div className={`pr-enter mb-4 ${SPAN_COLUMNS}`}>
           <PillTabs tabs={DATA_TABS} active={tab} onChange={goToTab} />
         </div>
 
-        <div ref={trackRef} className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto">
+        <div ref={trackRef} className={`no-scrollbar flex snap-x snap-mandatory overflow-x-auto ${SPAN_COLUMNS}`}>
           <div
             ref={(el) => {
               panelRefs.current.corpo = el;

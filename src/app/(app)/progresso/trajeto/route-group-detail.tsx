@@ -9,7 +9,7 @@ import { usePreferences } from "@/lib/usePreferences";
 import { formatAveragePace, formatDistance, metersPerUnit, paceLabel, unitLabel } from "@/lib/units";
 import type { DistanceUnit } from "@/lib/preferences";
 import { RouteMap } from "../../route-map";
-import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
+import { Card, CardTitle, delay, Screen, ScreenHeader, SPAN_COLUMNS } from "../../ui";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 const fullDateFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
@@ -126,7 +126,7 @@ function RunListRow({ run, unit, delayMs }: { run: CompletedRun; unit: DistanceU
     <li className="pr-enter border-t border-border first:border-t-0" style={delay(delayMs)}>
       <Link
         href={`/historico/detalhe?id=${run.id}`}
-        className="-mx-1 flex items-center justify-between gap-3 rounded-lg px-1 py-2.5 text-sm hover:bg-background"
+        className="pr-press -mx-1 flex items-center justify-between gap-3 rounded-lg px-1 py-2.5 text-sm hover:bg-background active:scale-[0.98]"
       >
         <span className="text-muted">
           {fullDateFormatter.format(new Date(run.startedAt))}
@@ -173,7 +173,7 @@ export function RouteGroupDetail({ anchorRunId }: { anchorRunId: string }) {
   if (load.status === "loading") {
     return (
       <Screen>
-        <Card className="animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`animate-pulse lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <div className="h-4 w-32 rounded bg-border" />
           <div className="mt-4 h-14 rounded-xl bg-border/70" />
         </Card>
@@ -184,13 +184,16 @@ export function RouteGroupDetail({ anchorRunId }: { anchorRunId: string }) {
   if (load.status === "not-found") {
     return (
       <Screen>
-        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <CardTitle>Trajeto não encontrado</CardTitle>
           <p className="text-sm leading-relaxed text-muted">
             Esse trajeto pode ter parado de se repetir (menos de duas corridas parecidas no
             histórico) ou a corrida que o ancorava foi apagada.
           </p>
-          <Link href="/perfil?tab=progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
+          <Link
+            href="/perfil?tab=progresso"
+            className="pr-press mt-2 inline-block text-sm text-accent underline underline-offset-2 hover:opacity-80 active:scale-95"
+          >
             Voltar pro progresso
           </Link>
         </Card>
@@ -212,7 +215,7 @@ export function RouteGroupDetail({ anchorRunId }: { anchorRunId: string }) {
             box behind it would just be chrome. rounded-xl here clips the
             map's own corners, it isn't a component boundary — same
             reasoning as /rotas/detalhe's RouteBuilderMap wrapper. */}
-        <div className="pr-enter overflow-hidden rounded-xl" style={delay(30)}>
+        <div className={`pr-enter overflow-hidden rounded-xl ${SPAN_COLUMNS}`} style={delay(30)}>
           <RouteMap points={anchorRun.points} />
         </div>
 

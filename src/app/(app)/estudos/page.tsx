@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useHeaderClose } from "../app-shell";
-import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, Stat } from "../ui";
+import { Card, CardTitle, delay, NoticeBadge, Screen, ScreenHeader, SPAN_COLUMNS, Stat } from "../ui";
 import { EvidenceFactRow } from "../evidence-row";
 import { TopicIcon } from "../topic-icons";
 import {
@@ -35,7 +35,7 @@ export default function EstudosPage() {
 
       <Screen>
         <Card
-          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          className={`pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none ${SPAN_COLUMNS}`}
           style={delay(40)}
         >
           <div className="grid grid-cols-4 gap-2">
@@ -51,7 +51,7 @@ export default function EstudosPage() {
             points at /estudos#<topic>, not just the top of this page), so
             the index itself has to work as real in-page navigation too. */}
         <Card
-          className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
+          className={`pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none ${SPAN_COLUMNS}`}
           style={delay(60)}
         >
           <p className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
@@ -65,7 +65,7 @@ export default function EstudosPage() {
                 <a
                   key={topic}
                   href={`#${topic}`}
-                  className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted hover:border-accent hover:text-accent"
+                  className="pr-press rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted hover:border-accent hover:text-accent active:scale-95"
                 >
                   {topicLabel(topic)}
                 </a>
@@ -101,7 +101,7 @@ export default function EstudosPage() {
 
         <p className="pr-enter text-center text-xs leading-relaxed text-muted text-pretty" style={delay(80 + DECISION_TOPICS_IN_DISPLAY_ORDER.length * 25)}>
           Nenhum número aqui vem de um modelo de IA. O motor de plano (
-          <Link href="/plano" className="underline underline-offset-2 hover:text-accent">
+          <Link href="/plano" className="pr-press underline underline-offset-2 hover:text-accent">
             /plano
           </Link>
           ) é aritmética sobre essas fontes — cada decisão que ele toma aponta pra uma linha

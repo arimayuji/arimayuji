@@ -13,7 +13,18 @@ import {
 import { INTERNAL_TEAM_ACCOUNT_IDS } from "@/lib/internalTeam";
 import { useAuth } from "@/lib/useAuth";
 import { useHeaderClose } from "../../app-shell";
-import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader, SegmentedButton } from "../../ui";
+import {
+  Card,
+  CardTitle,
+  delay,
+  EmptyState,
+  NoticeBadge,
+  PillTabs,
+  Screen,
+  ScreenHeader,
+  SegmentedButton,
+  SPAN_COLUMNS,
+} from "../../ui";
 
 const PILLAR_ORDER: ContentPillar[] = ["produto", "autentico", "autoridade", "marca", "comunidade"];
 const PILLAR_LABEL: Record<ContentPillar, string> = {
@@ -94,7 +105,7 @@ export default function ConteudoInternoPage() {
   if (status === "loading") {
     return (
       <Screen>
-        <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
+        <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(40)}>
           <p className="text-sm text-muted">Verificando sua conta…</p>
         </Card>
       </Screen>
@@ -104,7 +115,7 @@ export default function ConteudoInternoPage() {
   if (!authorized) {
     return (
       <Screen>
-        <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
+        <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(40)}>
           <CardTitle>Essa área não é pública</CardTitle>
         </Card>
       </Screen>
@@ -155,7 +166,7 @@ export default function ConteudoInternoPage() {
             <button
               type="submit"
               disabled={creating || !title.trim()}
-              className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-40"
+              className="pr-press rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
             >
               {creating ? "Adicionando…" : "Adicionar"}
             </button>
@@ -173,7 +184,7 @@ export default function ConteudoInternoPage() {
           {ideas === null ? (
             <div className="h-12 animate-pulse rounded-lg bg-background" />
           ) : visibleIdeas.length === 0 ? (
-            <p className="py-2 text-center text-xs leading-relaxed text-muted">Nada em {STATUS_LABEL[activeStatus].toLowerCase()}.</p>
+            <EmptyState title={`Nada em ${STATUS_LABEL[activeStatus].toLowerCase()}.`} />
           ) : (
             <ul className="flex flex-col gap-3.5">
               {visibleIdeas.map((idea) => (
@@ -210,7 +221,7 @@ function IdeaCard({
           href={idea.assetUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-1.5 inline-block text-xs text-accent underline underline-offset-2"
+          className="pr-press mt-1.5 inline-block text-xs text-accent underline underline-offset-2 hover:opacity-80 active:scale-95"
         >
           Ver asset →
         </a>
@@ -228,14 +239,14 @@ function IdeaCard({
             <button
               type="button"
               onClick={() => onDelete(idea)}
-              className="rounded-full bg-bad px-3 py-1 text-xs font-semibold text-white"
+              className="pr-press rounded-full bg-bad px-3 py-1 text-xs font-semibold text-white hover:opacity-90 active:scale-95"
             >
               Confirmar
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted hover:text-foreground"
+              className="pr-press rounded-full border border-border px-3 py-1 text-xs font-medium text-muted hover:text-foreground active:scale-95"
             >
               Voltar
             </button>
@@ -244,7 +255,7 @@ function IdeaCard({
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="rounded-full bg-bad px-3 py-1 text-xs font-semibold text-white"
+            className="pr-press rounded-full bg-bad px-3 py-1 text-xs font-semibold text-white hover:opacity-90 active:scale-95"
           >
             Excluir
           </button>

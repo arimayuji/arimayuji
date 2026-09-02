@@ -19,7 +19,7 @@ import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../../account-prompt";
 import { useHeaderClose } from "../../app-shell";
 import { Avatar } from "../../avatar";
-import { Card, Screen, ScreenHeader } from "../../ui";
+import { Card, EmptyState, Screen, ScreenHeader } from "../../ui";
 
 /**
  * Visiting someone else's profile — a query-string route (`?h=`), not a
@@ -305,8 +305,10 @@ function VerPerfilContent() {
               type="button"
               onClick={() => void (isFriend ? handleRemoveFriend() : handleAddFriend())}
               disabled={sending || removing}
-              className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-60 ${
-                isFriend ? "bg-bad text-white" : "bg-accent text-accent-foreground"
+              className={`pr-press mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold active:scale-[0.98] disabled:opacity-60 ${
+                isFriend
+                  ? "bg-bad text-white hover:bg-bad/90"
+                  : "bg-accent text-accent-foreground hover:bg-accent/90"
               }`}
             >
               {isFriend
@@ -391,7 +393,7 @@ function VerPerfilContent() {
 
         {isFriend && !stats && (
           <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
-            <p className="text-sm text-muted">Ainda sem corridas registradas.</p>
+            <EmptyState title="Ainda sem corridas registradas." />
           </Card>
         )}
 
@@ -407,7 +409,7 @@ function VerPerfilContent() {
                   href={entry.url}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="block"
+                  className="pr-press block hover:opacity-90 active:scale-95"
                 >
                   {entry.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- an external cover URL, next/image's optimizer isn't available in a static export anyway.

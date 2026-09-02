@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { useHeaderClose } from "../app-shell";
 import { Avatar } from "../avatar";
-import { Card, CardTitle, delay, NoticeBadge, PillTabs, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, EmptyState, NoticeBadge, PillTabs, Screen, ScreenHeader, SPAN_COLUMNS } from "../ui";
 
 const RETURN_TO = "/treinador";
 
@@ -158,13 +158,13 @@ export default function TreinadorPage() {
 
       <Screen panel>
         {status === "loading" && (
-          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
+          <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(40)}>
             <p className="text-sm text-muted">Verificando sua conta…</p>
           </Card>
         )}
 
         {status === "signed-out" && (
-          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
+          <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(40)}>
             <CardTitle>Entra pra conectar com seu treinador</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Essa relação é entre duas contas — é a única parte disso que precisa de login.
@@ -172,7 +172,7 @@ export default function TreinadorPage() {
             <button
               type="button"
               onClick={() => setShowAccountPrompt(true)}
-              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent lg:mt-4 lg:w-auto lg:rounded-md lg:px-4 lg:py-1.5"
+              className="pr-press mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent hover:bg-accent/[0.06] active:scale-[0.98] lg:mt-4 lg:w-auto lg:rounded-md lg:px-4 lg:py-1.5"
             >
               Entrar
             </button>
@@ -180,11 +180,11 @@ export default function TreinadorPage() {
         )}
 
         {status === "needs-handle" && (
-          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
+          <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(40)}>
             <CardTitle>Falta escolher seu @</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Seu @ é como as pessoas te acham aqui.{" "}
-              <Link href="/perfil" className="underline underline-offset-2 hover:text-accent">
+              <Link href="/perfil" className="pr-press underline underline-offset-2 hover:text-accent">
                 Termina de criar sua conta no Perfil
               </Link>{" "}
               pra convidar um treinador ou aluno.
@@ -197,7 +197,7 @@ export default function TreinadorPage() {
             {connections !== null && connections.some((c) => c.myRole === "coach" && c.relationship.status === "accepted") && (
               <Link
                 href="/treinador/sala"
-                className="pr-enter flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4 transition-opacity lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2 lg:hover:opacity-70"
+                className="pr-enter pr-press flex items-center justify-between gap-3 rounded-2xl border border-accent bg-accent/10 px-5 py-4 active:scale-[0.98] lg:rounded-none lg:border-0 lg:bg-transparent lg:px-0 lg:py-2 lg:hover:opacity-70"
                 style={delay(20)}
               >
                 <span>
@@ -220,8 +220,10 @@ export default function TreinadorPage() {
                 <button
                   type="button"
                   onClick={() => setInviteRole("student")}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold ${
-                    inviteRole === "student" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
+                  className={`pr-press flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold active:scale-95 ${
+                    inviteRole === "student"
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-muted hover:border-accent hover:text-accent"
                   }`}
                 >
                   É meu treinador
@@ -229,8 +231,10 @@ export default function TreinadorPage() {
                 <button
                   type="button"
                   onClick={() => setInviteRole("coach")}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold ${
-                    inviteRole === "coach" ? "border-accent bg-accent/10 text-accent" : "border-border text-muted"
+                  className={`pr-press flex-1 rounded-xl border px-3 py-2.5 text-xs font-semibold active:scale-95 ${
+                    inviteRole === "coach"
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-muted hover:border-accent hover:text-accent"
                   }`}
                 >
                   É meu aluno
@@ -239,7 +243,7 @@ export default function TreinadorPage() {
               <select
                 value={inviteRole}
                 onChange={(event) => setInviteRole(event.target.value as MyCoachRole)}
-                className="mb-3 hidden h-9 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus:border-accent lg:block"
+                className="pr-press mb-3 hidden h-9 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none hover:border-accent/60 focus:border-accent lg:block"
               >
                 <option value="student">É meu treinador</option>
                 <option value="coach">É meu aluno</option>
@@ -262,7 +266,7 @@ export default function TreinadorPage() {
                 <button
                   type="submit"
                   disabled={sending || normalizeHandle(handle).length === 0}
-                  className="mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60 lg:min-h-0 lg:w-auto lg:rounded-md lg:px-4 lg:py-1.5"
+                  className="pr-press mt-3 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground hover:opacity-90 active:scale-[0.98] disabled:opacity-60 lg:min-h-0 lg:w-auto lg:rounded-md lg:px-4 lg:py-1.5"
                 >
                   {sending ? "Enviando…" : "Enviar convite"}
                 </button>
@@ -285,7 +289,7 @@ export default function TreinadorPage() {
                 <button
                   type="button"
                   onClick={reload}
-                  className="mt-3 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-accent lg:rounded-md"
+                  className="pr-press mt-3 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-accent active:scale-95 lg:rounded-md"
                 >
                   Tentar de novo
                 </button>
@@ -304,9 +308,10 @@ export default function TreinadorPage() {
                 (connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : incoming.length === 0 && outgoing.length === 0 ? (
-                  <p className="py-2 text-center text-xs leading-relaxed text-muted">
-                    Nenhum convite esperando resposta — enviados ou recebidos.
-                  </p>
+                  <EmptyState
+                    title="Nenhum convite esperando resposta"
+                    description="Enviados ou recebidos."
+                  />
                 ) : (
                   <div className="flex flex-col gap-6">
                     {incoming.length > 0 && (
@@ -332,7 +337,7 @@ export default function TreinadorPage() {
                                         "accept",
                                       )
                                     }
-                                    className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground disabled:opacity-60 lg:rounded-md"
+                                    className="pr-press rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground hover:opacity-90 active:scale-95 disabled:opacity-60 lg:rounded-md"
                                   >
                                     {busyId === connection.relationship.$id && busyAction === "accept"
                                       ? "Aceitando…"
@@ -348,7 +353,7 @@ export default function TreinadorPage() {
                                         "decline",
                                       )
                                     }
-                                    className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad disabled:opacity-60 lg:rounded-md"
+                                    className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad active:scale-95 disabled:opacity-60 lg:rounded-md"
                                   >
                                     {busyId === connection.relationship.$id && busyAction === "decline"
                                       ? "Recusando…"
@@ -390,21 +395,10 @@ export default function TreinadorPage() {
                 (connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : myCoaches.length === 0 ? (
-                  <div className="py-2 text-center">
-                    {/* Fixed phone-card-width illustration — reads as proportionate inside a narrow mobile card, but floats small and out of place inside the much wider desktop "Sala de Treino" card (see PROJECT-CONTEXT.md's web-vs-native surface split) — hidden there rather than stretched, same as /perfil's own device-only flourishes. */}
-                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl lg:hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-                      <img
-                        src="/treinador-sem-treinador-empty.png"
-                        alt="Ilustração de um corredor olhando pra outro correndo à frente"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      Nenhum treinador ainda. Depois de aceito, você escolhe corrida por corrida o que enviar
-                      pra ele ver, na tela de detalhe de cada corrida.
-                    </p>
-                  </div>
+                  <EmptyState
+                    title="Nenhum treinador ainda"
+                    description="Depois de aceito, você escolhe corrida por corrida o que enviar pra ele ver, na tela de detalhe de cada corrida."
+                  />
                 ) : (
                   <ul className="flex flex-col gap-3.5">
                     {myCoaches.map((connection) => (
@@ -424,20 +418,10 @@ export default function TreinadorPage() {
                 (connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : myStudents.length === 0 ? (
-                  <div className="py-2 text-center">
-                    {/* Fixed phone-card-width illustration — reads as proportionate inside a narrow mobile card, but floats small and out of place inside the much wider desktop "Sala de Treino" card (see PROJECT-CONTEXT.md's web-vs-native surface split) — hidden there rather than stretched, same as /perfil's own device-only flourishes. */}
-                    <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl lg:hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-                      <img
-                        src="/treinador-sem-alunos-empty.png"
-                        alt="Ilustração de um cronômetro esperando num banco de pista vazia"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      Nenhum aluno ainda. Convide pelo @ acima, marcando &quot;É meu aluno&quot;.
-                    </p>
-                  </div>
+                  <EmptyState
+                    title="Nenhum aluno ainda"
+                    description={'Convide pelo @ acima, marcando "É meu aluno".'}
+                  />
                 ) : (
                   <ul className="flex flex-col gap-3.5">
                     {myStudents.map((connection) => (
@@ -447,7 +431,7 @@ export default function TreinadorPage() {
                       >
                         <Link
                           href={`/treinador/aluno?id=${connection.otherId}`}
-                          className="flex items-center gap-3"
+                          className="pr-press flex items-center gap-3 hover:bg-foreground/[0.04] active:scale-[0.98]"
                         >
                           <Avatar name={connection.profile?.displayName ?? "?"} avatarUrl={connection.profile?.avatarUrl} />
                           <div className="min-w-0 flex-1">
@@ -499,14 +483,14 @@ function OutgoingRequestRow({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60 lg:rounded-md"
+            className="pr-press rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 active:scale-95 disabled:opacity-60 lg:rounded-md"
           >
             {busy ? "Cancelando…" : "Confirmar"}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground lg:rounded-md"
+            className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground active:scale-95 lg:rounded-md"
           >
             Voltar
           </button>
@@ -515,7 +499,7 @@ function OutgoingRequestRow({
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad lg:rounded-md"
+          className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad active:scale-95 lg:rounded-md"
         >
           Cancelar
         </button>
@@ -544,14 +528,14 @@ function RelationshipRow({
             type="button"
             disabled={busy}
             onClick={onRemove}
-            className="rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60 lg:rounded-md"
+            className="pr-press rounded-full bg-bad px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 active:scale-95 disabled:opacity-60 lg:rounded-md"
           >
             {busy ? "Desfazendo…" : "Confirmar"}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground lg:rounded-md"
+            className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground active:scale-95 lg:rounded-md"
           >
             Voltar
           </button>
@@ -560,7 +544,7 @@ function RelationshipRow({
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad lg:rounded-md"
+          className="pr-press rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-bad hover:text-bad active:scale-95 lg:rounded-md"
         >
           Desfazer
         </button>

@@ -332,23 +332,29 @@ function BottomNav({ hidden }: { hidden: boolean }) {
       // still poking up past the (fully hidden) bar underneath it, floating
       // alone with nothing around it. The extra `2rem` clears that overflow
       // (and the FAB's own glow) with a little to spare.
-      className={`chrome-gradient-nav group absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-[transform,width] duration-200 ease-out ${
+      // At `lg:` the width change rides the shared spring curve rather than a
+      // generic ease-out — the rail expanding under the pointer is a direct
+      // response to it, and everything the desktop product moves uses the
+      // same physics (see `--ease-spring` in globals.css). The expanded rail
+      // genuinely floats over content, so it earns a real (soft, wide)
+      // shadow at that width; the collapsed rest state has none.
+      className={`chrome-gradient-nav group absolute inset-x-0 bottom-0 z-40 rounded-t-[28px] shadow-[0_-12px_28px_-10px_rgba(0,0,0,0.45)] transition-[transform,width,box-shadow] duration-200 ease-out ${
         hidden ? "translate-y-[calc(100%+2rem)]" : "translate-y-0"
-      } lg:inset-y-0 lg:right-auto lg:top-0 ${SIDEBAR_COLLAPSED_WIDTH_CLASS} lg:translate-x-0 lg:translate-y-0 lg:rounded-none lg:shadow-none lg:hover:w-60 lg:hover:shadow-2xl`}
+      } lg:inset-y-0 lg:right-auto lg:top-0 ${SIDEBAR_COLLAPSED_WIDTH_CLASS} lg:translate-x-0 lg:translate-y-0 lg:rounded-none lg:shadow-none lg:duration-300 lg:[transition-timing-function:var(--ease-spring)] lg:hover:w-60 lg:hover:shadow-[0_24px_60px_-24px_rgba(20,24,28,0.35)]`}
     >
       {/* Brand mark, sidebar-only — the flat desktop rail carries its own
           identity instead of doubling it with the header's, so the header
           (below) hides its copy at this breakpoint via SIDEBAR_OFFSET_CLASS's
-          sibling `lg:hidden`. White-on-accent, matching the mobile header's
-          own brand mark treatment just below (same paths, same white),
-          since the rail itself is solid accent blue rather than a neutral
-          background. */}
-      <div className="hidden h-16 shrink-0 items-center gap-3 border-b border-white/15 px-4 lg:flex">
-        <svg viewBox="0 0 100 100" className="h-8 w-8 shrink-0 text-white" aria-hidden="true">
+          sibling `lg:hidden`. Accent-on-material now, not white-on-accent:
+          the rail became a translucent neutral surface (globals.css's `lg:`
+          override of `.chrome-gradient-nav`), so brand colour lives in the
+          mark itself rather than in a slab behind everything. */}
+      <div className="hidden h-16 shrink-0 items-center gap-3 border-b border-[var(--hairline)] px-4 lg:flex">
+        <svg viewBox="0 0 100 100" className="h-8 w-8 shrink-0 text-accent" aria-hidden="true">
           <path d={HORSE_BUST_BODY_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
           <path d={HORSE_BUST_LEGS_PATH} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinejoin="round" />
         </svg>
-        <span className={`font-mono text-lg font-semibold tracking-wide text-white ${SIDEBAR_LABEL_CLASS}`}>Xanthus</span>
+        <span className={`text-lg font-semibold tracking-[-0.01em] text-foreground ${SIDEBAR_LABEL_CLASS}`}>Xanthus</span>
       </div>
 
       {/* Mobile/native tab bar — always Feed/Histórico/Corrida/Plano/Perfil,
@@ -419,13 +425,13 @@ function BottomNav({ hidden }: { hidden: boolean }) {
 
       {/* Desktop sidebar list — DESKTOP_TABS, not `tabs`: see that constant's
           own comment for why this is a genuinely different destination set,
-          not the athlete tabs reskinned. Own background-highlight active
-          state instead of the mobile underline, which reads oddly on a
-          horizontal row of icon+label rather than a stacked icon-over-label.
-          White-on-accent variants (not `bg-accent/10 text-accent`, which
-          reads as invisible on the rail's own accent-blue background) since
-          the rail is solid accent now, not a neutral surface. */}
-      <ul className="hidden lg:flex lg:flex-col lg:items-stretch lg:gap-1 lg:px-3 lg:py-4">
+          not the athlete tabs reskinned. Selection is an accent-tinted
+          capsule on a neutral material (a macOS sidebar's own language),
+          which is also what lets colour mean "this is where you are" — back
+          when the whole rail was accent blue, the selected row had to fight
+          it with white-on-white-ish tints and the colour carried no
+          information at all. */}
+      <ul className="hidden lg:flex lg:flex-col lg:items-stretch lg:gap-0.5 lg:px-2.5 lg:py-4">
         {DESKTOP_TABS.map((tab, index) => {
           const active = index === desktopActiveIndex(pathname);
           return (
@@ -433,11 +439,13 @@ function BottomNav({ hidden }: { hidden: boolean }) {
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
-                  active ? "bg-white/15 font-semibold text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                className={`pr-press flex h-10 items-center gap-3 rounded-lg px-2.5 text-sm active:scale-[0.98] ${
+                  active
+                    ? "bg-accent/12 font-semibold text-accent"
+                    : "text-muted hover:bg-foreground/[0.06] hover:text-foreground"
                 }`}
               >
-                <tab.icon className="h-[25px] w-[25px] shrink-0" />
+                <tab.icon className="h-[22px] w-[22px] shrink-0" />
                 <span className={SIDEBAR_LABEL_CLASS}>{tab.label}</span>
               </Link>
             </li>
@@ -503,10 +511,13 @@ function GpsStatusBadge({ quality }: { quality: GpsQuality }) {
  */
 function AppHeader({
   hidden,
+  scrolled,
   closeHref,
   gpsQuality,
 }: {
   hidden: boolean;
+  /** Whether the scroll container has anything scrolled under this bar — drives the scroll edge (see `.scroll-edge` in globals.css). */
+  scrolled: boolean;
   closeHref: string | null;
   gpsQuality: GpsQuality | null;
 }) {
@@ -518,11 +529,21 @@ function AppHeader({
       // `lg:left-60` clears the sidebar BottomNav becomes at that same
       // breakpoint (SIDEBAR_OFFSET_CLASS below it) — without this the two
       // would overlap in the top-left corner, since both sit at z-40.
-      className={`chrome-gradient-header absolute inset-x-0 top-0 z-40 overflow-hidden rounded-b-[36px] shadow-none transition-transform duration-200 ease-out lg:rounded-none ${SIDEBAR_OFFSET_CLASS}`}
-      style={{
-        transform: hidden ? "translateY(-100%)" : "translateY(0)",
-        paddingTop: "env(safe-area-inset-top)",
-      }}
+      //
+      // The hide-on-scroll translate is a CSS variable rather than an inline
+      // `transform`, purely so `lg:translate-y-0` can win: an inline style
+      // beats any class regardless of specificity, and chrome that slides
+      // away as you scroll is a phone pattern — on a desktop toolbar it
+      // reads as the app losing its own navigation. `.scroll-edge` gives it
+      // a separator only once content is actually underneath it.
+      data-scrolled={scrolled ? "true" : "false"}
+      className={`chrome-gradient-header scroll-edge absolute inset-x-0 top-0 z-40 translate-y-[var(--chrome-y)] overflow-hidden rounded-b-[36px] shadow-none transition-transform duration-300 [transition-timing-function:var(--ease-spring)] lg:translate-y-0 lg:rounded-none ${SIDEBAR_OFFSET_CLASS}`}
+      style={
+        {
+          "--chrome-y": hidden ? "-100%" : "0%",
+          paddingTop: "env(safe-area-inset-top)",
+        } as React.CSSProperties
+      }
     >
       {/* Brand mark: this header's own copy on mobile/native, hidden at `lg:` where the sidebar (BottomNav) carries it instead — one identity mark per screen, not two. `lg:justify-end`: with the left block gone, `justify-between` on a single remaining flex item collapses to flex-start (left) instead of staying pinned right. */}
       <div className="relative flex h-16 items-center justify-between px-4 lg:justify-end lg:px-6">
@@ -586,6 +607,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const chromeVisible = useScrollChromeVisibility(scrollEl);
   const pathname = usePathname();
+
+  /**
+   * "Is there content under the header right now" — the whole input to the
+   * scroll edge effect (`.scroll-edge`, globals.css). Deliberately separate
+   * from `useScrollChromeVisibility`, which answers a different question
+   * (scroll *direction*, for hide-on-scroll): this one is a plain threshold
+   * and has to stay true while sitting still mid-page, which a
+   * direction-based signal never is.
+   */
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (!scrollEl) return;
+    const read = () => setScrolled(scrollEl.scrollTop > 4);
+    read();
+    scrollEl.addEventListener("scroll", read, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", read);
+  }, [scrollEl]);
 
   // Next's own "scroll to top on navigate" only targets window scroll — this
   // container is its own scroller (see the comment on it below), so a route
@@ -674,7 +712,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           {!immersive && (
             <>
-              <AppHeader hidden={!chromeVisible} closeHref={closeHref} gpsQuality={gpsQuality} />
+              <AppHeader hidden={!chromeVisible} scrolled={scrolled} closeHref={closeHref} gpsQuality={gpsQuality} />
               <BottomNav hidden={!chromeVisible} />
             </>
           )}

@@ -153,15 +153,15 @@ export default function SalaDeTreinoPage() {
               style={delay(40)}
             >
               <div>
-                <p className="text-metal font-mono text-2xl tabular-nums">{myStudents.length}</p>
+                <p className="text-metal font-mono text-2xl tabular-nums lg:tracking-[-0.02em]">{myStudents.length}</p>
                 <span className="text-[10px] uppercase tracking-wide text-muted">Ativos</span>
               </div>
               <div>
-                <p className="text-metal font-mono text-2xl tabular-nums text-good">{liveCount}</p>
+                <p className="text-metal font-mono text-2xl tabular-nums text-good lg:tracking-[-0.02em]">{liveCount}</p>
                 <span className="text-[10px] uppercase tracking-wide text-muted">Correndo agora</span>
               </div>
               <div>
-                <p className="text-metal font-mono text-2xl tabular-nums">{noContactCount}</p>
+                <p className="text-metal font-mono text-2xl tabular-nums lg:tracking-[-0.02em]">{noContactCount}</p>
                 <span className="text-[10px] uppercase tracking-wide text-muted">Sem contato 7d+</span>
               </div>
             </div>
@@ -192,7 +192,7 @@ export default function SalaDeTreinoPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedId(isSelected ? null : connection.otherId)}
-                        className={`flex w-full items-center gap-3 px-5 py-3.5 text-left ${isSelected ? "bg-background" : ""}`}
+                        className={`pr-press flex w-full items-center gap-3 px-5 py-3.5 text-left active:scale-[0.98] ${isSelected ? "bg-background" : "hover:bg-foreground/[0.04]"}`}
                       >
                         <Avatar
                           name={connection.profile?.displayName ?? "?"}
@@ -298,18 +298,18 @@ function StudentPanel({
             <div className="mt-3 grid grid-cols-3 gap-3">
               <div>
                 <span className="text-[10px] uppercase tracking-wide text-muted">Distância</span>
-                <p className="font-mono text-lg tabular-nums">
+                <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">
                   {formatDistance(live.distanceMeters, unit)}
                   <span className="ml-1 text-xs text-muted">{unitLabel(unit)}</span>
                 </p>
               </div>
               <div>
                 <span className="text-[10px] uppercase tracking-wide text-muted">Tempo</span>
-                <p className="font-mono text-lg tabular-nums">{formatElapsed(live.elapsedSeconds)}</p>
+                <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">{formatElapsed(live.elapsedSeconds)}</p>
               </div>
               <div>
                 <span className="text-[10px] uppercase tracking-wide text-muted">{paceLabel(unit)}</span>
-                <p className="font-mono text-lg tabular-nums">{formatPace(live.currentPaceSecPerKm ?? null)}</p>
+                <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">{formatPace(live.currentPaceSecPerKm ?? null)}</p>
               </div>
             </div>
             {/*
@@ -321,7 +321,7 @@ function StudentPanel({
             <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3">
               <div>
                 <span className="text-[10px] uppercase tracking-wide text-muted">FC</span>
-                <p className="font-mono text-lg tabular-nums">
+                <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">
                   {live.heartRateBpm ? (
                     <>
                       {live.heartRateBpm}
@@ -334,7 +334,7 @@ function StudentPanel({
               </div>
               <div>
                 <span className="text-[10px] uppercase tracking-wide text-muted">Chegada prevista</span>
-                <p className="font-mono text-lg tabular-nums">{formatGoalEta(live.forecastSecondsRemaining ?? null)}</p>
+                <p className="font-mono text-lg tabular-nums lg:tracking-[-0.01em]">{formatGoalEta(live.forecastSecondsRemaining ?? null)}</p>
               </div>
             </div>
             <CoachCueButtons studentId={studentId} />

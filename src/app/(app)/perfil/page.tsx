@@ -23,6 +23,7 @@ import {
   Screen,
   ScreenHeader,
   SegmentedButton,
+  SPAN_COLUMNS,
 } from "../ui";
 import { AccountCard } from "../account-card";
 import { PillSlider } from "../pill-slider";
@@ -703,7 +704,7 @@ export default function PerfilPage() {
           href="https://xanthus.app.br/privacidade"
           target="_blank"
           rel="noopener noreferrer"
-          className="pr-enter block py-2 text-center text-xs font-medium text-muted underline underline-offset-2 hover:text-foreground"
+          className={`pr-enter block py-2 text-center text-xs font-medium text-muted underline underline-offset-2 hover:text-foreground ${SPAN_COLUMNS}`}
         >
           Política de privacidade
         </a>

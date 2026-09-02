@@ -36,7 +36,7 @@ export function AccountMenuButton({ open, onOpenChange }: { open: boolean; onOpe
         aria-label="Conta"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="hidden shrink-0 items-center justify-center lg:flex"
+        className="pr-press hidden shrink-0 items-center justify-center hover:opacity-80 active:scale-95 lg:flex"
       >
         {status === "signed-in" && profile ? (
           <Avatar name={profile.displayName} avatarUrl={profile.avatarUrl} size="sm" />
@@ -72,7 +72,7 @@ export function AccountMenuButton({ open, onOpenChange }: { open: boolean; onOpe
                 type="button"
                 onClick={() => onOpenChange(false)}
                 aria-label="Fechar"
-                className="absolute top-6 right-5 text-muted hover:text-foreground"
+                className="pr-press absolute top-6 right-5 text-muted hover:text-foreground active:scale-95"
               >
                 <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M6 6l12 12M18 6L6 18" />

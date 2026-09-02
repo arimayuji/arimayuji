@@ -17,7 +17,7 @@ import { useAuth } from "@/lib/useAuth";
 import { AccountPrompt } from "../account-prompt";
 import { Avatar } from "../avatar";
 import { RouteMap } from "../route-map";
-import { Card, CardTitle, delay, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, EmptyState, Screen, ScreenHeader } from "../ui";
 
 /**
  * Mounts `children` only once this element scrolls near the viewport, and
@@ -234,7 +234,7 @@ function StatBlock({ label, value, suffix }: { label: string; value: string; suf
   return (
     <div className="min-w-0">
       <p className="truncate text-[10px] font-semibold tracking-wide text-muted uppercase">{label}</p>
-      <p className="truncate font-mono text-3xl leading-none font-semibold tabular-nums">
+      <p className="truncate font-mono text-3xl leading-none font-semibold tabular-nums lg:tracking-[-0.02em]">
         {value}
         {suffix && <span className="ml-0.5 align-baseline text-sm font-semibold text-muted">{suffix}</span>}
       </p>
@@ -389,7 +389,7 @@ function CommentsSection({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="flex min-h-11 w-fit items-center text-xs font-semibold text-muted transition-colors duration-150 hover:text-accent"
+          className="pr-press flex min-h-11 w-fit items-center text-xs font-semibold text-muted hover:text-accent active:scale-95"
         >
           Ver todos os {comments.length} comentários
         </button>
@@ -421,7 +421,7 @@ function CommentsSection({
               type="button"
               onClick={clearPhoto}
               aria-label="Remover foto"
-              className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-bad text-white"
+              className="pr-press absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-bad text-white hover:opacity-90 active:scale-95"
             >
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 6l12 12M18 6 6 18" />
@@ -441,7 +441,7 @@ function CommentsSection({
           <label
             htmlFor={fileInputId}
             aria-label="Anexar foto"
-            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted transition-colors duration-150 hover:border-accent hover:text-accent"
+            className="pr-press flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted hover:border-accent hover:text-accent active:scale-95"
           >
             <CameraIcon className="h-5 w-5" />
           </label>
@@ -458,7 +458,7 @@ function CommentsSection({
             type="submit"
             disabled={posting || (!text.trim() && !photo)}
             aria-label="Enviar comentário"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground disabled:opacity-40"
+            className="pr-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground hover:opacity-90 active:scale-95 disabled:opacity-40"
           >
             <SendIcon className="h-4.5 w-4.5" />
           </button>
@@ -578,7 +578,9 @@ function FeedItemCard({
       )}
 
       {/* The closest thing this app has to Strava's activity title — the athlete's own free-text line, never generated (see FriendFeedItem.caption's own comment) — styled as a real headline instead of a small quoted aside, so the card has the same anchor a named activity gives Strava's. */}
-      {item.caption && <p className="-mt-1 text-lg font-semibold text-balance">{item.caption}</p>}
+      {item.caption && (
+        <p className="-mt-1 text-lg font-semibold text-balance lg:leading-[1.2] lg:tracking-[-0.01em]">{item.caption}</p>
+      )}
 
       {/* A real photo of the post itself ("a foto não só no comentário mas
           também do autor do post", 2026-09-01) — distinct from a photo on
@@ -593,7 +595,7 @@ function FeedItemCard({
           <button
             type="button"
             onClick={() => setShowPhoto((current) => !current)}
-            className="flex h-11 w-fit items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-muted transition-colors duration-150 hover:border-accent hover:text-accent"
+            className="pr-press flex h-11 w-fit items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-muted hover:border-accent hover:text-accent active:scale-95"
           >
             <CameraIcon className="h-4 w-4" />
             {showPhoto ? "Ocultar foto" : "Ver foto"}
@@ -651,7 +653,7 @@ function FeedItemCard({
           <button
             type="button"
             onClick={() => setShowKudosHint(true)}
-            className="flex h-11 shrink-0 items-center gap-2 px-3 text-sm font-semibold text-muted"
+            className="pr-press flex h-11 shrink-0 items-center gap-2 px-3 text-sm font-semibold text-muted hover:text-foreground active:scale-95"
           >
             <HeartIcon className="h-5 w-5" filled={item.kudosCount > 0} />
             {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
@@ -662,8 +664,8 @@ function FeedItemCard({
             disabled={busy}
             onClick={onToggleKudos}
             aria-pressed={item.kudosGivenByMe}
-            className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold transition-colors duration-150 disabled:opacity-60 ${
-              item.kudosGivenByMe ? "bg-accent/10 text-accent" : "text-muted"
+            className={`pr-press flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold active:scale-95 disabled:opacity-60 ${
+              item.kudosGivenByMe ? "bg-accent/10 text-accent hover:bg-accent/15" : "text-muted hover:bg-foreground/[0.04]"
             }`}
           >
             <HeartIcon className="h-5 w-5" filled={item.kudosGivenByMe} />
@@ -674,8 +676,8 @@ function FeedItemCard({
           type="button"
           onClick={() => setComposerOpen((current) => !current)}
           aria-expanded={composerOpen}
-          className={`flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold transition-colors duration-150 ${
-            composerOpen ? "bg-accent/10 text-accent" : "text-muted"
+          className={`pr-press flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold active:scale-95 ${
+            composerOpen ? "bg-accent/10 text-accent hover:bg-accent/15" : "text-muted hover:bg-foreground/[0.04]"
           }`}
         >
           <CommentIcon className="h-5 w-5" />
@@ -867,7 +869,7 @@ export default function FeedPage() {
         badge={
           <Link
             href="/amigos"
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-foreground"
+            className="pr-press flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-foreground active:scale-95"
           >
             <FriendsIcon className="h-4 w-4" />
             Amigos
@@ -892,7 +894,7 @@ export default function FeedPage() {
             <button
               type="button"
               onClick={() => setShowAccountPrompt(true)}
-              className="mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent"
+              className="pr-press mt-5 w-full rounded-xl border border-accent py-3 text-sm font-semibold text-accent hover:bg-accent/10 active:scale-[0.98]"
             >
               Entrar
             </button>
@@ -904,7 +906,7 @@ export default function FeedPage() {
             <CardTitle>Falta escolher seu @</CardTitle>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Seu @ é como as pessoas te acham aqui.{" "}
-              <Link href="/perfil" className="underline underline-offset-2 hover:text-accent">
+              <Link href="/perfil" className="pr-press underline underline-offset-2 hover:text-accent">
                 Termina de criar sua conta no Perfil
               </Link>{" "}
               pra ver o feed dos seus amigos.
@@ -921,21 +923,24 @@ export default function FeedPage() {
             </>
           ) : feedItems.length === 0 ? (
             <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
-              <div className="py-2 text-center">
-                <p className="text-xs leading-relaxed text-muted">
-                  {friendCount === 0 ? (
+              {friendCount === 0 ? (
+                <EmptyState
+                  title="Você ainda não tem amigos aceitos"
+                  description={
                     <>
-                      Você ainda não tem amigos aceitos —{" "}
-                      <Link href="/amigos" className="text-accent underline underline-offset-2">
-                        adicione pelo @
+                      <Link href="/amigos" className="pr-press text-accent underline underline-offset-2 hover:text-accent/80">
+                        Adicione pelo @
                       </Link>{" "}
                       pra ver as corridas deles aqui.
                     </>
-                  ) : (
-                    "Nada por aqui ainda — aparece quando um amigo compartilhar uma corrida."
-                  )}
-                </p>
-              </div>
+                  }
+                />
+              ) : (
+                <EmptyState
+                  title="Nada por aqui ainda"
+                  description="Aparece quando um amigo compartilhar uma corrida."
+                />
+              )}
             </Card>
           ) : (
             feedItems.map((item, index) => (

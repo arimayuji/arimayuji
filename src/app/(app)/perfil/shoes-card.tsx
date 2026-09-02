@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { DistanceUnit } from "@/lib/preferences";
-import { Card, CardTitle, delay, NoticeBadge } from "../ui";
+import { Card, CardTitle, delay, EmptyState, Keywords, NoticeBadge } from "../ui";
 import { Shoe3DViewer } from "../shoe-3d-viewer";
 import { ShoeShowcase } from "../shoe-showcase";
 import {
@@ -548,25 +548,12 @@ export function ShoesCard({ unit }: { unit: DistanceUnit }) {
       style={delay(240)}
     >
       <CardTitle aside={<NoticeBadge>dados reais</NoticeBadge>}>Meus tênis</CardTitle>
-      <p className="mb-4 text-xs leading-relaxed text-muted text-pretty">
-        Registre seus tênis com marca, cor e foto. A quilometragem de cada um vem das corridas
-        gravadas com o mesmo nome — ajuda a saber quando trocar.
-      </p>
+      <Keywords className="mb-4" items={["marca e cor", "km por tênis", "hora de trocar"]} />
 
       {shoes === null ? (
         <div className="h-12 animate-pulse rounded-lg bg-background" />
       ) : shoes.length === 0 ? (
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-32 w-full max-w-[220px] overflow-hidden rounded-2xl">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static export has no image optimizer; a fixed /public asset doesn't need next/image anyway. */}
-            <img
-              src="/perfil-tenis-empty.png"
-              alt="Ilustração de um tênis de corrida esperando num caminho"
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <p className="text-xs leading-relaxed text-muted">Nenhum tênis registrado ainda.</p>
-        </div>
+        <EmptyState title="Nenhum tênis registrado ainda" />
       ) : (
         <>
           <ShoeHero shoes={shoes} summaryFor={summaryFor} unit={unit} />

@@ -188,7 +188,7 @@ export function WeekPlanEditor({
         <button
           type="button"
           onClick={onPrevWeek}
-          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent"
+          className="pr-press rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent active:scale-95"
         >
           ← Anterior
         </button>
@@ -199,7 +199,7 @@ export function WeekPlanEditor({
         <button
           type="button"
           onClick={onNextWeek}
-          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent"
+          className="pr-press rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent active:scale-95"
         >
           Próxima →
         </button>
@@ -217,7 +217,7 @@ export function WeekPlanEditor({
           type="button"
           onClick={handleSuggest}
           disabled={suggesting}
-          className="shrink-0 rounded-lg border border-accent px-3 py-2 text-xs font-semibold text-accent disabled:opacity-40"
+          className="pr-press shrink-0 rounded-lg border border-accent px-3 py-2 text-xs font-semibold text-accent hover:bg-accent/[0.06] active:scale-95 disabled:opacity-40"
         >
           {suggesting ? "Pensando…" : "Sugerir com IA"}
         </button>
@@ -293,7 +293,7 @@ export function WeekPlanEditor({
           type="button"
           onClick={handleSaveOverride}
           disabled={savingOverride}
-          className="flex-1 rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-40"
+          className="pr-press flex-1 rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent/90 active:scale-95 disabled:opacity-40"
         >
           {savingOverride ? "Salvando…" : "Salvar semana"}
         </button>
@@ -302,7 +302,7 @@ export function WeekPlanEditor({
             type="button"
             onClick={handleRemoveOverride}
             disabled={removingOverride}
-            className="rounded-lg bg-bad px-3 py-2.5 text-sm font-medium text-white disabled:opacity-40"
+            className="pr-press rounded-lg bg-bad px-3 py-2.5 text-sm font-medium text-white hover:bg-bad/90 active:scale-95 disabled:opacity-40"
           >
             {removingOverride ? "Removendo…" : "Remover"}
           </button>

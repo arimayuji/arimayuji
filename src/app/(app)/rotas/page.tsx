@@ -13,7 +13,7 @@ import { formatDistanceKm } from "@/lib/tracking/geoFilter";
 import { projectRoute } from "@/lib/tracking/routeProjection";
 import { useAuth } from "@/lib/useAuth";
 import { useHeaderClose } from "../app-shell";
-import { Card, CardTitle, delay, Screen, ScreenHeader } from "../ui";
+import { Card, CardTitle, delay, EmptyState, Screen, ScreenHeader } from "../ui";
 
 /** Same thumbnail technique as matched-runs-card.tsx's RouteThumb — projectRoute takes any {lat,lon,timestamp}[], including a hand-drawn route's synthesized-timestamp points, with zero new rendering code. */
 function RouteThumb({ points }: { points: { lat: number; lon: number; timestamp: number }[] }) {
@@ -35,7 +35,10 @@ function RouteThumb({ points }: { points: { lat: number; lon: number; timestamp:
 
 function RouteCard({ route, subtitle, href }: { route: CustomRoute; subtitle?: string; href: string }) {
   return (
-    <Link href={href} className="flex items-center gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
+    <Link
+      href={href}
+      className="pr-press flex items-center gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0 hover:bg-foreground/[0.04] active:scale-[0.98]"
+    >
       <RouteThumb points={parseCustomRoutePoints(route)} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{route.name}</p>
@@ -76,7 +79,11 @@ export default function RotasPage() {
     <>
       <ScreenHeader wide title="Minhas rotas" subtitle="Desenhe um trajeto no mapa e compartilhe com amigos" />
       <Screen wide>
-        <Link href="/rotas/criar" className="pr-enter block" style={delay(10)}>
+        <Link
+          href="/rotas/criar"
+          className="pr-enter pr-press block rounded-2xl hover:bg-foreground/[0.04] active:scale-[0.98] lg:rounded-md"
+          style={delay(10)}
+        >
           <Card className="flex items-center justify-between gap-3 lg:rounded-md lg:border lg:border-dashed lg:border-accent/40 lg:bg-transparent lg:shadow-none">
             <p className="text-sm font-semibold text-accent">+ Nova rota</p>
             <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -90,9 +97,7 @@ export default function RotasPage() {
           {myRoutes === null ? (
             <div className="h-14 animate-pulse rounded-lg bg-background" />
           ) : myRoutes.length === 0 ? (
-            <p className="py-2 text-center text-xs leading-relaxed text-muted">
-              Nenhuma rota desenhada ainda — comece pela acima.
-            </p>
+            <EmptyState title="Nenhuma rota desenhada ainda" description="Comece pela acima." />
           ) : (
             <div className="flex flex-col gap-3.5">
               {myRoutes.map((route) => (
@@ -107,9 +112,7 @@ export default function RotasPage() {
           {sharedRoutes === null ? (
             <div className="h-14 animate-pulse rounded-lg bg-background" />
           ) : sharedRoutes.length === 0 ? (
-            <p className="py-2 text-center text-xs leading-relaxed text-muted">
-              Nenhum amigo compartilhou uma rota com você ainda.
-            </p>
+            <EmptyState title="Nenhum amigo compartilhou uma rota com você ainda" />
           ) : (
             <div className="flex flex-col gap-3.5">
               {sharedRoutes.map((route) => (

@@ -34,7 +34,7 @@ export default function CriarRotaPage() {
       <Screen wide>
         <div className="pr-enter" style={delay(10)}>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="font-mono text-lg font-semibold tabular-nums">
+            <p className="font-mono text-lg font-semibold tabular-nums lg:tracking-[-0.01em]">
               {formatDistanceKm(distanceMeters)} <span className="text-xs font-normal text-muted">km</span>
             </p>
             <div className="flex gap-2">
@@ -42,7 +42,7 @@ export default function CriarRotaPage() {
                 type="button"
                 disabled={points.length === 0}
                 onClick={() => setPoints((current) => current.slice(0, -1))}
-                className="rounded-full border border-border px-3.5 py-2 text-xs font-semibold text-muted disabled:opacity-40 lg:rounded-md"
+                className="pr-press rounded-full border border-border px-3.5 py-2 text-xs font-semibold text-muted hover:bg-foreground/[0.04] active:scale-95 disabled:opacity-40 lg:rounded-md"
               >
                 Desfazer
               </button>
@@ -50,7 +50,7 @@ export default function CriarRotaPage() {
                 type="button"
                 disabled={points.length === 0}
                 onClick={() => setPoints([])}
-                className="rounded-full border border-border px-3.5 py-2 text-xs font-semibold text-muted disabled:opacity-40 lg:rounded-md"
+                className="pr-press rounded-full border border-border px-3.5 py-2 text-xs font-semibold text-muted hover:bg-foreground/[0.04] active:scale-95 disabled:opacity-40 lg:rounded-md"
               >
                 Limpar
               </button>
@@ -75,13 +75,13 @@ export default function CriarRotaPage() {
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={80}
-            className="w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm font-semibold outline-none focus:border-accent lg:rounded-md"
+            className="pr-press w-full rounded-xl border border-border bg-background px-3.5 py-3 text-sm font-semibold outline-none focus:border-accent lg:rounded-md"
           />
           <button
             type="button"
             disabled={!canSave || saving}
             onClick={handleSave}
-            className="mt-4 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-60 lg:min-h-0 lg:w-auto lg:rounded-md lg:px-4 lg:py-1.5"
+            className="pr-press mt-4 min-h-12 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground hover:opacity-90 active:scale-[0.98] disabled:opacity-60 lg:min-h-0 lg:w-auto lg:rounded-md lg:px-4 lg:py-1.5"
           >
             {saving ? "Salvando…" : "Salvar rota"}
           </button>

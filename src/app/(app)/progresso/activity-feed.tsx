@@ -16,7 +16,7 @@ import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { allTimeBests } from "@/lib/tracking/personalRecords";
 import type { DistanceUnit } from "@/lib/preferences";
 import { formatAveragePace, formatDistance, paceLabel, unitLabel } from "@/lib/units";
-import { Card, CardTitle, delay, Stat } from "../ui";
+import { Card, CardTitle, delay, EmptyState, Stat } from "../ui";
 import { ModalPortal } from "../modal-portal";
 
 /**
@@ -150,8 +150,10 @@ export function PersonalRecords({
                 type="button"
                 onClick={() => setUnit(option)}
                 aria-pressed={unit === option}
-                className={`px-3 py-1 transition-colors ${
-                  unit === option ? "bg-accent text-accent-foreground" : "text-muted hover:text-foreground"
+                className={`pr-press px-3 py-1 active:scale-95 ${
+                  unit === option
+                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                    : "text-muted hover:text-foreground"
                 }`}
               >
                 {option}
@@ -167,7 +169,7 @@ export function PersonalRecords({
           <li key={best.targetMeters} className="border-t border-border first:border-t-0">
             <Link
               href={`/historico/detalhe?id=${best.runId}`}
-              className="-mx-1 flex items-center justify-between gap-2 rounded-lg px-1 py-2 text-sm hover:bg-background"
+              className="pr-press -mx-1 flex items-center justify-between gap-2 rounded-lg px-1 py-2 text-sm hover:bg-background active:scale-[0.98]"
             >
               <span className="text-muted">{unit === "mi" && best.milesLabel ? best.milesLabel : best.label}</span>
               <span className="flex items-baseline gap-2">
@@ -343,12 +345,12 @@ function SortSheet({
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
         <div className="w-full max-w-sm rounded-t-3xl bg-background px-6 pt-6 pb-8 text-foreground sm:rounded-3xl">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Ordenar por</h2>
+            <h2 className="text-lg font-semibold lg:tracking-[-0.01em]">Ordenar por</h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="Fechar"
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted"
+              className="pr-press flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted hover:text-foreground active:scale-95"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -376,9 +378,9 @@ function SortSheet({
                       onSortChange(option.key);
                       onClose();
                     }}
-                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors ${
+                    className={`pr-press flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-medium active:scale-[0.98] ${
                       selected
-                        ? "border-accent bg-accent/10 text-accent"
+                        ? "border-accent bg-accent/10 text-accent hover:bg-accent/15"
                         : "border-border text-foreground hover:border-accent"
                     }`}
                   >
@@ -448,13 +450,13 @@ function ActivitySearchBar({
     <div className="pr-enter flex flex-col gap-3">
       <div>
         <div
-          className={`flex items-center gap-2.5 border bg-surface px-4 py-3 transition-[border-radius,border-color,box-shadow] duration-[0.45s] ${
+          className={`flex items-center gap-2.5 border bg-surface px-4 py-3 transition-[border-radius,border-color,box-shadow] duration-300 [transition-timing-function:var(--ease-spring)] ${
             focused ? "rounded-2xl border-accent shadow-[0_0_0_4px_rgba(74,120,224,0.16)]" : "rounded-full border-border"
           }`}
         >
           <svg
             viewBox="0 0 24 24"
-            className={`h-4 w-4 shrink-0 transition-transform duration-300 ${focused ? "scale-110 text-accent" : "text-muted"}`}
+            className={`h-4 w-4 shrink-0 transition-transform duration-300 [transition-timing-function:var(--ease-spring)] ${focused ? "scale-110 text-accent" : "text-muted"}`}
             aria-hidden="true"
             fill="none"
             stroke="currentColor"
@@ -482,7 +484,7 @@ function ActivitySearchBar({
               type="button"
               onClick={() => onQueryChange("")}
               aria-label="Limpar busca"
-              className="pr-enter flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-background text-muted"
+              className="pr-enter pr-press flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-background text-muted hover:text-foreground active:scale-95"
               style={delay(0, { "--pr-dur": "0.2s" } as CSSProperties)}
             >
               <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -502,7 +504,7 @@ function ActivitySearchBar({
                   event.preventDefault();
                   pickSuggestion(sug);
                 }}
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-muted"
+                className="pr-press rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-muted hover:border-accent hover:text-foreground active:scale-95"
               >
                 {sug}
               </button>
@@ -518,9 +520,9 @@ function ActivitySearchBar({
               key={option.key}
               type="button"
               onClick={() => onPeriodChange(option.key)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
+              className={`pr-press shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap active:scale-95 ${
                 period === option.key
-                  ? "border-accent bg-accent text-accent-foreground"
+                  ? "border-accent bg-accent text-accent-foreground hover:bg-accent/90"
                   : "border-border text-muted hover:border-accent hover:text-foreground"
               }`}
             >
@@ -532,7 +534,7 @@ function ActivitySearchBar({
           type="button"
           onClick={() => setSortSheetOpen(true)}
           aria-haspopup="dialog"
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground"
+          className="pr-press flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent active:scale-95"
         >
           {sortLabel}
           <svg
@@ -586,7 +588,7 @@ function FocalRunModal({ run, unit, onClose }: { run: CompletedRun; unit: Distan
               type="button"
               onClick={onClose}
               aria-label="Fechar"
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted"
+              className="pr-press flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted hover:border-accent hover:text-foreground active:scale-95"
             >
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M6 6l12 12M18 6L6 18" />
@@ -617,7 +619,7 @@ function FocalRunModal({ run, unit, onClose }: { run: CompletedRun; unit: Distan
 
           <Link
             href={`/historico/detalhe?id=${run.id}`}
-            className="mt-5 block w-full rounded-full bg-accent py-3 text-center text-sm font-semibold text-accent-foreground"
+            className="pr-press mt-5 block w-full rounded-full bg-accent py-3 text-center text-sm font-semibold text-accent-foreground hover:bg-accent/90 active:scale-[0.98]"
           >
             Ver detalhes completos
           </Link>
@@ -654,7 +656,7 @@ function DeleteConfirmSheet({
               type="button"
               onClick={onCancel}
               disabled={deleting}
-              className="flex-1 rounded-full border border-border py-3.5 text-sm font-semibold disabled:opacity-50"
+              className="pr-press flex-1 rounded-full border border-border py-3.5 text-sm font-semibold hover:border-accent active:scale-[0.98] disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -662,7 +664,7 @@ function DeleteConfirmSheet({
               type="button"
               onClick={onConfirm}
               disabled={deleting}
-              className="flex-1 rounded-full bg-bad py-3.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="pr-press flex-1 rounded-full bg-bad py-3.5 text-sm font-semibold text-white hover:bg-bad/90 active:scale-[0.98] disabled:opacity-50"
             >
               {deleting ? "Excluindo…" : "Excluir"}
             </button>
@@ -699,18 +701,21 @@ function RunRow({
           type="button"
           onClick={onFocusRun}
           aria-label="Prévia rápida do trajeto"
-          className="shrink-0 transition-transform active:scale-95"
+          className="pr-press shrink-0 hover:opacity-90 active:scale-95"
         >
           <RouteThumb points={run.points} />
         </button>
-        <Link href={`/historico/detalhe?id=${run.id}`} className="min-w-0 flex-1 py-4 pr-2 pl-4">
+        <Link
+          href={`/historico/detalhe?id=${run.id}`}
+          className="pr-press min-w-0 flex-1 py-4 pr-2 pl-4 hover:bg-background active:scale-[0.98]"
+        >
           <div className="flex items-baseline justify-between gap-2">
             <h3 className="truncate text-sm font-medium">{formatRunDate(started)}</h3>
             <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
               {timeFormatter.format(started)}
             </span>
           </div>
-          <p className="text-metal mt-1 font-mono text-2xl tabular-nums">
+          <p className="text-metal mt-1 font-mono text-2xl tabular-nums lg:tracking-[-0.02em]">
             {formatDistance(run.distanceMeters, unit)}
             <span className="ml-1 text-sm text-muted">{unitLabel(unit)}</span>
           </p>
@@ -744,7 +749,7 @@ function RunRow({
           type="button"
           onClick={onRequestDelete}
           aria-label="Excluir corrida"
-          className="mt-3 mr-3 h-fit shrink-0 self-start rounded-full bg-bad p-2 text-white"
+          className="pr-press mt-3 mr-3 h-fit shrink-0 self-start rounded-full bg-bad p-2 text-white hover:bg-bad/90 active:scale-95"
         >
           <TrashIcon />
         </button>
@@ -825,19 +830,22 @@ export function ActivityFeed({
       )}
 
       {showSearchTool && visibleRuns.length === 0 ? (
-        <p className="pr-enter text-center text-sm text-muted">
-          Nenhuma corrida bate com esse filtro.{" "}
-          <button
-            type="button"
-            onClick={() => {
-              setQuery("");
-              setPeriod("all");
-            }}
-            className="font-semibold text-accent"
-          >
-            Limpar filtros
-          </button>
-        </p>
+        <EmptyState
+          className="pr-enter"
+          title="Nenhuma corrida bate com esse filtro"
+          action={
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setPeriod("all");
+              }}
+              className="pr-press text-sm font-semibold text-accent hover:text-accent/80 active:scale-95"
+            >
+              Limpar filtros
+            </button>
+          }
+        />
       ) : (
         <ul className={`flex flex-col gap-3.5 ${showSearchTool ? "mt-4" : ""}`}>
           {visibleRuns.map((run, index) => (

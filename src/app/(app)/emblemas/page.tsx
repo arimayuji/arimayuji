@@ -68,7 +68,7 @@ function CollectionGrid({
             type="button"
             disabled={!isCrossed}
             onClick={() => onSelect(value)}
-            className="flex flex-col items-center gap-1.5 rounded-xl p-2 disabled:cursor-default"
+            className="pr-press flex flex-col items-center gap-1.5 rounded-xl p-2 enabled:hover:bg-foreground/[0.04] enabled:active:scale-95 disabled:cursor-default"
           >
             <EmblemBadge
               category={category}
@@ -144,7 +144,7 @@ export default function EmblemasPage() {
           style={delay(0)}
         >
           <CardTitle>Quilometragem na vida</CardTitle>
-          <p className="font-mono text-3xl font-semibold tabular-nums">
+          <p className="font-mono text-3xl font-semibold tabular-nums lg:tracking-[-0.02em]">
             {totalMeters === null
               ? "—"
               : (totalMeters / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
@@ -189,7 +189,7 @@ export default function EmblemasPage() {
           style={delay(40)}
         >
           <CardTitle>Elevação na vida</CardTitle>
-          <p className="font-mono text-3xl font-semibold tabular-nums">
+          <p className="font-mono text-3xl font-semibold tabular-nums lg:tracking-[-0.02em]">
             {totalElevation === null ? "—" : Math.round(totalElevation).toLocaleString("pt-BR")}
             <span className="ml-1 text-sm text-muted">m</span>
           </p>
@@ -235,7 +235,7 @@ export default function EmblemasPage() {
           style={delay(80)}
         >
           <CardTitle>Tempo na vida</CardTitle>
-          <p className="font-mono text-3xl font-semibold tabular-nums">
+          <p className="font-mono text-3xl font-semibold tabular-nums lg:tracking-[-0.02em]">
             {totalHours === null ? "—" : totalHours.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
             <span className="ml-1 text-sm text-muted">h</span>
           </p>

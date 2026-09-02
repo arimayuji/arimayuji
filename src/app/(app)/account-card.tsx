@@ -98,7 +98,7 @@ export function AccountCard() {
           <button
             type="button"
             onClick={() => setShowPrompt(true)}
-            className="shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground lg:rounded-md lg:px-3 lg:py-1.5"
+            className="pr-press shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground hover:opacity-90 active:scale-95 lg:rounded-md lg:px-3 lg:py-1.5"
           >
             Entrar
           </button>
@@ -117,7 +117,7 @@ export function AccountCard() {
               onClick={() => avatarInputRef.current?.click()}
               disabled={uploadingAvatar}
               aria-label="Trocar foto de perfil"
-              className="relative rounded-full disabled:opacity-60"
+              className="pr-press relative rounded-full hover:opacity-90 active:scale-95 disabled:opacity-60"
             >
               <Avatar name={profile.displayName} avatarUrl={profile.avatarUrl} />
               <span className="absolute -right-0.5 -bottom-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 border-background bg-accent text-accent-foreground">
@@ -145,7 +145,7 @@ export function AccountCard() {
             onClick={() => setShowSignOutConfirm(true)}
             aria-label="Sair"
             title="Sair"
-            className="shrink-0 rounded-full p-2 text-bad hover:bg-bad/10 lg:rounded-md"
+            className="pr-press shrink-0 rounded-full p-2 text-bad hover:bg-bad/10 active:scale-95 lg:rounded-md"
           >
             <svg
               viewBox="0 0 24 24"
@@ -167,7 +167,7 @@ export function AccountCard() {
 
       <Link
         href="/perfil/dados"
-        className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm lg:mt-2.5 lg:pt-2.5"
+        className="pr-press mt-4 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm hover:bg-foreground/[0.04] active:scale-[0.98] lg:mt-2.5 lg:pt-2.5"
       >
         <span className="text-muted">Dados pessoais — peso, dores</span>
         <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-none lg:bg-transparent lg:p-0 lg:font-medium lg:text-accent">Abrir</span>
@@ -176,7 +176,7 @@ export function AccountCard() {
       {status === "signed-in" && profile && (
         <Link
           href="/amigos"
-          className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm lg:mt-2.5 lg:pt-2.5"
+          className="pr-press mt-3 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm hover:bg-foreground/[0.04] active:scale-[0.98] lg:mt-2.5 lg:pt-2.5"
         >
           <span className="text-muted">Amigos e convites</span>
           <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-none lg:bg-transparent lg:p-0 lg:font-medium lg:text-accent">Abrir</span>
@@ -187,7 +187,7 @@ export function AccountCard() {
         <button
           type="button"
           onClick={() => void handleInvite(profile.handle)}
-          className="mt-3 flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm lg:mt-2.5 lg:pt-2.5"
+          className="pr-press mt-3 flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm hover:bg-foreground/[0.04] active:scale-[0.98] lg:mt-2.5 lg:pt-2.5"
         >
           <span className="text-muted">Convidar amigos</span>
           <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold lg:rounded-none lg:bg-transparent lg:p-0 lg:font-medium lg:text-accent">
@@ -200,7 +200,7 @@ export function AccountCard() {
         <button
           type="button"
           onClick={() => setShowDeleteConfirm(true)}
-          className="mt-3 flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm lg:mt-2.5 lg:pt-2.5"
+          className="pr-press mt-3 flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm hover:bg-bad/[0.06] active:scale-[0.98] lg:mt-2.5 lg:pt-2.5"
         >
           <span className="text-bad">Excluir conta</span>
           <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-xs font-semibold text-bad lg:rounded-none lg:bg-transparent lg:p-0 lg:font-medium">

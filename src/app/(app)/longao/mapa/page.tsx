@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/useAuth";
 import { formatDistanceKm, formatPace } from "@/lib/tracking/geoFilter";
 import { GroupLiveMap } from "../../group-live-map";
 import { useHeaderClose } from "../../app-shell";
-import { Card, CardTitle, delay, Screen, ScreenHeader } from "../../ui";
+import { Card, CardTitle, delay, Screen, ScreenHeader, SPAN_COLUMNS } from "../../ui";
 
 export default function LongaoMapaPage() {
   return (
@@ -59,9 +59,12 @@ function LongaoMapaContent() {
   if (!code) {
     return (
       <Screen>
-        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <CardTitle>Nenhum longão selecionado</CardTitle>
-          <Link href="/longao" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
+          <Link
+            href="/longao"
+            className="pr-press mt-2 inline-block text-sm text-accent underline underline-offset-2 hover:opacity-80 active:scale-95"
+          >
             Voltar pro longão
           </Link>
         </Card>
@@ -78,17 +81,20 @@ function LongaoMapaContent() {
 
       <Screen>
         {session === undefined && (
-          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(0)}>
+          <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(0)}>
             <p className="text-sm text-muted">Carregando…</p>
           </Card>
         )}
 
         {session === null && (
-          <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(0)}>
+          <Card className={`pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`} style={delay(0)}>
             <p className="text-sm leading-relaxed text-muted text-pretty">
               Não achei esse longão — o código pode estar errado, ou a sessão já venceu.
             </p>
-            <Link href="/longao" className="mt-3 inline-block text-sm text-accent underline underline-offset-2">
+            <Link
+              href="/longao"
+              className="pr-press mt-3 inline-block text-sm text-accent underline underline-offset-2 hover:opacity-80 active:scale-95"
+            >
               Voltar pro longão
             </Link>
           </Card>
@@ -96,7 +102,7 @@ function LongaoMapaContent() {
 
         {session && (
           <>
-            <div className="pr-enter overflow-hidden rounded-xl" style={delay(0)}>
+            <div className={`pr-enter overflow-hidden rounded-xl ${SPAN_COLUMNS}`} style={delay(0)}>
               <div className="h-72 w-full">
                 <GroupLiveMap markers={markers} className="h-full w-full" />
               </div>

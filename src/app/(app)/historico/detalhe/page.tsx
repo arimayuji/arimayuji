@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Card, CardTitle, Screen } from "../../ui";
+import { Card, CardTitle, Screen, SPAN_COLUMNS } from "../../ui";
 import { RunDetail } from "./run-detail";
 
 /**
@@ -29,7 +29,7 @@ function DetalheCorridaContent() {
   if (!id) {
     return (
       <Screen>
-        <Card className="lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <Card className={`lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none ${SPAN_COLUMNS}`}>
           <CardTitle>Nenhuma corrida selecionada</CardTitle>
           <Link href="/perfil?tab=progresso" className="mt-2 inline-block text-sm text-accent underline underline-offset-2">
             Voltar pro progresso
