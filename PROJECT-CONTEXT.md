@@ -2509,12 +2509,53 @@ aparelho" acima, mesma sessão, branch `claude/strava-competitor-feedback-cyvop8
   o `src/`** — o basemap visível do mapa usa um sistema totalmente
   separado (Protomaps/PMTiles, `NEXT_PUBLIC_TILES_BASE_URL`), então nada
   mais no app hoje prova se esse secret específico está configurado
-  certo em produção. Conclusão mais provável: o secret
-  `NEXT_PUBLIC_MAPTILER_KEY` no GitHub Actions (Settings → Secrets →
-  Actions do repo `xanthus`) está ausente ou com o valor errado — algo só
-  o dono do projeto pode conferir/corrigir, não uma correção de código.
+  certo em produção. Conclusão da época: o secret
+  `NEXT_PUBLIC_MAPTILER_KEY` no GitHub Actions estaria "ausente ou com o
+  valor errado", tratado como **não verificável** deste ambiente.
+  **Essa parte estava errada — e era verificável.** Ver a seção própria
+  logo abaixo (2026-09-02).
 - Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
   **Não testado em aparelho real** — mesma pendência padrão de sempre.
+
+## Causa raiz do "Ganho de elevação: Indisponível" — chave errada no secret, não ausente (2026-09-02)
+
+Dono do projeto reportou de novo que elevação não é calculada. A
+investigação de 2026-08-29 (seção logo acima) tinha parado num
+"provavelmente o secret", tratando o assunto como algo que só ele poderia
+conferir. **Isso era falso**: `NEXT_PUBLIC_MAPTILER_KEY` tem prefixo
+`NEXT_PUBLIC_`, então o Next inlina o valor no bundle em build time — a
+chave que está em produção pode ser lida direto do JS publicado, e
+testada. Vale como método pra qualquer secret `NEXT_PUBLIC_*` daqui pra
+frente: nunca é preciso adivinhar se um deles está certo em produção.
+
+Como foi feito: baixar os chunks de `xanthus.app.br/_next/static/chunks/`
+com `curl`, `grep` pela URL da API (`api.maptiler.com/elevation`) e ler o
+valor logo depois de `?key=` (o literal termina numa crase, então dá pra
+confirmar que a string foi extraída inteira e não cortada pelo regex).
+
+| | Chave | Resultado contra a API |
+|---|---|---|
+| Publicada em produção | `bB8g9qSV4u3YF2c9IEB` (19 chars) | **403 "Invalid key"** |
+| `.env.local` (controle) | 20 chars | **200**, `769.1` m — elevação real de SP |
+
+**Não é truncamento**: a chave publicada não é prefixo da local e os 6
+primeiros caracteres já diferem. São duas chaves distintas — o secret do
+GitHub Actions carrega uma chave antiga, revogada ou de outra conta
+MapTiler.
+
+Isso explica o sintoma exato e o silêncio: `NEXT_PUBLIC_MAPTILER_KEY` é
+consumido em **um único lugar** de todo o `src/` (`elevation.ts`), e o
+basemap visível usa outro sistema (Protomaps/PMTiles), então uma chave
+inválida quebra só a elevação, sem nada mais no app denunciar.
+
+**Correção (só o dono do projeto, nenhuma mudança de código)**: repo
+`arimayuji/xanthus` → Settings → Secrets and variables → Actions →
+`NEXT_PUBLIC_MAPTILER_KEY`, colar o mesmo valor do `.env.local`
+(confirmado funcionando acima), e rodar um build novo. Se for gerar uma
+chave nova em vez de reusar essa, vale fechar junto o achado #13 da
+auditoria LGPD (restringir a chave por domínio no painel da MapTiler) —
+ela vai pro bundle público de qualquer forma, que é exatamente o que
+permitiu este diagnóstico.
 
 ## Reorganização de IA: `/perfil` em abas + `/historico` absorvido por `/progresso` (2026-08-29)
 
