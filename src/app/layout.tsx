@@ -5,7 +5,6 @@ import { OAuthCallbackListener } from "./oauth-callback-listener";
 import { PushRegistration } from "./push-registration";
 import { FriendPresencePing } from "./friend-presence-ping";
 import { RunnerProfileSyncPing } from "./runner-profile-sync-ping";
-import { Splash } from "./splash";
 
 /** Body text and headings, at whatever weight each element already asks for (variable font, no fixed weight here). */
 const inter = Inter({
@@ -64,7 +63,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${oswald.variable} ${rajdhani.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <Splash />
         {children}
         <OAuthCallbackListener />
         <PushRegistration />

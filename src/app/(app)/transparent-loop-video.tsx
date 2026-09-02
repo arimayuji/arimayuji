@@ -41,13 +41,16 @@ export function TransparentLoopVideo({
   src,
   bgColor,
   size = 360,
+  height,
   className,
 }: {
   src: string;
   /** [r, g, b] sampled from the clip's own baked-in background, not read from CSS. */
   bgColor: readonly [number, number, number];
-  /** Native pixel resolution to key at — matches the source clip's own resolution by default, since upsampling it here wouldn't add real detail. */
+  /** Native pixel resolution to key at — matches the source clip's own resolution by default, since upsampling it here wouldn't add real detail. Square unless `height` says otherwise. */
   size?: number;
+  /** Only for a clip that isn't square: without it a landscape source gets squashed into the square canvas below. */
+  height?: number;
   className?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -60,8 +63,10 @@ export function TransparentLoopVideo({
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
-    canvas.width = size;
-    canvas.height = size;
+    const w = size;
+    const h = height ?? size;
+    canvas.width = w;
+    canvas.height = h;
 
     const [br, bg, bb] = bgColor;
     let cancelled = false;
@@ -70,8 +75,8 @@ export function TransparentLoopVideo({
 
     const drawFrame = () => {
       if (video.readyState >= 2) {
-        ctx.drawImage(video, 0, 0, size, size);
-        const frame = ctx.getImageData(0, 0, size, size);
+        ctx.drawImage(video, 0, 0, w, h);
+        const frame = ctx.getImageData(0, 0, w, h);
         const data = frame.data;
         for (let i = 0; i < data.length; i += 4) {
           const dr = data[i] - br;
@@ -103,7 +108,7 @@ export function TransparentLoopVideo({
       if (rafHandle) cancelAnimationFrame(rafHandle);
       if (rvfcHandle && video.cancelVideoFrameCallback) video.cancelVideoFrameCallback(rvfcHandle);
     };
-  }, [src, bgColor, size]);
+  }, [src, bgColor, size, height]);
 
   return (
     <div className={`relative ${className ?? ""}`}>

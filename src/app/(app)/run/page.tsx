@@ -20,7 +20,6 @@ import {
 } from "@/lib/tracking/useRunTracker";
 import { isNativePlatform } from "@/lib/platform";
 import { onNotificationAction, onWatchAction } from "@/lib/tracking/geolocation";
-import { useEffectiveColorScheme } from "@/lib/theme";
 import { listCoachConnections, type CoachConnection } from "@/lib/coachRelationships";
 import { listFriendConnections, type FriendConnection } from "@/lib/friendships";
 import { useNearbyFriends } from "@/lib/useNearbyFriends";
@@ -217,9 +216,8 @@ function formatPauseDuration(startedAt: number, endedAt: number | null): string 
 /** How long a hold has to last before it counts — long enough that a stray tap or a bump mid-stride can't trigger it, short enough that a deliberate hold doesn't feel like it's stuck. */
 const HOLD_TO_FINISH_MS = 850;
 
-/** The exact background color baked into `running-loop(.dark).mp4`, sampled directly from the clip's own pixels (not the CSS `--background` token, which is a separate value this can't be kept in permanent lockstep with) — see `TransparentLoopVideo`. */
-const RUNNING_LOOP_LIGHT_BG: readonly [number, number, number] = [251, 251, 251];
-const RUNNING_LOOP_DARK_BG: readonly [number, number, number] = [5, 7, 5];
+/** The exact background color baked into `xanthus-splash.mp4`, sampled directly from the clip's own pixels (pure white — not the CSS `--background` token, which is a separate value this can't be kept in permanent lockstep with) — see `TransparentLoopVideo`. */
+const SPLASH_LOOP_BG: readonly [number, number, number] = [255, 255, 255];
 
 /** Preset chip values for the four pickers on Preparar Corrida — same shape as Xanthus Preparar Corrida.dc.html's GOAL_OPTS/VOICE_OPTS, adapted where a mock preset would fall outside a range this app already validates elsewhere (voice interval stays within `ANNOUNCE_MIN_METERS`–`ANNOUNCE_MAX_METERS`). */
 const DISTANCE_PRESETS_KM = [1, 3, 5, 10, 21];
@@ -2323,7 +2321,6 @@ export default function RunPage() {
   // `matchMedia` read of the OS setting, which used to pick the wrong clip
   // whenever someone had explicitly overridden the app to light or dark
   // while their OS stayed on the other one.
-  const isDarkMode = useEffectiveColorScheme() === "dark";
   // Same condition passed to useImmersiveMode() above — while it's true,
   // AppShell skips its own top safe-area inset to keep the map full-bleed,
   // so this header has to carry that inset itself instead. The rest of the
@@ -3139,27 +3136,27 @@ export default function RunPage() {
       {state.status === "warming" && (
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
           {/*
-           * Two separate clips (not one clip plus a runtime invert), same
-           * reasoning as before: `running-loop-dark.mp4` is the same clip
-           * pre-inverted (white line art, solid near-black background) so
-           * dark mode needs no runtime recoloring. What changed is how the
-           * background itself disappears — `TransparentLoopVideo` keys it
-           * out pixel-by-pixel on a canvas instead of relying on the clip's
-           * baked-in background matching the page underneath closely enough
-           * to pass as transparent. `mix-blend-mode` was tried for that and
-           * looked right in every desktop browser, but left a visible
-           * mismatched box behind the runners on a real Android build
-           * (WebViews don't reliably apply blend modes to `<video>`) — and
-           * even a color-corrected clip can never be an exact, permanent
-           * match for `--background`, so this makes the mismatch moot
-           * instead of chasing ever-closer hex values.
+           * The brand mark, not the two generic runners it used to be. This
+           * clip was the web splash — a screen that existed only to delay
+           * someone on their way into the app, which is the one place a
+           * brand animation earns nothing. The wait for a GPS lock is a
+           * real wait the app cannot shorten, so it is where the mark
+           * actually buys something: it fills time the user is already
+           * spending instead of adding time they weren't.
+           *
+           * `TransparentLoopVideo` keys the clip's baked-in white ground
+           * out pixel-by-pixel on a canvas rather than trusting it to match
+           * `--background` — `mix-blend-mode` was tried for that and looked
+           * right in every desktop browser but left a visible mismatched
+           * box on a real Android build (WebViews don't reliably apply
+           * blend modes to `<video>`).
            */}
           <TransparentLoopVideo
-            key={isDarkMode ? "dark" : "light"}
-            src={isDarkMode ? "/running-loop-dark.mp4" : "/running-loop.mp4"}
-            bgColor={isDarkMode ? RUNNING_LOOP_DARK_BG : RUNNING_LOOP_LIGHT_BG}
-            size={360}
-            className="h-56 w-56 sm:h-64 sm:w-64"
+            src="/xanthus-splash.mp4"
+            bgColor={SPLASH_LOOP_BG}
+            size={424}
+            height={240}
+            className="h-40 w-[17.5rem] sm:h-48 sm:w-[21rem]"
           />
           <p key={`title-${warmingMessageIndex}`} className="pr-enter text-lg font-medium">
             {WARMING_MESSAGES[warmingMessageIndex].title}
