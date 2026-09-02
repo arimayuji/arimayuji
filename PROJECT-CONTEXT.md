@@ -4159,6 +4159,109 @@ paliativa até o código novo ir pro ar); o cron semanal em si ainda está
 documentado como não ligado em produção (seção "Calendário de corridas de
 rua" acima).
 
+## Refatoração do produto web orientada a Apple design (2026-09-02)
+
+Pedido do dono do projeto: "refatora todo produto web visualmente
+orientado a apple design... o produto web de planejamento/análise/criação
+para corredor que usa o xanthus app". Tudo abaixo é `lg:`-only ou troca de
+física de transição — o app nativo não muda. Branch
+`claude/strava-competitor-feedback-cyvop8`, commit `31cd557`, **ainda não
+deployado em produção**.
+
+**A camada de design vive em `globals.css`**, no bloco comentado "Desktop
+web design layer (Apple-oriented)" — é lá que qualquer trabalho futuro
+deve olhar antes de inventar token novo:
+- `--ease-spring` (`cubic-bezier(0.32, 0.72, 0, 1)`) — mola criticamente
+  amortecida, a curva padrão de tudo. **Não existe token de bounce de
+  propósito**: a Apple só usa overshoot quando o gesto carregou momentum
+  (um flick, um arraste solto), e este produto não tem essa interação na
+  web — um token de overshoot sem call site é exatamente como bounce
+  acaba decorando painel que só apareceu, que é o que faz parecer datado.
+  Adicionar de volta só junto de um uso real.
+- `.pr-press` — a transição compartilhada de interação (transform + cor +
+  borda + opacidade). Todo elemento clicável do app usa.
+- `.material-chrome` + o override `lg:` de `.chrome-gradient-nav`/
+  `-header` — material translúcido (blur + saturate) com escape hatch
+  para `prefers-reduced-transparency`/`prefers-contrast`.
+- `.scroll-edge` + `data-scrolled` (setado pelo `AppShell`) — separador
+  que só existe quando há conteúdo passando por baixo do header.
+
+**Decisões de produto que não dá pra ler no código:**
+
+1. **A sidebar deixou de ser azul sólido.** Era um slab da cor da marca
+   descendo a lateral — a coisa mais barulhenta de toda tela, competindo
+   com o conteúdo que ela existe pra navegar, e que forçava o item
+   selecionado a se virar com tints de branco sobre azul (ou seja, a cor
+   não carregava informação nenhuma). Agora é material neutro com a
+   seleção numa cápsula accent, que é o que faz a cor significar "você
+   está aqui".
+
+2. **Header não some mais ao rolar no desktop.** Esconder chrome ao rolar
+   é padrão de celular; num toolbar de desktop lê como o app perdendo a
+   própria navegação. O translate virou variável CSS (`--chrome-y`) só
+   pra que `lg:translate-y-0` consiga vencer — style inline ganha de
+   qualquer classe.
+
+3. **Duas colunas no desktop** ("não quero conteúdo todo em uma coluna
+   só"). Toda tela clampava em `max-w-md` em qualquer largura. `Screen`
+   agora flui em **multi-coluna CSS**, não grid: as seções têm alturas
+   muito diferentes e as linhas de um grid deixariam buraco ao lado de
+   cada célula curta. Três ferramentas em `ui.tsx`: `SPAN_COLUMNS` (barra
+   de filtro/mapa/tabela larga — qualquer coisa com `overflow-x-auto`
+   especialmente, que cortada na divisa lê como quebrada), a prop
+   `singleColumn` (fluxo sequencial: player de aquecimento, wizard de
+   meta, editor do card de compartilhar), e uma regra `:only-child` que
+   atravessa sozinha quando a tela inteira é um card só.
+
+4. **Tipografia por tamanho ótico.** Títulos grandes ganharam tracking
+   **negativo** no `lg:` (e o `<h1>` troca Oswald por Inter lá); os
+   micro-labels em caixa alta mantêm o tracking **positivo** — é a mesma
+   regra nos dois sentidos, e apertar os pequenos seria regressão.
+   Numerais perderam o gradiente cromado (`.text-metal`) no desktop: num
+   painel com uma dúzia deles, o efeito custa contraste por decoração.
+
+5. **Empty state = cavalo triste.** Desenho do dono do projeto,
+   vetorizado com `potrace` (`public/empty/cavalo-triste.svg`) e pintado
+   por **máscara CSS**, então assume `currentColor` em vez de ser um PNG
+   preto colado. Componente `EmptyState` em `ui.tsx`. **Regra dura,
+   decidida explicitamente: só empty state genuíno** — nunca erro, nunca
+   gate de login, nunca not-found. O cavalo está decepcionado que não tem
+   nada aqui *ainda*; usar isso pra algo que falhou seria desonesto sobre
+   o que aconteceu. Substituiu 6 ilustrações antigas
+   (`amigos-empty.png`, `progresso-empty.png`, os dois
+   `treinador-sem-*.png`, `lugares-ranking-empty.png`,
+   `perfil-tenis-empty.png`) — **os arquivos continuam em `public/` sem
+   nenhuma referência**, deixados de propósito pro dono do projeto
+   decidir se apaga.
+
+6. **Achado real sobre o texto do produto.** O pedido "colocar labels nas
+   seções ao invés de jogar muito texto bruto" rendeu só 8 parágrafos
+   virando chips (`Keywords`, em `ui.tsx`). Não foi preguiça: quase todo
+   o texto restante é consentimento, disclosure de privacidade ou
+   disclaimer de honestidade ("números inventados", "não é recomendação
+   médica", "nunca o traçado GPS", "só quem você marcar consegue ver") —
+   coisa que chip nenhum carrega, e que a postura inteira deste produto
+   depende de continuar legível. `/privacidade` e as telas de
+   consentimento LGPD foram marcadas como intocáveis. **Se um dia for
+   preciso enxugar mais essas telas, o caminho já validado aqui é mover
+   o texto pra trás de um link "como funciona, em detalhe"** (padrão de
+   `/perfil/relogio/como-funciona`), nunca encurtar o consentimento.
+
+**Bug de raiz corrigido no caminho**: `.pr-enter` usava
+`animation-fill-mode: both`, e a metade *forwards* fixava
+`transform: none` depois da entrada — um valor preenchido por animação
+vence qualquer `transform` declarado, então **todo `active:scale-*` em
+card com `.pr-enter` não fazia nada**, silenciosamente, na app inteira.
+Trocado por `backwards` (que ainda cobre o delay escalonado, o motivo do
+fill-mode existir ali). As regras de reveal-on-scroll mantêm `both` de
+propósito — aquelas têm estado base real (`[data-reveal] { opacity: 0 }`)
+pra segurar.
+
+Verificado: `tsc`/`lint`/`build` limpos e conferência visual via
+Playwright em 10 telas desktop + 4 mobile (mobile como teste de
+regressão, já que os componentes compartilhados mudaram). **Não testado
+por olho humano nem em aparelho real.**
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
