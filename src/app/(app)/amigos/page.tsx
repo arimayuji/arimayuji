@@ -517,12 +517,6 @@ export default function AmigosPage() {
                   </ul>
                 ))}
             </Card>
-
-            <p className="pr-enter text-center text-xs leading-relaxed text-muted text-pretty" style={delay(140)}>
-              Um amigo aceito pode escolher te ver ao vivo enquanto corre (tela Preparar Corrida) — o
-              selo verde Ao vivo aqui aparece na hora. Ver o histórico de corridas passadas de um amigo,
-              como já dá pra fazer com um treinador, ainda está por vir.
-            </p>
           </>
         )}
       </Screen>
