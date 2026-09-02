@@ -131,20 +131,62 @@ function GemShimmer({ accent }: { accent: string }) {
  *      all the way around its silhouette.
  * The same read `.pr-orbit`'s ring and `.pr-glint`'s facets go for in the
  * full-screen reveal, just without needing motion to sell it.
+ *
+ * The shading used to be tier-blind: three fixed black/white gradients over
+ * whatever face was underneath. Rendering all eleven tiers side by side
+ * showed what that cost — the opened faces are unmistakably different from
+ * each other, but the sealed spheres all collapsed into the same dark muddy
+ * family (Cobre read olive, Prisma read grey), because a neutral shading
+ * plus `brightness-[0.62]` crushes exactly the hue that carries the
+ * rarity. So the sphere now takes its own metal: the rim light and the
+ * bloom under the surface are tinted with it, and their strength climbs
+ * with `rank` — a Prisma orb should look like it is holding more back than
+ * a Cobre one, before it is ever opened. It still never shows the face:
+ * this is a colour of light escaping a closed thing, not a preview.
  */
-function SealedSphereShading() {
+function SealedSphereShading({ metal, rank }: { metal: RankMetal; rank: number }) {
+  /** 0 at Cobre .. 1 at Prisma. */
+  const rarity = (Math.min(RANK_METAL.length, Math.max(1, rank)) - 1) / (RANK_METAL.length - 1);
+  const bloom = 0.16 + rarity * 0.4;
+  const rim = 0.3 + rarity * 0.45;
+
   return (
-    <span
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 rounded-full"
-      style={{
-        background:
-          "radial-gradient(circle at 30% 24%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.22) 14%, transparent 34%), " +
-          "radial-gradient(circle at 72% 78%, rgba(0,0,0,0.7) 0%, transparent 52%), " +
-          "radial-gradient(circle at 50% 50%, transparent 48%, rgba(0,0,0,0.68) 100%)",
-      }}
-    />
+    <>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full"
+        style={{
+          background:
+            // Tier-coloured light pooling under the surface, before any of
+            // the neutral volume shading goes over it.
+            `radial-gradient(circle at 50% 62%, ${metal.glow}${alphaHex(bloom)} 0%, transparent 58%), ` +
+            "radial-gradient(circle at 30% 24%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.22) 14%, transparent 34%), " +
+            "radial-gradient(circle at 72% 78%, rgba(0,0,0,0.7) 0%, transparent 52%), " +
+            "radial-gradient(circle at 50% 50%, transparent 48%, rgba(0,0,0,0.68) 100%)",
+        }}
+      />
+      {/*
+       * The rim itself, on top of the limb darkening — a hairline of the
+       * tier's own colour tracing the silhouette. This is the part that
+       * reads at thumbnail size in the grid, where the bloom is too soft to
+       * survive.
+       */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full"
+        style={{
+          boxShadow: `inset 0 0 ${6 + rarity * 10}px ${1 + rarity * 1.5}px ${metal.glow}${alphaHex(rim)}`,
+        }}
+      />
+    </>
   );
+}
+
+/** 0..1 opacity as the two hex digits `#rrggbb` needs to become `#rrggbbaa`. */
+function alphaHex(value: number): string {
+  return Math.round(Math.min(1, Math.max(0, value)) * 255)
+    .toString(16)
+    .padStart(2, "0");
 }
 
 export function EmblemBadge({
@@ -199,7 +241,7 @@ export function EmblemBadge({
     <div className={`${className} relative aspect-square overflow-hidden rounded-full`}>
       <svg
         viewBox="0 0 120 120"
-        className={`absolute inset-0 h-full w-full ${sealed ? "blur-md brightness-[0.62] saturate-150" : ""}`}
+        className={`absolute inset-0 h-full w-full ${sealed ? "blur-md brightness-[0.72] saturate-[1.9]" : ""}`}
         aria-hidden="true"
       >
         <GemFace metal={metal} uid={uid} />
@@ -210,7 +252,7 @@ export function EmblemBadge({
         )}
         {opened && <EngravedHorse ink={metal.ink} />}
       </svg>
-      {sealed && <SealedSphereShading />}
+      {sealed && <SealedSphereShading metal={metal} rank={RANK_METAL.indexOf(metal) + 1} />}
       {opened && <GemShimmer accent={metal.accent} />}
     </div>
   );
