@@ -137,6 +137,17 @@ export interface CompletedRun {
    */
   placeName?: string;
   /**
+   * Which catalog place this run was already counted towards in the places
+   * leaderboard, if any. `recordRunAtPlace` accumulates into a per-place
+   * aggregate row — there is no per-run record on the server saying "this
+   * one was already added" — so without a local marker the same run could
+   * be counted twice by simply being confirmed on two screens. This is
+   * that marker, and it is what let the confirmation move off the
+   * just-finished screen: any surface can now offer it, and none can
+   * double-count.
+   */
+  countedAtPlaceId?: string;
+  /**
    * The goal configured before this run started — used to reconstruct the
    * right "repetir corrida" goal type/values on `/run` (see `goalTypeFromRunGoal`
    * there). Omitted for a "livre" run with no goal set, and for any run saved
@@ -316,6 +327,17 @@ export async function updateRunTracks(runId: string, tracks: RunTrack[]): Promis
   );
   if (!run) return;
   run.tracks = tracks;
+  await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
+}
+
+/** Marks a run as already counted towards a place's leaderboard — see `CompletedRun.countedAtPlaceId`. */
+export async function markRunCountedAtPlace(runId: string, placeId: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const run = await withStore<CompletedRun | undefined>(RUNS_STORE, "readonly", (store) =>
+    store.get(runId),
+  );
+  if (!run) return;
+  run.countedAtPlaceId = placeId;
   await withStore(RUNS_STORE, "readwrite", (store) => store.put(run));
 }
 

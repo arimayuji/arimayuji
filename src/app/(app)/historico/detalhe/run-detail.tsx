@@ -15,7 +15,9 @@ import { deleteRunSummary } from "@/lib/runSummariesSync";
 import { listRunComments, type RunComment } from "@/lib/runComments";
 import { matchPlaceForRoute, resolvePlaceLabel } from "@/lib/placeMatch";
 import { getSyncedRun, setRunFriendsVisibility, shareRunWithCoaches } from "@/lib/runsSync";
+import { updateProfile } from "@/lib/auth";
 import { useAuth } from "@/lib/useAuth";
+import { recordRunAtPlace } from "@/lib/placeLeaderboard";
 import { formatElapsed } from "@/lib/tracking/geoFilter";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
@@ -34,6 +36,7 @@ import {
   listCompletedRuns,
   markRecordOpened,
   runMovingSeconds,
+  markRunCountedAtPlace,
   updateRunElevationGain,
   updateRunPlaceName,
   updateRunTracks,
@@ -561,7 +564,7 @@ function CommentsCard({ startedAtMs }: { startedAtMs: number }) {
 export function RunDetail({ id }: { id: string }) {
   useHeaderClose("/perfil?tab=progresso");
   const router = useRouter();
-  const { account, profile } = useAuth();
+  const { account, profile, refresh: refreshAuth } = useAuth();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [{ distanceUnit: unit }] = usePreferences();
   const [runnerProfile] = useRunnerProfile();
@@ -630,6 +633,47 @@ export function RunDetail({ id }: { id: string }) {
   /** The last value actually persisted — separate from `placeNameInput` so the Save button can tell "typed but not saved yet" apart from "already saved", without waiting on a full reload of `load.run` (which this screen never re-fetches after a save). */
   const [savedPlaceName, setSavedPlaceName] = useState("");
   const [savingPlaceName, setSavingPlaceName] = useState(false);
+
+  /**
+   * Contar essa corrida no ranking do lugar que a rota casou. A pergunta
+   * vivia na tela de corrida recém-terminada, junto do RPE — dois pedidos
+   * ao mesmo tempo pra alguém que acabou de parar de correr, sendo que só
+   * um deles (o RPE, esforço percebido) perde valor se não for respondido
+   * na hora. Aqui ela espera, e a resposta é a mesma.
+   *
+   * `run.countedAtPlaceId` (IndexedDB local) e o que impede contagem
+   * dupla: `recordRunAtPlace` soma num agregado por lugar, sem registro
+   * por corrida do lado do servidor, entao sem esse marcador a mesma
+   * corrida podia ser contada de novo a cada visita.
+   */
+  const [countedPlaceId, setCountedPlaceId] = useState<string | null>(null);
+  const [countingPlace, setCountingPlace] = useState(false);
+  const [countPlaceFailed, setCountPlaceFailed] = useState(false);
+
+  const handleCountAtPlace = async (placeId: string, distanceMeters: number, runId: string) => {
+    if (countingPlace) return;
+    setCountingPlace(true);
+    setCountPlaceFailed(false);
+    try {
+      // "Sim" faz papel duplo pra quem nunca tocou o toggle em /perfil:
+      // liga `leaderboardOptIn` e conta a corrida no mesmo toque, em vez de
+      // um confirm que nao faz nada ate a pessoa achar a configuracao.
+      if (account && !profile?.leaderboardOptIn) {
+        await updateProfile(account.id, { leaderboardOptIn: true });
+        await refreshAuth();
+      }
+      await recordRunAtPlace(placeId, distanceMeters);
+      // Só depois do write remoto dar certo — gravar o marcador antes
+      // transformaria uma falha de rede num "já contei" mentiroso.
+      await markRunCountedAtPlace(runId, placeId);
+      setCountedPlaceId(placeId);
+    } catch (error) {
+      console.error("[ranking] recordRunAtPlace failed", error);
+      setCountPlaceFailed(true);
+    } finally {
+      setCountingPlace(false);
+    }
+  };
 
   useEffect(() => {
     listCoachConnections("accepted").then((rows) => setCoaches(rows.filter((c) => c.myRole === "student")));
@@ -978,12 +1022,42 @@ export function RunDetail({ id }: { id: string }) {
         <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(86)}>
           <CardTitle>Lugar</CardTitle>
           {matchedPlace ? (
-            <Link
-              href={`/lugares/${matchedPlace.id}`}
-              className="pr-press mt-1 inline-block text-sm font-medium text-accent underline underline-offset-2 hover:opacity-80"
-            >
-              {matchedPlace.name}
-            </Link>
+            <>
+              <Link
+                href={`/lugares/${matchedPlace.id}`}
+                className="pr-press mt-1 inline-block text-sm font-medium text-accent underline underline-offset-2 hover:opacity-80"
+              >
+                {matchedPlace.name}
+              </Link>
+              {(countedPlaceId ?? run.countedAtPlaceId) === matchedPlace.id ? (
+                <p className="mt-2 text-xs text-muted">Contada no ranking desse lugar.</p>
+              ) : account ? (
+                <div className="mt-3">
+                  <p className="text-xs leading-relaxed text-muted text-pretty">
+                    Quer contar esses {formatDistance(run.distanceMeters, unit)} no ranking de{" "}
+                    {matchedPlace.name}?
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={countingPlace}
+                      onClick={() => void handleCountAtPlace(matchedPlace.id, run.distanceMeters, run.id)}
+                      className="pr-press rounded-full bg-accent px-3.5 py-2 text-xs font-semibold text-accent-foreground hover:opacity-90 active:scale-95 disabled:opacity-60 lg:rounded-md"
+                    >
+                      {countingPlace ? "Contando…" : countPlaceFailed ? "Tentar de novo" : "Contar no ranking"}
+                    </button>
+                  </div>
+                  {countPlaceFailed && (
+                    <p className="mt-2 text-xs text-bad">Não deu pra contar agora — tenta de novo.</p>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs leading-relaxed text-muted text-pretty">
+                  O ranking compara você com outras pessoas, então precisa de conta. Sua corrida já
+                  está salva neste aparelho de qualquer forma.
+                </p>
+              )}
+            </>
           ) : (
             <>
               <p className="text-xs leading-relaxed text-muted text-pretty">

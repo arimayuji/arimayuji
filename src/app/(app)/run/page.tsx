@@ -8,7 +8,6 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
-  type FormEvent,
   type ReactNode,
 } from "react";
 import Link from "next/link";
@@ -73,13 +72,11 @@ import {
   runMovingSeconds,
   updateRunElevationGain,
   updateRunRpe,
-  updateRunTracks,
   type ActiveRunSnapshot,
   type CompletedRun,
   type IntervalStep,
   type PainCheckIn,
   type RunGoal,
-  type RunTrack,
   type Shoe,
 } from "@/lib/tracking/storage";
 import { applyCoachOverride, computeCurrentPlanWeek, isoWeekday, paceForZone, ZONE_LABEL } from "@/lib/plan";
@@ -87,13 +84,10 @@ import { listPlanOverridesForStudent, type ParsedPlanOverride } from "@/lib/coac
 import { getSelfPlanOverride } from "@/lib/selfPlanOverride";
 import { useRunnerProfile } from "@/lib/useRunnerProfile";
 import { computeElevationGain } from "@/lib/elevation";
-import { matchPlaceForRoute } from "@/lib/placeMatch";
-import { recordRunAtPlace } from "@/lib/placeLeaderboard";
 import { sendMilestoneNotification } from "@/lib/milestoneNotifications";
 import { syncProfileStats } from "@/lib/profileStats";
 import { syncRunSummary, deleteRunSummary } from "@/lib/runSummariesSync";
-import { getProfile, updateProfile } from "@/lib/auth";
-import type { RunningPlace } from "@/lib/places";
+import { getProfile } from "@/lib/auth";
 import { RouteMap } from "../route-map";
 import { computeAchievement } from "@/lib/tracking/achievements";
 import { computeRunRecords, type RunRecord } from "@/lib/tracking/personalRecords";
@@ -116,7 +110,6 @@ import { EmblemBadge } from "../emblem-badge";
 import { EmblemProgressBar } from "../emblem-progress-bar";
 import { EmblemReveal } from "../emblem-reveal";
 import { PrBadge } from "../pr-badge";
-import { searchTracks, type TrackCandidate } from "@/lib/music/itunesLookup";
 import {
   ANNOUNCE_MAX_METERS,
   ANNOUNCE_MAX_SECONDS,
@@ -1253,7 +1246,7 @@ export default function RunPage() {
   /** Which friends (if any) this run is being shared live with — chosen before starting, empty means "not live" with any friend. */
   const [liveFriendIds, setLiveFriendIds] = useState<string[]>([]);
   /** Own account id (needed to keep this athlete's own id out of the live-viewer permission list computed from the longão's participants below), plus `profile`/`refresh` for the post-run "ranking de lugares" confirmation below. */
-  const { account, profile, refresh: refreshAuth } = useAuth();
+  const { account, profile } = useAuth();
   /** The "longão" this device currently remembers being part of, if any and still open — resolved from `getActiveGroupRunCode()`'s localStorage pointer, same re-check-on-return-to-idle timing as `coaches` above. */
   const [longaoSession, setLongaoSession] = useState<GroupRun | null>(null);
   /** Pre-selected on by default when there's an active longão — same reasoning `install-prompt.tsx` uses for defaults that should be visible but always a tap away from off. */
@@ -1415,7 +1408,7 @@ export default function RunPage() {
   /** Which metric gets the giant focus number on the tracking screen — a per-run UI choice, not persisted anywhere (defaults back to "ritmo" on the next run). */
   const [metricTemplate, setMetricTemplate] = useState<MetricId>("ritmo");
   /**
-   * Manual lap marks — local to this screen, same reasoning as `manualTracks`
+   * Manual lap marks — local to this screen
    * below: a pacing aid the athlete controls by tapping the lap button, not
    * something `useRunTracker` needs to know about or persist. Each entry
    * freezes the split pace since the *previous* mark (or since the run
@@ -1546,71 +1539,6 @@ export default function RunPage() {
     void syncProfileStats();
     if (profile?.runSyncOptIn) void syncRunSummary(state.finishedRun);
   }, [state.status, state.finishedRun, account, profile?.runSyncOptIn]);
-
-  /**
-   * "Ranking de lugares" match — same run-once-per-finish timing as the
-   * elevation lookup above, just local geometry instead of a network call
-   * (see `matchPlaceForRoute`'s own comment for why most runs match
-   * nothing). `placeConfirmed`/`placeDismissed` reset alongside the match
-   * itself so a *previous* run's confirmation state can never leak onto
-   * this one's prompt.
-   */
-  const [placeMatch, setPlaceMatch] = useState<RunningPlace | null>(null);
-  const [placeConfirming, setPlaceConfirming] = useState(false);
-  const [placeConfirmed, setPlaceConfirmed] = useState(false);
-  const [placeDismissed, setPlaceDismissed] = useState(false);
-  const [placeFailed, setPlaceFailed] = useState(false);
-
-  useEffect(() => {
-    if (state.status !== "finished" || !state.finishedRun) return;
-    const points = state.finishedRun.points;
-    // Deferred a tick — same reasoning documented elsewhere in this file
-    // (the coach/session idle-refresh effects above) for why a synchronous
-    // `setState` right in the effect body trips the cascading-render lint
-    // rule; resolving through a microtask first is enough to satisfy it.
-    void Promise.resolve().then(() => {
-      setPlaceMatch(matchPlaceForRoute(points));
-      setPlaceConfirmed(false);
-      setPlaceDismissed(false);
-      setPlaceFailed(false);
-    });
-  }, [state.status, state.finishedRun]);
-
-  /**
-   * "Sim" here does double duty for someone who's never touched the
-   * /perfil toggle: it turns `leaderboardOptIn` on *and* records this run
-   * in the same tap, rather than making a first-time confirm a dead end
-   * that quietly does nothing until the athlete separately finds the
-   * setting. Every later confirm on an already-opted-in account just
-   * skips straight to `recordRunAtPlace`.
-   */
-  const handleConfirmPlace = useCallback(async () => {
-    if (!placeMatch || !state.finishedRun || placeConfirming) return;
-    setPlaceConfirming(true);
-    setPlaceFailed(false);
-    // Every await below can reject — `recordRunAtPlace` starts with
-    // `account.get()`, which throws outright without a session, and rethrows
-    // whatever the Function answers. Before this try/catch there was none:
-    // a rejection skipped `setPlaceConfirming(false)`, so the button sat on
-    // "Contando…" forever while nothing was written, nothing was logged and
-    // nothing was shown. That is the exact shape of "corri no Ibirapuera e
-    // nada apareceu no ranking" — and the same silent-catch failure mode
-    // that hid the friendships/live_runs bugs for weeks, just with the
-    // swallow happening at the top level instead of inside the lib.
-    try {
-      if (account && !profile?.leaderboardOptIn) {
-        await updateProfile(account.id, { leaderboardOptIn: true });
-        await refreshAuth();
-      }
-      await recordRunAtPlace(placeMatch.id, state.finishedRun.distanceMeters);
-      setPlaceConfirmed(true);
-    } catch (error) {
-      console.error("[ranking] recordRunAtPlace failed", error);
-      setPlaceFailed(true);
-    } finally {
-      setPlaceConfirming(false);
-    }
-  }, [placeMatch, state.finishedRun, placeConfirming, account, profile, refreshAuth]);
 
   /**
    * Shoe names for the datalist below, and the runner's most recent completed
@@ -2051,14 +1979,6 @@ export default function RunPage() {
    * Kept apart from `state.finishedRun` itself since that's owned by
    * `useRunTracker` and has no setter this screen can reach.
    */
-  const [manualTracks, setManualTracks] = useState<RunTrack[]>([]);
-  const [musicQuery, setMusicQuery] = useState("");
-  const [musicResults, setMusicResults] = useState<TrackCandidate[] | null>(null);
-  const [musicSearching, setMusicSearching] = useState(false);
-  const [musicSearchFailed, setMusicSearchFailed] = useState(false);
-
-  const displayedTracks = manualTracks;
-
   /** Narrowing on `state.finishedRun` doesn't survive into the record callbacks below. */
   const finishedRun = state.finishedRun;
 
@@ -2068,8 +1988,8 @@ export default function RunPage() {
    * event only while this screen's WebView is alive. Calls the exact same
    * `pause()`/`finish()` the on-screen buttons already use, so there's no
    * second copy of that logic. `finish()` here mirrors `HoldToFinishButton`'s
-   * `onConfirm` below (same `shoeName`, same `setManualTracks` follow-up) —
-   * the notification's own "Finalizar" is a single tap rather than a hold,
+   * `onConfirm` below (same `shoeName`) — the notification's own "Finalizar"
+   * is a single tap rather than a hold,
    * since reaching the notification, expanding it, and hitting the right
    * button is already deliberate enough.
    */
@@ -2079,67 +1999,18 @@ export default function RunPage() {
         if (action === "pause") {
           pause();
         } else {
-          const run = finish({ shoeName });
-          setManualTracks(run.tracks ?? []);
+          finish({ shoeName });
         }
       }),
     [pause, finish, shoeName],
   );
 
-  const handleMusicSearch = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!musicQuery.trim()) return;
-    setMusicSearching(true);
-    setMusicSearchFailed(false);
-    try {
-      const results = await searchTracks(musicQuery);
-      setMusicResults(results);
-    } catch {
-      setMusicResults(null);
-      setMusicSearchFailed(true);
-    } finally {
-      setMusicSearching(false);
-    }
-  };
-
-  /* eslint-disable react-hooks/preserve-manual-memoization -- compiler's own dependency inference disagrees with these arrays on a component this large; functionally identical either way, just opts these two callbacks out of auto-memoization. */
-  const handleAddManualTrack = useCallback(
-    async (candidate: TrackCandidate) => {
-      if (!state.finishedRun) return;
-      const newTrack: RunTrack = {
-        name: candidate.name,
-        artist: candidate.artist,
-        playedAt: Date.now(),
-        artworkUrl: candidate.artworkUrl || undefined,
-      };
-      const next = [...manualTracks, newTrack];
-      setManualTracks(next);
-      setMusicQuery("");
-      setMusicResults(null);
-      await updateRunTracks(state.finishedRun.id, next);
-    },
-    [state.finishedRun, manualTracks],
-  );
-
-  const handleRemoveTrack = useCallback(
-    async (index: number) => {
-      if (!state.finishedRun) return;
-      const next = manualTracks.filter((_, i) => i !== index);
-      setManualTracks(next);
-      await updateRunTracks(state.finishedRun.id, next);
-    },
-    [state.finishedRun, manualTracks],
-  );
-  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   /** Drives the arrow-travels-across-the-button animation on tap. */
   const [starting, setStarting] = useState(false);
   const START_ANIMATION_MS = 420;
 
   const handleStart = () => {
-    setManualTracks([]);
-    setMusicQuery("");
-    setMusicResults(null);
     const distanceMeters =
       (goalType === "distancia" || goalType === "prova") && goalKm > 0 ? goalKm * 1000 : undefined;
     const durationSeconds =
@@ -2223,8 +2094,7 @@ export default function RunPage() {
         } else if (action === "resume") {
           resume();
         } else {
-          const run = finish({ shoeName });
-          setManualTracks(run.tracks ?? []);
+          finish({ shoeName });
         }
       }),
     [state.status, pause, resume, finish, shoeName],
@@ -2244,9 +2114,6 @@ export default function RunPage() {
   const handleReset = () => {
     setSelectedGhostId(null);
     setActiveGhost(null);
-    setManualTracks([]);
-    setMusicQuery("");
-    setMusicResults(null);
     setDiscarding(false);
     setRunRecords([]);
     setOpenedRecordMeters([]);
@@ -3444,8 +3311,7 @@ export default function RunPage() {
                 )}
                 <HoldToFinishButton
                   onConfirm={() => {
-                    const run = finish({ shoeName });
-                    setManualTracks(run.tracks ?? []);
+                    finish({ shoeName });
                   }}
                 />
               </div>
@@ -3663,48 +3529,6 @@ export default function RunPage() {
             </div>
           )}
 
-          {placeMatch && !placeConfirmed && !placeDismissed && (
-            <div className="w-full max-w-xs rounded-xl border border-accent/40 bg-surface p-4 text-left">
-              <span className="text-xs uppercase tracking-wide text-muted">Ranking de lugares</span>
-              <p className="mt-1 text-sm font-medium">Essa corrida foi em {placeMatch.name}?</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                {account
-                  ? "Confirma pra contar esse km no ranking desse lugar."
-                  : "O ranking compara você com outras pessoas, então precisa de conta. Sua corrida já está salva neste aparelho de qualquer forma."}
-              </p>
-              <div className="mt-3 flex gap-2">
-                {/*
-                 * Sem conta o botão simplesmente não existe: `recordRunAtPlace`
-                 * abre com `account.get()`, então oferecer "Sim, contar" a quem
-                 * está deslogado é um botão que não tem como funcionar. Antes
-                 * ele aparecia igual e falhava em silêncio.
-                 */}
-                {account && (
-                  <button
-                    type="button"
-                    onClick={handleConfirmPlace}
-                    disabled={placeConfirming}
-                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                  >
-                    {placeConfirming ? "Contando…" : placeFailed ? "Tentar de novo" : "Sim, contar"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setPlaceDismissed(true)}
-                  className="rounded-full border border-border px-4 py-2 text-xs font-medium"
-                >
-                  {account ? "Não" : "Entendi"}
-                </button>
-              </div>
-              {placeFailed && (
-                <p className="mt-2 text-xs text-bad">Não deu pra contar agora — tenta de novo.</p>
-              )}
-            </div>
-          )}
-          {placeConfirmed && placeMatch && (
-            <p className="text-xs text-muted">Contado pro ranking de {placeMatch.name}.</p>
-          )}
 
           {activeGhost && (
             <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
@@ -3735,97 +3559,6 @@ export default function RunPage() {
               </p>
             </div>
           )}
-          <div className="w-full max-w-xs rounded-xl border border-border bg-surface p-4 text-left">
-            <span className="text-xs uppercase tracking-wide text-muted">
-              Trilha sonora da corrida
-            </span>
-
-            {displayedTracks.length > 0 && (
-              <ul className="mt-2 flex flex-col gap-2.5">
-                {displayedTracks.map((track, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm">
-                    {track.artworkUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={track.artworkUrl}
-                        alt=""
-                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                      />
-                    )}
-                    <span className="min-w-0 flex-1 truncate">
-                      {track.name} <span className="text-muted">— {track.artist}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void handleRemoveTrack(i)}
-                      aria-label={`Remover ${track.name}`}
-                      className="shrink-0 rounded-full p-1.5 text-muted hover:bg-bad/10 hover:text-bad"
-                    >
-                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 6l12 12M18 6L6 18" />
-                      </svg>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <form
-              onSubmit={handleMusicSearch}
-              className="mt-3 flex gap-2 border-t border-border pt-3"
-            >
-              <input
-                type="text"
-                value={musicQuery}
-                onChange={(e) => setMusicQuery(e.target.value)}
-                placeholder="nome da música ou artista"
-                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-              />
-              <button
-                type="submit"
-                disabled={musicSearching || !musicQuery.trim()}
-                className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-accent disabled:opacity-60"
-              >
-                {musicSearching ? "Buscando…" : "Buscar"}
-              </button>
-            </form>
-
-            {musicSearchFailed && (
-              <p className="mt-2 text-xs text-bad">
-                Não deu pra buscar agora — confere a internet e tenta de novo.
-              </p>
-            )}
-
-            {!musicSearchFailed && musicResults !== null && musicResults.length === 0 && (
-              <p className="mt-2 text-xs text-muted">Nada encontrado.</p>
-            )}
-
-            {musicResults !== null && musicResults.length > 0 && (
-              <ul className="mt-2 flex flex-col gap-1.5">
-                {musicResults.map((candidate, i) => (
-                  <li key={i}>
-                    <button
-                      type="button"
-                      onClick={() => handleAddManualTrack(candidate)}
-                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-sm hover:bg-background"
-                    >
-                      {candidate.artworkUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={candidate.artworkUrl}
-                          alt=""
-                          className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                        />
-                      )}
-                      <span className="truncate">
-                        {candidate.name} <span className="text-muted">— {candidate.artist}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
 
           {/*
             One clear hierarchy instead of two side-by-side pairs of
