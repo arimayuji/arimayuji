@@ -1178,7 +1178,7 @@ export function RunDetail({ id }: { id: string }) {
           <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(172)}>
             <CardTitle>Compartilhar com amigos</CardTitle>
             <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-              Aparece no feed de todos os seus amigos aceitos, com kudos — nunca só pra um por vez.
+              Aparece no feed de todos os seus amigos aceitos, com Bora — nunca só pra um por vez.
             </p>
             <input
               type="text"

@@ -656,7 +656,7 @@ function FeedItemCard({
             className="pr-press flex h-11 shrink-0 items-center gap-2 px-3 text-sm font-semibold text-muted hover:text-foreground active:scale-95"
           >
             <HeartIcon className="h-5 w-5" filled={item.kudosCount > 0} />
-            {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
+            {item.kudosCount > 0 ? item.kudosCount : "Bora"}
           </button>
         ) : (
           <button
@@ -669,7 +669,7 @@ function FeedItemCard({
             }`}
           >
             <HeartIcon className="h-5 w-5" filled={item.kudosGivenByMe} />
-            {item.kudosCount > 0 ? item.kudosCount : "Kudos"}
+            {item.kudosCount > 0 ? item.kudosCount : "Bora"}
           </button>
         )}
         <button
@@ -687,7 +687,7 @@ function FeedItemCard({
 
       {showKudosHint && (
         <p className="pr-panel-in -mt-1 text-xs text-muted">
-          Kudos vem dos seus amigos — não dá pra dar na própria corrida.
+          O Bora vem dos seus amigos — não dá pra dar na própria corrida.
         </p>
       )}
 

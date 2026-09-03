@@ -1191,8 +1191,8 @@ async function toggleRunKudos({ userId, body, client, res, error }) {
       const messaging = new Messaging(client);
       await messaging.createPush({
         messageId: ID.unique(),
-        title: "Kudos!",
-        body: `${giverName} deu kudos na sua corrida.`,
+        title: "Bora!",
+        body: `${giverName} deu um Bora na sua corrida.`,
         users: [run.userId],
       });
     } catch (err) {
