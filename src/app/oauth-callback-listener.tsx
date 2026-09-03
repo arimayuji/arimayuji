@@ -86,10 +86,20 @@ export function OAuthCallbackListener() {
         // localStorage lets the next AccountPrompt mount actually show it,
         // instead of the athlete just seeing the button sitting there
         // again with no explanation.
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`[oauth-callback-listener] account.createSession falhou depois do OAuth nativo: ${message}`);
+        // The full technical detail (Appwrite's raw exception message, often
+        // in English and meaningless to an athlete — "Invalid token",
+        // "user_jwt_invalid", etc.) is for the console only, same as any
+        // other diagnostic log in this codebase — it is never what gets
+        // shown on screen. What AccountPrompt reads back is a plain,
+        // friendly sentence, same tone/shape as `describeNativeSignInError`
+        // below uses for the iOS-native flow's own failures.
+        const technicalMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[oauth-callback-listener] account.createSession falhou depois do OAuth nativo: ${technicalMessage}`);
         try {
-          localStorage.setItem(LAST_OAUTH_ERROR_KEY, JSON.stringify({ message, at: Date.now() }));
+          localStorage.setItem(
+            LAST_OAUTH_ERROR_KEY,
+            JSON.stringify({ message: "Não deu pra completar o login — tenta de novo.", at: Date.now() }),
+          );
         } catch {
           // Storage unavailable (private mode, quota) — the console.error above already covers diagnosis.
         }

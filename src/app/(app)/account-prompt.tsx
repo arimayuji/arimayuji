@@ -107,7 +107,19 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
     setOauthProvider(provider);
     const error = await signIn(returnTo);
     setOauthProvider(null);
-    if (error) setOauthError(error);
+    if (error) {
+      // `signIn` (startOAuthSignIn/nativeGoogleSignIn/nativeAppleSignIn,
+      // auth.ts) returns a raw diagnostic string meant for a developer —
+      // missing env var names, a bare Appwrite exception message, etc.
+      // That used to go straight into the UI unchanged, which is exactly
+      // what a non-technical athlete should never see. The console gets
+      // the real detail (reachable the same way as any other bug here —
+      // adb logcat or remote DevTools); the screen only ever gets one
+      // plain sentence, same wording oauth-callback-listener.tsx's own
+      // failure path already settled on.
+      console.error(`[account-prompt] login com ${provider} falhou: ${error}`);
+      setOauthError("Não deu pra completar o login — tenta de novo.");
+    }
   }
 
   if (phoneStep !== "none") {
