@@ -5,6 +5,9 @@ import { App } from "@capacitor/app";
 import { OAUTH_CALLBACK_SCHEME, OAUTH_RETURN_TO_PARAM, getAppwrite } from "@/lib/appwrite";
 import { isNativePlatform } from "@/lib/platform";
 
+/** Shared with account-prompt.tsx, which reads and clears this on mount. */
+export const LAST_OAUTH_ERROR_KEY = "xanthus:last-oauth-error";
+
 /**
  * The other half of `startOAuthSignIn` (src/lib/auth.ts): that function
  * hands the login off to the system browser and returns immediately —
@@ -69,12 +72,27 @@ export function OAuthCallbackListener() {
         // assumption the web OAuth redirect and phone login both already
         // rely on (see PhoneSignIn in account-prompt.tsx).
         window.location.assign(returnTo);
-      } catch {
+      } catch (error) {
         // The token was valid but the session exchange itself failed
-        // (expired, already used, network blip mid-flight) — nothing
-        // useful to recover here beyond leaving the athlete where they
-        // were; they see the sign-in button still sitting there and can
-        // just try again.
+        // (expired, already used, network blip mid-flight) — this used to
+        // be a silent catch, which is exactly why "faço login com Google e
+        // volto pro app e nada acontece" (reported 2026-09-03) was
+        // impossible to diagnose: by the time this fires, AccountPrompt's
+        // own "Abrindo…" spinner already cleared right after Browser.open()
+        // resolved, long before Google's consent screen even finished, so
+        // there's no component left on screen to show an error in. Logging
+        // it is the same fix already applied to friendships.ts/liveRuns.ts
+        // for the same silent-catch shape — and stashing it in
+        // localStorage lets the next AccountPrompt mount actually show it,
+        // instead of the athlete just seeing the button sitting there
+        // again with no explanation.
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[oauth-callback-listener] account.createSession falhou depois do OAuth nativo: ${message}`);
+        try {
+          localStorage.setItem(LAST_OAUTH_ERROR_KEY, JSON.stringify({ message, at: Date.now() }));
+        } catch {
+          // Storage unavailable (private mode, quota) — the console.error above already covers diagnosis.
+        }
       }
     });
 

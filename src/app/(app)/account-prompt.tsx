@@ -8,7 +8,42 @@ import {
   signInWithGoogle,
   verifyPhoneOtp,
 } from "@/lib/auth";
+import { LAST_OAUTH_ERROR_KEY } from "@/app/oauth-callback-listener";
 import { ModalPortal } from "./modal-portal";
+
+/**
+ * A failed native OAuth round trip (oauth-callback-listener.tsx's
+ * `appUrlOpen` handler) finishes long after this modal's own "Abrindo…"
+ * state already cleared — Browser.open() resolves the instant the system
+ * browser opens, not when the athlete finishes with it — so there's never
+ * a component left mounted to show that failure in directly. Reading it
+ * back from localStorage here, on the next time this modal opens, is what
+ * turns "nada acontece" into an actual message instead of just silence.
+ * Ignored if older than this — a stale error from an unrelated past
+ * attempt shouldn't resurface on a login that has nothing to do with it.
+ */
+const STALE_OAUTH_ERROR_MS = 15 * 60 * 1000;
+
+/**
+ * Lazy `useState` initializer, not an effect — this only ever needs to run
+ * once, on this component's very first render, so there's no "external
+ * system" here for an effect to subscribe to (and setState-from-an-effect
+ * with nothing to subscribe to is exactly the cascading-render smell React
+ * warns about). Reads and clears in the same pass, so a stored error is
+ * shown at most once.
+ */
+function readLastOAuthError(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LAST_OAUTH_ERROR_KEY);
+    if (!raw) return null;
+    localStorage.removeItem(LAST_OAUTH_ERROR_KEY);
+    const { message, at } = JSON.parse(raw) as { message: string; at: number };
+    return Date.now() - at <= STALE_OAUTH_ERROR_MS ? message : null;
+  } catch {
+    return null;
+  }
+}
 
 const STROKE = {
   fill: "none",
@@ -49,9 +84,15 @@ export function AccountPrompt({ onClose, returnTo }: { onClose: () => void; retu
    * system browser) was a silent no-op from the athlete's point of view,
    * indistinguishable from five different real causes with no way to tell
    * which without a debugger attached to the device. Surfacing whatever
-   * `startOAuthSignIn` returns here is the whole fix.
+   * `startOAuthSignIn` returns here is the whole fix for that leg.
+   *
+   * Initialized from `readLastOAuthError()`, not just `null` — the native
+   * flow's *other* leg (oauth-callback-listener.tsx's `appUrlOpen` handler)
+   * fails well after this modal's `handleOAuth` has already returned, so
+   * there's nothing here to catch it live; this only ever surfaces it on
+   * the athlete's next attempt.
    */
-  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [oauthError, setOauthError] = useState<string | null>(readLastOAuthError);
   /**
    * Which provider button is mid-flight — `startOAuthSignIn` genuinely
    * awaits something before the browser leaves (a native `Browser.open`
