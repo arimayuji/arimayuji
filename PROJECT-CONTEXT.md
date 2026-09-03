@@ -1347,6 +1347,23 @@ nível de projeto tenta resolver pra uma plataforma que nenhum alvo
 realmente pede) e o app do relógio volta a ficar embutido só depois
 disso resolvido — até lá, o Apple Watch fica de fora do app publicado.
 
+**Atualização 2026-09-02 — `watch-simulator` voltou a passar sozinho.**
+Confirmado no run #182 do `iOS build` (push do merge em `main`, commit
+`8888e93`): os três jobs de macOS passaram, **incluindo o
+`watch-simulator`** (step "Build for watchOS Simulator", 31s, sucesso) —
+ou seja, o "efeito colateral esperado" acima não se confirmou mais. O
+que mudou entre aquele diagnóstico e agora **não foi investigado nem
+identificado**; nenhuma mudança deliberada foi feita no `project.pbxproj`
+nem no `CapApp-SPM` desde o fix rápido. Provável que alguma atualização
+de toolchain do runner `macos-latest` (Xcode/SPM) tenha passado a
+resolver o pacote sem quebrar, mas isso é hipótese, não verificação.
+**O que continua verdade**: o `Xanthus Watch App` segue **não embutido**
+no target `App` (o fix rápido nunca foi revertido), então o Apple Watch
+continua de fora do app publicado no TestFlight. O job passar prova só
+que o alvo compila sozinho — não que voltar a embutir funcionaria. Pra
+reverter o fix rápido de verdade, o teste real é re-adicionar o "Embed
+Watch Content" e ver `testflight`/`simulator` continuarem verdes.
+
 ## Esboço do app do Wear OS/Samsung (tethered) — implementado em 2026-08-27
 
 Mesmo pedido do Apple Watch acima, agora pro Wear OS (Samsung Galaxy
@@ -3943,6 +3960,35 @@ deles chega a virar uma versão real no Console. Depois de resolver, um
 push novo (ou "Re-run jobs" no run que já rodou) deve publicar
 normalmente.
 
+**Resolvido — confirmado em 2026-09-02, run #192 do `Android build`**
+(push do merge em `main`, commit `8888e93`). A declaração de recursos de
+saúde foi respondida no Play Console em algum momento entre 2026-08-30 e
+essa data (não acompanhei quando nem como). O step `Publish AAB to
+Google Play` fechou de ponta a ponta:
+```
+Validating tracks: 'alpha'
+Uploading android/app/build/outputs/bundle/release/app-release.aab
+Successfully uploaded 1 artifacts
+Committing the Edit
+Successfully committed 05883945050583908426
+```
+Sem nenhum traço do `You must let us know whether your app includes any
+health features` — a versão `1.0.192` entrou de verdade na faixa Teste
+fechado (Alpha).
+
+**A lição de método continua valendo, e é o que mais importa guardar
+aqui**: esse step tem `continue-on-error: true`, então o job aparece
+**verde nos dois casos** — publicando ou falhando. O verde do Actions
+nunca é evidência de que a versão foi publicada; a única leitura
+confiável é abrir o log real do step (`mcp__github__get_job_logs`) e
+procurar o `Successfully committed <id>`. Foi exatamente assim que o
+bloqueio de 2026-08-30 passou despercebido até o dono do projeto
+reportar "a versão no Play Console continua sendo a de ontem".
+
+Conferido no ar depois do deploy, não só no CI: `xanthus.app.br` → 200,
+`xanthus.app.br/download/version.json` → `{"versionCode": 192,
+"versionName": "1.0.192"}` (bate com o run), APK público → 200.
+
 ## Sessão de 2026-08-31: redesign de desktop, bottom nav com FAB, tela de corrida ao vivo, push notifications
 
 Leva grande de mudanças, branch `claude/strava-competitor-feedback-cyvop8`,
@@ -4302,6 +4348,37 @@ Verificado: `tsc`/`lint`/`build` limpos e conferência visual via
 Playwright em 10 telas desktop + 4 mobile (mobile como teste de
 regressão, já que os componentes compartilhados mudaram). **Não testado
 por olho humano nem em aparelho real.**
+
+## Merge pra produção em 2026-09-02 — tudo acima está no ar
+
+`claude/strava-competitor-feedback-cyvop8` foi mergeada pra `main`
+(`arimayuji/xanthus`) com OK explícito do dono do projeto: merge `--no-ff`,
+commit `8888e93`, **20 commits**. `tsc`/`lint`/`build` reconfirmados na
+árvore já mergeada antes do push, como manda a prática deste repo.
+
+Isso significa que **toda seção acima marcada como "ainda não deployado
+em produção" está desatualizada nesse ponto específico** — o código foi
+publicado. O que continua pendente não é deploy de código, é backend
+(ver logo abaixo).
+
+CI dos dois lados fechou verde de verdade (não só o verde do Actions —
+os logs dos steps que importam foram lidos): `iOS build` #182 com
+`simulator`, `watch-simulator` e `testflight` todos passando, e
+`Android build` #192 com `release`, `wear-release`, `web-deploy` e a
+publicação real no Google Play. Os dois achados que mudaram estado
+antigo (Play destravado, `watch-simulator` verde) estão registrados em
+suas próprias seções acima, não duplicados aqui.
+
+**Pendências reais que sobraram, nenhuma resolvida por esse merge**:
+- Rodar `scripts/appwrite-setup.ts` em produção — várias tabelas/colunas
+  das últimas levas (`run_kudos`, `city_races`, `custom_routes`,
+  `recovery_snapshots`, colunas novas de `runs`/`profile_stats`/
+  `runner_profile_sync`) só existem no script, não no projeto de verdade.
+- Redeployar `client-actions` — todas as actions novas (feed, kudos,
+  push, sync, rotas, corridas de rua) vivem só no código até isso.
+- Ligar o cron semanal (`appwrite functions update --schedule "0 4 * * 1"`).
+- Secret `NEXT_PUBLIC_MAPTILER_KEY` com a chave certa (ver seção própria
+  sobre elevação — é chave inválida, não cota; a correção é gratuita).
 
 ## Como manter isso vivo
 
