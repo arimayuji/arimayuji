@@ -4549,6 +4549,106 @@ uma falha real atrás de "parece que não fez nada".
   fix ainda não foi buildado/instalado no aparelho dele, então o log
   novo só vai aparecer numa build futura.
 
+## Auditoria de dono do produto: os 6 itens de codigo, implementados (2026-09-03)
+
+Pedido direto do dono do projeto: analisar o app inteiro — ideia,
+execucao, telas principais — do ponto de vista de dono/produto/negocio/
+marketing/corredor, provando o que esta ruim e provando por que a solucao
+proposta e melhor. A auditoria completa saiu como artifact
+(https://claude.ai/code/artifact/bba77f76-baf5-4a43-8588-21ea11e3e5ce),
+com 8 achados. O numero que enquadra todos eles, medido contra producao:
+em ~3 semanas no ar, **zero interacoes entre dois humanos diferentes**
+jamais aconteceram — 2 contas ja terminaram alguma corrida (dono: 18
+corridas/32,86 km; Felipe: 2/3,17 km), 20 corridas e 36,03 km no total,
+contra 53.947 linhas de codigo e 40 rotas. Os 6 itens de codigo foram
+implementados nesta mesma sessao, branch
+`claude/strava-competitor-feedback-cyvop8`, **ainda nao deployados**:
+
+- **01 — 54 dos 66 lugares nunca podiam casar com corrida nenhuma**
+  (commit `85f5a08`). `matchPlaceForRoute` deriva a area de um lugar dos
+  seus `circuits` e devolve `null` sem nenhum; so 12 lugares tem circuito
+  tracado, entao as 26 capitais fora de Sao Paulo eram decoracao — apareciam
+  na lista, mas nao podiam receber ranking nem rotular uma corrida. O campo
+  `area` ja existia no tipo, com comentario prevendo exatamente essa lacuna,
+  e nunca tinha sido preenchido. Geocodificado no Nominatim (OSM) — a
+  primeira passada, pegando o primeiro resultado, rendeu lixo verificavel
+  (Aterro do Flamengo casou com uma **padaria de raio 8 m**, Parque da
+  Cidade com uma universidade, Orla da Barra com o farol), entao a busca
+  passou a pedir 10 candidatos e escolher por `class/type` esperado por
+  lugar, com o raio conferido contra o `loopDistanceMeters` que cada
+  entrada ja declarava. Raio segue a forma: linear (orla/avenida/calcadao/
+  ponte/eixao) usa `max(geocode, loop/5)` porque o OSM devolve o bbox de
+  UM trecho da via, nunca da via inteira; fechado (parque/lagoa) usa o
+  bbox direto com teto de 2500 m, pra "Parque do Coco" (raio 9548 m pelo
+  OSM, a unidade de conservacao inteira) nao virar "corri nesse parque".
+  Conferido rodando o `placeArea` de verdade sobre o catalogo: 0 lugares
+  sem area, e as 13 sobreposicoes que sobram sao geografia real (Trianon
+  fica sobre a Paulista, Marinha do Brasil dentro da Orla do Guaiba) —
+  em todas o desempate por area menor escolhe o lugar mais especifico.
+- **02 — o Feed nao aceitava post** (commit `0915c80`). O card de
+  compartilhar em `run-detail.tsx` estava atras de `friendCount > 0`: sem
+  amigo aceito nao dava pra postar, sem post nao havia o que ver, e a aba
+  mais proeminente da barra era uma porta fechada pra quem acabou de
+  instalar. Nao era limitacao de backend — `list-friends-feed` ja monta a
+  audiencia como `[userId, ...friendIds]`, com comentario proprio dizendo
+  que um feed estilo Strava mostra as suas corridas junto com as dos
+  amigos. O gate era decisao de UI escondendo algo que ja funcionava. O
+  vazio do `/feed` passou a convidar a postar (link pro Historico) em vez
+  de so a arrumar amigo.
+- **03 — abas que so podiam estar vazias** (commit `84d83e4`).
+  `/treinador` desenhava sempre as tres abas (Convites/Treinadores/Alunos)
+  e abria na pior delas; `/amigos` oferecia "Convites" sem nenhum convite;
+  `/lugares` listava 4 cidades como "em breve" que ja estao em
+  `CITIES_WITH_PLACES` desde a expansao pras 27 capitais, entao cada uma
+  aparecia duas vezes, uma clicavel e uma cinza dizendo que nao existe.
+  Agora a lista de abas e montada do que tem conteudo e a barra so aparece
+  com mais de uma; enquanto os dados nao chegaram, monta como se tudo
+  tivesse conteudo, pra barra nao piscar e o vazio nunca afirmar "voce nao
+  tem nada" antes de saber. Achado junto: `Avatar` fazia `name.charAt(0)`
+  direto, entao uma linha de `profiles` sem a coluna de nome derrubava a
+  tela inteira — passa a cair no "?" que o fallback ja previa.
+- **04 — "Iniciar corrida" depois de cinco cards** (commit `04910fa`). A
+  acao central do produto exigia a maior rolagem da tela. Botao subiu pra
+  logo depois do card "Tipo de meta" (medido: y=561 num viewport de
+  390x844, visivel sem rolar) e o resto foi pra tras de uma linha "Mais
+  opcoes" — que mostra fechada o que foge do padrao ("voz a cada 1 km", o
+  tenis, "compartilhando ao vivo"), porque colapsar controle e aceitavel e
+  esconder estado nao e.
+- **05 — o plano sumia em silencio** (commit `93071ae`). Dois caminhos, os
+  dois caindo no checklist de primeira vez ("defina uma meta", "grave
+  algumas corridas"), que pra quem ja tinha plano le como o app ter perdido
+  o dado. (a) `estimateWeeklyKm` olha 3 semanas, entao 21 dias sem gravar
+  zeram o volume e `computeCurrentPlanWeek` devolve `null` — machucar ou
+  viajar e comum, nao caso de borda. (b) `generatePlan` recusa data no
+  passado e devolve zero semanas, entao no dia seguinte a prova o plano
+  some **com os dois pontinhos do checklist verdes**, porque meta e
+  historico continuam validos: a tela dizia que estava tudo certo e nao
+  mostrava nada. Agora cada estado tem texto proprio e honesto, com a acao
+  certa (gravar corrida vs. escolher nova data — o CTA de correr some no
+  caso da prova vencida, porque correr hoje nao traz esse plano de volta).
+- **06 — tres pedidos ao mesmo tempo no fim da corrida** (commit
+  `741828c`). Quem acabou de parar recebia RPE + "essa corrida foi no
+  Ibirapuera?" + um campo de busca de musica. So o RPE perde valor se nao
+  for respondido na hora. A busca de musica saiu sem substituto (era copia
+  literal do card que ja vive no detalhe da corrida desde 2026-08-29); a
+  confirmacao de ranking **migrou** pro card "Lugar" do detalhe — nao foi
+  removida, porque e a unica porta de entrada do ranking de lugares.
+  Migrar exigiu resolver contagem dupla antes: `recordRunAtPlace` soma num
+  agregado por lugar, sem registro por corrida no servidor, entao
+  `CompletedRun.countedAtPlaceId` (IndexedDB local, novo) e o marcador que
+  fecha isso — gravado so DEPOIS do write remoto dar certo, pra falha de
+  rede nunca virar "ja contei" mentiroso. Conferido de ponta a ponta com
+  Playwright usando o traco real do circuito do Ibirapuera como pontos da
+  corrida: contar troca a UI, grava o marcador, e recarregar nao oferece
+  contar de novo.
+
+**Os 2 itens que nao sao codigo continuam com o dono do projeto**: 07 —
+publicar um preco com trava de fundador (decisao de negocio); 08 —
+assinar o Appwrite Pro (US$25/mes), que alem de liberar Functions
+ilimitadas elimina a pausa por inatividade de 7 dias documentada na secao
+do incidente acima — hoje um risco real pro teste fechado de 14 dias do
+Google Play.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
