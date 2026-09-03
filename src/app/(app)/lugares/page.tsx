@@ -7,9 +7,6 @@ import { useHeaderClose } from "../app-shell";
 import { Card, delay, NoticeBadge, Screen, ScreenHeader, SPAN_COLUMNS } from "../ui";
 import { PlaceCard } from "./place-card";
 
-/** Shown in the city picker so someone outside São Paulo sees the feature exists, not that it's broken. */
-const CITIES_COMING_SOON = ["Rio de Janeiro", "Belo Horizonte", "Curitiba", "Porto Alegre"];
-
 type SortId = "recomendados" | "seguranca" | "iluminacao";
 
 const SORTS: { id: SortId; label: string; icon: (className: string) => React.ReactNode }[] = [
@@ -97,15 +94,6 @@ export default function LugaresPage() {
             >
               {c}
             </button>
-          ))}
-          {CITIES_COMING_SOON.map((c) => (
-            <span
-              key={c}
-              className="shrink-0 rounded-full bg-surface px-4 py-2 text-xs text-muted/50"
-              title="Em breve"
-            >
-              {c}
-            </span>
           ))}
         </div>
 

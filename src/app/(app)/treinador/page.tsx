@@ -141,6 +141,32 @@ export default function TreinadorPage() {
   const myCoaches = accepted.filter((c) => c.myRole === "student");
   const myStudents = accepted.filter((c) => c.myRole === "coach");
 
+  /**
+   * Cada aba só existe quando tem o que mostrar. Antes eram sempre três,
+   * e pra quase todo mundo as três estão vazias: quem nunca convidou
+   * ninguém abria em "Convites" (vazia), e as outras duas ofereciam
+   * navegar entre dois vazios. "Alunos", em particular, só faz sentido pra
+   * quem treina gente — a minoria — e ficava ali sugerindo o contrário.
+   *
+   * Enquanto `connections` é `null` (carregando) a lista é montada como se
+   * tudo tivesse conteúdo, pra barra não aparecer e sumir a cada carga.
+   *
+   * Esconder as abas não esconde nenhuma ação: convidar pelo @ é o
+   * formulário acima, fora das abas. Mesmo padrão do card "Compartilhar
+   * corrida" em /run, que também não desenha a barra com uma aba só.
+   */
+  const loading = connections === null;
+  const visibleTabs = COACH_TABS.filter((tab) => {
+    if (loading) return true;
+    if (tab.id === "convites") return incoming.length > 0 || outgoing.length > 0;
+    if (tab.id === "treinadores") return myCoaches.length > 0;
+    return myStudents.length > 0;
+  });
+  /** A aba escolhida pode sumir da lista (o último convite foi aceito com "Convites" aberta) — cai pra primeira que sobrou. */
+  const effectiveTab: CoachTab | null = visibleTabs.some((t) => t.id === activeTab)
+    ? activeTab
+    : (visibleTabs[0]?.id ?? null);
+
   return (
     <>
       {/* panel, not wide: this page is one form plus one tabbed list — the
@@ -300,18 +326,22 @@ export default function TreinadorPage() {
               className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
               style={delay(80)}
             >
-              <div className="mb-4">
-                <PillTabs tabs={COACH_TABS} active={activeTab} onChange={setActiveTab} />
-              </div>
+              {visibleTabs.length > 1 && (
+                <div className="mb-4">
+                  <PillTabs tabs={visibleTabs} active={effectiveTab ?? visibleTabs[0].id} onChange={setActiveTab} />
+                </div>
+              )}
 
-              {activeTab === "convites" &&
-                (connections === null ? (
+              {effectiveTab === null && (
+                <EmptyState
+                  title="Você ainda não tem treinador nem aluno"
+                  description="Convide pelo @ acima — marque “É meu aluno” pra treinar alguém, ou deixe desmarcado pra pedir que essa pessoa te treine."
+                />
+              )}
+
+              {effectiveTab === "convites" &&
+                (loading ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
-                ) : incoming.length === 0 && outgoing.length === 0 ? (
-                  <EmptyState
-                    title="Nenhum convite esperando resposta"
-                    description="Enviados ou recebidos."
-                  />
                 ) : (
                   <div className="flex flex-col gap-6">
                     {incoming.length > 0 && (
@@ -391,14 +421,9 @@ export default function TreinadorPage() {
                   </div>
                 ))}
 
-              {activeTab === "treinadores" &&
-                (connections === null ? (
+              {effectiveTab === "treinadores" &&
+                (loading ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
-                ) : myCoaches.length === 0 ? (
-                  <EmptyState
-                    title="Nenhum treinador ainda"
-                    description="Depois de aceito, você escolhe corrida por corrida o que enviar pra ele ver, na tela de detalhe de cada corrida."
-                  />
                 ) : (
                   <ul className="flex flex-col gap-3.5">
                     {myCoaches.map((connection) => (
@@ -414,14 +439,9 @@ export default function TreinadorPage() {
                   </ul>
                 ))}
 
-              {activeTab === "alunos" &&
-                (connections === null ? (
+              {effectiveTab === "alunos" &&
+                (loading ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
-                ) : myStudents.length === 0 ? (
-                  <EmptyState
-                    title="Nenhum aluno ainda"
-                    description={'Convide pelo @ acima, marcando "É meu aluno".'}
-                  />
                 ) : (
                   <ul className="flex flex-col gap-3.5">
                     {myStudents.map((connection) => (

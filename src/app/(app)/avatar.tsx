@@ -43,7 +43,14 @@ export function Avatar({
     <span
       className={`flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent/40 font-bold text-accent-foreground ${SIZE_CLASSES[size]} ${className}`}
     >
-      {name.charAt(0).toUpperCase() || "?"}
+      {/* `?? ""` não é paranoia de tipo: `name` costuma vir de uma coluna
+          de `profiles` lida da rede, e uma linha sem essa coluna (schema
+          mais novo que a linha, cliente antigo que gravou sem ela)
+          derrubava a tela inteira com "Cannot read properties of
+          undefined" — o app inteiro em branco por causa de uma inicial.
+          Degradar pro "?" que o fallback já previa é o comportamento
+          honesto. */}
+      {(name ?? "").charAt(0).toUpperCase() || "?"}
     </span>
   );
 }

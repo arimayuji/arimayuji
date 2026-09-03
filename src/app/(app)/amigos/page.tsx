@@ -253,6 +253,20 @@ export default function AmigosPage() {
   const friends = (connections ?? []).filter((c) => c.friendship.status === "accepted");
 
   /**
+   * "Convites" só existe como aba quando existe convite — sem nenhum
+   * pendente ela é uma pergunta cuja única resposta possível é "nenhum",
+   * e quem acabou de instalar não tem nenhum. O formulário de adicionar
+   * amigo fica fora das abas (acima), então esconder a aba não esconde a
+   * ação: só para de oferecer uma escolha que não é escolha. Mesmo padrão
+   * do card "Compartilhar corrida" em /run, que também não desenha a
+   * barra quando sobra uma aba só.
+   */
+  const hasInvites = incoming.length > 0 || outgoing.length > 0;
+  const visibleTabs = hasInvites ? FRIEND_TABS : FRIEND_TABS.filter((t) => t.id !== "convites");
+  /** A aba escolhida pode sumir da lista (o último convite foi aceito com "Convites" aberta) — cai pra "amigos" em vez de renderizar nada. */
+  const effectiveTab: FriendTab = visibleTabs.some((t) => t.id === activeTab) ? activeTab : "amigos";
+
+  /**
    * Which accepted friends are live right now, keyed by their account id —
    * only polled while the "Amigos" tab is actually showing, since nobody's
    * looking at this list otherwise. A friend's own `startLiveSession` call
@@ -263,7 +277,7 @@ export default function AmigosPage() {
    */
   const [liveFriends, setLiveFriends] = useState<Map<string, LiveRun>>(new Map());
   useEffect(() => {
-    if (activeTab !== "amigos" || friends.length === 0) return;
+    if (effectiveTab !== "amigos" || friends.length === 0) return;
     let cancelled = false;
     const poll = async () => {
       const rows = await Promise.all(friends.map((c) => getActiveLiveSession(c.otherId)));
@@ -282,7 +296,7 @@ export default function AmigosPage() {
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `friends` is a new array every render (derived from `connections` above); keying off `connections` itself instead avoids re-polling every render while still refetching whenever who's actually a friend changes.
-  }, [activeTab, connections]);
+  }, [effectiveTab, connections]);
 
   /**
    * "Correr por amigo por perto" — reuses this exact same tab-gated polling
@@ -296,7 +310,7 @@ export default function AmigosPage() {
    */
   const [nearbyFriends, setNearbyFriends] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (activeTab !== "amigos" || friends.length === 0 || !account) return;
+    if (effectiveTab !== "amigos" || friends.length === 0 || !account) return;
     let cancelled = false;
     const poll = async () => {
       const rows = await listFriendsPresence([account.id, ...friends.map((c) => c.otherId)]);
@@ -322,7 +336,7 @@ export default function AmigosPage() {
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- same reasoning as the "Ao vivo" effect above: keying off `connections` (not the derived `friends` array) avoids re-polling every render.
-  }, [activeTab, connections, account]);
+  }, [effectiveTab, connections, account]);
 
   return (
     <>
@@ -428,11 +442,13 @@ export default function AmigosPage() {
               className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none"
               style={delay(80)}
             >
-              <div className="mb-4">
-                <PillTabs tabs={FRIEND_TABS} active={activeTab} onChange={setActiveTab} />
-              </div>
+              {visibleTabs.length > 1 && (
+                <div className="mb-4">
+                  <PillTabs tabs={visibleTabs} active={effectiveTab} onChange={setActiveTab} />
+                </div>
+              )}
 
-              {activeTab === "convites" ? (
+              {effectiveTab === "convites" ? (
                 connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : incoming.length === 0 && outgoing.length === 0 ? (
@@ -511,7 +527,7 @@ export default function AmigosPage() {
                 )
               ) : null}
 
-              {activeTab === "amigos" &&
+              {effectiveTab === "amigos" &&
                 (connections === null ? (
                   <div className="h-12 animate-pulse rounded-lg bg-background" />
                 ) : friends.length === 0 ? (
