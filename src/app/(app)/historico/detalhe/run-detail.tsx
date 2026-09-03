@@ -577,7 +577,20 @@ export function RunDetail({ id }: { id: string }) {
   const [coaches, setCoaches] = useState<CoachConnection[] | null>(null);
   const [sharedWith, setSharedWith] = useState<string[]>([]);
   const [sharingId, setSharingId] = useState<string | null>(null);
-  /** Only used to decide whether the "Compartilhar com amigos" card has anyone to show at all — the feed itself is all-or-nothing (every accepted friend), never a per-friend picker like coaches above, so the count is all this screen needs. */
+  /**
+   * Only used to word the "Postar no Feed" card honestly — the feed itself
+   * is all-or-nothing (every accepted friend), never a per-friend picker
+   * like coaches above, so the count is all this screen needs.
+   *
+   * It is deliberately **not** a gate on the card. It used to be, and that
+   * made the Feed — the most prominent tab in the bar — impossible to fill:
+   * an account with no accepted friend could never post anything, so the
+   * one screen the app opens people into was permanently empty for exactly
+   * the people who had just arrived. `list-friends-feed` already returns
+   * the caller's own shared runs alongside their friends', so posting with
+   * zero friends is a real, working thing to do — it just has an audience
+   * of one until someone accepts.
+   */
   const [friendCount, setFriendCount] = useState(0);
   const [friendsShared, setFriendsShared] = useState(false);
   const [sharingFriends, setSharingFriends] = useState(false);
@@ -1174,11 +1187,13 @@ export function RunDetail({ id }: { id: string }) {
           </Card>
         )}
 
-        {friendCount > 0 && (
+        {account && (
           <Card className="pr-enter lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none" style={delay(172)}>
-            <CardTitle>Compartilhar com amigos</CardTitle>
+            <CardTitle>Postar no Feed</CardTitle>
             <p className="mb-3 text-xs leading-relaxed text-muted text-pretty">
-              Aparece no feed de todos os seus amigos aceitos, com Bora — nunca só pra um por vez.
+              {friendCount > 0
+                ? "Aparece no feed de todos os seus amigos aceitos, com Bora — nunca só pra um por vez."
+                : "Vai pro seu Feed agora. Enquanto você não tiver amigo aceito, só você vê — e quem for aceito depois já encontra a corrida lá."}
             </p>
             <input
               type="text"
@@ -1236,8 +1251,8 @@ export function RunDetail({ id }: { id: string }) {
               {sharingFriends
                 ? "Salvando…"
                 : friendsShared
-                  ? "Compartilhado — toque pra remover do feed"
-                  : "Compartilhar essa corrida com amigos"}
+                  ? "No Feed — toque pra remover"
+                  : "Postar essa corrida no Feed"}
             </button>
           </Card>
         )}

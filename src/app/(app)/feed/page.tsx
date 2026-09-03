@@ -942,24 +942,37 @@ export default function FeedPage() {
             </>
           ) : feedItems.length === 0 ? (
             <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" style={delay(40)}>
-              {friendCount === 0 ? (
-                <EmptyState size="screen"
-                  title="Você ainda não tem amigos aceitos"
-                  description={
-                    <>
-                      <Link href="/amigos" className="pr-press text-accent underline underline-offset-2 hover:text-accent/80">
-                        Adicione pelo @
-                      </Link>{" "}
-                      pra ver as corridas deles aqui.
-                    </>
-                  }
-                />
-              ) : (
-                <EmptyState size="screen"
-                  title="Nada por aqui ainda"
-                  description="Aparece quando um amigo compartilhar uma corrida."
-                />
-              )}
+              {/*
+                O primeiro convite é sempre postar, nunca "arrume amigos
+                primeiro": uma corrida própria já enche essa tela hoje
+                (`list-friends-feed` devolve as suas junto com as dos
+                amigos), então mandar quem acabou de chegar pra outra tela
+                antes de poder ver qualquer coisa aqui era transformar a
+                aba mais proeminente do app numa porta fechada.
+              */}
+              <EmptyState size="screen"
+                title="Seu Feed começa com você"
+                description={
+                  <>
+                    Abra uma corrida no{" "}
+                    <Link href="/historico" className="pr-press text-accent underline underline-offset-2 hover:text-accent/80">
+                      Histórico
+                    </Link>{" "}
+                    e poste no Feed.
+                    {friendCount === 0 ? (
+                      <>
+                        {" "}Quem você{" "}
+                        <Link href="/amigos" className="pr-press text-accent underline underline-offset-2 hover:text-accent/80">
+                          adicionar pelo @
+                        </Link>{" "}
+                        depois já encontra ela aqui.
+                      </>
+                    ) : (
+                      " As dos seus amigos aparecem aqui junto."
+                    )}
+                  </>
+                }
+              />
             </Card>
           ) : (
             feedItems.map((item, index) => (
