@@ -158,6 +158,21 @@ function ElevationIcon({ className }: { className?: string }) {
 const FEED_DRAW_MS = 7000;
 
 /**
+ * Floor between `setProgress` updates during the reveal — each one feeds a
+ * new `replay` cursor into `RouteMap`, which (`route-map.tsx`) runs a real
+ * camera move (`jumpTo`/`easeTo`) plus a full SVG overlay recompute in a
+ * `useLayoutEffect` synchronously on that same frame. That is real work to
+ * repeat 60 times a second for up to 7 straight seconds, and reported
+ * directly: tapping anything else on the screen (the notifications bell,
+ * 2026-09-04) while a card's route was drawing didn't register until the
+ * reveal finished — the animation was quietly saturating the main thread.
+ * ~12 updates/sec still reads as the route filling itself in (this is a
+ * passive background reveal, not something that needs frame-accurate
+ * motion) while cutting that work down to a fifth.
+ */
+const FEED_DRAW_UPDATE_INTERVAL_MS = 80;
+
+/**
  * The GPS trace on the app's real basemap (`RouteMap`, MapLibre + Protomaps —
  * same component /historico's detail screen and live tracking already use),
  * not a bare flattened line on blank background. A first pass here drew just
@@ -197,6 +212,7 @@ function RouteBanner({ points }: { points: StoredPoint[] }) {
     if (!inView || !timeline || reducedMotion) return;
     let raf: number;
     let start: number | null = null;
+    let lastUpdate = 0;
     const tick = (now: number) => {
       if (start === null) start = now;
       const elapsed = (now - start) / FEED_DRAW_MS;
@@ -204,7 +220,10 @@ function RouteBanner({ points }: { points: StoredPoint[] }) {
         setProgress(null);
         return;
       }
-      setProgress(elapsed);
+      if (now - lastUpdate >= FEED_DRAW_UPDATE_INTERVAL_MS) {
+        setProgress(elapsed);
+        lastUpdate = now;
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
