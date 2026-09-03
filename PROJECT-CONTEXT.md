@@ -4463,6 +4463,92 @@ chegou a abrir uma tela do próprio Appwrite com a mensagem crua.
   simples o bastante (checar `code === 401`) pra não precisar reproduzir
   a pausa de novo só pra confirmar.
 
+## `client-actions` redeployado em produção + `appwrite-setup.ts` rodado (2026-09-03)
+
+Achado partindo de um relato real (comentar na própria corrida no Feed
+dava "Não deu pra comentar agora — tenta de novo."): confirmado via
+`git log -S` que a ação `add-run-comment` entrou no código no commit
+`5e82849` (2026-09-01), mas o último deploy real de `client-actions` em
+produção era de **2026-08-31 20:38** — um dia antes. A Function rodando
+de verdade não conhecia a ação, então todo o backlog acumulado desde ali
+(comentários com foto no Feed, fotos/conquistas/música nos posts,
+push notifications de kudos/coach/amizade/retenção, sync de plano entre
+aparelhos, corridas de rua, "Minha Rota", `recovery_snapshots`) estava
+codado mas nunca rodando — não era bug de código, era só deploy
+pendente, mesma categoria já documentada várias vezes acima.
+
+**Rodado com OK explícito do dono do projeto**:
+- `npx tsx scripts/appwrite-setup.ts` — só a tabela `custom_routes` foi
+  criada de fato; todo o resto (`run_kudos`, `city_races`,
+  `recovery_snapshots`, colunas novas de `runs`/`profile_stats`/
+  `runner_profile_sync`/`run_comments`) já existia — sinal de que uma
+  sessão anterior já tinha rodado isso parcialmente sem deixar registro
+  aqui.
+- `appwrite functions create-deployment --function-id client-actions
+  --code . --entrypoint src/main.js --commands "npm install" --activate`
+  — build de 1,6MB (confirma que o `npm install` rodou, o mesmo sinal
+  já documentado no bug de `node_modules` ausente). Confirmado ativo
+  (`live: true`) e testado por execução direta: `add-run-comment` sem
+  sessão devolve `401 not-authenticated` — diferente de `unknown-action`,
+  ou seja o dispatcher já reconhece a ação nova de verdade, não só que a
+  Function responde.
+
+**Ainda não feito, fora do pedido desta rodada**: o cron semanal
+(`appwrite functions update --schedule "0 4 * * 1"`, pra corridas de rua
+e o job de retenção) não foi ligado — só foi pedido comentário/deploy
+geral, não esse passo específico. E nenhum teste de ponta a ponta com
+duas contas reais foi feito ainda (mesma pendência de sempre).
+
+## Bug corrigido: login OAuth silencioso (Google/Apple nativo) + erro cru vazando pra UI (2026-09-03)
+
+Relato real do dono do projeto: "faço login com Google, volto pro app e
+nada acontece" — sem erro, sem crash, só nada. Investigado via Appwrite
+CLI (executions recentes de `client-actions`, todas de 2026-09-02, sem
+nenhuma nova durante a tentativa relatada — descarta o caminho iOS nativo,
+que sempre passa por lá) e leitura direta do fluxo Android/web
+(`startOAuthSignIn` → `Browser.open` → `oauth-callback-listener.tsx`'s
+`appUrlOpen` → `account.createSession`).
+
+**Causa raiz**: `oauth-callback-listener.tsx` tinha um `catch` totalmente
+silencioso ao redor do `account.createSession` final — se essa troca
+falhasse por qualquer motivo (token expirado, já usado, blip de rede),
+nada era logado nem mostrado. Pior: o modal `AccountPrompt` já tinha
+fechado seu próprio estado de "Abrindo…" muito antes (`Browser.open()`
+resolve assim que o navegador do sistema abre, não quando a pessoa
+termina o consentimento do Google) — então não sobrava nenhum componente
+montado pra mostrar o erro mesmo se ele existisse. Mesma classe de bug já
+corrigida 3+ vezes neste projeto (`friendships.ts`, `liveRuns.ts`,
+`shareRunWithCoaches`), sempre pelo mesmo motivo: `catch` vazio escondendo
+uma falha real atrás de "parece que não fez nada".
+
+**Fix, branch `claude/strava-competitor-feedback-cyvop8`, commits
+`c4eece9`+`8296b4b`, ainda não deployado**:
+- `oauth-callback-listener.tsx` agora loga o erro técnico completo
+  (`console.error`, visível via `adb logcat`/Chrome remote debugging) e
+  guarda uma mensagem amigável em `localStorage`
+  (`xanthus:last-oauth-error`) pra `AccountPrompt` mostrar na próxima vez
+  que o modal de login abrir — via um lazy initializer de `useState`, não
+  um `useEffect` com `setState` direto (o linter/React Compiler rejeita
+  isso como "cascading render" sem nenhuma assinatura externa real).
+- **Achado à parte, mesma sessão**: as próprias funções de login
+  (`signInWithGoogle`/`signInWithApple`/`startOAuthSignIn`, `auth.ts`)
+  sempre devolveram uma string de diagnóstico pensada pra debug — nome de
+  env var ausente, mensagem crua de exceção do SDK do Google/Apple — e
+  isso ia direto pra tela via `oauthError`, sem filtro nenhum. Corrigido
+  em `account-prompt.tsx`'s `handleOAuth`: o detalhe técnico vai só pro
+  `console.error`, a tela sempre mostra "Não deu pra completar o login —
+  tenta de novo." **Trade-off aceito conscientemente**: isso também
+  substitui a mensagem específica de "esse e-mail já tem conta, entra
+  pelo mesmo jeito de antes" (de `describeNativeSignInError`, usada só no
+  fluxo nativo iOS) pela mesma genérica — perde uma dica útil naquele caso
+  específico, mas garante que nenhuma string técnica vaza em nenhum
+  outro caso, sem precisar allowlist frágil por conteúdo de string.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
+  **Não confirmado contra o caso real do dono do projeto** — ele ainda
+  não tinha testado de novo (`adb logcat`) até este ponto da sessão; o
+  fix ainda não foi buildado/instalado no aparelho dele, então o log
+  novo só vai aparecer numa build futura.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra
