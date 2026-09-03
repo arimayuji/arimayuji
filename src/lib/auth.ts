@@ -8,7 +8,7 @@
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { Browser } from "@capacitor/browser";
 import { SocialLogin } from "@capgo/capacitor-social-login";
-import { ExecutionMethod, ID, type Models, OAuthProvider, Query } from "appwrite";
+import { AppwriteException, ExecutionMethod, ID, type Models, OAuthProvider, Query } from "appwrite";
 import {
   APPWRITE_DATABASE_ID,
   CLIENT_ACTIONS_FUNCTION_ID,
@@ -473,16 +473,39 @@ export interface Account {
   name: string;
 }
 
-/** Null with no active session — not an error, the normal "signed out" state. */
-export async function getCurrentAccount(): Promise<Account | null> {
+export interface AccountCheckResult {
+  account: Account | null;
+  /**
+   * True when `account` is `null` because the check couldn't reach Appwrite
+   * at all — a paused project (`project_paused`, seen 2026-09-02: a whole
+   * project pauses itself after 7 days with no *Console* activity, runtime
+   * traffic from real users doesn't count), a network failure, a timeout, or
+   * any 5xx — rather than because the person is genuinely signed out. A real
+   * "not signed in" response is a clean 401 from Appwrite itself
+   * (`general_unauthorized_scope`); everything else means the backend, not
+   * the account, is the problem. `getCurrentAccount()` below collapses both
+   * cases to `null` for its many simple callers; `checkAccount()` is for the
+   * one caller (`useAuth`) that needs to tell them apart so the "Conta" card
+   * can say so honestly instead of inviting a login that's certain to fail.
+   */
+  backendUnavailable: boolean;
+}
+
+export async function checkAccount(): Promise<AccountCheckResult> {
   const appwrite = getAppwrite();
-  if (!appwrite) return null;
+  if (!appwrite) return { account: null, backendUnavailable: false };
   try {
     const user = await withTimeout(appwrite.account.get(), ACCOUNT_CHECK_TIMEOUT_MS);
-    return { id: user.$id, name: user.name };
-  } catch {
-    return null;
+    return { account: { id: user.$id, name: user.name }, backendUnavailable: false };
+  } catch (error) {
+    const backendUnavailable = !(error instanceof AppwriteException && error.code === 401);
+    return { account: null, backendUnavailable };
   }
+}
+
+/** Null with no active session — not an error, the normal "signed out" state. Collapses the backend-unavailable case from `checkAccount()` above into the same `null`, same as always — most callers here never cared why, only `useAuth` does. */
+export async function getCurrentAccount(): Promise<Account | null> {
+  return (await checkAccount()).account;
 }
 
 /** Null means this account exists but hasn't picked a handle yet — the caller should show the handle picker, not treat it as an error. */

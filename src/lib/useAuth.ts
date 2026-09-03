@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getCurrentAccount, getProfile, type Account, type Profile } from "./auth";
+import { checkAccount, getProfile, type Account, type Profile } from "./auth";
 
 /**
  * `needs-handle` is its own state, not folded into `signed-in`: an OAuth
@@ -16,13 +16,24 @@ export interface AuthState {
   status: AuthStatus;
   account: Account | null;
   profile: Profile | null;
+  /**
+   * True when `status` is `"signed-out"` only because the backend couldn't
+   * be reached (paused project, network failure, timeout — see
+   * `checkAccount()` in auth.ts), not because anyone is genuinely signed
+   * out. `status` itself deliberately still resolves to `"signed-out"` so
+   * every existing `status === "signed-out"` check across the app keeps
+   * behaving exactly as before; only the one surface a person actually
+   * reads before deciding to hit "Entrar" (`AccountCard`) needs to tell the
+   * two apart.
+   */
+  backendUnavailable: boolean;
 }
 
 async function loadAuthState(): Promise<AuthState> {
-  const account = await getCurrentAccount();
-  if (!account) return { status: "signed-out", account: null, profile: null };
+  const { account, backendUnavailable } = await checkAccount();
+  if (!account) return { status: "signed-out", account: null, profile: null, backendUnavailable };
   const profile = await getProfile(account.id);
-  return { status: profile ? "signed-in" : "needs-handle", account, profile };
+  return { status: profile ? "signed-in" : "needs-handle", account, profile, backendUnavailable: false };
 }
 
 /**
@@ -58,7 +69,7 @@ function ensureLoaded(): void {
 
 export function useAuth(): AuthState & { refresh: () => Promise<void> } {
   const [state, setState] = useState<AuthState>(
-    () => cachedState ?? { status: "loading", account: null, profile: null },
+    () => cachedState ?? { status: "loading", account: null, profile: null, backendUnavailable: false },
   );
 
   const refresh = useCallback(() => loadAuthState().then(notify), []);

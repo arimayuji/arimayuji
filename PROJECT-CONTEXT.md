@@ -4380,6 +4380,89 @@ suas próprias seções acima, não duplicados aqui.
 - Secret `NEXT_PUBLIC_MAPTILER_KEY` com a chave certa (ver seção própria
   sobre elevação — é chave inválida, não cota; a correção é gratuita).
 
+## Incidente: projeto Appwrite pausado por inatividade — a regra que ameaça o teste fechado (2026-09-03)
+
+Relato do dono do projeto: tentou logar com Google (a conta estava
+pedindo login de novo), e a própria tela de OAuth mostrou uma mensagem
+de que o projeto estava pausado por inatividade. Reproduzido direto
+contra a API de produção antes de orientar qualquer coisa:
+
+```
+GET https://nyc.cloud.appwrite.io/v1/account  (com o header do projeto)
+→ 403  {"type":"project_paused",
+        "message":"Project is paused due to inactivity.
+                    Please restore it from the console to resume operations."}
+```
+
+Não era bug de login nem do app — **o projeto Appwrite inteiro estava
+pausado**, então toda chamada de backend (login, perfil, feed, amigos,
+ranking, corrida ao vivo) devolvia esse mesmo 403. Gravar corrida
+continuou funcionando normalmente (é local-first, IndexedDB) — só o que
+depende de conta caiu.
+
+**A regra real, confirmada num thread oficial do Appwrite (resposta de
+um membro da equipe, `eldad`), não só no changelog**: projetos do plano
+Free pausam sozinhos depois de **7 dias sem atividade** — mas atividade
+aqui significa especificamente **abrir o Console**, não tráfego real de
+usuário:
+
+> "Runtime traffic such as API calls, SDK usage, or end-user visits does
+> not count toward this." — e, do changelog oficial: "If a project is
+> actively being developed, normal development work in the Console will
+> typically keep it active."
+
+Ou seja: **usuários reais usando o app, todo santo dia, não impedem a
+pausa.** Só o dono do projeto abrindo o Console conta. Dado não é
+perdido ao pausar (confirmado no changelog oficial e na própria tela do
+Console: *"Your data is safe and will remain intact"*) — restaurar é um
+clique ("Restore project", grátis) e volta na hora, sem precisar
+recriar nada.
+
+**Por que isso importa mais que um susto pontual**: o teste fechado do
+Google Play (ver "Status das contas de desenvolvedor" acima) exige 12
+testadores por **14 dias corridos**. Se em qualquer janela de 7 dias
+desses 14 o dono do projeto não abrir o Console do Appwrite, o backend
+morre no meio do teste — os testadores batem num app que não loga, sem
+nenhum aviso prévio. Um keepalive que só faz ping na API **não resolve**
+(é exatamente o tráfego que a resposta oficial acima descarta como
+"não conta"). As opções reais: abrir o Console manualmente com
+regularidade (grátis, mas depende de lembrar), ou o plano Pro
+(US$25/mês, o mesmo que já resolveu o teto de 2 Functions — ver seção
+"Auditoria LGPD/segurança" — remove a pausa de vez).
+
+**Fix de honestidade aplicado no código, branch
+`claude/strava-competitor-feedback-cyvop8`, ainda não deployado**: até
+esta sessão, `getCurrentAccount()` (`src/lib/auth.ts`) tinha um `catch`
+pelado — qualquer falha (401 genuíno, 403 de projeto pausado, timeout,
+erro de rede) virava o mesmo `null`, indistinguível de "deslogado". Foi
+exatamente isso que fez o app mostrar o card normal de "Sem conta —
+Entrar" durante a pausa, em vez de avisar que o backend estava fora do
+ar — o dono do projeto só descobriu a causa real porque o fluxo OAuth
+chegou a abrir uma tela do próprio Appwrite com a mensagem crua.
+- `auth.ts` ganhou `checkAccount()` (exportada, ao lado de
+  `getCurrentAccount()` que continua com a mesma assinatura de sempre
+  pros outros 14 call sites) — distingue um 401 real da Appwrite
+  (`AppwriteException` com `code === 401`, a resposta normal de "sem
+  sessão") de qualquer outra falha, que vira `backendUnavailable: true`.
+- `useAuth.ts`: `AuthState` ganhou o campo `backendUnavailable` — o
+  `status` continua resolvendo pra `"signed-out"` nos dois casos, de
+  propósito, pra nenhuma das outras 5 telas que já checam
+  `status === "signed-out"` (amigos, treinador, lugares, feed,
+  account-card) precisar mudar; só quem lê o campo novo se comporta
+  diferente.
+- `account-card.tsx` (o card "Conta", a superfície que alguém realmente
+  lê antes de decidir logar): com `backendUnavailable`, o badge vira
+  "indisponível", o texto avisa que o servidor parece fora do ar em vez
+  de convidar "Sem conta — Entrar", e o botão vira "Tentar de novo"
+  (chama `refresh()`) em vez de abrir o fluxo OAuth — evita mandar
+  alguém pra dentro de um round-trip que já sabemos que vai terminar
+  numa tela de erro hospedada pelo próprio Appwrite.
+- Verificado: `tsc --noEmit`, `npm run lint`, `npm run build` limpos.
+  **Não testado contra um projeto pausado de verdade** — só contra o
+  401 normal (projeto já restaurado na hora do fix); a lógica em si é
+  simples o bastante (checar `code === 401`) pra não precisar reproduzir
+  a pausa de novo só pra confirmar.
+
 ## Como manter isso vivo
 
 Sempre que uma sessão descobrir ou decidir algo relevante de produto/infra

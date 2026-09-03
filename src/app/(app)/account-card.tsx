@@ -23,7 +23,7 @@ const RETURN_TO = "/perfil";
  * very first login, not something to leave half-finished.
  */
 export function AccountCard() {
-  const { status, account, profile, refresh } = useAuth();
+  const { status, account, profile, refresh, backendUnavailable } = useAuth();
   const [showPrompt, setShowPrompt] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -70,7 +70,13 @@ export function AccountCard() {
     // `lg:` (no double border, no nested rounded corners) rather than
     // rendering as a card-inside-a-card.
     <Card className="pr-enter lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-      <CardTitle aside={<NoticeBadge>{status === "signed-in" ? "conectado" : "opcional"}</NoticeBadge>}>
+      <CardTitle
+        aside={
+          <NoticeBadge>
+            {status === "signed-in" ? "conectado" : backendUnavailable ? "indisponível" : "opcional"}
+          </NoticeBadge>
+        }
+      >
         Conta
       </CardTitle>
 
@@ -91,16 +97,26 @@ export function AccountCard() {
       )}
 
       {status === "signed-out" && (
+        // `backendUnavailable` means the last check never got a real answer
+        // from Appwrite (paused project, network failure, timeout) — not
+        // that anyone is genuinely signed out. Inviting "Entrar" here would
+        // send them into an OAuth round trip that's certain to dead-end on
+        // an Appwrite-hosted error page (this is exactly what happened
+        // 2026-09-02: the project paused itself, and the app quietly showed
+        // the normal signed-out prompt instead of saying so). A retry is
+        // the honest, useful action instead.
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-muted">
-            Sem conta — corrida, histórico e conquistas continuam locais normalmente.
+            {backendUnavailable
+              ? "Não deu pra confirmar sua conta agora — o servidor parece fora do ar. Corrida, histórico e conquistas continuam locais."
+              : "Sem conta — corrida, histórico e conquistas continuam locais normalmente."}
           </p>
           <button
             type="button"
-            onClick={() => setShowPrompt(true)}
+            onClick={backendUnavailable ? () => void refresh() : () => setShowPrompt(true)}
             className="pr-press shrink-0 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-foreground hover:opacity-90 active:scale-95 lg:rounded-md lg:px-3 lg:py-1.5"
           >
-            Entrar
+            {backendUnavailable ? "Tentar de novo" : "Entrar"}
           </button>
         </div>
       )}
