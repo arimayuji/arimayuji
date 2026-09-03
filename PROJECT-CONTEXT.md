@@ -85,6 +85,25 @@ tabela "Onde cada coisa mora" acima já corrigida pra refletir isso; era
 `arimayuji/arimayuji` antes por engano. Toda branch/push relacionado ao
 projeto precisa ir pro `xanthus`, não pro `arimayuji/arimayuji`.
 
+**Resolvido de vez em 2026-09-03: `origin` agora É o xanthus.** Durante
+meses o repo local teve três remotos — `origin` e `deprecated-do-not-use`
+apontando pro isca (`arimayuji/arimayuji`), e `xanthus` com o repo de
+verdade. Isso não era só feio: o hook de fim de turno do Claude Code
+conta commits não pushados contra `origin/<branch>` fixo, então ele
+comparava com o repo errado e acusava dezenas de "commits não pushados"
+logo depois de um push bem-sucedido — a cada turno, por sessões
+inteiras. Pior, o alarme era convincente, porque um `origin/<branch>`
+velho de pushes antigos pro isca ainda existia: o ref resolvia, nada
+parecia quebrado, e a contagem era só feita silenciosamente contra uma
+história sem relação nenhuma.
+
+Os dois remotos do isca foram removidos e `xanthus` renomeado pra
+`origin` (`git remote rename` migra o tracking das branches sozinho —
+conferido). Daqui pra frente: **o comando é `git push origin`, não mais
+`git push xanthus`** — esse nome de remoto não existe mais. Nada foi
+tocado no GitHub, só a configuração local de remotos; o isca continua lá,
+intocado, só não é mais alcançável daqui.
+
 ## Status das contas de desenvolvedor (na data deste documento)
 
 - **Apple Developer Program**: **configurada e ativa** (paga, US$99/ano).
