@@ -947,6 +947,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Dia de semana, logo na abertura às 6h — antes do calor e do movimento da Paulista",
     loopDistanceMeters: 1500,
+    area: { lat: -23.5628, lon: -46.65783, radiusMeters: 250 },
     sources: [
       "https://prefeitura.sp.gov.br/web/meio_ambiente/w/parques/regiao_centrooeste/5773",
       "https://viajarcorrendo.com.br/2025/04/parques-da-avenida-paulista.html",
@@ -1062,6 +1063,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Fim de tarde/início de noite em dia útil, quando a área esportiva ainda está aberta e o calor já passou",
     loopDistanceMeters: null,
+    area: { lat: -23.50736, lon: -46.6217, radiusMeters: 519 },
     sources: [
       "https://www.saopaulo.sp.gov.br/conhecasp/parques-e-reservas-naturais/parque-da-juventude/",
       "https://www.areasverdesdascidades.com.br/2016/04/parque-da-juventude-em-sao-paulo.html",
@@ -1085,6 +1087,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Antes das 6h ou depois das 18h30 — evitar o calor e a umidade do meio do dia",
     loopDistanceMeters: 6000,
+    area: { lat: -9.96964, lon: -67.82727, radiusMeters: 1756 },
     sources: [
       "https://agencia.ac.gov.br/parque-da-maternidade-completa-10-anos/",
       "https://portalamazonia.com/acre/lago-do-amor-canal-da-maternidade-e-gameleira-confira-sete-locais-para-conhecer-em-rio-branco/",
@@ -1108,6 +1111,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Antes das 5h30–6h ou depois das 19h — calor forte no meio do dia",
     loopDistanceMeters: 4000,
+    area: { lat: -10.00833, lon: -67.80114, radiusMeters: 800 },
     sources: [
       "https://www.riobranco.ac.gov.br/noticias/via-chico-mendes-mais-bonita-e-segura-a-cada-dia/",
       "https://ac24horas.com/2023/12/18/nova-avenida-chico-mendes-sera-entregue-nesta-segunda-feira-em-rio-branco/",
@@ -1131,6 +1135,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Casos reais de assalto e um arrastão registrados pela imprensa entre 2025 e 2026 (incluindo disparo de arma de fogo em tentativa de assalto na Pajuçara), apesar do reforço policial na região.",
     bestTime: "5h-9h ou 16h-19h — evitar o sol forte do meio-dia",
     loopDistanceMeters: 7000,
+    area: { lat: -9.66031, lon: -35.69711, radiusMeters: 1400 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-em-maceio-5-lugares-imperdiveis/",
       "https://www.ilovecorrida.com.br/onde-correr/maceio/",
@@ -1155,6 +1160,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "5h-7h, antes do trânsito pesado",
     loopDistanceMeters: 9000,
+    area: { lat: -9.62103, lon: -35.73907, radiusMeters: 1800 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-em-maceio-5-lugares-imperdiveis/",
       "https://vamucorrer.com.br/conteudo/correr-em/maceio",
@@ -1177,6 +1183,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Antes das 6h ou fim de tarde/noite — calor equatorial",
     loopDistanceMeters: 3000,
+    area: { lat: 0.03469, lon: -51.04556, radiusMeters: 600 },
     sources: [
       "https://macapa.ap.gov.br/prefeito-de-macapa-dr-furlan-entrega-a-reconstrucao-e-ampliacao-do-trapiche-eliezer-levy-como-parte-do-projeto-orla-viva/",
       "https://www.diariodoamapa.com.br/cadernos/cidades/orla-de-macapa-e-cinco-vias-proximas-serao-revitalizadas/",
@@ -1200,6 +1207,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã cedo ou fim de tarde/noite",
     loopDistanceMeters: 9000,
+    area: { lat: 0.03105, lon: -51.04876, radiusMeters: 900 },
     sources: [
       "https://portalamazonia.com/saude/atividade-fisica-ar-livre-macapa/",
       "https://www.mapadehoteis.com.br/blog/turismo/pontos-turisticos-de-macapa-parque-do-forte/",
@@ -1222,6 +1230,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Bem cedo ou fim de tarde/pôr do sol — evitar o sol forte do meio-dia",
     loopDistanceMeters: 2000,
+    area: { lat: -3.06608, lon: -60.0986, radiusMeters: 727 },
     sources: [
       "https://www.boracorrerbrasil.com.br/manaus/onde-correr",
       "https://www.corridaperfeita.com/onde-correr-em-manaus/",
@@ -1245,6 +1254,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Bem cedo pela manhã — sol forte e vento intenso ao longo do dia, sem sombra nenhuma",
     loopDistanceMeters: 3600,
+    area: { lat: -3.11988, lon: -60.07933, radiusMeters: 1200 },
     sources: [
       "https://www.boracorrerbrasil.com.br/manaus/onde-correr",
       "https://www.corridaperfeita.com/onde-correr-em-manaus/",
@@ -1269,6 +1279,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Corredores relatam poluição do ar nos horários de pico (manhã cedo e fim de tarde), por ser via de tráfego intenso de veículos.",
     bestTime: "Bem cedo pela manhã",
     loopDistanceMeters: 15800,
+    area: { lat: -3.05597, lon: -59.98661, radiusMeters: 3000 },
     sources: [
       "https://www.boracorrerbrasil.com.br/manaus/onde-correr",
       "https://pt.wikipedia.org/wiki/Avenida_das_Torres",
@@ -1292,6 +1303,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã cedo, horário de pico dos corredores",
     loopDistanceMeters: 3500,
+    area: { lat: -13.01018, lon: -38.53113, radiusMeters: 700 },
     sources: [
       "https://correio24horas.com.br/noticia/nid/onde-correr-em-salvador",
       "https://www.ilovecorrida.com.br/onde-correr/salvador/",
@@ -1315,6 +1327,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã — sombra de Mata Atlântica ajuda a fugir do calor",
     loopDistanceMeters: 14800,
+    area: { lat: -12.95713, lon: -38.41899, radiusMeters: 1865 },
     sources: [
       "https://pt.wikipedia.org/wiki/Ciclovia_do_Parque_de_Pitua%C3%A7u",
       "https://www.ecoroteiro.com.br/lugares/parque-metropolitano-de-pitua%C3%A7u",
@@ -1338,6 +1351,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Qualquer horário (vigilância 24h citada) — evitar o sol forte do meio-dia",
     loopDistanceMeters: 3700,
+    area: { lat: -12.99996, lon: -38.47209, radiusMeters: 756 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-em-salvador/",
     ],
@@ -1359,6 +1373,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã cedo — menos movimento e calor mais ameno",
     loopDistanceMeters: 5000,
+    area: { lat: -3.72571, lon: -38.49683, radiusMeters: 1000 },
     sources: [
       "https://www.fortaleza.ce.gov.br/noticias/estrutura-da-nova-beira-mar-incentiva-a-pratica-de-esportes-na-areia-e-no-calcadao",
       "https://www.corridaperfeita.com/onde-correr-em-fortaleza/",
@@ -1382,6 +1397,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã, dentro do horário de funcionamento das trilhas — evitar o calor do meio-dia",
     loopDistanceMeters: 5000,
+    area: { lat: -3.75408, lon: -38.49917, radiusMeters: 1500 },
     sources: [
       "https://www.fortaleza.ce.gov.br/noticias/ciclofaixa-de-lazer-ligara-o-parque-do-coco-ao-passeio-publico-com-piquenique-de-pre",
       "https://www.corridaperfeita.com/onde-correr-em-fortaleza/",
@@ -1404,6 +1420,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã — fonte cita menos movimento nesse horário",
     loopDistanceMeters: 10000,
+    area: { lat: -3.79497, lon: -38.53322, radiusMeters: 2000 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-em-fortaleza/",
     ],
@@ -1426,6 +1443,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Relatos recorrentes de assaltos no parque, especialmente em trechos isolados e no período noturno/fim de tarde — recomenda-se evitar correr sozinho à noite.",
     bestTime: "Manhã até por volta das 18h — evitar sozinho à noite",
     loopDistanceMeters: 9300,
+    area: { lat: -15.80126, lon: -47.91021, radiusMeters: 2364 },
     sources: [
       "https://greatruns.com/brasilia-parque-da-cidade-sarah-kubitschek/",
       "https://www.ilovecorrida.com.br/onde-correr/brasilia/",
@@ -1449,6 +1467,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Domingo, 6h-18h — único período sem tráfego de veículos",
     loopDistanceMeters: 14000,
+    area: { lat: -15.79358, lon: -47.89138, radiusMeters: 2800 },
     sources: [
       "https://www.ativo.com/circuito-banco-do-brasil/os-melhores-lugares-para-correr-em-brasilia/",
       "https://www.correiobraziliense.com.br/app/noticia/cidades/2020/06/14/interna_cidadesdf,863691/domingo-no-eixao-do-lazer-volta-a-rotina-dos-brasilienses.shtml",
@@ -1472,6 +1491,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Antes das 9h ou final de tarde/começo da noite",
     loopDistanceMeters: 6000,
+    area: { lat: -20.26744, lon: -40.26867, radiusMeters: 1200 },
     sources: [
       "https://m.vitoria.es.gov.br/semmam/praia-de-camburi",
       "https://pt.wikipedia.org/wiki/Praia_de_Camburi_(Vit%C3%B3ria)",
@@ -1494,6 +1514,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã (parque abre às 5h) ou final de tarde",
     loopDistanceMeters: 3000,
+    area: { lat: -20.27674, lon: -40.29756, radiusMeters: 304 },
     sources: [
       "https://www.mypacer.com/pt/routes/217919/parque-pedra-da-cebola-caminhada-e-corrida-vit%C3%B3ria-esp%C3%ADrito-santo-brasil",
       "https://www.vitoria.es.gov.br/semmam/parque-pedra-da-cebola",
@@ -1516,6 +1537,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Início da manhã ou final de tarde, dentro do horário de funcionamento (7h-20h)",
     loopDistanceMeters: 2400,
+    area: { lat: -16.70633, lon: -49.25567, radiusMeters: 555 },
     sources: [
       "https://www.areasverdesdascidades.com.br/2018/10/parque-areiao-em-goiania-go.html",
       "https://curtamais.com.br/goiania/parques-quilometros/",
@@ -1539,6 +1561,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Reportagem de 2019 descreve o parque como perigoso ao entardecer, com pouco policiamento — segunda etapa de revitalização (iluminação, ciclovias) buscava financiamento em 2023, sem confirmação recente de conclusão.",
     bestTime: "Manhã ou início da tarde",
     loopDistanceMeters: 6800,
+    area: { lat: -16.71272, lon: -49.31924, radiusMeters: 736 },
     sources: [
       "https://ohoje.com/2019/01/25/parque-ambiental-macambira-anicuns-sofre-com-mato-alto-e-falta-de-manutencao/",
       "https://www.alltrails.com/trail/brazil/goias/parque-macambira-ciclovia-faicalville",
@@ -1563,6 +1586,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Relatos recorrentes de assaltos na avenida em 2026; associação de esporte e cultura do Maranhão pediu formalmente posto fixo de PM e melhoria de iluminação nos trechos mais vulneráveis.",
     bestTime: "5h-8h ou 17h-22h — evitar o meio-dia",
     loopDistanceMeters: 7000,
+    area: { lat: -2.48828, lon: -44.27806, radiusMeters: 1603 },
     sources: [
       "https://imirante.com/noticias/sao-luis/2025/04/23/avenida-litoranea-tera-mais-7km-de-via-para-melhorar-a-mobilidade-urbana-incentivar-o-turismo-e-a-economia-da-grande-ilha",
       "https://www.ilovecorrida.com.br/onde-correr/sao-luis/",
@@ -1586,6 +1610,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã cedo ou final de tarde/noite",
     loopDistanceMeters: 6500,
+    area: { lat: -2.49893, lon: -44.30096, radiusMeters: 1024 },
     sources: [
       "https://www3.segov.ma.gov.br/vemproparque/parque-lagoa-jansen/",
       "https://www.encontrasaoluisma.com.br/sobre/lagoa-da-jansen-sao-luis/",
@@ -1609,6 +1634,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "A administração do parque registrou 4 assaltos em 2026 (ante zero nos 4 anos anteriores) e reportou publicamente ter poucos seguranças — recomendação oficial é não levar objetos de valor pra treinar lá.",
     bestTime: "Antes das 8h — o parque funciona só das 6h às 18h",
     loopDistanceMeters: 3480,
+    area: { lat: -15.58065, lon: -56.1052, radiusMeters: 858 },
     sources: [
       "https://www.mypacer.com/pt/routes/308616/parque-estadual-m%C3%A3e-bonif%C3%A1cia-caminhada-e-corrida-cuiab%C3%A1-mato-grosso-brasil",
       "https://www.ativo.com/corrida-de-rua/cuidando-do-corredor/os-melhores-lugares-para-correr-em-cuiaba/",
@@ -1632,6 +1658,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Reportagem de março de 2026 (Campo Grande News) descreve desordem na entrada principal, com estruturas improvisadas de comércio ambulante usando gás e instalações elétricas irregulares, sem solução definida até a data da matéria.",
     bestTime: "5h-7h ou depois das 18h30 — calor intenso e baixa umidade o ano todo",
     loopDistanceMeters: 4000,
+    area: { lat: -20.45225, lon: -54.57318, radiusMeters: 1112 },
     sources: [
       "https://pt.wikipedia.org/wiki/Parque_das_Na%C3%A7%C3%B5es_Ind%C3%ADgenas",
       "https://www.ilovecorrida.com.br/onde-correr/campo-grande/",
@@ -1656,6 +1683,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Em 26/11/2025 uma corredora foi vítima de tentativa de sequestro/violência sexual às 5h15 (agressor apreendido depois dela reagir e pedir ajuda), e no mesmo dia outro frequentador foi assaltado à mão armada. Corredoras passaram a evitar o trecho e a só correr em grupo.",
     bestTime: "Antes das 7h, preferencialmente em grupo",
     loopDistanceMeters: 4200,
+    area: { lat: -20.43929, lon: -54.5569, radiusMeters: 1339 },
     sources: [
       "https://www.campograndenews.com.br/cidades/capital/corredoras-redobram-atencao-e-ajustam-rotas-apos-ataque-e-assalto-no-parque",
       "https://www.campograndenews.com.br/cidades/capital/parque-dos-poderes-ganha-estrutura-segura-para-corridas-e-caminhadas",
@@ -1680,6 +1708,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Registros de furtos/roubos contra corredores e ciclistas na orla, principalmente à noite, e um caso de ataques com fogos de artifício contra corredores/ciclistas em 2026 — atenção redobrada fora dos horários de maior movimento.",
     bestTime: "Cedo pela manhã ou fim de tarde/início da noite",
     loopDistanceMeters: 18000,
+    area: { lat: -19.85338, lon: -43.97479, radiusMeters: 2178 },
     sources: [
       "https://www.itatiaia.com.br/esportes/ritmo-de-treino/corrida/os-percursos-oficiais-para-corrida-em-bh-e-o-historico-esportivo-da-lagoa-da-pampulha/",
       "https://www.lagoadapampulha.com.br/quantos-quilometros-tem-a-orla-da-lagoa-da-pampulha/",
@@ -1703,6 +1732,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã — o parque funciona apenas de terça a domingo, das 8h às 17h",
     loopDistanceMeters: 5600,
+    area: { lat: -19.94771, lon: -43.9043, radiusMeters: 1623 },
     sources: [
       "https://en.wikipedia.org/wiki/Parque_das_Mangabeiras",
       "https://www.alltrails.com/pt-br/trilha/brazil/minas-gerais/parque-das-mangabeiras-circuito-leste",
@@ -1727,6 +1757,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Relatos de assaltos em trechos mais distantes/menos policiados da orla, principalmente à noite — recomenda-se permanecer nos trechos mais centrais, iluminados e movimentados.",
     bestTime: "Início da manhã ou fim de tarde/começo de noite",
     loopDistanceMeters: 6000,
+    area: { lat: -1.47051, lon: -48.50496, radiusMeters: 1200 },
     sources: [
       "https://portalamazonia.com/saude/atividade-fisica-ar-livre-belem/",
       "https://www.oliberal.com/belem/exercicio-fisico-confira-4-lugares-em-belem-para-correr-ao-ar-livre-1.812214",
@@ -1749,6 +1780,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã, logo após a abertura às 6h — funciona quarta a segunda",
     loopDistanceMeters: 4600,
+    area: { lat: -1.41591, lon: -48.41924, radiusMeters: 2500 },
     sources: [
       "https://parquedoutinga.com.br/",
       "https://www.mypacer.com/pt/routes/51786/parque-do-utinga-bel%C3%A9m-par%C3%A1-brasil",
@@ -1771,6 +1803,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "5h-6h30 ou 18h30-20h30 — evitar sol forte do meio-dia",
     loopDistanceMeters: 7000,
+    area: { lat: -7.11534, lon: -34.82229, radiusMeters: 1400 },
     sources: [
       "https://www.ilovecorrida.com.br/onde-correr/joao-pessoa/",
       "https://moraisbittencourt.com.br/2024/09/13/corrida-joao-pessoa/",
@@ -1794,6 +1827,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "5h-8h, quando um trecho da via tem faixa reservada pra atividade física",
     loopDistanceMeters: 6000,
+    area: { lat: -7.07665, lon: -34.82974, radiusMeters: 2406 },
     sources: [
       "https://www.viajali.com.br/praia-do-bessa/",
       "https://portalcorreio.com.br/orla-do-bessa-tera-trecho-reservado-para-lazer-e-pratica-de-esportes-das-5h-as-8h/",
@@ -1817,6 +1851,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Reportagens recentes relatam assaltos e roubos frequentes a corredores/ciclistas no parque, incluindo um caso de agressão com arma branca — evitar trechos isolados e horários de pouco movimento.",
     bestTime: "Manhã cedo — Curitiba tem manhãs frias e enevoadas, evitar fim de tarde por chuva frequente",
     loopDistanceMeters: 3300,
+    area: { lat: -25.42763, lon: -49.30984, radiusMeters: 788 },
     sources: [
       "https://www.bandab.com.br/geral/corrida-ou-caminhada-descubra-a-distancia-das-dez-pistas-favoridas-nos-parques-de-curitiba/",
       "https://www.gazetadopovo.com.br/curitiba/assaltos-no-parque-barigui-assustam-frequentadores-1n81fbasat94vs11mlaqqa0b7/",
@@ -1840,6 +1875,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã cedo",
     loopDistanceMeters: 3500,
+    area: { lat: -25.39708, lon: -49.305, radiusMeters: 1122 },
     sources: [
       "https://ric.com.br/estilo-de-vida/saude-e-bem-estar/corrida-em-curitiba-conheca-os-melhores-parques-para-praticar-o-esporte/",
       "https://locais.curitiba.pr.gov.br/parque-municipal-tingui/1553",
@@ -1864,6 +1900,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Câmara Municipal do Recife e órgãos de segurança relatam aumento de assaltos na orla, com dois pontos críticos: Via Mangue e o trecho logo após a ponte de Cabanga, principalmente à noite.",
     bestTime: "Antes das 6-7h ou depois das 17h — calor e umidade típicos de Recife",
     loopDistanceMeters: 6800,
+    area: { lat: -8.13609, lon: -34.90162, radiusMeters: 1360 },
     sources: [
       "https://monitordomercado.com.br/noticias/337942-avenida-de-7-km-vira-o-cartao-postal-do-recife-com-sua-orla-protegida-por-arrecifes-ela-e-a-praia-urbana-mais-famosa-do-nordeste/",
       "https://webrun.com.br/calcadao-da-avenida-boa-viagem/",
@@ -1887,6 +1924,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Entre 5h e 6h da manhã — Teresina é uma das capitais mais quentes do Brasil, evitar fora do início da manhã",
     loopDistanceMeters: 4000,
+    area: { lat: -5.071, lon: -42.80085, radiusMeters: 876 },
     sources: [
       "https://www.encontrateresina.com/sobre/ponte-estaiada-teresina/",
       "https://portalodia.com/noticias/teresina/avenida-raul-lopes-podera-ser-fechada-diariamente-das-16h30-as-19h30-para-pratica-de-atividades-fisicas-463308.html",
@@ -1911,6 +1949,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Relatos concretos e recentes de assaltos no local — arrastão contra ciclistas e assalto a táxi em 2025, com reforço policial pontual depois disso. Recomendado evitar madrugada/horários vazios.",
     bestTime: "Manhã cedo; domingos e feriados de manhã quando a pista fecha pra carros",
     loopDistanceMeters: 7600,
+    area: { lat: -22.92761, lon: -43.17185, radiusMeters: 1969 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-no-rj/",
       "https://www.band.com.br/bandnews-fm/rio-de-janeiro/noticias/policiamento-e-reforcado-no-aterro-do-flamengo-apos-assalto-a-taxi-na-zona-sul-do-rio-202509171733",
@@ -1935,6 +1974,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Registros reais e recentes (julho de 2026) de arrastão/pânico entre Arpoador e Ipanema, e relatos recorrentes de assaltos à noite ao longo da orla — de dia e em fins de semana é considerado bem mais seguro.",
     bestTime: "Manhã cedo, especialmente em dias de semana",
     loopDistanceMeters: 9000,
+    area: { lat: -22.9757, lon: -43.18662, radiusMeters: 1800 },
     sources: [
       "https://viajarcorrendo.com.br/2018/08/lugares-para-correr-no-rio-de-janeiro.html",
       "https://www.foconacional.com.br/2026/07/arrastao-em-copacabana-provoca-panico-e.html",
@@ -1959,6 +1999,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Casos concretos de violência já registrados no entorno da Lagoa (troca de tiros entre PM e assaltantes; homicídio durante assalto próximo ao píer), sobretudo em horários de menor movimento/madrugada.",
     bestTime: "Manhã cedo ou fim de tarde",
     loopDistanceMeters: 7800,
+    area: { lat: -22.97163, lon: -43.21206, radiusMeters: 1335 },
     sources: [
       "https://viajarcorrendo.com.br/2025/02/lagoa-rodrigo-de-freitas.html",
       "https://lagoarodrigodefreitas.com.br/blog/ciclovia-da-lagoa-rodrigo-de-freitas-dicas-essenciais/",
@@ -1982,6 +2023,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Manhã cedo ou fim de tarde, pela brisa",
     loopDistanceMeters: 10000,
+    area: { lat: -5.86562, lon: -35.18092, radiusMeters: 2000 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-em-natal/",
       "https://natalcorridas.blogspot.com/2012/10/onde-correr-em-natal-via-costeira.html",
@@ -2005,6 +2047,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Qualquer horário — atenção à maré alta, que pode atrapalhar trechos do calçadão",
     loopDistanceMeters: 4000,
+    area: { lat: -5.8736, lon: -35.17663, radiusMeters: 1466 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-em-natal/",
       "https://natalpraias.com.br/ponta-negra/",
@@ -2027,6 +2070,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Fim de tarde/anoitecer, pelo pôr do sol sobre o Guaíba",
     loopDistanceMeters: 5000,
+    area: { lat: -30.04424, lon: -51.23712, radiusMeters: 1400 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-em-porto-alegre/",
       "https://pt.wikipedia.org/wiki/Parque_da_Orla_do_Gua%C3%ADba",
@@ -2049,6 +2093,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Durante o dia; fim de tarde recomendado pelo pôr do sol",
     loopDistanceMeters: null,
+    area: { lat: -30.05581, lon: -51.23232, radiusMeters: 963 },
     sources: [
       "https://www.corridaperfeita.com/onde-correr-em-porto-alegre/",
       "https://guia.melhoresdestinos.com.br/parque-marinha-do-brasil-em-porto-alegre.html",
@@ -2072,6 +2117,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     safetyFlag: "Múltiplos assaltos registrados em 2026 no local e arredores — recomenda-se evitar carregar objetos de valor à mostra, especialmente em horários de menor movimento.",
     bestTime: "Antes das 7h ou depois das 18h — calor e umidade fortes durante o dia",
     loopDistanceMeters: 3400,
+    area: { lat: -8.72485, lon: -63.89334, radiusMeters: 1117 },
     sources: [
       "https://newsrondonia.com.br/noticias/2026/05/18/reforma-do-espaco-alternativo-amplia-opcoes-de-lazer-e-esporte-em-porto-velho",
       "https://newsrondonia.com.br/policia/2026/04/01/assaltantes-fingem-ser-membros-de-faccao-para-roubar-casal-no-espaco-alternativo",
@@ -2095,6 +2141,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Antes das 7h ou fim de tarde/noite",
     loopDistanceMeters: 3600,
+    area: { lat: 2.81406, lon: -60.66812, radiusMeters: 720 },
     sources: [
       "https://boavista.rr.gov.br/noticias/2021/10/prefeitura-entrega-orla-taumanan-interligada-ao-parque-do-rio-branco",
       "https://pt.wikipedia.org/wiki/Orla_Taumanan",
@@ -2117,6 +2164,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Antes das 7h ou fim de tarde — clima equatorial, um dos mais quentes do Brasil",
     loopDistanceMeters: 2900,
+    area: { lat: 2.83868, lon: -60.68249, radiusMeters: 1057 },
     sources: [
       "https://portalamazonia.com/saude/atividade-fisica-ar-livre-boa-vista/",
       "https://www.mypacer.com/pt/routes/218324/parque-anau%C3%A1-caminhada-e-corrida-boa-vista-roraima-brasil",
@@ -2139,6 +2187,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Cedo pela manhã ou fim de tarde, evitando o sol forte do meio-dia",
     loopDistanceMeters: 7000,
+    area: { lat: -27.57861, lon: -48.52414, radiusMeters: 1400 },
     sources: [
       "https://pt.wikipedia.org/wiki/Avenida_Beira-Mar_Norte",
       "https://webrun.com.br/avenida-beira-mar-norte/",
@@ -2162,6 +2211,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Início da manhã (antes das 9h) ou fim de tarde",
     loopDistanceMeters: 2200,
+    area: { lat: -27.60769, lon: -48.45841, radiusMeters: 440 },
     sources: [
       "https://ndmais.com.br/esportes/outros-esportes/corrida-volta-a-lagoa-florianopolis/",
       "https://www.acorsj.com.br/event-details/13-corrida-volta-a-lagoa-da-conceicao-floripa",
@@ -2184,6 +2234,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Início da manhã ou final da tarde; faixa protegida (APCC): terças/quintas 4h-6h ou sábados/feriados 5h-10h",
     loopDistanceMeters: 6000,
+    area: { lat: -10.98884, lon: -37.05214, radiusMeters: 1800 },
     sources: [
       "https://www.aracaju.se.gov.br/noticias/113166/area_de_protecao_ao_ciclista_e_corredor_na_orla_da_atalaia_conta_com_nova_sinalizacao.html",
       "https://www.ilovecorrida.com.br/onde-correr/aracaju/",
@@ -2207,6 +2258,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Início da manhã ou final da tarde",
     loopDistanceMeters: 5000,
+    area: { lat: -10.96968, lon: -37.05376, radiusMeters: 1059 },
     sources: [
       "https://infonet.com.br/noticias/cultura/confira-lugares-ideais-para-praticar-corrida-em-aracaju/",
       "https://blog.laredo.com.br/melhores-lugares-para-correr-em-aracaju/",
@@ -2229,6 +2281,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Início da manhã ou final da tarde — calor característico do cerrado tocantinense",
     loopDistanceMeters: 2820,
+    area: { lat: -10.20977, lon: -48.32332, radiusMeters: 513 },
     sources: [
       "https://www.ativo.com/circuito-banco-do-brasil/5-parques-para-correr-durante-semana-na-cidade-de-palmas/",
       "https://www.palmas.to.gov.br/nova-obra-de-ciclovia-e-pista-de-caminhada-no-parque-cesamar-esta-60-concluida/",
@@ -2251,6 +2304,7 @@ export const RUNNING_PLACES: RunningPlace[] = [
     },
     bestTime: "Final da tarde — horário de maior movimento de corredores/caminhantes",
     loopDistanceMeters: 3000,
+    area: { lat: -10.18456, lon: -48.33366, radiusMeters: 552 },
     sources: [
       "https://ggnoticias.com.br/noticia/25528/palmas-to-5-lugares-ao-ar-livre-para-a-pratica-de-atividade-fisica.html",
       "https://pt.wikipedia.org/wiki/Pra%C3%A7a_dos_Girass%C3%B3is",
