@@ -590,6 +590,37 @@ function StageIcon({ state }: { state: StageState }) {
  * Advances on its own timers (`STAGE_STEP_MS` apart); calls `onDone` after a
  * short hold on the fully-checked state.
  */
+/**
+ * O que a tela sem plano diz. Tres estados, nao um: o checklist de
+ * primeira vez so e honesto pra quem de fato nunca montou um plano —
+ * pra quem tinha um e parou de correr, ou pra quem passou da data da
+ * prova, ele afirma o contrario do que aconteceu ("falta definir uma
+ * meta" pra alguem cuja meta esta definida) e faz o app parecer ter
+ * perdido o dado.
+ */
+type PlanGapVariant = "first-run" | "went-quiet" | "goal-date-passed";
+
+function planGapCopy(variant: PlanGapVariant): { title: string; body: string } {
+  if (variant === "went-quiet") {
+    return {
+      title: "Seu plano continua aqui",
+      body:
+        "Faz mais de três semanas desde a última corrida gravada, e o motor calibra o volume pelo que você correu de verdade nesse período — sem isso ele não tem contra o que projetar. Nada foi perdido: sua meta e seu histórico estão intactos, e o plano volta sozinho na primeira corrida nova.",
+    };
+  }
+  if (variant === "goal-date-passed") {
+    return {
+      title: "A data da sua prova já passou",
+      body:
+        "Por isso não há semanas pra mostrar — o plano é montado de hoje até a data da prova, e ela ficou pra trás. Seu histórico continua todo aqui; escolha a próxima data abaixo pra montar o plano seguinte.",
+    };
+  }
+  return {
+    title: "O que falta pro seu plano de verdade",
+    body: "O motor que monta o treino já existe — falta só o que ele precisa de você:",
+  };
+}
+
 function PlanBuildSequence({ stages, onDone }: { stages: readonly string[]; onDone: () => void }) {
   const [doneCount, setDoneCount] = useState(0);
 
@@ -868,6 +899,37 @@ export default function PlanoPage() {
   const loading = completedRuns === null;
   const weeklyKm = useMemo(() => (completedRuns ? estimateWeeklyKm(completedRuns) : 0), [completedRuns]);
   const hasHistory = weeklyKm > 0;
+
+  /**
+   * Os dois jeitos de um plano que existia sumir da tela sem ninguém
+   * apagar nada. Antes os dois caíam no mesmo checklist de primeira vez
+   * ("defina uma meta", "grave algumas corridas"), que pra quem já tinha
+   * um plano montado lê como o app ter perdido o dado — a pior leitura
+   * possível num produto cuja promessa é justamente não te trair depois
+   * que você confiou nele.
+   *
+   * `wentQuiet`: `estimateWeeklyKm` olha uma janela de 3 semanas
+   * (`tracking/storage.ts`), então 21 dias corridos sem gravar zeram o
+   * volume e `computeCurrentPlanWeek` devolve `null` — nada foi perdido,
+   * o motor só não tem contra o que calibrar. Machucar, viajar ou tirar
+   * férias e voltar pra um plano sumido e comum, nao um caso de borda.
+   *
+   * `goalDatePassed`: `generatePlan` recusa uma data no passado e devolve
+   * zero semanas, entao no dia seguinte a prova o plano some — com os
+   * dois pontinhos do checklist VERDES, porque meta e historico continuam
+   * validos. A tela dizia que estava tudo certo e nao mostrava nada.
+   */
+  const hadAnyRun = (completedRuns?.length ?? 0) > 0;
+  const wentQuiet = hasGoal && !hasHistory && hadAnyRun;
+  const goalDatePassed = Boolean(
+    hasGoal && profile.goalDate && profile.goalDate < new Date().toISOString().slice(0, 10),
+  );
+  /** A data vencida vem primeiro: sem prova futura nao existe plano pra "voltar" nem correndo hoje. */
+  const planGapVariant: PlanGapVariant = goalDatePassed
+    ? "goal-date-passed"
+    : wentQuiet
+      ? "went-quiet"
+      : "first-run";
 
   /**
    * A goal set before `planStartDate` existed has no anchor yet —
@@ -1325,11 +1387,9 @@ export default function PlanoPage() {
             its chrome-dropping in sync with this same threshold. */}
         <div className="hidden md:flex md:flex-col md:items-center md:py-10 md:text-center">
           <div className="w-full max-w-xl">
-            <h2 className="text-xl font-semibold text-foreground lg:tracking-[-0.01em]">O que falta pro seu plano de verdade</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              O motor que monta o treino já existe — falta só o que ele precisa de você:
-            </p>
-            <ul className="mt-5 flex flex-col items-center gap-2 text-sm text-foreground">
+            <h2 className="text-xl font-semibold text-foreground lg:tracking-[-0.01em]">{planGapCopy(planGapVariant).title}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted text-pretty">{planGapCopy(planGapVariant).body}</p>
+            <ul className={`mt-5 flex flex-col items-center gap-2 text-sm text-foreground ${planGapVariant === "first-run" ? "" : "hidden"}`}>
               <li className="flex items-center gap-2">
                 <span
                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${hasGoal ? "bg-good" : "bg-warn"}`}
@@ -1363,11 +1423,9 @@ export default function PlanoPage() {
         </div>
 
         <Card className="pr-enter border-warn/30 bg-warn/5 md:hidden" style={delay(60)}>
-          <CardTitle>O que falta pro seu plano de verdade</CardTitle>
-          <p className="text-sm leading-relaxed text-muted text-pretty">
-            O motor que monta o treino já existe — falta só o que ele precisa de você:
-          </p>
-          <ul className="mt-3 flex flex-col gap-2.5 text-sm">
+          <CardTitle>{planGapCopy(planGapVariant).title}</CardTitle>
+          <p className="text-sm leading-relaxed text-muted text-pretty">{planGapCopy(planGapVariant).body}</p>
+          <ul className={`mt-3 flex-col gap-2.5 text-sm ${planGapVariant === "first-run" ? "flex" : "hidden"}`}>
             <li className="flex items-center gap-2">
               <span
                 className={`h-2 w-2 shrink-0 rounded-full ${hasGoal ? "bg-good" : "bg-warn"}`}
@@ -1385,7 +1443,7 @@ export default function PlanoPage() {
                 : "Gravar algumas corridas pra calibrar seu volume real"}
             </li>
           </ul>
-          {!hasHistory && (
+          {!hasHistory && planGapVariant !== "goal-date-passed" && (
             <Link
               href="/run"
               className="pr-press mt-4 inline-block rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground hover:bg-accent/90 active:scale-95"
