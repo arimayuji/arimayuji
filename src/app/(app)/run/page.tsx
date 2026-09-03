@@ -1217,6 +1217,8 @@ export default function RunPage() {
     "distancia" | "tempo" | "ritmo" | "intervalo-trabalho" | "intervalo-descanso" | "intervalo-repeticoes" | null
   >(null);
   const [shoeName, setShoeName] = useState("");
+  /** Fechado por padrão — ver o comentário no ponto em que a linha é renderizada. */
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [registeredShoes, setRegisteredShoes] = useState<Shoe[]>([]);
   const [recentRuns, setRecentRuns] = useState<CompletedRun[]>([]);
   const [completedRunsForPlan, setCompletedRunsForPlan] = useState<CompletedRun[] | null>(null);
@@ -1753,6 +1755,28 @@ export default function RunPage() {
   ];
   /** Falls back to "convite" if the tab the athlete was on stopped being offered (e.g. `coaches`/`friends` hadn't loaded yet when they picked it) — never renders a selected tab that vanished from the bar. */
   const effectiveShareTab = shareTabs.some((t) => t.id === shareTab) ? shareTab : "convite";
+
+  /**
+   * O que a linha "Mais opções" mostra fechada. Não é decoração: colapsar
+   * controles é aceitável, esconder o estado deles não é — quem tem um
+   * tênis escolhido ou um treinador assistindo precisa ver isso sem abrir
+   * nada. Só entram os valores que fogem do padrão; o resto some da frase
+   * em vez de virar "sem tênis · sem ninguém vendo · aviso padrão".
+   */
+  const moreOptionsSummary =
+    [
+      goalType === "intervalo"
+        ? null
+        : announceStyle === "vibracao"
+          ? "aviso por vibração"
+          : announceMode === "distance"
+            ? `voz a cada ${announceLabel(announceMeters)}`
+            : `voz a cada ${announceSecondsLabel(announceSeconds)}`,
+      shoeName || null,
+      liveCoachId || liveFriendIds.length > 0 || longaoSession ? "compartilhando ao vivo" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "Aviso de parcial, tênis, compartilhar";
 
   /**
    * Live position sharing — a ping to whoever's watching (the chosen coach,
@@ -2681,122 +2705,405 @@ export default function RunPage() {
               )}
             </Card>
 
-            <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
-              {/* Suppressed for "Intervalado": the interval cues ("Vai!"/"Descanso") already tell the athlete when something changed, and would talk over a periodic split announcement — see useRunTracker.ts's own guard on the split-announcer call sites. */}
-              {goalType !== "intervalo" && (
-                <>
-                  <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-                    Aviso de parcial a cada
-                  </span>
-                  <PillTabs
-                    tabs={ANNOUNCE_MODE_TABS}
-                    active={announceMode}
-                    onChange={(mode) => updatePreferences({ announceMode: mode })}
-                  />
-                  <div className="mt-3">
-                    {announceMode === "distance" ? (
-                      <PillSlider
-                        min={ANNOUNCE_MIN_METERS}
-                        max={ANNOUNCE_MAX_METERS}
-                        step={ANNOUNCE_STEP_METERS}
-                        value={announceMeters}
-                        onChange={(meters) => updatePreferences({ announceIntervalMeters: meters })}
-                        formatValue={announceLabel}
-                      />
-                    ) : (
-                      <PillSlider
-                        min={ANNOUNCE_MIN_SECONDS}
-                        max={ANNOUNCE_MAX_SECONDS}
-                        step={ANNOUNCE_STEP_SECONDS}
-                        value={announceSeconds}
-                        onChange={(seconds) => updatePreferences({ announceIntervalSeconds: seconds })}
-                        formatValue={announceSecondsLabel}
-                      />
-                    )}
-                  </div>
-                </>
-              )}
-              <div className="mt-4 border-t border-border pt-4">
-                <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-                  Como avisar
-                </span>
-                <PillTabs
-                  tabs={ANNOUNCE_STYLE_TABS}
-                  active={announceStyle}
-                  onChange={(style) => updatePreferences({ announceStyle: style })}
+
+            <button
+              type="button"
+              onClick={handleStartClick}
+              disabled={starting}
+              className="relative flex w-full items-center justify-center overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground disabled:cursor-default"
+            >
+              {/*
+                No `hover:`/`group-hover:` here on purpose — this is a touch-only
+                screen, and a phone browser applying `:hover` on tap (and not
+                clearing it until some other tap elsewhere) previously left the
+                button stuck showing just the arrow with the label faded out,
+                which read as "the start button is broken" since there was no
+                second tap on this button to trigger the un-hover.
+              */}
+              <span className={`transition-opacity duration-300 ${starting ? "opacity-0" : ""}`}>
+                Iniciar corrida
+              </span>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                className={`pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-[left,height,width] ease-out ${
+                  starting
+                    ? "!left-[calc(100%-3.25rem)] !h-8 !w-8 !translate-x-0 duration-[420ms]"
+                    : "duration-300"
+                }`}
+              >
+                <path
+                  d="M5 12h14M13 6l6 6-6 6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-              </div>
-              {announceStyle === "voz" ? (
-                <div className="mt-3">
-                  <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-                    Voz
-                  </span>
-                  <PillTabs
-                    tabs={VOICE_GENDER_TABS}
-                    active={voiceGender}
-                    onChange={(gender) => updatePreferences({ voiceGender: gender })}
-                  />
-                </div>
-              ) : (
-                <p className="mt-3 text-xs leading-relaxed text-muted">
-                  Vibra a cada marca, sem voz.
-                </p>
-              )}
+              </svg>
+            </button>
 
-              {/* "Ritmo médio"/"Ritmo parcial" are always categories in the
-                  picker now, no opt-in needed. "Pace do km atual" is the
-                  one still gated here — it's a goal-only reading that
-                  doesn't apply to every run, unlike the five base ones. */}
-              <div className="mt-4 border-t border-border pt-4">
-                <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-                  Estatísticas na tela de corrida
+            {/*
+              Iniciar a corrida e a acao central do app, e ela ficava depois
+              de cinco cards de configuracao — a coisa mais frequente exigia
+              a maior rolagem. Agora o botao vem logo depois da meta (o unico
+              card que define o que a corrida E), e o resto — aviso de
+              parcial, tenis, com quem compartilhar — fica atras de uma linha
+              so. Nada foi removido nem movido pra outra tela: e a mesma
+              configuracao, um toque abaixo em vez de seiscentos pixels.
+            */}
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setShowMoreOptions((open) => !open)}
+                aria-expanded={showMoreOptions}
+                className="pr-press flex w-full items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-left active:scale-[0.99] hover:border-accent"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">Mais opções</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted">{moreOptionsSummary}</span>
                 </span>
-                <div className="flex gap-2">
-                  <ToggleChip
-                    label="Pace do km atual"
-                    checked={preferences.showCurrentKmPaceLive}
-                    onChange={(checked) => updatePreferences({ showCurrentKmPaceLive: checked })}
-                  />
-                </div>
-              </div>
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`h-4 w-4 shrink-0 text-muted transition-transform duration-200 ${showMoreOptions ? "rotate-180" : ""}`}
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
 
-              <div className="mt-4 border-t border-border pt-4">
-                <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-                  Vibração
-                </span>
-                {/*
-                  Isolates "o toggle não vibra durante a corrida" into two
-                  separate questions someone can answer without waiting 20s
-                  atrasado no meio de uma corrida de verdade: aperta aqui —
-                  se não vibrar, o problema é o aparelho/plugin (modo
-                  silencioso bloqueando o motor, permissão negada, etc.), não
-                  a lógica de atraso de ritmo em si; se vibrar aqui mas nunca
-                  durante uma corrida, o problema é a condição de disparo
-                  (meta não é "Ritmo", ou nunca ficou 20s atrasado de verdade).
-                */}
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <PreferenceToggle
-                      label="Vibrar quando atrasar do ritmo"
-                      hint="só com meta de ritmo, ao passar 20s do alvo"
-                      checked={preferences.vibrateOnPaceDelay}
-                      onChange={(checked) => updatePreferences({ vibrateOnPaceDelay: checked })}
+              {showMoreOptions && (
+                <div className="space-y-7">
+                <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
+                  {/* Suppressed for "Intervalado": the interval cues ("Vai!"/"Descanso") already tell the athlete when something changed, and would talk over a periodic split announcement — see useRunTracker.ts's own guard on the split-announcer call sites. */}
+                  {goalType !== "intervalo" && (
+                    <>
+                      <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                        Aviso de parcial a cada
+                      </span>
+                      <PillTabs
+                        tabs={ANNOUNCE_MODE_TABS}
+                        active={announceMode}
+                        onChange={(mode) => updatePreferences({ announceMode: mode })}
+                      />
+                      <div className="mt-3">
+                        {announceMode === "distance" ? (
+                          <PillSlider
+                            min={ANNOUNCE_MIN_METERS}
+                            max={ANNOUNCE_MAX_METERS}
+                            step={ANNOUNCE_STEP_METERS}
+                            value={announceMeters}
+                            onChange={(meters) => updatePreferences({ announceIntervalMeters: meters })}
+                            formatValue={announceLabel}
+                          />
+                        ) : (
+                          <PillSlider
+                            min={ANNOUNCE_MIN_SECONDS}
+                            max={ANNOUNCE_MAX_SECONDS}
+                            step={ANNOUNCE_STEP_SECONDS}
+                            value={announceSeconds}
+                            onChange={(seconds) => updatePreferences({ announceIntervalSeconds: seconds })}
+                            formatValue={announceSecondsLabel}
+                          />
+                        )}
+                      </div>
+                    </>
+                  )}
+                  <div className="mt-4 border-t border-border pt-4">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Como avisar
+                    </span>
+                    <PillTabs
+                      tabs={ANNOUNCE_STYLE_TABS}
+                      active={announceStyle}
+                      onChange={(style) => updatePreferences({ announceStyle: style })}
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVibrateTested(true);
-                      firePaceDelayVibration();
-                      window.setTimeout(() => setVibrateTested(false), 2000);
-                    }}
-                    className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition-colors active:text-foreground"
-                  >
-                    {vibrateTested ? "Vibrou?" : "Testar"}
-                  </button>
+                  {announceStyle === "voz" ? (
+                    <div className="mt-3">
+                      <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                        Voz
+                      </span>
+                      <PillTabs
+                        tabs={VOICE_GENDER_TABS}
+                        active={voiceGender}
+                        onChange={(gender) => updatePreferences({ voiceGender: gender })}
+                      />
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs leading-relaxed text-muted">
+                      Vibra a cada marca, sem voz.
+                    </p>
+                  )}
+
+                  {/* "Ritmo médio"/"Ritmo parcial" are always categories in the
+                      picker now, no opt-in needed. "Pace do km atual" is the
+                      one still gated here — it's a goal-only reading that
+                      doesn't apply to every run, unlike the five base ones. */}
+                  <div className="mt-4 border-t border-border pt-4">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Estatísticas na tela de corrida
+                    </span>
+                    <div className="flex gap-2">
+                      <ToggleChip
+                        label="Pace do km atual"
+                        checked={preferences.showCurrentKmPaceLive}
+                        onChange={(checked) => updatePreferences({ showCurrentKmPaceLive: checked })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 border-t border-border pt-4">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                      Vibração
+                    </span>
+                    {/*
+                      Isolates "o toggle não vibra durante a corrida" into two
+                      separate questions someone can answer without waiting 20s
+                      atrasado no meio de uma corrida de verdade: aperta aqui —
+                      se não vibrar, o problema é o aparelho/plugin (modo
+                      silencioso bloqueando o motor, permissão negada, etc.), não
+                      a lógica de atraso de ritmo em si; se vibrar aqui mas nunca
+                      durante uma corrida, o problema é a condição de disparo
+                      (meta não é "Ritmo", ou nunca ficou 20s atrasado de verdade).
+                    */}
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <PreferenceToggle
+                          label="Vibrar quando atrasar do ritmo"
+                          hint="só com meta de ritmo, ao passar 20s do alvo"
+                          checked={preferences.vibrateOnPaceDelay}
+                          onChange={(checked) => updatePreferences({ vibrateOnPaceDelay: checked })}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVibrateTested(true);
+                          firePaceDelayVibration();
+                          window.setTimeout(() => setVibrateTested(false), 2000);
+                        }}
+                        className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition-colors active:text-foreground"
+                      >
+                        {vibrateTested ? "Vibrou?" : "Testar"}
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+
+                <div className="block space-y-2">
+                  <span className="text-sm font-medium">Tênis (opcional)</span>
+                  {registeredShoes.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShoeName("")}
+                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                          shoeName === ""
+                            ? "border-accent bg-accent text-accent-foreground"
+                            : "border-border bg-surface text-foreground hover:border-accent"
+                        }`}
+                      >
+                        Nenhum
+                      </button>
+                      {registeredShoes.map((shoe) => (
+                        <button
+                          key={shoe.id}
+                          type="button"
+                          onClick={() => setShoeName(shoe.name)}
+                          className={`flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                            shoeName === shoe.name
+                              ? "border-accent bg-accent text-accent-foreground"
+                              : "border-border bg-surface text-foreground hover:border-accent"
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10"
+                            style={{ backgroundColor: shoe.color }}
+                          />
+                          {shoe.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    // No free-text fallback here on purpose — a made-up name
+                    // typed once and never again isn't worth what it costs later
+                    // (histórico/progresso can't tell "Nike Pegasus" from a typo
+                    // of the same shoe). Registering once in Perfil is what
+                    // makes the mileage-per-shoe tracking there mean anything.
+                    <Link
+                      href="/perfil"
+                      className="block rounded-xl border border-dashed border-border bg-background px-3 py-2.5 text-xs leading-relaxed text-muted transition-colors hover:border-accent hover:text-accent"
+                    >
+                      Nenhum tênis cadastrado ainda — cadastre um no seu perfil pra escolher aqui.
+                    </Link>
+                  )}
                 </div>
-              </div>
-            </Card>
+
+                <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
+                  <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+                    Compartilhar corrida
+                  </span>
+                  {shareTabs.length > 1 && (
+                    <div className="mb-3">
+                      <PillTabs tabs={shareTabs} active={effectiveShareTab} onChange={setShareTab} />
+                    </div>
+                  )}
+
+                  {effectiveShareTab === "convite" &&
+                    (longaoSession ? (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted">
+                          Quem entrou com esse código ({longaoSession.$id}) vê sua posição enquanto a corrida
+                          rolar.
+                        </p>
+
+                        {longaoSession.hostId === account?.id && (
+                          <div className="mt-1 flex flex-col items-center gap-2 rounded-2xl border border-border bg-background p-4">
+                            <PairingQrCode url={buildPairingUrl(longaoSession.$id)} className="w-40" />
+                            <p className="font-mono text-sm font-semibold tracking-wider">{longaoSession.$id}</p>
+                            <p className="text-center text-[11px] text-muted">
+                              Peça pra escanear com a câmera do celular dela
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShareLongao(true)}
+                            className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                              shareLongao
+                                ? "border-accent bg-accent text-accent-foreground"
+                                : "border-border bg-surface text-foreground hover:border-accent"
+                            }`}
+                          >
+                            Compartilhar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShareLongao(false)}
+                            className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                              !shareLongao
+                                ? "border-accent bg-accent text-accent-foreground"
+                                : "border-border bg-surface text-foreground hover:border-accent"
+                            }`}
+                          >
+                            Não compartilhar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleEndLongao}
+                            disabled={endingLongao}
+                            className="rounded-full border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-bad hover:text-bad disabled:opacity-60"
+                          >
+                            {endingLongao ? "Cancelando…" : longaoSession.hostId === account?.id ? "Cancelar" : "Sair"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted">
+                          Compartilhem posição um do outro, sem precisar ser amigos no app.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleGeneratePairing}
+                          disabled={generatingPairing}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent/10 px-3.5 py-2 text-xs font-semibold text-accent disabled:opacity-60"
+                        >
+                          {generatingPairing && (
+                            <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true">
+                              <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth={2.5} fill="none" strokeDasharray="24 44" strokeLinecap="round" />
+                            </svg>
+                          )}
+                          {generatingPairing ? "Gerando…" : "Gerar QR"}
+                        </button>
+                        {pairingGenerateError && <p className="text-xs text-bad">{pairingGenerateError}</p>}
+                      </div>
+                    ))}
+
+                  {effectiveShareTab === "treinador" && coaches.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted">
+                        Enquanto a corrida rolar, essa pessoa vê sua posição e seu pace num mapa. Some sozinho
+                        quando a corrida terminar.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setLiveCoachId(null)}
+                          className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                            liveCoachId === null
+                              ? "border-accent bg-accent text-accent-foreground"
+                              : "border-border bg-surface text-foreground hover:border-accent"
+                          }`}
+                        >
+                          Não compartilhar
+                        </button>
+                        {coaches.map((connection) => (
+                          <button
+                            key={connection.relationship.$id}
+                            type="button"
+                            onClick={() => setLiveCoachId(connection.otherId)}
+                            className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                              liveCoachId === connection.otherId
+                                ? "border-accent bg-accent text-accent-foreground"
+                                : "border-border bg-surface text-foreground hover:border-accent"
+                            }`}
+                          >
+                            {connection.profile?.displayName ?? "Corredor(a)"}
+                          </button>
+                        ))}
+                      </div>
+                      {liveCoachId !== null && (
+                        <label className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-3">
+                          <span className="text-xs leading-relaxed text-muted">
+                            Compartilhar frequência cardíaca ao vivo com esse treinador — só aparece se um
+                            relógio estiver sincronizando FC quase em tempo real.
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={preferences.shareHeartRateWithCoach}
+                            onChange={(e) => updatePreferences({ shareHeartRateWithCoach: e.target.checked })}
+                            className="h-5 w-5 shrink-0 accent-accent"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  )}
+
+                  {effectiveShareTab === "amigos" && friends.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted">Escolha quem vê sua posição e pace ao vivo — some ao terminar.</p>
+                      <div className="flex flex-wrap gap-2">
+                        {friends.map((connection) => (
+                          <button
+                            key={connection.friendship.$id}
+                            type="button"
+                            onClick={() => toggleLiveFriend(connection.otherId)}
+                            className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                              liveFriendIds.includes(connection.otherId)
+                                ? "border-accent bg-accent text-accent-foreground"
+                                : "border-border bg-surface text-foreground hover:border-accent"
+                            }`}
+                          >
+                            {connection.profile?.displayName ?? "Corredor(a)"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+                </div>
+              )}
+            </div>
 
             {customSheet === "distancia" && (
               <CustomValueSheet
@@ -2903,248 +3210,6 @@ export default function RunPage() {
                 onClose={() => setCustomSheet(null)}
               />
             )}
-            <div className="block space-y-2">
-              <span className="text-sm font-medium">Tênis (opcional)</span>
-              {registeredShoes.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShoeName("")}
-                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                      shoeName === ""
-                        ? "border-accent bg-accent text-accent-foreground"
-                        : "border-border bg-surface text-foreground hover:border-accent"
-                    }`}
-                  >
-                    Nenhum
-                  </button>
-                  {registeredShoes.map((shoe) => (
-                    <button
-                      key={shoe.id}
-                      type="button"
-                      onClick={() => setShoeName(shoe.name)}
-                      className={`flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                        shoeName === shoe.name
-                          ? "border-accent bg-accent text-accent-foreground"
-                          : "border-border bg-surface text-foreground hover:border-accent"
-                      }`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10"
-                        style={{ backgroundColor: shoe.color }}
-                      />
-                      {shoe.name}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                // No free-text fallback here on purpose — a made-up name
-                // typed once and never again isn't worth what it costs later
-                // (histórico/progresso can't tell "Nike Pegasus" from a typo
-                // of the same shoe). Registering once in Perfil is what
-                // makes the mileage-per-shoe tracking there mean anything.
-                <Link
-                  href="/perfil"
-                  className="block rounded-xl border border-dashed border-border bg-background px-3 py-2.5 text-xs leading-relaxed text-muted transition-colors hover:border-accent hover:text-accent"
-                >
-                  Nenhum tênis cadastrado ainda — cadastre um no seu perfil pra escolher aqui.
-                </Link>
-              )}
-            </div>
-
-            <Card className="lg:rounded-none lg:border-0 lg:border-t lg:border-border lg:bg-transparent lg:p-0 lg:pt-4 lg:shadow-none">
-              <span className="mb-3 block text-[11px] font-semibold tracking-wide text-muted uppercase">
-                Compartilhar corrida
-              </span>
-              {shareTabs.length > 1 && (
-                <div className="mb-3">
-                  <PillTabs tabs={shareTabs} active={effectiveShareTab} onChange={setShareTab} />
-                </div>
-              )}
-
-              {effectiveShareTab === "convite" &&
-                (longaoSession ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted">
-                      Quem entrou com esse código ({longaoSession.$id}) vê sua posição enquanto a corrida
-                      rolar.
-                    </p>
-
-                    {longaoSession.hostId === account?.id && (
-                      <div className="mt-1 flex flex-col items-center gap-2 rounded-2xl border border-border bg-background p-4">
-                        <PairingQrCode url={buildPairingUrl(longaoSession.$id)} className="w-40" />
-                        <p className="font-mono text-sm font-semibold tracking-wider">{longaoSession.$id}</p>
-                        <p className="text-center text-[11px] text-muted">
-                          Peça pra escanear com a câmera do celular dela
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShareLongao(true)}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                          shareLongao
-                            ? "border-accent bg-accent text-accent-foreground"
-                            : "border-border bg-surface text-foreground hover:border-accent"
-                        }`}
-                      >
-                        Compartilhar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShareLongao(false)}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                          !shareLongao
-                            ? "border-accent bg-accent text-accent-foreground"
-                            : "border-border bg-surface text-foreground hover:border-accent"
-                        }`}
-                      >
-                        Não compartilhar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleEndLongao}
-                        disabled={endingLongao}
-                        className="rounded-full border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-bad hover:text-bad disabled:opacity-60"
-                      >
-                        {endingLongao ? "Cancelando…" : longaoSession.hostId === account?.id ? "Cancelar" : "Sair"}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted">
-                      Compartilhem posição um do outro, sem precisar ser amigos no app.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleGeneratePairing}
-                      disabled={generatingPairing}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent/10 px-3.5 py-2 text-xs font-semibold text-accent disabled:opacity-60"
-                    >
-                      {generatingPairing && (
-                        <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true">
-                          <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth={2.5} fill="none" strokeDasharray="24 44" strokeLinecap="round" />
-                        </svg>
-                      )}
-                      {generatingPairing ? "Gerando…" : "Gerar QR"}
-                    </button>
-                    {pairingGenerateError && <p className="text-xs text-bad">{pairingGenerateError}</p>}
-                  </div>
-                ))}
-
-              {effectiveShareTab === "treinador" && coaches.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted">
-                    Enquanto a corrida rolar, essa pessoa vê sua posição e seu pace num mapa. Some sozinho
-                    quando a corrida terminar.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLiveCoachId(null)}
-                      className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                        liveCoachId === null
-                          ? "border-accent bg-accent text-accent-foreground"
-                          : "border-border bg-surface text-foreground hover:border-accent"
-                      }`}
-                    >
-                      Não compartilhar
-                    </button>
-                    {coaches.map((connection) => (
-                      <button
-                        key={connection.relationship.$id}
-                        type="button"
-                        onClick={() => setLiveCoachId(connection.otherId)}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                          liveCoachId === connection.otherId
-                            ? "border-accent bg-accent text-accent-foreground"
-                            : "border-border bg-surface text-foreground hover:border-accent"
-                        }`}
-                      >
-                        {connection.profile?.displayName ?? "Corredor(a)"}
-                      </button>
-                    ))}
-                  </div>
-                  {liveCoachId !== null && (
-                    <label className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-3">
-                      <span className="text-xs leading-relaxed text-muted">
-                        Compartilhar frequência cardíaca ao vivo com esse treinador — só aparece se um
-                        relógio estiver sincronizando FC quase em tempo real.
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={preferences.shareHeartRateWithCoach}
-                        onChange={(e) => updatePreferences({ shareHeartRateWithCoach: e.target.checked })}
-                        className="h-5 w-5 shrink-0 accent-accent"
-                      />
-                    </label>
-                  )}
-                </div>
-              )}
-
-              {effectiveShareTab === "amigos" && friends.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted">Escolha quem vê sua posição e pace ao vivo — some ao terminar.</p>
-                  <div className="flex flex-wrap gap-2">
-                    {friends.map((connection) => (
-                      <button
-                        key={connection.friendship.$id}
-                        type="button"
-                        onClick={() => toggleLiveFriend(connection.otherId)}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
-                          liveFriendIds.includes(connection.otherId)
-                            ? "border-accent bg-accent text-accent-foreground"
-                            : "border-border bg-surface text-foreground hover:border-accent"
-                        }`}
-                      >
-                        {connection.profile?.displayName ?? "Corredor(a)"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            <button
-              type="button"
-              onClick={handleStartClick}
-              disabled={starting}
-              className="relative flex w-full items-center justify-center overflow-hidden rounded-full bg-accent px-6 py-4 text-base font-semibold text-accent-foreground disabled:cursor-default"
-            >
-              {/*
-                No `hover:`/`group-hover:` here on purpose — this is a touch-only
-                screen, and a phone browser applying `:hover` on tap (and not
-                clearing it until some other tap elsewhere) previously left the
-                button stuck showing just the arrow with the label faded out,
-                which read as "the start button is broken" since there was no
-                second tap on this button to trigger the un-hover.
-              */}
-              <span className={`transition-opacity duration-300 ${starting ? "opacity-0" : ""}`}>
-                Iniciar corrida
-              </span>
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                className={`pointer-events-none absolute top-1/2 left-6 h-5 w-5 -translate-y-1/2 text-accent-foreground transition-[left,height,width] ease-out ${
-                  starting
-                    ? "!left-[calc(100%-3.25rem)] !h-8 !w-8 !translate-x-0 duration-[420ms]"
-                    : "duration-300"
-                }`}
-              >
-                <path
-                  d="M5 12h14M13 6l6 6-6 6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
 
             {state.error && <p className="text-sm text-bad">{state.error}</p>}
           </div>
